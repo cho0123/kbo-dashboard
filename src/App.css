@@ -210,8 +210,6 @@ body {
 
 .results .md {
   color: #1a1a2e !important;
-  max-height: none !important;
-  overflow: visible !important;
 }
 
 .results .md :where(*){
@@ -225,14 +223,10 @@ body {
 
 .results .mono {
   color: #1a1a2e;
-  max-height: none !important;
-  overflow: visible !important;
 }
 
 /* Claude 선정 이유(마크다운) 내부 코드블록도 잘리지 않게 */
 .results .md pre {
-  max-height: none !important;
-  overflow: visible !important;
 }
 
 .results .section.soft {
@@ -745,7 +739,6 @@ button.primary:disabled {
   border-collapse: collapse;
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
 }
 
 .pv-summary-wrap {
@@ -800,7 +793,6 @@ button.primary:disabled {
 }
 
 .pv-detail-scroll {
-  max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--border);
@@ -841,7 +833,6 @@ button.primary:disabled {
   font-size: 0.74rem;
   color: var(--muted);
   max-width: min(160px, 42vw);
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -904,13 +895,9 @@ button.primary:disabled {
 
 /* 3번 카드: 결과/AI 서술은 잘리지 않게 전체 높이 사용 */
 .pv-card .md {
-  max-height: none;
-  overflow: visible;
 }
 
 .pv-card .mono {
-  max-height: none;
-  overflow: visible;
 }
 
 .result-head {
@@ -926,8 +913,6 @@ button.primary:disabled {
 .md {
   font-size: 0.92rem;
   color: #d8deea;
-  max-height: 340px;
-  overflow: auto;
   padding-right: 6px;
 }
 
@@ -973,7 +958,6 @@ button.primary:disabled {
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.25);
   padding: 12px 12px;
-  overflow: auto;
 }
 
 .md pre code {
@@ -1002,7 +986,6 @@ button.primary:disabled {
   border-collapse: collapse;
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
 }
 
 .md th,
@@ -1035,8 +1018,6 @@ button.primary:disabled {
   font-size: 0.82rem;
   color: #d8deea;
   margin: 0;
-  max-height: 340px;
-  overflow: auto;
   padding-right: 6px;
 }
 

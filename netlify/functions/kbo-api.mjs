@@ -102,7 +102,10 @@ function pickTeamName(row) {
     pickStr(row?.team, ["name", "team_name", "teamName"]) ||
     pickStr(row?.club, ["name", "club_name", "clubName"]) ||
     "";
-  return (t || "").slice(0, 18);
+  // UI에서 "(—)" 같은 표시가 나오지 않도록 서버 응답에서는 대시 플레이스홀더를 제거한다.
+  const cleaned = String(t || "").trim();
+  if (!cleaned || cleaned === "—") return "";
+  return cleaned.slice(0, 18);
 }
 
 function pickPlayerName(row) {
