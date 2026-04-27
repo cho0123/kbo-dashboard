@@ -850,6 +850,36 @@ export const handler = async (event) => {
           .filter((x) => x != null && x !== "");
         const box = await fetchBoxForGames(db, gids);
 
+        let pitcherSnap = { docs: [] };
+        let batterSnap = { docs: [] };
+        if (gids.length) {
+          const gid0 = gids[0];
+          for (const v of variantsForGameId(gid0)) {
+            const s = await db
+              .collection("pitchers")
+              .where("game_id", "==", v)
+              .limit(1)
+              .get();
+            if (!s.empty) {
+              pitcherSnap = s;
+              break;
+            }
+          }
+          for (const v of variantsForGameId(gid0)) {
+            const s = await db
+              .collection("batters")
+              .where("game_id", "==", v)
+              .limit(1)
+              .get();
+            if (!s.empty) {
+              batterSnap = s;
+              break;
+            }
+          }
+        }
+        console.log('DOC_SAMPLE_PITCHER:', JSON.stringify(pitcherSnap.docs[0]?.data()));
+        console.log('DOC_SAMPLE_BATTER:', JSON.stringify(batterSnap.docs[0]?.data()));
+
         const batByGame = {};
         for (const b of box.batters || []) {
           const gid = String(b.game_id || "");
