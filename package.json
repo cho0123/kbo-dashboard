@@ -12,7 +12,9 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "firebase-admin": "^13.0.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.0",

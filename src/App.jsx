@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -14,6 +16,16 @@ const KBO_TEAMS = [
   { label: "NC 다이노스", keyword: "NC" },
   { label: "키움 히어로즈", keyword: "키움" },
 ];
+
+function MarkdownView({ text }) {
+  const value = (text || "").trim();
+  if (!value) return <div className="md">—</div>;
+  return (
+    <div className="md">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+    </div>
+  );
+}
 
 function useAnalyzer() {
   const [busy, setBusy] = useState(null);
@@ -52,7 +64,7 @@ function ResultBlock({ summary, text, pending, error }) {
       {error ? (
         <pre className="mono result-error">{error}</pre>
       ) : (
-        <pre className="mono">{text || "—"}</pre>
+        <MarkdownView text={text} />
       )}
     </div>
   );
