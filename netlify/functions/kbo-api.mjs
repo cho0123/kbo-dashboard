@@ -88,13 +88,20 @@ function pickStr(obj, keys) {
 function pickTeamName(row) {
   const t =
     pickStr(row, [
+      // 명시적으로 들어오는 팀 필드들(프로젝트별로 다양)
+      "pitcher_team",
+      "batter_team",
       "team",
       "team_name",
       "teamName",
       "team_nm",
+      "team_full",
+      "teamFull",
       "club",
       "club_name",
       "clubName",
+      "club_full",
+      "clubFull",
       "TEAM",
       "team_kr",
       "teamKR",
@@ -102,8 +109,8 @@ function pickTeamName(row) {
       "teamKor",
     ]) ||
     // nested 형태 대응 (예: { team: { name: "LG" } })
-    pickStr(row?.team, ["name", "team_name", "teamName"]) ||
-    pickStr(row?.club, ["name", "club_name", "clubName"]) ||
+    pickStr(row?.team, ["name", "team_name", "teamName", "team_full", "teamFull"]) ||
+    pickStr(row?.club, ["name", "club_name", "clubName", "club_full", "clubFull"]) ||
     "";
   // UI에서 "(—)" 같은 표시가 나오지 않도록 서버 응답에서는 대시 플레이스홀더를 제거한다.
   const cleaned = String(t || "").trim();

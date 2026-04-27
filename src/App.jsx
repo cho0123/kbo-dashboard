@@ -98,6 +98,15 @@ function nameWithTeam(name, team) {
   return `${n || "—"} (${t})`;
 }
 
+function teamAbbr(team) {
+  const t = String(team || "").trim();
+  if (!t || t === "—") return "";
+  // "SSG 랜더스" -> "SSG"
+  const first = t.split(/\s+/)[0];
+  if (first) return first.slice(0, 6);
+  return t.slice(0, 6);
+}
+
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
   const { busy, runWith } = useAnalyzer();
@@ -258,6 +267,12 @@ export default function App() {
                         action: "mvp_auto",
                         date: mvpDate,
                       });
+                      console.log("[mvp_auto] overall_best:", res?.overall_best);
+                      console.log(
+                        "[mvp_auto] bestPitcher/bestBatter:",
+                        res?.overall_best?.pitcher,
+                        res?.overall_best?.batter
+                      );
                       setMvpAuto({
                         data: res,
                         aiText: res.text ?? "",
@@ -551,14 +566,20 @@ export default function App() {
                           <div className="best-card">
                             <div className="best-head">🥎 베스트 투수</div>
                             <div className="best-name">
-                              {nameWithTeam(pitch?.name, pitch?.team)}
+                              <strong>{pitch?.name || "—"}</strong>{" "}
+                              {pitch?.team ? (
+                                <span className="best-team">({pitch.team})</span>
+                              ) : null}
                             </div>
                             <div className="best-sub">{pitch?.key_stats || "—"}</div>
                           </div>
                           <div className="best-card">
                             <div className="best-head">⚾ 베스트 타자</div>
                             <div className="best-name">
-                              {nameWithTeam(bat?.name, bat?.team)}
+                              <strong>{bat?.name || "—"}</strong>{" "}
+                              {bat?.team ? (
+                                <span className="best-team">({bat.team})</span>
+                              ) : null}
                             </div>
                             <div className="best-sub">{bat?.key_stats || "—"}</div>
                           </div>
@@ -581,13 +602,21 @@ export default function App() {
                                   <div className="game-line">
                                     <b>투수MVP</b>:{" "}
                                     {g.pitcher_mvp
-                                      ? `${nameWithTeam(g.pitcher_mvp.name, g.pitcher_mvp.team)} — ${g.pitcher_mvp.key_stats}`
+                                      ? `${g.pitcher_mvp.name}${
+                                          g.pitcher_mvp.team
+                                            ? ` (${teamAbbr(g.pitcher_mvp.team)})`
+                                            : ""
+                                        } — ${g.pitcher_mvp.key_stats}`
                                       : "—"}
                                   </div>
                                   <div className="game-line">
                                     <b>타자MVP</b>:{" "}
                                     {g.batter_mvp
-                                      ? `${nameWithTeam(g.batter_mvp.name, g.batter_mvp.team)} — ${g.batter_mvp.key_stats}`
+                                      ? `${g.batter_mvp.name}${
+                                          g.batter_mvp.team
+                                            ? ` (${teamAbbr(g.batter_mvp.team)})`
+                                            : ""
+                                        } — ${g.batter_mvp.key_stats}`
                                       : "—"}
                                   </div>
                                 </div>
