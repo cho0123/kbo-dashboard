@@ -1,0 +1,514 @@
+import { useMemo, useState } from "react";
+import { postKbo, seoulToday } from "./api.js";
+
+function useAnalyzer() {
+  const [busy, setBusy] = useState(null);
+  const run = async (action, payload, slot) => {
+    const id = `${action}_${slot}`;
+    setBusy(id);
+    try {
+      const res = await postKbo({ action, ...payload });
+      return res;
+    } finally {
+      setBusy((b) => (b === id ? null : b));
+    }
+  };
+  return { busy, run };
+}
+
+function ResultBlock({ summary, text, pending }) {
+  return (
+    <div className="result">
+      <div className="result-head">
+        <span>{pending ? "생성 중…" : "결과"}</span>
+        {summary && (
+          <span className="mono">{JSON.stringify(summary)}</span>
+        )}
+      </div>
+      <pre className="mono">{text || "—"}</pre>
+    </div>
+  );
+}
+
+export default function App() {
+  const today = useMemo(() => seoulToday(), []);
+  const { busy, run } = useAnalyzer();
+
+  const [tab, setTab] = useState("analysis");
+
+  /* --- Analysis --- */
+  const [mvpDate, setMvpDate] = useState(today);
+  const [mvpOut, setMvpOut] = useState({ text: "", summary: null });
+
+  const [teamKw, setTeamKw] = useState("LG");
+  const [teamDays, setTeamDays] = useState("7");
+  const [teamOut, setTeamOut] = useState({ text: "", summary: null });
+
+  const [pvP, setPvP] = useState("");
+  const [pvB, setPvB] = useState("");
+  const [pvOut, setPvOut] = useState({ text: "", summary: null });
+
+  const [prPlayer, setPrPlayer] = useState("");
+  const [prStart, setPrStart] = useState("2026-03-01");
+  const [prEnd, setPrEnd] = useState("2026-03-31");
+  const [prOut, setPrOut] = useState({ text: "", summary: null });
+
+  const [spa, setSpa] = useState("");
+  const [spb, setSpb] = useState("");
+  const [spOut, setSpOut] = useState({ text: "", summary: null });
+
+  /* Predict */
+  const [suPit, setSuPit] = useState("");
+  const [suOpp, setSuOpp] = useState("");
+  const [suOut, setSuOut] = useState({ text: "", summary: null });
+
+  const [pta, setPta] = useState("LG");
+  const [ptb, setPtb] = useState("KT");
+  const [predOut, setPredOut] = useState({ text: "", summary: null });
+
+  /* Shorts */
+  const [shDate, setShDate] = useState(today);
+  const [hlOut, setHlOut] = useState({ text: "", summary: null });
+  const [wkOut, setWkOut] = useState({ text: "", summary: null });
+  const [worstOut, setWorstOut] = useState({ text: "", summary: null });
+
+  const pending = (key) => busy === key;
+
+  return (
+    <div className="app-shell">
+      <header className="hero">
+        <div>
+          <div className="badge">Firestore · Claude · Netlify Ready</div>
+          <h1>KBO 분석 웹 대시보드</h1>
+          <p>
+            경기·박스 데이터를 불러와 Claude가 요약·트렌드·쇼츠 대본까지 자동
+            생성합니다.
+          </p>
+        </div>
+      </header>
+
+      <nav className="tabs" aria-label="기능 분류">
+        <button
+          type="button"
+          className={`tab ${tab === "analysis" ? "active" : ""}`}
+          onClick={() => setTab("analysis")}
+        >
+          분석 (1–5)
+        </button>
+        <button
+          type="button"
+          className={`tab ${tab === "predict" ? "active" : ""}`}
+          onClick={() => setTab("predict")}
+        >
+          예측 (6–7)
+        </button>
+        <button
+          type="button"
+          className={`tab ${tab === "shorts" ? "active" : ""}`}
+          onClick={() => setTab("shorts")}
+        >
+          쇼츠 (8–10)
+        </button>
+      </nav>
+
+      {tab === "analysis" && (
+        <section className="panel-grid">
+          <article className="card">
+            <h3>1. 오늘의 MVP 자동 선정</h3>
+            <p className="hint">
+              해당 날짜의 모든 경기 박스스코어가 Firestore에 있어야 정확합니다.
+            </p>
+            <label htmlFor="mvp-date">경기 날짜</label>
+            <input
+              id="mvp-date"
+              type="date"
+              value={mvpDate}
+              onChange={(e) => setMvpDate(e.target.value)}
+            />
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("today_mvp_1")}
+                onClick={async () => {
+                  const r = await run(
+                    "today_mvp",
+                    { date: mvpDate },
+                    "1"
+                  );
+                  setMvpOut({
+                    text: r.text,
+                    summary: r.contextSummary,
+                  });
+                }}
+              >
+                MVP 분석 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={mvpOut.summary}
+              text={mvpOut.text}
+              pending={pending("today_mvp_1")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>2. 팀별 주간 성적 트렌드</h3>
+            <p className="hint">
+              최근 경기일 기준으로 되돌아가며 팀명 부분 일치로 필터합니다.
+            </p>
+            <div className="row two">
+              <div>
+                <label>팀 키워드</label>
+                <input
+                  value={teamKw}
+                  onChange={(e) => setTeamKw(e.target.value)}
+                  placeholder="예: LG, 롯데"
+                />
+              </div>
+              <div>
+                <label>일수</label>
+                <input
+                  value={teamDays}
+                  onChange={(e) => setTeamDays(e.target.value)}
+                  placeholder="7"
+                />
+              </div>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("team_week_2")}
+                onClick={async () => {
+                  const r = await run(
+                    "team_week",
+                    {
+                      teamKeyword: teamKw,
+                      days: Number(teamDays) || 7,
+                    },
+                    "2"
+                  );
+                  setTeamOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                주간 트렌드 분석
+              </button>
+            </div>
+            <ResultBlock
+              summary={teamOut.summary}
+              text={teamOut.text}
+              pending={pending("team_week_2")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>3. 투수 vs 타자 상대 전적</h3>
+            <p className="hint">
+              동일 game_id에 두 선수 기록이 모두 있을 때 비교합니다.
+            </p>
+            <div className="row two">
+              <div>
+                <label>투수 이름</label>
+                <input value={pvP} onChange={(e) => setPvP(e.target.value)} />
+              </div>
+              <div>
+                <label>타자 이름</label>
+                <input value={pvB} onChange={(e) => setPvB(e.target.value)} />
+              </div>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("pv_batter_3")}
+                onClick={async () => {
+                  const r = await run(
+                    "pv_batter",
+                    { pitcher: pvP, batter: pvB },
+                    "3"
+                  );
+                  setPvOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                상대 전적 분석
+              </button>
+            </div>
+            <ResultBlock
+              summary={pvOut.summary}
+              text={pvOut.text}
+              pending={pending("pv_batter_3")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>4. 기간별 선수 성적 분석</h3>
+            <label>선수 이름</label>
+            <input
+              value={prPlayer}
+              onChange={(e) => setPrPlayer(e.target.value)}
+              placeholder="정확히 Firestore player 필드와 동일"
+            />
+            <div className="row two">
+              <div>
+                <label>시작일</label>
+                <input
+                  type="date"
+                  value={prStart}
+                  onChange={(e) => setPrStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>종료일</label>
+                <input
+                  type="date"
+                  value={prEnd}
+                  onChange={(e) => setPrEnd(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("player_range_4")}
+                onClick={async () => {
+                  const r = await run(
+                    "player_range",
+                    {
+                      player: prPlayer,
+                      start: prStart,
+                      end: prEnd,
+                    },
+                    "4"
+                  );
+                  setPrOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                기간 분석 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={prOut.summary}
+              text={prOut.text}
+              pending={pending("player_range_4")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>5. 선발 투수 비교</h3>
+            <div className="row two">
+              <div>
+                <label>투수 A</label>
+                <input value={spa} onChange={(e) => setSpa(e.target.value)} />
+              </div>
+              <div>
+                <label>투수 B</label>
+                <input value={spb} onChange={(e) => setSpb(e.target.value)} />
+              </div>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("sp_compare_5")}
+                onClick={async () => {
+                  const r = await run(
+                    "sp_compare",
+                    { pitcherA: spa, pitcherB: spb },
+                    "5"
+                  );
+                  setSpOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                비교 분석
+              </button>
+            </div>
+            <ResultBlock
+              summary={spOut.summary}
+              text={spOut.text}
+              pending={pending("sp_compare_5")}
+            />
+          </article>
+        </section>
+      )}
+
+      {tab === "predict" && (
+        <section className="panel-grid">
+          <article className="card">
+            <h3>6. 선발 vs 상대 타선 매칭업</h3>
+            <p className="hint">
+              포커스 투수 최근 등판 + 상대 팀 키워드로 최근 경기 맥락을
+              줍니다.
+            </p>
+            <label>포커스 투수 이름</label>
+            <input value={suPit} onChange={(e) => setSuPit(e.target.value)} />
+            <label>상대 팀 키워드</label>
+            <input
+              value={suOpp}
+              onChange={(e) => setSuOpp(e.target.value)}
+              placeholder="예: 삼성"
+            />
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("sp_matchup_6")}
+                onClick={async () => {
+                  const r = await run(
+                    "sp_matchup",
+                    {
+                      teamPitcher: suPit,
+                      opponentTeamKeyword: suOpp,
+                    },
+                    "6"
+                  );
+                  setSuOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                매칭업 분석
+              </button>
+            </div>
+            <ResultBlock
+              summary={suOut.summary}
+              text={suOut.text}
+              pending={pending("sp_matchup_6")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>7. 최근 5경기 폼 기반 예측</h3>
+            <div className="row two">
+              <div>
+                <label>팀 A 키워드</label>
+                <input value={pta} onChange={(e) => setPta(e.target.value)} />
+              </div>
+              <div>
+                <label>팀 B 키워드</label>
+                <input value={ptb} onChange={(e) => setPtb(e.target.value)} />
+              </div>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("predict_form_7")}
+                onClick={async () => {
+                  const r = await run(
+                    "predict_form",
+                    { teamA: pta, teamB: ptb },
+                    "7"
+                  );
+                  setPredOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                폼 예측 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={predOut.summary}
+              text={predOut.text}
+              pending={pending("predict_form_7")}
+            />
+          </article>
+        </section>
+      )}
+
+      {tab === "shorts" && (
+        <section className="panel-grid">
+          <article className="card">
+            <h3>8. 오늘의 하이라이트 선수 (쇼츠)</h3>
+            <label>경기 날짜</label>
+            <input
+              type="date"
+              value={shDate}
+              onChange={(e) => setShDate(e.target.value)}
+            />
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("shorts_highlight_8")}
+                onClick={async () => {
+                  const r = await run(
+                    "shorts_highlight",
+                    { date: shDate },
+                    "8"
+                  );
+                  setHlOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                쇼츠 대본 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={hlOut.summary}
+              text={hlOut.text}
+              pending={pending("shorts_highlight_8")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>9. 이번 주 최고 투수 (쇼츠)</h3>
+            <p className="hint">
+              최근 7일 창의 투수 기록 샘플을 바탕으로 네러티브를 만듭니다.
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("shorts_pitcher_week_9")}
+                onClick={async () => {
+                  const r = await run("shorts_pitcher_week", {}, "9");
+                  setWkOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                주간 투수 쇼츠 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={wkOut.summary}
+              text={wkOut.text}
+              pending={pending("shorts_pitcher_week_9")}
+            />
+          </article>
+
+          <article className="card">
+            <h3>10. 역대 최악 매칭업 (쇼츠)</h3>
+            <p className="hint">
+              고득점 경기 샘플을 바탕으로 극적인 각본을 시도합니다.
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={pending("shorts_worst_matchup_10")}
+                onClick={async () => {
+                  const r = await run("shorts_worst_matchup", {}, "10");
+                  setWorstOut({ text: r.text, summary: r.contextSummary });
+                }}
+              >
+                최악 매칭업 쇼츠 생성
+              </button>
+            </div>
+            <ResultBlock
+              summary={worstOut.summary}
+              text={worstOut.text}
+              pending={pending("shorts_worst_matchup_10")}
+            />
+          </article>
+        </section>
+      )}
+
+      <footer className="footer-note">
+        Netlify 배포 시 환경 변수{" "}
+        <span className="mono">ANTHROPIC_API_KEY</span>,{" "}
+        <span className="mono">FIREBASE_SERVICE_ACCOUNT_JSON</span> 를 설정하고{" "}
+        <span className="mono">netlify dev</span> 또는 프로덕션에서 API를
+        호출하세요. 순수{" "}
+        <span className="mono">npm run dev</span>만으로는 함수가 없어 API가
+        동작하지 않습니다.
+      </footer>
+    </div>
+  );
+}
