@@ -263,6 +263,81 @@ async function pvBatterStats(db, pitcher, batter, start, end) {
   };
 }
 
+function firstNonEmptyString(obj, keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function pickOpponentTeam(bat, pit) {
+  const keys = [
+    "vs_team",
+    "opp_team",
+    "opponent_team",
+    "opponent",
+    "against_team",
+    "matchup_team",
+    "상대",
+  ];
+  const a = firstNonEmptyString(bat || {}, keys);
+  if (a) return a.slice(0, 36);
+  const b = firstNonEmptyString(pit || {}, keys);
+  if (b) return b.slice(0, 36);
+  return "—";
+}
+
+function formatBatterLineCompact(b) {
+  if (!b || typeof b !== "object") return "—";
+  const h = pickNum(b, ["h", "H", "hits"]);
+  const ab = pickNum(b, ["ab", "AB", "at_bats"]);
+  if (ab > 0) return `${h}/${ab}`;
+  if (h > 0) return `H${h}`;
+  return "—";
+}
+
+function formatPitcherLineCompact(p) {
+  if (!p || typeof p !== "object") return "—";
+  const era = pickNum(p, ["era", "ERA"]);
+  if (era > 0 && era < 99) return `ERA ${era.toFixed(2)}`;
+  const ip = pickNum(p, ["ip", "IP", "inn", "innings", "innings_pitched"]);
+  const er = pickNum(p, ["er", "ER", "earned_runs"]);
+  if (ip > 0) return `${ip}이닝·${er}자책`;
+  if (er > 0) return `ER ${er}`;
+  return "—";
+}
+
+/** 경기별 요약(카드 폭에 맞춘 최소 컬럼용) — 동일 game_id당 1행 */
+function buildPvPerGameRows(batterLines, pitcherLines, maxRows = 80) {
+  const byBat = new Map();
+  for (const r of batterLines || []) {
+    const gid = normalizeGameId(r.game_id);
+    if (!gid || byBat.has(gid)) continue;
+    byBat.set(gid, r);
+  }
+  const byPit = new Map();
+  for (const r of pitcherLines || []) {
+    const gid = normalizeGameId(r.game_id);
+    if (!gid || !byBat.has(gid) || byPit.has(gid)) continue;
+    byPit.set(gid, r);
+  }
+  const rows = [];
+  for (const [gid, p] of byPit) {
+    const b = byBat.get(gid);
+    const dateFull = safeIsoDate(b?.game_date || p?.game_date || "");
+    rows.push({
+      game_id: gid,
+      date: dateFull || "—",
+      opponent: pickOpponentTeam(b, p),
+      batter: formatBatterLineCompact(b),
+      pitcher: formatPitcherLineCompact(p),
+    });
+  }
+  rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return rows.slice(0, maxRows);
+}
+
 function gamesForTeamWindow(allGames, teamKw, days = 7) {
   const sorted = [...allGames].sort((a, b) =>
     String(a.game_date || "").localeCompare(String(b.game_date || ""))
@@ -566,6 +641,11 @@ export const handler = async (event) => {
           pvBatterStats(db, pitcher, batter, yearStart, end),
         ]);
 
+        const per_game = {
+          overall: buildPvPerGameRows(overall.batter_lines, overall.pitcher_lines),
+          year: buildPvPerGameRows(year.batter_lines, year.pitcher_lines),
+        };
+
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -579,6 +659,7 @@ export const handler = async (event) => {
             yearStart,
             overall: overall.stat,
             year: year.stat,
+            per_game,
             insufficient: {
               overall: overall.insufficient,
               year: year.insufficient,

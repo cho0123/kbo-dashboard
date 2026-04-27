@@ -102,6 +102,7 @@ export default function App() {
   });
   const [pvAiBusy, setPvAiBusy] = useState(false);
   const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
+  const [pvGamesOpen, setPvGamesOpen] = useState(false);
 
   const [prPlayer, setPrPlayer] = useState("");
   const [prStart, setPrStart] = useState("2026-03-01");
@@ -195,7 +196,7 @@ export default function App() {
       </nav>
 
       {tab === "analysis" && (
-        <section className="panel-grid">
+        <section className="panel-grid analysis-grid">
           <article className="card">
             <h3>1. 오늘의 MVP 자동 선정</h3>
             <p className="hint">
@@ -332,6 +333,7 @@ export default function App() {
                 onClick={async () => {
                   setPvBusy(true);
                   setPvAiOut({ text: "", error: null });
+                  setPvGamesOpen(false);
                   try {
                     const res = await postKbo({
                       action: "pv_batter_stats",
@@ -376,6 +378,8 @@ export default function App() {
                   const d = pvStats.data;
                   const isAll = pvTab === "all";
                   const s = isAll ? d.overall : d.year;
+                  const gameRows =
+                    (isAll ? d.per_game?.overall : d.per_game?.year) ?? [];
                   const insufficient = isAll
                     ? d.insufficient?.overall
                     : d.insufficient?.year;
@@ -390,8 +394,8 @@ export default function App() {
                           <span className="pv-warn">데이터 부족</span>
                         )}
                       </div>
-                      <div className="pv-table-wrap">
-                        <table className="pv-table">
+                      <div className="pv-summary-wrap">
+                        <table className="pv-table pv-summary-table">
                           <tbody>
                             <tr>
                               <th>대결(동일 경기) 횟수</th>
@@ -426,6 +430,55 @@ export default function App() {
                           미만 또는 AB 10 미만)
                         </p>
                       )}
+
+                      <button
+                        type="button"
+                        className="pv-toggle"
+                        onClick={() => setPvGamesOpen((v) => !v)}
+                      >
+                        {pvGamesOpen
+                          ? "경기 기록 접기 ▲"
+                          : "경기 기록 펼치기 ▼"}
+                      </button>
+
+                      {pvGamesOpen ? (
+                        <div className="pv-detail">
+                          <div className="pv-detail-scroll">
+                            <table className="pv-detail-table">
+                              <thead>
+                                <tr>
+                                  <th>날짜</th>
+                                  <th>상대</th>
+                                  <th>타자</th>
+                                  <th>투수</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {gameRows.length > 0 ? (
+                                  gameRows.map((row) => (
+                                    <tr key={row.game_id}>
+                                      <td title={row.date}>
+                                        {row.date && row.date.length >= 10
+                                          ? row.date.slice(5)
+                                          : row.date}
+                                      </td>
+                                      <td>{row.opponent}</td>
+                                      <td>{row.batter}</td>
+                                      <td>{row.pitcher}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={4} className="pv-detail-empty">
+                                      같은 경기에 나온 상대전 기록이 없습니다.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : null}
 
                       <div className="pv-ai">
                         <button

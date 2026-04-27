@@ -108,6 +108,11 @@ body {
   gap: 18px;
 }
 
+/* 분석 탭: 카드 상단 기준선 맞춤(높이 다른 카드에 끌려 늘어나지 않게) */
+.panel-grid.analysis-grid {
+  align-items: flex-start;
+}
+
 .card {
   background: linear-gradient(
       165deg,
@@ -278,14 +283,9 @@ button.primary:disabled {
   overflow: hidden;
 }
 
-.pv-table-wrap {
-  max-height: 300px;
-  overflow-y: auto;
+.pv-summary-wrap {
+  overflow-x: hidden;
   border-radius: 12px;
-}
-
-.pv-table-wrap .pv-table {
-  border-radius: 0;
 }
 
 .pv-table th,
@@ -309,6 +309,85 @@ button.primary:disabled {
 
 .pv-hint {
   margin-top: 10px;
+}
+
+.pv-toggle {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  border: 1px dashed var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  font-family: inherit;
+  font-size: 0.86rem;
+}
+
+.pv-toggle:hover {
+  border-color: rgba(62, 224, 169, 0.35);
+}
+
+.pv-detail {
+  margin-top: 8px;
+  overflow-x: hidden;
+}
+
+.pv-detail-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.pv-detail-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.pv-detail-table th,
+.pv-detail-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 8px;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.pv-detail-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(26, 34, 48, 0.98);
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pv-detail-table td:nth-child(1) {
+  width: 17%;
+}
+
+.pv-detail-table td:nth-child(2) {
+  width: 31%;
+}
+
+.pv-detail-table td:nth-child(3),
+.pv-detail-table td:nth-child(4) {
+  width: 26%;
+}
+
+.pv-detail-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 14px 10px !important;
 }
 
 .pv-ai {
