@@ -286,7 +286,7 @@ export default function App() {
             />
           </article>
 
-          <article className="card">
+          <article className="card pv-card">
             <h3>3. 투수 vs 타자 상대 전적</h3>
             <p className="hint">
               동일 game_id에 두 선수 기록이 모두 있을 때 비교합니다.
@@ -390,34 +390,36 @@ export default function App() {
                           <span className="pv-warn">데이터 부족</span>
                         )}
                       </div>
-                      <table className="pv-table">
-                        <tbody>
-                          <tr>
-                            <th>대결(동일 경기) 횟수</th>
-                            <td>{s?.games ?? 0}</td>
-                          </tr>
-                          <tr>
-                            <th>타율</th>
-                            <td>{s?.avg ?? "—"}</td>
-                          </tr>
-                          <tr>
-                            <th>AB / H</th>
-                            <td>
-                              {s?.ab ?? 0} / {s?.h ?? 0}
-                            </td>
-                          </tr>
-                          <tr>
-                            <th>HR / BB / SO</th>
-                            <td>
-                              {s?.hr ?? 0} / {s?.bb ?? 0} / {s?.so ?? 0}
-                            </td>
-                          </tr>
-                          <tr>
-                            <th>PA (가능시)</th>
-                            <td>{s?.pa ?? 0}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      <div className="pv-table-wrap">
+                        <table className="pv-table">
+                          <tbody>
+                            <tr>
+                              <th>대결(동일 경기) 횟수</th>
+                              <td>{s?.games ?? 0}</td>
+                            </tr>
+                            <tr>
+                              <th>타율</th>
+                              <td>{s?.avg ?? "—"}</td>
+                            </tr>
+                            <tr>
+                              <th>AB / H</th>
+                              <td>
+                                {s?.ab ?? 0} / {s?.h ?? 0}
+                              </td>
+                            </tr>
+                            <tr>
+                              <th>HR / BB / SO</th>
+                              <td>
+                                {s?.hr ?? 0} / {s?.bb ?? 0} / {s?.so ?? 0}
+                              </td>
+                            </tr>
+                            <tr>
+                              <th>PA (가능시)</th>
+                              <td>{s?.pa ?? 0}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
                       {insufficient && (
                         <p className="hint pv-hint">
                           표본이 적어서 해석이 불안정할 수 있어요. (기준: 3경기

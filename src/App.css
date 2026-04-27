@@ -278,6 +278,16 @@ button.primary:disabled {
   overflow: hidden;
 }
 
+.pv-table-wrap {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 12px;
+}
+
+.pv-table-wrap .pv-table {
+  border-radius: 0;
+}
+
 .pv-table th,
 .pv-table td {
   border: 1px solid var(--border);
@@ -330,6 +340,17 @@ button.primary:disabled {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px dashed var(--border);
+}
+
+/* 3번 카드: 결과/AI 서술은 잘리지 않게 전체 높이 사용 */
+.pv-card .md {
+  max-height: none;
+  overflow: visible;
+}
+
+.pv-card .mono {
+  max-height: none;
+  overflow: visible;
 }
 
 .result-head {
