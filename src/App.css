@@ -335,7 +335,7 @@ button.primary:disabled {
 }
 
 .pv-detail-scroll {
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--border);
@@ -343,51 +343,67 @@ button.primary:disabled {
   background: rgba(0, 0, 0, 0.12);
 }
 
-.pv-detail-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font-size: 0.8rem;
+.pv-game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
 }
 
-.pv-detail-table th,
-.pv-detail-table td {
-  border-bottom: 1px solid var(--border);
-  padding: 8px 8px;
-  vertical-align: top;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+.pv-game-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.pv-detail-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: rgba(26, 34, 48, 0.98);
-  color: var(--muted);
-  font-weight: 800;
+.pv-game-line1 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.pv-game-date {
+  color: #eef2fb;
+}
+
+.pv-game-gid {
   font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  color: var(--muted);
+  max-width: min(160px, 42vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.pv-detail-table td:nth-child(1) {
-  width: 17%;
+.pv-game-meta {
+  flex: 1;
+  min-width: 140px;
 }
 
-.pv-detail-table td:nth-child(2) {
-  width: 31%;
+.pv-game-line2,
+.pv-game-line3 {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #d8deea;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.pv-detail-table td:nth-child(3),
-.pv-detail-table td:nth-child(4) {
-  width: 26%;
+.pv-game-role {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .pv-detail-empty {
   text-align: center;
   color: var(--muted);
-  padding: 14px 10px !important;
+  padding: 18px 12px;
 }
 
 .pv-ai {

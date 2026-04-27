@@ -444,38 +444,48 @@ export default function App() {
                       {pvGamesOpen ? (
                         <div className="pv-detail">
                           <div className="pv-detail-scroll">
-                            <table className="pv-detail-table">
-                              <thead>
-                                <tr>
-                                  <th>날짜</th>
-                                  <th>상대</th>
-                                  <th>타자</th>
-                                  <th>투수</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {gameRows.length > 0 ? (
-                                  gameRows.map((row) => (
-                                    <tr key={row.game_id}>
-                                      <td title={row.date}>
-                                        {row.date && row.date.length >= 10
-                                          ? row.date.slice(5)
-                                          : row.date}
-                                      </td>
-                                      <td>{row.opponent}</td>
-                                      <td>{row.batter}</td>
-                                      <td>{row.pitcher}</td>
-                                    </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td colSpan={4} className="pv-detail-empty">
-                                      같은 경기에 나온 상대전 기록이 없습니다.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
+                            {gameRows.length > 0 ? (
+                              <div className="pv-game-list">
+                                {gameRows.map((row) => (
+                                  <div
+                                    className="pv-game-card"
+                                    key={row.game_id}
+                                  >
+                                    <div className="pv-game-line1">
+                                      <span className="pv-game-date">
+                                        {row.date}
+                                      </span>
+                                      <span
+                                        className="pv-game-gid mono"
+                                        title={row.game_id}
+                                      >
+                                        {row.game_id_display ?? row.game_id}
+                                      </span>
+                                      <span className="pv-game-meta">
+                                        {row.team_abbr} {row.home_away}(
+                                        {row.opponent_label})
+                                      </span>
+                                    </div>
+                                    <div className="pv-game-line2">
+                                      <span className="pv-game-role">
+                                        {row.pitcher_name}:
+                                      </span>{" "}
+                                      <span>{row.pitcher_stats}</span>
+                                    </div>
+                                    <div className="pv-game-line3">
+                                      <span className="pv-game-role">
+                                        {row.batter_name}:
+                                      </span>{" "}
+                                      <span>{row.batter_stats}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="pv-detail-empty">
+                                같은 경기에 나온 상대전 기록이 없습니다.
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : null}

@@ -288,28 +288,114 @@ function pickOpponentTeam(bat, pit) {
   return "—";
 }
 
-function formatBatterLineCompact(b) {
-  if (!b || typeof b !== "object") return "—";
-  const h = pickNum(b, ["h", "H", "hits"]);
+/** 투수 한 줄: "4이닝 7실점 10피안타 1K" */
+function formatPitcherGameLine(p) {
+  if (!p || typeof p !== "object") return "기록 없음";
+  const ipRaw = p.ip ?? p.IP ?? p.inn ?? p.innings ?? p.innings_pitched;
+  const ipStr =
+    ipRaw != null && String(ipRaw).trim() !== ""
+      ? String(ipRaw).trim()
+      : "";
+  const runs = pickNum(p, [
+    "er",
+    "ER",
+    "earned_runs",
+    "r",
+    "R",
+    "runs",
+    "runs_allowed",
+  ]);
+  const hAllowed = pickNum(p, ["h", "H", "hits", "hits_allowed", "ha"]);
+  const k = pickNum(p, ["so", "SO", "k", "K", "strikeouts"]);
+  const parts = [];
+  if (ipStr) parts.push(`${ipStr}이닝`);
+  else {
+    const ipn = pickNum(p, ["ip", "IP", "inn", "innings"]);
+    if (ipn > 0) parts.push(`${ipn}이닝`);
+  }
+  parts.push(`${runs}실점`);
+  parts.push(`${hAllowed}피안타`);
+  if (k > 0) parts.push(`${k}K`);
+  return parts.join(" ");
+}
+
+/** 타자 한 줄: "4타수 1안타 1홈런 2타점" */
+function formatBatterGameLine(b) {
+  if (!b || typeof b !== "object") return "기록 없음";
   const ab = pickNum(b, ["ab", "AB", "at_bats"]);
-  if (ab > 0) return `${h}/${ab}`;
-  if (h > 0) return `H${h}`;
+  const h = pickNum(b, ["h", "H", "hits"]);
+  const hr = pickNum(b, ["hr", "HR", "home_run"]);
+  const rbi = pickNum(b, ["rbi", "RBI", "bi"]);
+  const parts = [];
+  parts.push(`${ab}타수`);
+  parts.push(`${h}안타`);
+  parts.push(`${hr}홈런`);
+  parts.push(`${rbi}타점`);
+  return parts.join(" ");
+}
+
+function pickTeamAbbr(b, p) {
+  const keys = ["team_code", "abbr", "team_abbr", "short_team"];
+  const v =
+    firstNonEmptyString(b || {}, keys) ||
+    firstNonEmptyString(p || {}, keys);
+  if (v) return v.slice(0, 8).toUpperCase();
+  const team = firstNonEmptyString(b || {}, ["team", "team_name", "club"]);
+  if (team) return team.slice(0, 4);
   return "—";
 }
 
-function formatPitcherLineCompact(p) {
-  if (!p || typeof p !== "object") return "—";
-  const era = pickNum(p, ["era", "ERA"]);
-  if (era > 0 && era < 99) return `ERA ${era.toFixed(2)}`;
-  const ip = pickNum(p, ["ip", "IP", "inn", "innings", "innings_pitched"]);
-  const er = pickNum(p, ["er", "ER", "earned_runs"]);
-  if (ip > 0) return `${ip}이닝·${er}자책`;
-  if (er > 0) return `ER ${er}`;
+function pickHomeAwayLabel(b, p) {
+  const raw =
+    firstNonEmptyString(b || {}, [
+      "ha",
+      "home_away",
+      "venue_type",
+      "is_home",
+      "away_home",
+      "홈원정",
+    ]) ||
+    firstNonEmptyString(p || {}, [
+      "ha",
+      "home_away",
+      "venue_type",
+      "is_home",
+    ]);
+  const s = String(raw).toLowerCase();
+  if (
+    s.includes("away") ||
+    s.includes("원정") ||
+    s === "a" ||
+    s === "visit"
+  )
+    return "원정";
+  if (s.includes("home") || s.includes("홈") || s === "h") return "홈";
+  if (raw === 0 || raw === "0") return "원정";
+  if (raw === 1 || raw === "1") return "홈";
+  const ht = firstNonEmptyString(b || {}, ["home_team"]);
+  const at = firstNonEmptyString(b || {}, ["away_team"]);
+  const mt =
+    firstNonEmptyString(b || {}, ["team", "team_name"]) ||
+    firstNonEmptyString(p || {}, ["team", "team_name"]);
+  if (mt && ht && String(ht).includes(mt)) return "홈";
+  if (mt && at && String(at).includes(mt)) return "원정";
   return "—";
 }
 
-/** 경기별 요약(카드 폭에 맞춘 최소 컬럼용) — 동일 game_id당 1행 */
-function buildPvPerGameRows(batterLines, pitcherLines, maxRows = 80) {
+function displayGameId(gid) {
+  const s = String(gid || "");
+  if (!s) return "—";
+  return s.length > 16 ? `…${s.slice(-12)}` : s;
+}
+
+/** 경기별 카드용 — 동일 game_id당 1건 */
+function buildPvPerGameRows(
+  batterLines,
+  pitcherLines,
+  pitcherName,
+  batterName,
+  maxRows = 80
+) {
   const byBat = new Map();
   for (const r of batterLines || []) {
     const gid = normalizeGameId(r.game_id);
@@ -326,12 +412,26 @@ function buildPvPerGameRows(batterLines, pitcherLines, maxRows = 80) {
   for (const [gid, p] of byPit) {
     const b = byBat.get(gid);
     const dateFull = safeIsoDate(b?.game_date || p?.game_date || "");
+    const pn =
+      firstNonEmptyString(p || {}, ["player", "pitcher", "name"]) ||
+      pitcherName ||
+      "투수";
+    const bn =
+      firstNonEmptyString(b || {}, ["player", "batter", "name"]) ||
+      batterName ||
+      "타자";
+    const opp = pickOpponentTeam(b, p);
     rows.push({
       game_id: gid,
+      game_id_display: displayGameId(gid),
       date: dateFull || "—",
-      opponent: pickOpponentTeam(b, p),
-      batter: formatBatterLineCompact(b),
-      pitcher: formatPitcherLineCompact(p),
+      team_abbr: pickTeamAbbr(b, p),
+      home_away: pickHomeAwayLabel(b, p),
+      opponent_label: opp,
+      pitcher_name: pn,
+      pitcher_stats: formatPitcherGameLine(p),
+      batter_name: bn,
+      batter_stats: formatBatterGameLine(b),
     });
   }
   rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -642,8 +742,18 @@ export const handler = async (event) => {
         ]);
 
         const per_game = {
-          overall: buildPvPerGameRows(overall.batter_lines, overall.pitcher_lines),
-          year: buildPvPerGameRows(year.batter_lines, year.pitcher_lines),
+          overall: buildPvPerGameRows(
+            overall.batter_lines,
+            overall.pitcher_lines,
+            pitcher,
+            batter
+          ),
+          year: buildPvPerGameRows(
+            year.batter_lines,
+            year.pitcher_lines,
+            pitcher,
+            batter
+          ),
         };
 
         return {
