@@ -43,13 +43,13 @@ function corsHeaders() {
   };
 }
 
-async function claude(system, user) {
+async function claude(system, user, maxTokens = 2048) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("Missing ANTHROPIC_API_KEY");
   const client = new Anthropic({ apiKey: key });
   const msg = await client.messages.create({
     model: MODEL,
-    max_tokens: 2048,
+    max_tokens: maxTokens,
     system: system,
     messages: [{ role: "user", content: user }],
   });
@@ -157,6 +157,132 @@ function gamesForTeamWindow(allGames, teamKw, days = 7) {
     if (!kw) return true;
     return teamMatches(g.away_team, kw) || teamMatches(g.home_team, kw);
   });
+}
+
+/** team_week 전용: 최근 N일(포함) 구간의 시작일 (YYYY-MM-DD, UTC 일 단위) */
+function inclusiveDateWindowFromEnd(endIso, days) {
+  const n = Math.max(1, Math.min(Number(days) || 7, 366));
+  const parts = String(endIso).slice(0, 10).split("-").map(Number);
+  if (parts.length !== 3 || parts.some((x) => Number.isNaN(x))) {
+    const e = String(endIso).slice(0, 10);
+    return { from: e, to: e };
+  }
+  const end = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (n - 1));
+  const iso = (dt) => dt.toISOString().slice(0, 10);
+  return { from: iso(start), to: iso(end) };
+}
+
+const TEAM_WEEK_MAX_GAMES = 48;
+
+function slimTeamWeekGame(g) {
+  if (!g || typeof g !== "object") return {};
+  return {
+    game_date: g.game_date ?? null,
+    game_id: g.game_id ?? null,
+    home_team: g.home_team ?? null,
+    away_team: g.away_team ?? null,
+    home_score: g.home_score ?? null,
+    away_score: g.away_score ?? null,
+  };
+}
+
+async function fetchLatestGameRow(db) {
+  const snap = await db
+    .collection("games")
+    .orderBy("game_date", "desc")
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const d = snap.docs[0];
+  return { id: d.id, ...docSnap(d) };
+}
+
+async function fetchGamesDateRange(db, fromStr, toStr) {
+  const snap = await db
+    .collection("games")
+    .where("game_date", ">=", fromStr)
+    .where("game_date", "<=", toStr)
+    .get();
+  const rows = [];
+  snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+  return rows;
+}
+
+function filterAndSlimTeamWeekGames(rows, teamKw) {
+  const kw = (teamKw || "").trim();
+  const filtered = rows.filter(
+    (g) =>
+      !kw ||
+      teamMatches(g.away_team, kw) ||
+      teamMatches(g.home_team, kw)
+  );
+  const sorted = [...filtered].sort((a, b) =>
+    String(a.game_date || "").localeCompare(String(b.game_date || ""))
+  );
+  return sorted.slice(-TEAM_WEEK_MAX_GAMES).map(slimTeamWeekGame);
+}
+
+/** 정렬된 전체 목록에서 rolling window (gamesForTeamWindow 와 동일 규칙) */
+function filterGamesInRollingWindow(sortedAsc, teamKw, days) {
+  const last = sortedAsc[sortedAsc.length - 1];
+  if (!last?.game_date) return [];
+  const endIso = String(last.game_date).slice(0, 10);
+  const { from } = inclusiveDateWindowFromEnd(endIso, days);
+  const kw = (teamKw || "").trim();
+  return sortedAsc.filter((g) => {
+    const gd = String(g.game_date || "").slice(0, 10);
+    if (gd < from || gd > endIso) return false;
+    if (!kw) return true;
+    return teamMatches(g.away_team, kw) || teamMatches(g.home_team, kw);
+  });
+}
+
+/**
+ * 팀 주간 트렌드: 전체 games 스캔 대신 (1) 최신일 조회 + (2) 날짜 구간 쿼리만 사용.
+ * 실패 시 소량 스캔으로 폴백.
+ */
+async function fetchGamesForTeamWeek(db, teamKw, days) {
+  const dayCount = Math.min(Math.max(Number(days) || 7, 1), 30);
+  try {
+    const latest = await fetchLatestGameRow(db);
+    if (!latest?.game_date) {
+      return { games: [], window: null, queryNote: "empty_db" };
+    }
+    const endIso = String(latest.game_date).slice(0, 10);
+    const { from, to } = inclusiveDateWindowFromEnd(endIso, dayCount);
+    const inRange = await fetchGamesDateRange(db, from, to);
+    const games = filterAndSlimTeamWeekGames(inRange, teamKw);
+    return {
+      games,
+      window: { from, to },
+      queryNote: "date_range",
+    };
+  } catch (e) {
+    console.warn("[team_week] range query failed:", e?.message || e);
+    const all = await fetchAllGames(db, 900);
+    const sorted = [...all].sort((a, b) =>
+      String(a.game_date || "").localeCompare(String(b.game_date || ""))
+    );
+    const subset = filterGamesInRollingWindow(sorted, teamKw, dayCount);
+    const slim = subset
+      .slice(-TEAM_WEEK_MAX_GAMES)
+      .map(slimTeamWeekGame);
+    const first =
+      subset.length > 0
+        ? String(subset[0].game_date || "").slice(0, 10)
+        : null;
+    const last =
+      subset.length > 0
+        ? String(subset[subset.length - 1].game_date || "").slice(0, 10)
+        : null;
+    return {
+      games: slim,
+      window: first && last ? { from: first, to: last } : null,
+      queryNote: `fallback:${String(e?.message || e).slice(0, 120)}`,
+    };
+  }
 }
 
 async function fetchPlayerLines(db, player, max = 500) {
@@ -278,9 +404,14 @@ export const handler = async (event) => {
       case "team_week": {
         const teamKw = payload.teamKeyword || "";
         const days = Number(payload.days) || 7;
-        const all = await fetchAllGames(db);
-        const subset = gamesForTeamWindow(all, teamKw, days);
-        context = { teamKeyword: teamKw, days, games: subset };
+        const tw = await fetchGamesForTeamWeek(db, teamKw, days);
+        context = {
+          teamKeyword: teamKw,
+          days,
+          window: tw.window,
+          queryNote: tw.queryNote,
+          games: tw.games,
+        };
         userQ =
           payload.question ||
           `${teamKw} 팀의 최근 ${days}일 구간 경기만을 사용해 주간 성적 추이(승패·득실·타격/불펜 면에서의 인상)을 한국어로 분석해줘.`;
@@ -441,9 +572,12 @@ export const handler = async (event) => {
 
     const sys =
       "You are a KBO analytics assistant. Use only the JSON context provided; if data is missing, say so clearly. Respond in Korean unless asked otherwise.";
+    const ctxCap = action === "team_week" ? 80000 : 190000;
+    const claudeOut = action === "team_week" ? 1200 : 2048;
     const text = await claude(
       sys,
-      `컨텍스트(JSON):\n${JSON.stringify(context).slice(0, 190000)}\n\n요청:\n${userQ}`
+      `컨텍스트(JSON):\n${JSON.stringify(context).slice(0, ctxCap)}\n\n요청:\n${userQ}`,
+      claudeOut
     );
 
     return {
@@ -479,7 +613,11 @@ function summarizeContext(action, ctx) {
         pitchers: ctx.pitchers?.length ?? 0,
       };
     case "team_week":
-      return { games: ctx.games?.length ?? 0 };
+      return {
+        games: ctx.games?.length ?? 0,
+        window: ctx.window,
+        queryNote: ctx.queryNote,
+      };
     case "pv_batter":
       return { sharedGames: ctx.shared_game_ids?.length ?? 0 };
     case "player_range":
