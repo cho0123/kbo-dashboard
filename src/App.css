@@ -142,11 +142,25 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.08);
   min-height: 100vh;
   overflow: visible;
+  max-height: none;
 }
 
 .results-inner {
   padding: 20px 18px 18px;
   color: #1a1a2e !important;
+  overflow: visible;
+  max-height: none;
+}
+
+.results .result-page {
+  overflow: visible;
+  max-height: none;
+}
+
+.results .section,
+.results .section.soft {
+  overflow: visible;
+  max-height: none;
 }
 
 .results .card {
@@ -210,6 +224,8 @@ body {
 
 .results .md {
   color: #1a1a2e !important;
+  overflow: visible;
+  max-height: none;
 }
 
 .results .md :where(*){
@@ -223,10 +239,13 @@ body {
 
 .results .mono {
   color: #1a1a2e;
+  overflow: visible;
+  max-height: none;
 }
 
-/* Claude 선정 이유(마크다운) 내부 코드블록도 잘리지 않게 */
 .results .md pre {
+  overflow: visible;
+  max-height: none;
 }
 
 .results .section.soft {
@@ -501,6 +520,40 @@ body {
   color: rgba(26, 26, 46, 0.9);
   font-size: 0.95rem;
   margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* MVP 경기별: 전체 너비 카드, 스코어 한 줄 + 투수/타자 각 한 줄 */
+.mvp-game-list {
+  display: block;
+  width: 100%;
+}
+
+.results .mvp-game-card {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.results .mvp-game-card:last-child {
+  margin-bottom: 0;
+}
+
+.results .mvp-game-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #1a1a2e;
+  line-height: 1.35;
+}
+
+.results .mvp-game-line {
+  color: #1a1a2e;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0;
   overflow-wrap: anywhere;
 }
 .hero {

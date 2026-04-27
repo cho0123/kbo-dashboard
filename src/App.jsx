@@ -107,6 +107,13 @@ function teamAbbr(team) {
   return t.slice(0, 6);
 }
 
+/** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
+function mvpGameHeadline(g) {
+  const score = String(g?.score || "").trim();
+  if (score) return score.replace(/\s*:\s*/, " vs ");
+  return String(g?.matchup || "").trim() || "—";
+}
+
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
   const { busy, runWith } = useAnalyzer();
@@ -585,22 +592,20 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="section soft">
+                        <div className="section soft mvp-per-game-section">
                           <div className="section-title">📋 경기별 MVP</div>
-                          <div className="game-card-list">
+                          <div className="mvp-game-list">
                             {games.length ? (
                               games.map((g) => (
-                                <div className="game-card" key={g.game_id || g.matchup}>
-                                  <div className="game-head">
-                                    <div className="game-title">
-                                      {g.matchup || "—"}
-                                    </div>
-                                    <div className="game-score">
-                                      {g.score || g.game_id}
-                                    </div>
+                                <div
+                                  className="mvp-game-card"
+                                  key={g.game_id || g.matchup}
+                                >
+                                  <div className="mvp-game-title">
+                                    {mvpGameHeadline(g)}
                                   </div>
-                                  <div className="game-line">
-                                    <b>투수MVP</b>:{" "}
+                                  <div className="mvp-game-line">
+                                    ⚾ 투수:{" "}
                                     {g.pitcher_mvp
                                       ? `${g.pitcher_mvp.name}${
                                           g.pitcher_mvp.team
@@ -609,8 +614,8 @@ export default function App() {
                                         } — ${g.pitcher_mvp.key_stats}`
                                       : "—"}
                                   </div>
-                                  <div className="game-line">
-                                    <b>타자MVP</b>:{" "}
+                                  <div className="mvp-game-line">
+                                    🏏 타자:{" "}
                                     {g.batter_mvp
                                       ? `${g.batter_mvp.name}${
                                           g.batter_mvp.team
@@ -627,7 +632,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="section soft">
+                        <div className="section soft claude-rationale-section">
                           <div className="section-title">Claude 선정 이유</div>
                           <MarkdownView text={d.text || mvpAuto.aiText} />
                         </div>
