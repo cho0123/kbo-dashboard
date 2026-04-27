@@ -105,6 +105,12 @@ export default function App() {
     summary: null,
     error: null,
   });
+  const [mvpAuto, setMvpAuto] = useState({
+    data: null,
+    aiText: "",
+    error: null,
+  });
+  const [mvpAutoBusy, setMvpAutoBusy] = useState(false);
 
   const [teamKw, setTeamKw] = useState("LG");
   const [teamDays, setTeamDays] = useState("7");
@@ -235,10 +241,30 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("today_mvp_1")}
-                  onClick={() => {
+                  disabled={mvpAutoBusy}
+                  onClick={async () => {
                     setActiveKey("mvp");
-                    runWith("today_mvp", { date: mvpDate }, "1", setMvpOut);
+                    setMvpAutoBusy(true);
+                    setMvpAuto({ data: null, aiText: "", error: null });
+                    try {
+                      const res = await postKbo({
+                        action: "mvp_auto",
+                        date: mvpDate,
+                      });
+                      setMvpAuto({
+                        data: res,
+                        aiText: res.text ?? "",
+                        error: null,
+                      });
+                    } catch (e) {
+                      setMvpAuto({
+                        data: null,
+                        aiText: "",
+                        error: e?.message || String(e),
+                      });
+                    } finally {
+                      setMvpAutoBusy(false);
+                    }
                   }}
                 >
                   MVP 분석 실행
@@ -499,38 +525,88 @@ export default function App() {
               <div className="empty-state">← 좌측에서 분석을 실행하세요</div>
             ) : activeKey === "mvp" ? (
               <div className="result-page">
-                <div className="result-hero-title">{extractMvpTitle(mvpOut.text)}</div>
-                {(() => {
-                  const stats = extractKoreanBattingLine(mvpOut.text);
-                  return stats ? (
-                    <div className="metric-grid">
-                      <div className="metric">
-                        <div className="metric-k">타수</div>
-                        <div className="metric-v">{stats.ab}</div>
-                      </div>
-                      <div className="metric">
-                        <div className="metric-k">안타</div>
-                        <div className="metric-v">{stats.h}</div>
-                      </div>
-                      <div className="metric">
-                        <div className="metric-k">홈런</div>
-                        <div className="metric-v">{stats.hr}</div>
-                      </div>
-                      <div className="metric">
-                        <div className="metric-k">타점</div>
-                        <div className="metric-v">{stats.rbi}</div>
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-                <div className="section soft">
-                  <div className="section-title">선정 근거</div>
-                  {mvpOut.error ? (
-                    <pre className="result-error-light">{mvpOut.error}</pre>
-                  ) : (
-                    <MarkdownView text={mvpOut.text} />
-                  )}
-                </div>
+                <div className="result-hero-title">🏆 전체 베스트</div>
+
+                {mvpAutoBusy ? (
+                  <div className="empty-state">생성 중…</div>
+                ) : mvpAuto.error ? (
+                  <pre className="result-error-light">{mvpAuto.error}</pre>
+                ) : mvpAuto.data ? (
+                  (() => {
+                    const d = mvpAuto.data;
+                    const overall = d.overall_best;
+                    const games = d.games || [];
+                    const pitch = overall?.pitcher;
+                    const bat = overall?.batter;
+                    return (
+                      <>
+                        <div className="best-grid">
+                          <div className="best-card">
+                            <div className="best-head">🥎 베스트 투수</div>
+                            <div className="best-name">
+                              {pitch?.name || "—"}{" "}
+                              <span className="best-team">
+                                {pitch?.team ? `(${pitch.team})` : ""}
+                              </span>
+                            </div>
+                            <div className="best-sub">{pitch?.key_stats || "—"}</div>
+                          </div>
+                          <div className="best-card">
+                            <div className="best-head">⚾ 베스트 타자</div>
+                            <div className="best-name">
+                              {bat?.name || "—"}{" "}
+                              <span className="best-team">
+                                {bat?.team ? `(${bat.team})` : ""}
+                              </span>
+                            </div>
+                            <div className="best-sub">{bat?.key_stats || "—"}</div>
+                          </div>
+                        </div>
+
+                        <div className="section soft">
+                          <div className="section-title">📋 경기별 MVP</div>
+                          <div className="game-card-list">
+                            {games.length ? (
+                              games.map((g) => (
+                                <div className="game-card" key={g.game_id || g.matchup}>
+                                  <div className="game-head">
+                                    <div className="game-title">
+                                      {g.matchup || "—"}
+                                    </div>
+                                    <div className="game-score">
+                                      {g.score || g.game_id}
+                                    </div>
+                                  </div>
+                                  <div className="game-line">
+                                    <b>투수MVP</b>:{" "}
+                                    {g.pitcher_mvp
+                                      ? `${g.pitcher_mvp.name} (${g.pitcher_mvp.team}) — ${g.pitcher_mvp.key_stats}`
+                                      : "—"}
+                                  </div>
+                                  <div className="game-line">
+                                    <b>타자MVP</b>:{" "}
+                                    {g.batter_mvp
+                                      ? `${g.batter_mvp.name} (${g.batter_mvp.team}) — ${g.batter_mvp.key_stats}`
+                                      : "—"}
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="muted">경기 데이터가 없습니다.</div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="section soft">
+                          <div className="section-title">Claude 선정 이유</div>
+                          <MarkdownView text={d.text || mvpAuto.aiText} />
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <div className="empty-state">← 좌측에서 MVP 분석을 실행하세요</div>
+                )}
               </div>
             ) : activeKey === "team_week" ? (
               <div className="result-page">

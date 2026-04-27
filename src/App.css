@@ -177,6 +177,29 @@ body {
   border-color: #ddd;
 }
 
+/* 결과 패널 테이블: 폭/패딩/라인 최소화 (항목/기록 표용) */
+.results :where(table) {
+  width: auto;
+  max-width: 480px;
+  border: none;
+  border-collapse: collapse;
+  margin-left: 0;
+}
+
+.results :where(table thead) {
+  display: none;
+}
+
+.results :where(th) {
+  width: 140px;
+}
+
+.results :where(td, th) {
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+}
+
 .results input,
 .results textarea,
 .results select {
@@ -393,6 +416,88 @@ body {
   background: rgba(244, 67, 54, 0.08);
   color: #b71c1c;
   white-space: pre-wrap;
+}
+
+.best-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 920px) {
+  .best-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.best-card {
+  background: #f0f0f0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 14px 14px;
+}
+
+.best-head {
+  font-weight: 1000;
+  letter-spacing: -0.02em;
+  color: rgba(26, 26, 46, 0.85);
+  margin-bottom: 10px;
+}
+
+.best-name {
+  font-size: 1.35rem;
+  font-weight: 1000;
+  letter-spacing: -0.03em;
+}
+
+.best-team {
+  color: rgba(26, 26, 46, 0.65);
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+
+.best-sub {
+  margin-top: 8px;
+  color: rgba(26, 26, 46, 0.82);
+  font-weight: 900;
+}
+
+.game-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.game-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 12px 12px;
+}
+
+.game-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.game-title {
+  font-weight: 1000;
+}
+
+.game-score {
+  color: rgba(26, 26, 46, 0.65);
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.game-line {
+  color: rgba(26, 26, 46, 0.9);
+  font-size: 0.95rem;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 .hero {
   display: flex;

@@ -74,6 +74,75 @@ function isoSeoulToday() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
+function pickStr(obj, keys) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function pickTeamName(row) {
+  return (
+    pickStr(row, ["team", "team_name", "club", "teamName", "TEAM"]) || "—"
+  ).slice(0, 18);
+}
+
+function pickPlayerName(row) {
+  return (
+    pickStr(row, ["player", "name", "player_name", "batter", "pitcher"]) || "—"
+  ).slice(0, 24);
+}
+
+function scoreBatter(row) {
+  const hr = pickNum(row, ["hr", "HR", "home_run"]);
+  const rbi = pickNum(row, ["rbi", "RBI", "bi"]);
+  const h = pickNum(row, ["h", "H", "hits"]);
+  return hr * 100 + rbi * 10 + h * 3;
+}
+
+function scorePitcher(row) {
+  const ip = pickNum(row, ["ip", "IP", "inn", "innings"]);
+  const runs = pickNum(row, ["er", "ER", "earned_runs", "r", "R", "runs"]);
+  const k = pickNum(row, ["so", "SO", "k", "K", "strikeouts"]);
+  // 이닝 가중↑, 실점 페널티↑ (단순 휴리스틱)
+  return ip * 10 + k * 1 - runs * 20;
+}
+
+function formatPitcherKeyStats(row) {
+  const ipRaw = row?.ip ?? row?.IP ?? row?.inn ?? row?.innings;
+  const ip = ipRaw != null && String(ipRaw).trim() !== "" ? String(ipRaw).trim() : String(pickNum(row, ["ip", "IP", "inn", "innings"]) || 0);
+  const runs = pickNum(row, ["er", "ER", "earned_runs", "r", "R", "runs"]);
+  const k = pickNum(row, ["so", "SO", "k", "K", "strikeouts"]);
+  return `${ip}이닝 ${runs}실점 ${k}K`;
+}
+
+function formatBatterKeyStats(row) {
+  const ab = pickNum(row, ["ab", "AB", "at_bats"]);
+  const h = pickNum(row, ["h", "H", "hits"]);
+  const hr = pickNum(row, ["hr", "HR", "home_run"]);
+  const rbi = pickNum(row, ["rbi", "RBI", "bi"]);
+  return `${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점`;
+}
+
+function bestByScore(rows, scorer) {
+  let best = null;
+  let bestScore = -Infinity;
+  for (const r of rows || []) {
+    const s = scorer(r);
+    if (s > bestScore) {
+      bestScore = s;
+      best = r;
+    }
+  }
+  return best;
+}
+
+function safeNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function fetchGamesByDate(db, dateStr) {
   const snap = await db
     .collection("games")
@@ -696,6 +765,121 @@ export const handler = async (event) => {
           `${dateStr} KBO 경기 데이터를 바탕으로 오늘의 MVP 타자 1명, MVP 투수 1명을 선정하고 근거를 한국어로 간결히 설명해줘.`;
         break;
       }
+      case "mvp_auto": {
+        const dateStr = payload.date || isoSeoulToday();
+        const games = await fetchGamesByDate(db, dateStr);
+        const gids = games
+          .map((g) => g.game_id)
+          .filter((x) => x != null && x !== "");
+        const box = await fetchBoxForGames(db, gids);
+
+        const batByGame = {};
+        for (const b of box.batters || []) {
+          const gid = String(b.game_id || "");
+          if (!gid) continue;
+          if (!batByGame[gid]) batByGame[gid] = [];
+          batByGame[gid].push(b);
+        }
+        const pitByGame = {};
+        for (const p of box.pitchers || []) {
+          const gid = String(p.game_id || "");
+          if (!gid) continue;
+          if (!pitByGame[gid]) pitByGame[gid] = [];
+          pitByGame[gid].push(p);
+        }
+
+        const perGame = [];
+        const allBestBatters = [];
+        const allBestPitchers = [];
+        for (const g of games) {
+          const gid = String(g.game_id || "");
+          const bats = batByGame[gid] || [];
+          const pits = pitByGame[gid] || [];
+          const bestB = bestByScore(bats, scoreBatter);
+          const bestP = bestByScore(pits, scorePitcher);
+          if (bestB) allBestBatters.push(bestB);
+          if (bestP) allBestPitchers.push(bestP);
+
+          const away = pickStr(g, ["away_team", "away", "awayTeam"]);
+          const home = pickStr(g, ["home_team", "home", "homeTeam"]);
+          const as = safeNum(g.away_score);
+          const hs = safeNum(g.home_score);
+          const scoreLine =
+            as != null && hs != null ? `${away} ${as} : ${hs} ${home}` : "";
+          const matchup =
+            away && home ? `${away} vs ${home}` : String(g.game_name || "");
+
+          perGame.push({
+            game_id: gid,
+            game_date: String(g.game_date || dateStr),
+            matchup,
+            score: scoreLine,
+            pitcher_mvp: bestP
+              ? {
+                  name: pickPlayerName(bestP),
+                  team: pickTeamName(bestP),
+                  key_stats: formatPitcherKeyStats(bestP),
+                }
+              : null,
+            batter_mvp: bestB
+              ? {
+                  name: pickPlayerName(bestB),
+                  team: pickTeamName(bestB),
+                  key_stats: formatBatterKeyStats(bestB),
+                }
+              : null,
+          });
+        }
+
+        const overallPitcher = bestByScore(allBestPitchers, scorePitcher);
+        const overallBatter = bestByScore(allBestBatters, scoreBatter);
+
+        const structured = {
+          date: dateStr,
+          overall_best: {
+            pitcher: overallPitcher
+              ? {
+                  name: pickPlayerName(overallPitcher),
+                  team: pickTeamName(overallPitcher),
+                  key_stats: formatPitcherKeyStats(overallPitcher),
+                }
+              : null,
+            batter: overallBatter
+              ? {
+                  name: pickPlayerName(overallBatter),
+                  team: pickTeamName(overallBatter),
+                  key_stats: formatBatterKeyStats(overallBatter),
+                }
+              : null,
+          },
+          games: perGame,
+        };
+
+        const sys =
+          "You are a KBO analytics assistant. Use only the JSON context provided; if data is missing, say so clearly. Respond in Korean unless asked otherwise.";
+        const userQ =
+          payload.question ||
+          `${dateStr} KBO 경기별 MVP(투수/타자)와 전체 베스트(투수/타자)를 위 컨텍스트만 사용해서 선정 근거를 한국어로 8~12줄로 요약해줘.`;
+        const text = await claude(
+          sys,
+          `컨텍스트(JSON):\n${JSON.stringify(structured).slice(0, 120000)}\n\n요청:\n${userQ}`,
+          800
+        );
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            model: MODEL,
+            date: dateStr,
+            overall_best: structured.overall_best,
+            games: structured.games,
+            text,
+          }),
+        };
+      }
       case "team_week": {
         const teamKw = payload.teamKeyword || "";
         const days = Number(payload.days) || 7;
@@ -969,6 +1153,11 @@ function summarizeContext(action, ctx) {
         games: ctx.games?.length ?? 0,
         batters: ctx.batters?.length ?? 0,
         pitchers: ctx.pitchers?.length ?? 0,
+      };
+    case "mvp_auto":
+      return {
+        date: ctx.date,
+        games: ctx.games?.length ?? 0,
       };
     case "team_week":
       return {
