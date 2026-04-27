@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
+// Firestore 문서 샘플 로그는 함수 인스턴스당 1회만 출력
+let __didLogBoxSamples = false;
+
 function initFirebase() {
   const raw =
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
@@ -254,6 +257,18 @@ async function fetchBoxForGames(db, gameIds) {
     await mergeCollection("batters", batters, seenB, gid);
     await mergeCollection("pitchers", pitchers, seenP, gid);
   }
+
+  // Firestore 실제 필드명 확인용 샘플 로그 (배포 후 Netlify Functions logs에서 확인)
+  if (!__didLogBoxSamples) {
+    __didLogBoxSamples = true;
+    // 투수 문서 첫 번째 샘플
+    console.log("PITCHER_KEYS:", Object.keys(pitchers[0] || {}));
+    console.log("PITCHER_SAMPLE:", JSON.stringify(pitchers[0]));
+    // 타자 문서 첫 번째 샘플
+    console.log("BATTER_KEYS:", Object.keys(batters[0] || {}));
+    console.log("BATTER_SAMPLE:", JSON.stringify(batters[0]));
+  }
+
   return { batters, pitchers };
 }
 
