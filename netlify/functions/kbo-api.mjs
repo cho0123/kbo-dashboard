@@ -1003,14 +1003,26 @@ export const handler = async (event) => {
           games: perGame,
         };
 
+        const bestPitcher = structured.overall_best.pitcher;
+        const bestBatter = structured.overall_best.batter;
+        const claudeOnlyBest = {
+          date: dateStr,
+          bestPitcher,
+          bestBatter,
+        };
+
         const sys =
-          "You are a KBO analytics assistant. Use only the JSON context provided; if data is missing, say so clearly. Respond in Korean unless asked otherwise.";
+          "당신은 KBO 야구 분석가입니다.\n" +
+          "오늘의 전체 베스트 투수 1명, 베스트 타자 1명에 대해서만\n" +
+          "각각 3~4줄로 선정 이유를 설명하세요.\n" +
+          "경기별 MVP 서술은 하지 마세요.\n" +
+          "완결된 문장으로 마무리하세요.";
         const userQ =
           payload.question ||
-          `${dateStr} KBO 경기별 MVP(투수/타자)와 전체 베스트(투수/타자)를 위 컨텍스트만 사용해서 선정 근거를 한국어로 8~12줄로 요약해줘.`;
+          `${dateStr} 일자 기준으로 위 JSON의 bestPitcher·bestBatter만 근거로 선정 이유를 한국어로 작성하세요. 데이터가 없으면 해당 항목은 생략하고 그 사실을 짧게 밝히세요.`;
         const text = await claude(
           sys,
-          `컨텍스트(JSON):\n${JSON.stringify(structured).slice(0, 120000)}\n\n요청:\n${userQ}`,
+          `데이터(JSON):\n${JSON.stringify(claudeOnlyBest)}\n\n요청:\n${userQ}`,
           800
         );
 
