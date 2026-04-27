@@ -3,6 +3,20 @@ import admin from "firebase-admin";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
+/** KBO game_id 내 2글자 팀코드 → 정식 구단명 (문서에 team 필드가 없을 때 사용) */
+const TEAM_MAP = {
+  KT: "KT 위즈",
+  SK: "SSG 랜더스",
+  LG: "LG 트윈스",
+  OB: "두산 베어스",
+  SS: "삼성 라이온즈",
+  HT: "KIA 타이거즈",
+  LT: "롯데 자이언츠",
+  NC: "NC 다이노스",
+  WO: "키움 히어로즈",
+  HH: "한화 이글스",
+};
+
 // Firestore 문서 샘플 로그는 함수 인스턴스당 1회만 출력
 let __didLogBoxSamples = false;
 
@@ -85,6 +99,21 @@ function pickStr(obj, keys) {
   return "";
 }
 
+/**
+ * game_id 예: "20260425KTSK0" → YYYYMMDD(8) + 홈코드(2) + 원정코드(2) + …
+ * side가 home이면 인덱스 8~9, away이면 10~11 (0-based)의 2글자 코드 사용.
+ */
+function teamCodeFromGameIdAndSide(gameId, sideRaw) {
+  const s = String(gameId ?? "").trim();
+  const side = String(sideRaw ?? "").trim().toLowerCase();
+  if (s.length < 12) return "";
+  const homeCode = s.slice(8, 10);
+  const awayCode = s.slice(10, 12);
+  if (side === "home") return homeCode;
+  if (side === "away") return awayCode;
+  return "";
+}
+
 function pickTeamName(row) {
   const t =
     pickStr(row, [
@@ -114,8 +143,11 @@ function pickTeamName(row) {
     "";
   // UI에서 "(—)" 같은 표시가 나오지 않도록 서버 응답에서는 대시 플레이스홀더를 제거한다.
   const cleaned = String(t || "").trim();
-  if (!cleaned || cleaned === "—") return "";
-  return cleaned.slice(0, 18);
+  if (cleaned && cleaned !== "—") return cleaned.slice(0, 36);
+
+  const code = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+  const mapped = code ? TEAM_MAP[code] || code : "";
+  return mapped ? String(mapped).trim().slice(0, 36) : "";
 }
 
 function pickPlayerName(row) {
