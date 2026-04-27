@@ -51,7 +51,7 @@ body {
 .layout {
   display: flex;
   gap: 18px;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .sidebar {
@@ -62,8 +62,9 @@ body {
   border-radius: var(--radius);
   padding: 16px 14px;
   position: sticky;
-  top: 18px;
-  height: fit-content;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .side-head {
@@ -136,13 +137,16 @@ body {
   flex: 1;
   min-width: 0;
   background: #ffffff;
-  color: #1a1a2e;
+  color: #1a1a2e !important;
   border-radius: var(--radius);
   border: 1px solid rgba(0, 0, 0, 0.08);
+  min-height: 100vh;
+  overflow: visible;
 }
 
 .results-inner {
   padding: 20px 18px 18px;
+  color: #1a1a2e !important;
 }
 
 .results .card {
@@ -160,6 +164,19 @@ body {
   color: rgba(26, 26, 46, 0.68);
 }
 
+.results :where(h1, h2, h3, h4, p, span, td, th, li) {
+  color: #1a1a2e;
+}
+
+.results :where(table) {
+  color: #1a1a2e;
+  border-color: #ddd;
+}
+
+.results :where(td, th) {
+  border-color: #ddd;
+}
+
 .results input,
 .results textarea,
 .results select {
@@ -169,7 +186,11 @@ body {
 }
 
 .results .md {
-  color: #1a1a2e;
+  color: #1a1a2e !important;
+}
+
+.results .md :where(*){
+  color: inherit;
 }
 
 .results .md :where(code) {
@@ -178,6 +199,11 @@ body {
 }
 
 .results .mono {
+  color: #1a1a2e;
+}
+
+.results .section.soft {
+  background: #f0f0f0;
   color: #1a1a2e;
 }
 
