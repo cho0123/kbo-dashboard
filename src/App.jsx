@@ -100,6 +100,8 @@ export default function App() {
     data: null,
     error: null,
   });
+  const [pvAiBusy, setPvAiBusy] = useState(false);
+  const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
 
   const [prPlayer, setPrPlayer] = useState("");
   const [prStart, setPrStart] = useState("2026-03-01");
@@ -329,6 +331,7 @@ export default function App() {
                 disabled={pvBusy}
                 onClick={async () => {
                   setPvBusy(true);
+                  setPvAiOut({ text: "", error: null });
                   try {
                     const res = await postKbo({
                       action: "pv_batter_stats",
@@ -421,6 +424,43 @@ export default function App() {
                           미만 또는 AB 10 미만)
                         </p>
                       )}
+
+                      <div className="pv-ai">
+                        <button
+                          type="button"
+                          className="pv-ai-btn"
+                          disabled={pvAiBusy || pvBusy}
+                          onClick={async () => {
+                            setPvAiBusy(true);
+                            setPvAiOut({ text: "", error: null });
+                            try {
+                              const r = await postKbo({
+                                action: "pv_batter",
+                                pitcher: pvP,
+                                batter: pvB,
+                              });
+                              setPvAiOut({ text: r.text ?? "", error: null });
+                            } catch (e) {
+                              setPvAiOut({
+                                text: "",
+                                error: e?.message || String(e),
+                              });
+                            } finally {
+                              setPvAiBusy(false);
+                            }
+                          }}
+                        >
+                          {pvAiBusy ? "생성 중…" : "🤖 AI 서술 분석 보기"}
+                        </button>
+                      </div>
+
+                      {pvAiOut.error ? (
+                        <pre className="mono result-error">{pvAiOut.error}</pre>
+                      ) : pvAiOut.text ? (
+                        <div className="pv-ai-out">
+                          <MarkdownView text={pvAiOut.text} />
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })()

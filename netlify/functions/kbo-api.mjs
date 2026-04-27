@@ -438,17 +438,12 @@ async function pitcherBatterOverlap(db, batterName, pitcherName) {
   const bg = new Set(bb.map((r) => String(r.game_id)));
   const pg = new Set(pp.map((r) => String(r.game_id)));
   const common = [...bg].filter((g) => pg.has(g));
-  const gamesMeta = [];
-  const allGames = await fetchAllGames(db);
-  const byGid = Object.fromEntries(allGames.map((g) => [String(g.game_id), g]));
-  for (const gid of common.slice(-30)) {
-    gamesMeta.push(byGid[gid] || { game_id: gid });
-  }
-  const batLines = bb.filter((r) => common.includes(String(r.game_id)));
-  const pitLines = pp.filter((r) => common.includes(String(r.game_id)));
+  // 상대전적 서술형에서 allGames 전체 스캔은 타임아웃의 주요 원인이라 제거합니다.
+  // 필요한 경우 shared_game_ids 만으로도 충분히 맥락을 만들 수 있습니다.
+  const batLines = bb.filter((r) => common.includes(String(r.game_id))).slice(-120);
+  const pitLines = pp.filter((r) => common.includes(String(r.game_id))).slice(-120);
   return {
     shared_game_ids: common,
-    games: gamesMeta,
     batter_lines: batLines,
     pitcher_lines: pitLines,
   };
@@ -742,8 +737,10 @@ export const handler = async (event) => {
 
     const sys =
       "You are a KBO analytics assistant. Use only the JSON context provided; if data is missing, say so clearly. Respond in Korean unless asked otherwise.";
-    const ctxCap = action === "team_week" ? 80000 : 190000;
-    const claudeOut = action === "team_week" ? 1200 : 2048;
+    const ctxCap =
+      action === "team_week" ? 80000 : action === "pv_batter" ? 70000 : 190000;
+    const claudeOut =
+      action === "team_week" ? 1200 : action === "pv_batter" ? 500 : 2048;
     const text = await claude(
       sys,
       `컨텍스트(JSON):\n${JSON.stringify(context).slice(0, ctxCap)}\n\n요청:\n${userQ}`,

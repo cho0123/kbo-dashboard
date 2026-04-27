@@ -301,6 +301,37 @@ button.primary:disabled {
   margin-top: 10px;
 }
 
+.pv-ai {
+  margin-top: 12px;
+}
+
+.pv-ai-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  font-family: inherit;
+}
+
+.pv-ai-btn:hover {
+  border-color: rgba(62, 224, 169, 0.38);
+}
+
+.pv-ai-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pv-ai-out {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
 .result-head {
   display: flex;
   justify-content: space-between;
