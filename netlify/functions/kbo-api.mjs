@@ -295,7 +295,19 @@ async function fetchBoxForGames(db, gameIds) {
       snap.forEach((d) => {
         if (!seen.has(d.id)) {
           seen.add(d.id);
-          rows.push({ id: d.id, ...docSnap(d) });
+          const row = { id: d.id, ...docSnap(d) };
+          rows.push(row);
+          if (collName === "batters") {
+            const doc = row;
+            console.log("BATTER_RBI_CHECK:", {
+              player: doc.player,
+              game_id: doc.game_id,
+              hr: doc.hr,
+              rbi: doc.rbi,
+              h: doc.h,
+              ab: doc.ab,
+            });
+          }
         }
       });
     }
