@@ -210,6 +210,8 @@ body {
 
 .results .md {
   color: #1a1a2e !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .results .md :where(*){
@@ -223,6 +225,14 @@ body {
 
 .results .mono {
   color: #1a1a2e;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Claude 선정 이유(마크다운) 내부 코드블록도 잘리지 않게 */
+.results .md pre {
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 .results .section.soft {
