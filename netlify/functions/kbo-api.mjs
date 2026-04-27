@@ -100,8 +100,10 @@ function pickStr(obj, keys) {
 }
 
 /**
- * game_id 예: "20260425KTSK0" → YYYYMMDD(8) + 홈코드(2) + 원정코드(2) + …
- * side가 home이면 인덱스 8~9, away이면 10~11 (0-based)의 2글자 코드 사용.
+ * game_id 예: "20260410NCSM0" → YYYYMMDD(8) + 홈코드(2) + 원정코드(2) + …
+ * Firestore의 side는 경기 장소가 아니라 타자/투수 레코드 기준 구분 등으로 들어오는 경우가 있어,
+ * 검증 단계에서는 home↔코드 매핑을 반대로 시험 중이다.
+ * (기대: side home → 원정팀 코드, side away → 홈팀 코드)
  */
 function teamCodeFromGameIdAndSide(gameId, sideRaw) {
   const s = String(gameId ?? "").trim();
@@ -109,8 +111,8 @@ function teamCodeFromGameIdAndSide(gameId, sideRaw) {
   if (s.length < 12) return "";
   const homeCode = s.slice(8, 10);
   const awayCode = s.slice(10, 12);
-  if (side === "home") return homeCode;
-  if (side === "away") return awayCode;
+  if (side === "home") return awayCode;
+  if (side === "away") return homeCode;
   return "";
 }
 
@@ -147,7 +149,14 @@ function pickTeamName(row) {
 
   const code = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
   const mapped = code ? TEAM_MAP[code] || code : "";
-  return mapped ? String(mapped).trim().slice(0, 36) : "";
+  const derivedTeam = mapped ? String(mapped).trim().slice(0, 36) : "";
+  console.log("TEAM_CHECK:", {
+    player: row?.player,
+    game_id: row?.game_id,
+    side: row?.side,
+    derivedTeam,
+  });
+  return derivedTeam;
 }
 
 function pickPlayerName(row) {
