@@ -70,6 +70,10 @@ function docSnap(d) {
   return v && typeof v === "object" ? { ...v } : {};
 }
 
+function isoSeoulToday() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
+
 async function fetchGamesByDate(db, dateStr) {
   const snap = await db
     .collection("games")
@@ -136,6 +140,127 @@ async function fetchAllGames(db, max = 2500) {
 
 function teamMatches(teamField, kw) {
   return kw && String(teamField || "").includes(kw.trim());
+}
+
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pickNum(obj, keys) {
+  for (const k of keys) {
+    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
+      const n = Number(obj[k]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+
+function normalizeGameId(x) {
+  if (x == null) return "";
+  const s = String(x).trim();
+  return s;
+}
+
+function safeIsoDate(x) {
+  const s = String(x || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+async function queryPlayerByRange(db, collection, player, start, end, max = 1800) {
+  const p = String(player || "").trim();
+  const s = safeIsoDate(start);
+  const e = safeIsoDate(end);
+  if (!p) return [];
+  try {
+    // Requires composite index: (player, game_date)
+    let q = db.collection(collection).where("player", "==", p);
+    if (s) q = q.where("game_date", ">=", s);
+    if (e) q = q.where("game_date", "<=", e);
+    if (s || e) q = q.orderBy("game_date", "asc");
+    q = q.limit(max);
+    const snap = await q.get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows;
+  } catch (err) {
+    console.warn(`[pv_batter_stats] range query failed (${collection}):`, err?.message || err);
+    // Fallback: player-only scan (still bounded)
+    const snap = await db
+      .collection(collection)
+      .where("player", "==", p)
+      .limit(max)
+      .get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    if (!s && !e) return rows;
+    return rows.filter((r) => {
+      const gd = safeIsoDate(r.game_date);
+      if (!gd) return false;
+      if (s && gd < s) return false;
+      if (e && gd > e) return false;
+      return true;
+    });
+  }
+}
+
+function summarizeMatchupFromBatterLines(batterLines) {
+  const totals = {
+    games: 0,
+    pa: 0,
+    ab: 0,
+    h: 0,
+    hr: 0,
+    bb: 0,
+    so: 0,
+  };
+  const gameIds = new Set();
+  for (const r of batterLines) {
+    const gid = normalizeGameId(r.game_id);
+    if (gid) gameIds.add(gid);
+    totals.pa += pickNum(r, ["pa", "PA", "plate_appearances", "plateAppearances"]);
+    totals.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "at_bat"]);
+    totals.h += pickNum(r, ["h", "H", "hits"]);
+    totals.hr += pickNum(r, ["hr", "HR", "home_run", "homeRuns", "home_runs"]);
+    totals.bb += pickNum(r, ["bb", "BB", "walks", "base_on_balls", "bases_on_balls"]);
+    totals.so += pickNum(r, ["so", "SO", "k", "K", "strikeouts", "strikeout"]);
+  }
+  totals.games = gameIds.size;
+  const avg = totals.ab > 0 ? totals.h / totals.ab : 0;
+  const fmtAvg = totals.ab > 0 ? avg.toFixed(3) : "—";
+  const pa = totals.pa || (totals.ab + totals.bb);
+  return {
+    ...totals,
+    pa,
+    avg: fmtAvg,
+  };
+}
+
+function isInsufficient(stat) {
+  return (stat?.games ?? 0) < 3 || (stat?.ab ?? 0) < 10;
+}
+
+async function pvBatterStats(db, pitcher, batter, start, end) {
+  const [bats, pits] = await Promise.all([
+    queryPlayerByRange(db, "batters", batter, start, end, 1800),
+    queryPlayerByRange(db, "pitchers", pitcher, start, end, 1200),
+  ]);
+  const bg = new Set(bats.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const pg = new Set(pits.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const common = [...bg].filter((g) => pg.has(g));
+  const batLines = bats.filter((r) => pg.has(normalizeGameId(r.game_id)));
+  const pitLines = pits.filter((r) => bg.has(normalizeGameId(r.game_id)));
+  const stat = summarizeMatchupFromBatterLines(batLines);
+  return {
+    pitcher,
+    batter,
+    shared_game_ids: common,
+    batter_lines: batLines,
+    pitcher_lines: pitLines,
+    stat,
+    insufficient: isInsufficient(stat),
+  };
 }
 
 function gamesForTeamWindow(allGames, teamKw, days = 7) {
@@ -384,7 +509,7 @@ export const handler = async (event) => {
       case "today_mvp": {
         const dateStr =
           payload.date ||
-          new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+          isoSeoulToday();
         const games = await fetchGamesByDate(db, dateStr);
         const gids = games
           .map((g) => g.game_id)
@@ -426,6 +551,51 @@ export const handler = async (event) => {
           payload.question ||
           `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)`;
         break;
+      }
+      case "pv_batter_stats": {
+        const pitcher = String(payload.pitcher || "").trim();
+        const batter = String(payload.batter || "").trim();
+        if (!pitcher || !batter) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ error: "Missing pitcher or batter" }),
+          };
+        }
+        const end = safeIsoDate(payload.end) || isoSeoulToday();
+        const overallStart = safeIsoDate(payload.overallStart) || "2024-01-01";
+        const yearStart = safeIsoDate(payload.yearStart) || "2026-01-01";
+
+        const [overall, year] = await Promise.all([
+          pvBatterStats(db, pitcher, batter, overallStart, end),
+          pvBatterStats(db, pitcher, batter, yearStart, end),
+        ]);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            pitcher,
+            batter,
+            end,
+            overallStart,
+            yearStart,
+            overall: overall.stat,
+            year: year.stat,
+            insufficient: {
+              overall: overall.insufficient,
+              year: year.insufficient,
+            },
+            counts: {
+              overallSharedGames: overall.shared_game_ids.length,
+              yearSharedGames: year.shared_game_ids.length,
+              overallBatterLines: overall.batter_lines.length,
+              yearBatterLines: year.batter_lines.length,
+            },
+          }),
+        };
       }
       case "player_range": {
         const player = payload.player || "";
@@ -508,7 +678,7 @@ export const handler = async (event) => {
       case "shorts_highlight": {
         const dateStr =
           payload.date ||
-          new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+          isoSeoulToday();
         const games = await fetchGamesByDate(db, dateStr);
         const gids = games
           .map((g) => g.game_id)

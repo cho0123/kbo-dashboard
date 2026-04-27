@@ -212,6 +212,95 @@ button.primary:disabled {
   border-top: 1px solid var(--border);
 }
 
+.pv-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pv-vs {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mini-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.mini-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 0.84rem;
+}
+
+.mini-tab.active {
+  background: var(--accent-dim);
+  border-color: rgba(62, 224, 169, 0.38);
+  color: var(--text);
+}
+
+.pv-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.pv-warn {
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.pv-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pv-table th,
+.pv-table td {
+  border: 1px solid var(--border);
+  padding: 9px 10px;
+  vertical-align: top;
+}
+
+.pv-table th {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  color: #eef2fb;
+  font-weight: 800;
+  width: 52%;
+}
+
+.pv-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pv-hint {
+  margin-top: 10px;
+}
+
 .result-head {
   display: flex;
   justify-content: space-between;

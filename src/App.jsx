@@ -94,9 +94,10 @@ export default function App() {
 
   const [pvP, setPvP] = useState("");
   const [pvB, setPvB] = useState("");
-  const [pvOut, setPvOut] = useState({
-    text: "",
-    summary: null,
+  const [pvTab, setPvTab] = useState("all"); // all | year
+  const [pvBusy, setPvBusy] = useState(false);
+  const [pvStats, setPvStats] = useState({
+    data: null,
     error: null,
   });
 
@@ -298,29 +299,135 @@ export default function App() {
                 <input value={pvB} onChange={(e) => setPvB(e.target.value)} />
               </div>
             </div>
+            <div className="pv-title">
+              <span className="mono">{pvP || "투수"}</span>
+              <span className="pv-vs">vs</span>
+              <span className="mono">{pvB || "타자"}</span>
+            </div>
+
+            <div className="mini-tabs" role="tablist" aria-label="기간 선택">
+              <button
+                type="button"
+                className={`mini-tab ${pvTab === "all" ? "active" : ""}`}
+                onClick={() => setPvTab("all")}
+              >
+                전체 (2024~현재)
+              </button>
+              <button
+                type="button"
+                className={`mini-tab ${pvTab === "year" ? "active" : ""}`}
+                onClick={() => setPvTab("year")}
+              >
+                올해 (2026)
+              </button>
+            </div>
+
             <div className="actions">
               <button
                 type="button"
                 className="primary"
-                disabled={pending("pv_batter_3")}
-                onClick={() =>
-                  runWith(
-                    "pv_batter",
-                    { pitcher: pvP, batter: pvB },
-                    "3",
-                    setPvOut
-                  )
-                }
+                disabled={pvBusy}
+                onClick={async () => {
+                  setPvBusy(true);
+                  try {
+                    const res = await postKbo({
+                      action: "pv_batter_stats",
+                      pitcher: pvP,
+                      batter: pvB,
+                      overallStart: "2024-01-01",
+                      yearStart: "2026-01-01",
+                    });
+                    setPvStats({ data: res, error: null });
+                  } catch (e) {
+                    setPvStats({ data: null, error: e?.message || String(e) });
+                  } finally {
+                    setPvBusy(false);
+                  }
+                }}
               >
                 상대 전적 분석
               </button>
             </div>
-            <ResultBlock
-              summary={pvOut.summary}
-              text={pvOut.text}
-              error={pvOut.error}
-              pending={pending("pv_batter_3")}
-            />
+            <div className="result">
+              <div className="result-head">
+                <span>
+                  {pvBusy
+                    ? "생성 중…"
+                    : pvStats.error
+                      ? "오류"
+                      : "결과"}
+                </span>
+                {pvStats.data?.counts && !pvStats.error && (
+                  <span className="mono">
+                    {pvTab === "all"
+                      ? `games=${pvStats.data.overall?.games ?? 0}`
+                      : `games=${pvStats.data.year?.games ?? 0}`}
+                  </span>
+                )}
+              </div>
+
+              {pvStats.error ? (
+                <pre className="mono result-error">{pvStats.error}</pre>
+              ) : pvStats.data ? (
+                (() => {
+                  const d = pvStats.data;
+                  const isAll = pvTab === "all";
+                  const s = isAll ? d.overall : d.year;
+                  const insufficient = isAll
+                    ? d.insufficient?.overall
+                    : d.insufficient?.year;
+                  return (
+                    <div className="pv-metrics">
+                      <div className="pv-meta">
+                        <span className="mono">
+                          기간:{" "}
+                          {isAll ? d.overallStart : d.yearStart} ~ {d.end}
+                        </span>
+                        {insufficient && (
+                          <span className="pv-warn">데이터 부족</span>
+                        )}
+                      </div>
+                      <table className="pv-table">
+                        <tbody>
+                          <tr>
+                            <th>대결(동일 경기) 횟수</th>
+                            <td>{s?.games ?? 0}</td>
+                          </tr>
+                          <tr>
+                            <th>타율</th>
+                            <td>{s?.avg ?? "—"}</td>
+                          </tr>
+                          <tr>
+                            <th>AB / H</th>
+                            <td>
+                              {s?.ab ?? 0} / {s?.h ?? 0}
+                            </td>
+                          </tr>
+                          <tr>
+                            <th>HR / BB / SO</th>
+                            <td>
+                              {s?.hr ?? 0} / {s?.bb ?? 0} / {s?.so ?? 0}
+                            </td>
+                          </tr>
+                          <tr>
+                            <th>PA (가능시)</th>
+                            <td>{s?.pa ?? 0}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {insufficient && (
+                        <p className="hint pv-hint">
+                          표본이 적어서 해석이 불안정할 수 있어요. (기준: 3경기
+                          미만 또는 AB 10 미만)
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="md">—</div>
+              )}
+            </div>
           </article>
 
           <article className="card">
