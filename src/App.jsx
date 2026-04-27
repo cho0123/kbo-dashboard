@@ -91,6 +91,13 @@ function extractKoreanBattingLine(md) {
   };
 }
 
+function nameWithTeam(name, team) {
+  const n = String(name || "").trim();
+  const t = String(team || "").trim();
+  if (!t || t === "—") return n || "—";
+  return `${n || "—"} (${t})`;
+}
+
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
   const { busy, runWith } = useAnalyzer();
@@ -544,20 +551,14 @@ export default function App() {
                           <div className="best-card">
                             <div className="best-head">🥎 베스트 투수</div>
                             <div className="best-name">
-                              {pitch?.name || "—"}{" "}
-                              <span className="best-team">
-                                {pitch?.team ? `(${pitch.team})` : ""}
-                              </span>
+                              {nameWithTeam(pitch?.name, pitch?.team)}
                             </div>
                             <div className="best-sub">{pitch?.key_stats || "—"}</div>
                           </div>
                           <div className="best-card">
                             <div className="best-head">⚾ 베스트 타자</div>
                             <div className="best-name">
-                              {bat?.name || "—"}{" "}
-                              <span className="best-team">
-                                {bat?.team ? `(${bat.team})` : ""}
-                              </span>
+                              {nameWithTeam(bat?.name, bat?.team)}
                             </div>
                             <div className="best-sub">{bat?.key_stats || "—"}</div>
                           </div>
@@ -580,13 +581,13 @@ export default function App() {
                                   <div className="game-line">
                                     <b>투수MVP</b>:{" "}
                                     {g.pitcher_mvp
-                                      ? `${g.pitcher_mvp.name} (${g.pitcher_mvp.team}) — ${g.pitcher_mvp.key_stats}`
+                                      ? `${nameWithTeam(g.pitcher_mvp.name, g.pitcher_mvp.team)} — ${g.pitcher_mvp.key_stats}`
                                       : "—"}
                                   </div>
                                   <div className="game-line">
                                     <b>타자MVP</b>:{" "}
                                     {g.batter_mvp
-                                      ? `${g.batter_mvp.name} (${g.batter_mvp.team}) — ${g.batter_mvp.key_stats}`
+                                      ? `${nameWithTeam(g.batter_mvp.name, g.batter_mvp.team)} — ${g.batter_mvp.key_stats}`
                                       : "—"}
                                   </div>
                                 </div>

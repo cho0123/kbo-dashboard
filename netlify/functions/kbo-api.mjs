@@ -83,9 +83,26 @@ function pickStr(obj, keys) {
 }
 
 function pickTeamName(row) {
-  return (
-    pickStr(row, ["team", "team_name", "club", "teamName", "TEAM"]) || "—"
-  ).slice(0, 18);
+  const t =
+    pickStr(row, [
+      "team",
+      "team_name",
+      "teamName",
+      "team_nm",
+      "club",
+      "club_name",
+      "clubName",
+      "TEAM",
+      "team_kr",
+      "teamKR",
+      "team_kor",
+      "teamKor",
+    ]) ||
+    // nested 형태 대응 (예: { team: { name: "LG" } })
+    pickStr(row?.team, ["name", "team_name", "teamName"]) ||
+    pickStr(row?.club, ["name", "club_name", "clubName"]) ||
+    "";
+  return (t || "").slice(0, 18);
 }
 
 function pickPlayerName(row) {
@@ -109,9 +126,46 @@ function scorePitcher(row) {
   return ip * 10 + k * 1 - runs * 20;
 }
 
+function formatInnings(raw) {
+  if (raw == null) return "";
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return "";
+    // 이미 야구식 표기라면 그대로 사용 (예: "5.2", "6.1")
+    if (/^\d+(\.\d)?$/.test(s)) {
+      const parts = s.split(".");
+      if (parts.length === 2 && (parts[1] === "1" || parts[1] === "2")) return s;
+    }
+    // "5 2/3" 같은 형태
+    const m = s.match(/^(\d+)\s+(\d)\/3$/);
+    if (m) {
+      const full = Number(m[1]);
+      const frac = Number(m[2]);
+      if (frac === 1) return `${full}.1`;
+      if (frac === 2) return `${full}.2`;
+      return `${full}`;
+    }
+    const n = Number(s);
+    if (!Number.isFinite(n)) return s;
+    raw = n;
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "";
+  const full = Math.floor(n);
+  const frac = n - full;
+  // 1/3, 2/3 근처 값 허용
+  if (frac < 0.12) return `${full}`;
+  if (frac < 0.5) return `${full}.1`;
+  return `${full}.2`;
+}
+
 function formatPitcherKeyStats(row) {
   const ipRaw = row?.ip ?? row?.IP ?? row?.inn ?? row?.innings;
-  const ip = ipRaw != null && String(ipRaw).trim() !== "" ? String(ipRaw).trim() : String(pickNum(row, ["ip", "IP", "inn", "innings"]) || 0);
+  const ipVal =
+    ipRaw != null && String(ipRaw).trim() !== ""
+      ? ipRaw
+      : pickNum(row, ["ip", "IP", "inn", "innings"]) || 0;
+  const ip = formatInnings(ipVal) || "0";
   const runs = pickNum(row, ["er", "ER", "earned_runs", "r", "R", "runs"]);
   const k = pickNum(row, ["so", "SO", "k", "K", "strikeouts"]);
   return `${ip}이닝 ${runs}실점 ${k}K`;
@@ -361,10 +415,7 @@ function pickOpponentTeam(bat, pit) {
 function formatPitcherGameLine(p) {
   if (!p || typeof p !== "object") return "기록 없음";
   const ipRaw = p.ip ?? p.IP ?? p.inn ?? p.innings ?? p.innings_pitched;
-  const ipStr =
-    ipRaw != null && String(ipRaw).trim() !== ""
-      ? String(ipRaw).trim()
-      : "";
+  const ipStr = formatInnings(ipRaw);
   const runs = pickNum(p, [
     "er",
     "ER",
@@ -380,7 +431,8 @@ function formatPitcherGameLine(p) {
   if (ipStr) parts.push(`${ipStr}이닝`);
   else {
     const ipn = pickNum(p, ["ip", "IP", "inn", "innings"]);
-    if (ipn > 0) parts.push(`${ipn}이닝`);
+    const ipnStr = formatInnings(ipn);
+    if (ipnStr) parts.push(`${ipnStr}이닝`);
   }
   parts.push(`${runs}실점`);
   parts.push(`${hAllowed}피안타`);
