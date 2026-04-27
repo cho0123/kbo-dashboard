@@ -12,8 +12,20 @@ function initFirebase() {
       "Set FIREBASE_SERVICE_ACCOUNT_JSON (full service account JSON string)"
     );
   }
-  const cred =
-    typeof raw === "string" ? JSON.parse(raw) : raw;
+  let cred;
+  try {
+    if (typeof raw === "string") {
+      const s = raw.trim();
+      if (!s) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is empty");
+      cred = JSON.parse(s);
+    } else {
+      cred = raw;
+    }
+  } catch (e) {
+    throw new Error(
+      `FIREBASE_SERVICE_ACCOUNT_JSON 파싱 실패(한 줄 JSON인지 확인): ${e?.message || e}`
+    );
+  }
   if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(cred),
@@ -37,7 +49,7 @@ async function claude(system, user) {
   const client = new Anthropic({ apiKey: key });
   const msg = await client.messages.create({
     model: MODEL,
-    max_tokens: 4096,
+    max_tokens: 2048,
     system: system,
     messages: [{ role: "user", content: user }],
   });
@@ -68,14 +80,49 @@ async function fetchGamesByDate(db, dateStr) {
   return rows;
 }
 
+function variantsForGameId(gid) {
+  const out = new Set();
+  if (gid == null || gid === "") return [];
+  out.add(gid);
+  if (typeof gid === "string") {
+    const t = gid.trim();
+    if (t !== "") {
+      out.add(t);
+      if (/^-?\d+$/.test(t)) {
+        const n = Number(t);
+        if (!Number.isNaN(n)) out.add(n);
+      }
+    }
+  } else if (typeof gid === "number" && !Number.isNaN(gid)) {
+    out.add(String(gid));
+  }
+  return [...out];
+}
+
 async function fetchBoxForGames(db, gameIds) {
   const batters = [];
   const pitchers = [];
+  const seenB = new Set();
+  const seenP = new Set();
+
+  async function mergeCollection(collName, rows, seen, gid) {
+    for (const v of variantsForGameId(gid)) {
+      const snap = await db
+        .collection(collName)
+        .where("game_id", "==", v)
+        .get();
+      snap.forEach((d) => {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          rows.push({ id: d.id, ...docSnap(d) });
+        }
+      });
+    }
+  }
+
   for (const gid of gameIds) {
-    const b = await db.collection("batters").where("game_id", "==", gid).get();
-    b.forEach((d) => batters.push({ id: d.id, ...docSnap(d) }));
-    const p = await db.collection("pitchers").where("game_id", "==", gid).get();
-    p.forEach((d) => pitchers.push({ id: d.id, ...docSnap(d) }));
+    await mergeCollection("batters", batters, seenB, gid);
+    await mergeCollection("pitchers", pitchers, seenP, gid);
   }
   return { batters, pitchers };
 }
@@ -213,7 +260,9 @@ export const handler = async (event) => {
           payload.date ||
           new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
         const games = await fetchGamesByDate(db, dateStr);
-        const gids = games.map((g) => String(g.game_id)).filter(Boolean);
+        const gids = games
+          .map((g) => g.game_id)
+          .filter((x) => x != null && x !== "");
         const box = await fetchBoxForGames(db, gids);
         context = {
           date: dateStr,
@@ -330,7 +379,9 @@ export const handler = async (event) => {
           payload.date ||
           new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
         const games = await fetchGamesByDate(db, dateStr);
-        const gids = games.map((g) => String(g.game_id)).filter(Boolean);
+        const gids = games
+          .map((g) => g.game_id)
+          .filter((x) => x != null && x !== "");
         const box = await fetchBoxForGames(db, gids);
         context = { date: dateStr, games, ...box };
         userQ =
@@ -340,11 +391,24 @@ export const handler = async (event) => {
       case "shorts_pitcher_week": {
         const all = await fetchAllGames(db);
         const weekGames = gamesForTeamWindow(all, "", 7);
-        const gameIds = weekGames.map((g) => String(g.game_id)).filter(Boolean);
+        const gameIds = weekGames
+          .map((g) => g.game_id)
+          .filter((x) => x != null && x !== "");
         const pitRows = [];
+        const seen = new Set();
         for (const gid of gameIds.slice(0, 120)) {
-          const p = await db.collection("pitchers").where("game_id", "==", gid).get();
-          p.forEach((d) => pitRows.push(docSnap(d)));
+          for (const v of variantsForGameId(gid)) {
+            const p = await db
+              .collection("pitchers")
+              .where("game_id", "==", v)
+              .get();
+            p.forEach((d) => {
+              if (!seen.has(d.id)) {
+                seen.add(d.id);
+                pitRows.push(docSnap(d));
+              }
+            });
+          }
         }
         context = { pitcher_rows_sample: pitRows.slice(0, 400) };
         userQ =

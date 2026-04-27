@@ -1,76 +1,144 @@
 import { useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 
+/** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
+const KBO_TEAMS = [
+  { label: "삼성 라이온즈", keyword: "삼성" },
+  { label: "KIA 타이거즈", keyword: "KIA" },
+  { label: "LG 트윈스", keyword: "LG" },
+  { label: "두산 베어스", keyword: "두산" },
+  { label: "KT 위즈", keyword: "KT" },
+  { label: "SSG 랜더스", keyword: "SSG" },
+  { label: "롯데 자이언츠", keyword: "롯데" },
+  { label: "한화 이글스", keyword: "한화" },
+  { label: "NC 다이노스", keyword: "NC" },
+  { label: "키움 히어로즈", keyword: "키움" },
+];
+
 function useAnalyzer() {
   const [busy, setBusy] = useState(null);
-  const run = async (action, payload, slot) => {
+  const runWith = async (action, payload, slot, setOut) => {
     const id = `${action}_${slot}`;
     setBusy(id);
     try {
       const res = await postKbo({ action, ...payload });
-      return res;
+      setOut({
+        text: res.text ?? "",
+        summary: res.contextSummary ?? null,
+        error: null,
+      });
+    } catch (e) {
+      setOut({
+        text: "",
+        summary: null,
+        error: e?.message || String(e),
+      });
     } finally {
       setBusy((b) => (b === id ? null : b));
     }
   };
-  return { busy, run };
+  return { busy, runWith };
 }
 
-function ResultBlock({ summary, text, pending }) {
+function ResultBlock({ summary, text, pending, error }) {
   return (
     <div className="result">
       <div className="result-head">
-        <span>{pending ? "생성 중…" : "결과"}</span>
-        {summary && (
+        <span>{pending ? "생성 중…" : error ? "오류" : "결과"}</span>
+        {summary && !error && (
           <span className="mono">{JSON.stringify(summary)}</span>
         )}
       </div>
-      <pre className="mono">{text || "—"}</pre>
+      {error ? (
+        <pre className="mono result-error">{error}</pre>
+      ) : (
+        <pre className="mono">{text || "—"}</pre>
+      )}
     </div>
   );
 }
 
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
-  const { busy, run } = useAnalyzer();
+  const { busy, runWith } = useAnalyzer();
 
   const [tab, setTab] = useState("analysis");
 
   /* --- Analysis --- */
   const [mvpDate, setMvpDate] = useState(today);
-  const [mvpOut, setMvpOut] = useState({ text: "", summary: null });
+  const [mvpOut, setMvpOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const [teamKw, setTeamKw] = useState("LG");
   const [teamDays, setTeamDays] = useState("7");
-  const [teamOut, setTeamOut] = useState({ text: "", summary: null });
+  const [teamOut, setTeamOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const [pvP, setPvP] = useState("");
   const [pvB, setPvB] = useState("");
-  const [pvOut, setPvOut] = useState({ text: "", summary: null });
+  const [pvOut, setPvOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const [prPlayer, setPrPlayer] = useState("");
   const [prStart, setPrStart] = useState("2026-03-01");
   const [prEnd, setPrEnd] = useState("2026-03-31");
-  const [prOut, setPrOut] = useState({ text: "", summary: null });
+  const [prOut, setPrOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const [spa, setSpa] = useState("");
   const [spb, setSpb] = useState("");
-  const [spOut, setSpOut] = useState({ text: "", summary: null });
+  const [spOut, setSpOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   /* Predict */
   const [suPit, setSuPit] = useState("");
   const [suOpp, setSuOpp] = useState("");
-  const [suOut, setSuOut] = useState({ text: "", summary: null });
+  const [suOut, setSuOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const [pta, setPta] = useState("LG");
   const [ptb, setPtb] = useState("KT");
-  const [predOut, setPredOut] = useState({ text: "", summary: null });
+  const [predOut, setPredOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   /* Shorts */
   const [shDate, setShDate] = useState(today);
-  const [hlOut, setHlOut] = useState({ text: "", summary: null });
-  const [wkOut, setWkOut] = useState({ text: "", summary: null });
-  const [worstOut, setWorstOut] = useState({ text: "", summary: null });
+  const [hlOut, setHlOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
+  const [wkOut, setWkOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
+  const [worstOut, setWorstOut] = useState({
+    text: "",
+    summary: null,
+    error: null,
+  });
 
   const pending = (key) => busy === key;
 
@@ -130,17 +198,9 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("today_mvp_1")}
-                onClick={async () => {
-                  const r = await run(
-                    "today_mvp",
-                    { date: mvpDate },
-                    "1"
-                  );
-                  setMvpOut({
-                    text: r.text,
-                    summary: r.contextSummary,
-                  });
-                }}
+                onClick={() =>
+                  runWith("today_mvp", { date: mvpDate }, "1", setMvpOut)
+                }
               >
                 MVP 분석 생성
               </button>
@@ -148,6 +208,7 @@ export default function App() {
             <ResultBlock
               summary={mvpOut.summary}
               text={mvpOut.text}
+              error={mvpOut.error}
               pending={pending("today_mvp_1")}
             />
           </article>
@@ -155,16 +216,23 @@ export default function App() {
           <article className="card">
             <h3>2. 팀별 주간 성적 트렌드</h3>
             <p className="hint">
-              최근 경기일 기준으로 되돌아가며 팀명 부분 일치로 필터합니다.
+              최근 경기일 기준으로 되돌아가며, 선택한 팀이 홈·원정 팀명에 포함되는
+              경기만 모아 분석합니다.
             </p>
             <div className="row two">
               <div>
-                <label>팀 키워드</label>
-                <input
+                <label htmlFor="team-week-team">팀</label>
+                <select
+                  id="team-week-team"
                   value={teamKw}
                   onChange={(e) => setTeamKw(e.target.value)}
-                  placeholder="예: LG, 롯데"
-                />
+                >
+                  {KBO_TEAMS.map(({ label, keyword }) => (
+                    <option key={keyword} value={keyword}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label>일수</label>
@@ -180,17 +248,17 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("team_week_2")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "team_week",
                     {
                       teamKeyword: teamKw,
                       days: Number(teamDays) || 7,
                     },
-                    "2"
-                  );
-                  setTeamOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "2",
+                    setTeamOut
+                  )
+                }
               >
                 주간 트렌드 분석
               </button>
@@ -198,6 +266,7 @@ export default function App() {
             <ResultBlock
               summary={teamOut.summary}
               text={teamOut.text}
+              error={teamOut.error}
               pending={pending("team_week_2")}
             />
           </article>
@@ -222,14 +291,14 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("pv_batter_3")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "pv_batter",
                     { pitcher: pvP, batter: pvB },
-                    "3"
-                  );
-                  setPvOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "3",
+                    setPvOut
+                  )
+                }
               >
                 상대 전적 분석
               </button>
@@ -237,6 +306,7 @@ export default function App() {
             <ResultBlock
               summary={pvOut.summary}
               text={pvOut.text}
+              error={pvOut.error}
               pending={pending("pv_batter_3")}
             />
           </article>
@@ -272,18 +342,18 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("player_range_4")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "player_range",
                     {
                       player: prPlayer,
                       start: prStart,
                       end: prEnd,
                     },
-                    "4"
-                  );
-                  setPrOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "4",
+                    setPrOut
+                  )
+                }
               >
                 기간 분석 생성
               </button>
@@ -291,6 +361,7 @@ export default function App() {
             <ResultBlock
               summary={prOut.summary}
               text={prOut.text}
+              error={prOut.error}
               pending={pending("player_range_4")}
             />
           </article>
@@ -312,14 +383,14 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("sp_compare_5")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "sp_compare",
                     { pitcherA: spa, pitcherB: spb },
-                    "5"
-                  );
-                  setSpOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "5",
+                    setSpOut
+                  )
+                }
               >
                 비교 분석
               </button>
@@ -327,6 +398,7 @@ export default function App() {
             <ResultBlock
               summary={spOut.summary}
               text={spOut.text}
+              error={spOut.error}
               pending={pending("sp_compare_5")}
             />
           </article>
@@ -354,17 +426,17 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("sp_matchup_6")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "sp_matchup",
                     {
                       teamPitcher: suPit,
                       opponentTeamKeyword: suOpp,
                     },
-                    "6"
-                  );
-                  setSuOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "6",
+                    setSuOut
+                  )
+                }
               >
                 매칭업 분석
               </button>
@@ -372,6 +444,7 @@ export default function App() {
             <ResultBlock
               summary={suOut.summary}
               text={suOut.text}
+              error={suOut.error}
               pending={pending("sp_matchup_6")}
             />
           </article>
@@ -393,14 +466,14 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("predict_form_7")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "predict_form",
                     { teamA: pta, teamB: ptb },
-                    "7"
-                  );
-                  setPredOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "7",
+                    setPredOut
+                  )
+                }
               >
                 폼 예측 생성
               </button>
@@ -408,6 +481,7 @@ export default function App() {
             <ResultBlock
               summary={predOut.summary}
               text={predOut.text}
+              error={predOut.error}
               pending={pending("predict_form_7")}
             />
           </article>
@@ -429,14 +503,14 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("shorts_highlight_8")}
-                onClick={async () => {
-                  const r = await run(
+                onClick={() =>
+                  runWith(
                     "shorts_highlight",
                     { date: shDate },
-                    "8"
-                  );
-                  setHlOut({ text: r.text, summary: r.contextSummary });
-                }}
+                    "8",
+                    setHlOut
+                  )
+                }
               >
                 쇼츠 대본 생성
               </button>
@@ -444,6 +518,7 @@ export default function App() {
             <ResultBlock
               summary={hlOut.summary}
               text={hlOut.text}
+              error={hlOut.error}
               pending={pending("shorts_highlight_8")}
             />
           </article>
@@ -458,10 +533,9 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("shorts_pitcher_week_9")}
-                onClick={async () => {
-                  const r = await run("shorts_pitcher_week", {}, "9");
-                  setWkOut({ text: r.text, summary: r.contextSummary });
-                }}
+                onClick={() =>
+                  runWith("shorts_pitcher_week", {}, "9", setWkOut)
+                }
               >
                 주간 투수 쇼츠 생성
               </button>
@@ -469,6 +543,7 @@ export default function App() {
             <ResultBlock
               summary={wkOut.summary}
               text={wkOut.text}
+              error={wkOut.error}
               pending={pending("shorts_pitcher_week_9")}
             />
           </article>
@@ -483,10 +558,9 @@ export default function App() {
                 type="button"
                 className="primary"
                 disabled={pending("shorts_worst_matchup_10")}
-                onClick={async () => {
-                  const r = await run("shorts_worst_matchup", {}, "10");
-                  setWorstOut({ text: r.text, summary: r.contextSummary });
-                }}
+                onClick={() =>
+                  runWith("shorts_worst_matchup", {}, "10", setWorstOut)
+                }
               >
                 최악 매칭업 쇼츠 생성
               </button>
@@ -494,6 +568,7 @@ export default function App() {
             <ResultBlock
               summary={worstOut.summary}
               text={worstOut.text}
+              error={worstOut.error}
               pending={pending("shorts_worst_matchup_10")}
             />
           </article>
@@ -507,7 +582,9 @@ export default function App() {
         <span className="mono">netlify dev</span> 또는 프로덕션에서 API를
         호출하세요. 순수{" "}
         <span className="mono">npm run dev</span>만으로는 함수가 없어 API가
-        동작하지 않습니다.
+        동작하지 않습니다. Claude 응답이 길면 무료 플랜 함수 타임아웃(기본
+        10초)에 걸릴 수 있으니 Netlify 대시보드에서 Functions 타임아웃을 늘리거나
+        플랜을 확인하세요.
       </footer>
     </div>
   );

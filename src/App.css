@@ -159,7 +159,8 @@ body {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
@@ -170,8 +171,13 @@ textarea {
   font-size: 0.92rem;
 }
 
+select {
+  cursor: pointer;
+}
+
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: rgba(62, 224, 169, 0.45);
   box-shadow: 0 0 0 3px rgba(62, 224, 169, 0.12);
@@ -226,6 +232,10 @@ button.primary:disabled {
   max-height: 340px;
   overflow: auto;
   padding-right: 6px;
+}
+
+.mono.result-error {
+  color: var(--danger);
 }
 
 .footer-note {
