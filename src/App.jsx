@@ -388,57 +388,42 @@ function resetShadow(ctx) {
   ctx.shadowOffsetY = 0;
 }
 
-const __logoCache = new Map();
-async function loadTeamLogoDataUrl(code) {
-  const c = String(code || "").trim().toUpperCase();
-  if (!c) return null;
-  if (__logoCache.has(c)) return __logoCache.get(c);
-  try {
-    // Prefer GET query style to match Netlify rewrites and avoid any unexpected POST/CORS behavior.
-    // Fallback to postKbo if the query endpoint isn't available.
-    let url = null;
-    try {
-      const r = await fetch(`/api/kbo-api?action=team_logo&team=${encodeURIComponent(c)}`);
-      const j = await r.json();
-      url = j?.dataUrl || null;
-    } catch {
-      const res = await postKbo({ action: "team_logo", teamCode: c });
-      url = res?.dataUrl || null;
-    }
-    __logoCache.set(c, url);
-    return url;
-  } catch {
-    __logoCache.set(c, null);
-    return null;
-  }
+function teamBadgeLabel(teamName) {
+  // Requested: NC, KIA, LG, 삼성, KT, SSG, 두산, 롯데, 한화, 키움
+  const kw = teamKeyword(teamName);
+  const allowed = new Set([
+    "NC",
+    "KIA",
+    "LG",
+    "삼성",
+    "KT",
+    "SSG",
+    "두산",
+    "롯데",
+    "한화",
+    "키움",
+  ]);
+  if (allowed.has(kw)) return kw;
+  // fallback to shortened team name
+  return fmtTeamShort(teamName);
 }
 
-async function loadImage(src) {
-  if (!src) return null;
-  return await new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = src;
-  });
-}
-
-function drawTeamCircleFallback(ctx, cx, cy, r, teamName) {
+function drawTeamBadge(ctx, cx, cy, r, teamName) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.closePath();
-  ctx.fillStyle = "rgba(12, 15, 20, 0.35)";
+  const [c1] = teamGrad(teamName);
+  ctx.fillStyle = c1 || "#00d4aa";
   ctx.fill();
   ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.strokeStyle = "rgba(255,255,255,0.26)";
   ctx.stroke();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 36px system-ui, sans-serif";
+  ctx.font = "1000 44px system-ui, sans-serif";
   shadowText(ctx);
-  const t = fmtTeamShort(teamName);
+  const t = teamBadgeLabel(teamName);
   const tw = ctx.measureText(t).width;
   ctx.fillText(t, cx - tw / 2, cy + 14);
   resetShadow(ctx);
@@ -459,6 +444,29 @@ function diagTeamGradient(ctx, w, h, homeTeam, awayTeam) {
   g2.addColorStop(0, a1 + "cc");
   g2.addColorStop(1, a2 + "00");
   ctx.fillStyle = g2;
+  ctx.fillRect(0, 0, w, h);
+}
+
+function hexToRgba(hex, a) {
+  const h = String(hex || "").trim().replace("#", "");
+  if (h.length !== 6) return `rgba(0,0,0,${a})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
+  const [w1, w2] = teamGrad(winTeam);
+  const [l1, l2] = teamGrad(loseTeam);
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  // Winner dominates top 70%
+  g.addColorStop(0.0, w1);
+  g.addColorStop(0.7, w2);
+  // Loser fades bottom 30% with opacity 0.4
+  g.addColorStop(0.7, hexToRgba(l1, 0.4));
+  g.addColorStop(1.0, hexToRgba(l2, 0.4));
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }
 
@@ -495,7 +503,7 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   resetShadow(ctx);
 }
 
-async function drawSummarySlide(ctx, w, h, date, games) {
+function drawSummarySlide(ctx, w, h, date, games) {
   const first = (games || [])[0] || {};
   drawSlideBase(
     ctx,
@@ -515,18 +523,6 @@ async function drawSummarySlide(ctx, w, h, date, games) {
     return;
   }
 
-  // Preload logos (data URL via Netlify to avoid CORS canvas taint)
-  const codes = new Set();
-  for (const g of games) {
-    codes.add(teamCode(g.home_team));
-    codes.add(teamCode(g.away_team));
-  }
-  const logoByCode = {};
-  for (const c of codes) {
-    const dataUrl = await loadTeamLogoDataUrl(c);
-    logoByCode[c] = await loadImage(dataUrl);
-  }
-
   const cardW = 952;
   const cardH = 170;
   const x = 64;
@@ -541,18 +537,22 @@ async function drawSummarySlide(ctx, w, h, date, games) {
     ctx.fill();
     ctx.stroke();
 
-    const homeCode = teamCode(g.home_team);
-    const awayCode = teamCode(g.away_team);
-    const homeLogo = logoByCode[homeCode] || null;
-    const awayLogo = logoByCode[awayCode] || null;
-
     const logoSize = 96;
     const ly = y + (cardH - logoSize) / 2;
-    if (homeLogo) ctx.drawImage(homeLogo, x + 36, ly, logoSize, logoSize);
-    else drawTeamCircleFallback(ctx, x + 36 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
-
-    if (awayLogo) ctx.drawImage(awayLogo, x + cardW - 36 - logoSize, ly, logoSize, logoSize);
-    else drawTeamCircleFallback(ctx, x + cardW - 36 - logoSize / 2, ly + logoSize / 2, logoSize / 2, g.away_team);
+    drawTeamBadge(
+      ctx,
+      x + 36 + logoSize / 2,
+      ly + logoSize / 2,
+      logoSize / 2,
+      g.home_team
+    );
+    drawTeamBadge(
+      ctx,
+      x + cardW - 36 - logoSize / 2,
+      ly + logoSize / 2,
+      logoSize / 2,
+      g.away_team
+    );
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "1000 68px system-ui, sans-serif";
@@ -573,35 +573,45 @@ async function drawSummarySlide(ctx, w, h, date, games) {
   resetShadow(ctx);
 }
 
-async function drawGameSlide(ctx, w, h, date, g, index, total) {
-  drawSlideBase(
-    ctx,
-    w,
-    h,
-    `KBO ${String(date).replaceAll("-", ".")}`,
-    g.home_team,
-    g.away_team
-  );
+function drawGameSlide(ctx, w, h, date, g, index, total) {
+  // Winner-based vertical gradient background:
+  // top 70% winner (strong), bottom 30% loser (alpha 0.4)
+  const as = Number(g?.away_score);
+  const hs = Number(g?.home_score);
+  const awayWin = Number.isFinite(as) && Number.isFinite(hs) && as > hs;
+  const homeWin = Number.isFinite(as) && Number.isFinite(hs) && hs > as;
+  const winTeam = awayWin ? g.away_team : homeWin ? g.home_team : g.home_team;
+  const loseTeam = awayWin ? g.home_team : homeWin ? g.away_team : g.away_team;
+
+  ctx.clearRect(0, 0, w, h);
+  winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
+
+  // Top title bar (same accent style)
+  ctx.fillStyle = "rgba(0, 212, 170, 0.18)";
+  ctx.fillRect(0, 0, w, 120);
+  ctx.fillStyle = "#00d4aa";
+  ctx.fillRect(0, 116, w, 4);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 56px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText(`KBO ${String(date).replaceAll("-", ".")}`, 64, 84);
+  resetShadow(ctx);
 
   const topH = Math.floor(h / 3);
   ctx.fillStyle = "rgba(12,15,20,0.42)";
   ctx.fillRect(0, topH, w, h - topH);
 
-  const homeCode = teamCode(g.home_team);
-  const awayCode = teamCode(g.away_team);
-  const [homeUrl, awayUrl] = await Promise.all([
-    loadTeamLogoDataUrl(homeCode),
-    loadTeamLogoDataUrl(awayCode),
-  ]);
-  const [homeLogo, awayLogo] = await Promise.all([loadImage(homeUrl), loadImage(awayUrl)]);
-
   const logoSize = 220;
   const ly = 170;
-  if (homeLogo) ctx.drawImage(homeLogo, 140, ly, logoSize, logoSize);
-  else drawTeamCircleFallback(ctx, 140 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
-
-  if (awayLogo) ctx.drawImage(awayLogo, w - 140 - logoSize, ly, logoSize, logoSize);
-  else drawTeamCircleFallback(ctx, w - 140 - logoSize / 2, ly + logoSize / 2, logoSize / 2, g.away_team);
+  drawTeamBadge(ctx, 140 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
+  drawTeamBadge(
+    ctx,
+    w - 140 - logoSize / 2,
+    ly + logoSize / 2,
+    logoSize / 2,
+    g.away_team
+  );
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "1000 150px system-ui, sans-serif";
@@ -696,9 +706,9 @@ function Card8Shorts({ defaultDate }) {
     const standings = Array.isArray(data?.standings) ? data.standings : [];
     const slide = slides[idx];
     if (!slide) return;
-    if (slide.type === "summary") await drawSummarySlide(ctx, w, h, date, games);
+    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games);
     else if (slide.type === "game")
-      await drawGameSlide(
+      drawGameSlide(
         ctx,
         w,
         h,
