@@ -811,12 +811,12 @@ export default function App() {
                                         ? data.homePitchers
                                       : [];
 
-                                    const formatBatterLine = (r) => {
-                                      const order = pickBattingOrder(r);
+                                    const formatBatterLine = (r, idx) => {
                                       const name = r?.player || r?.name || "—";
                                       const ab = r?.ab ?? r?.AB ?? 0;
                                       const h = r?.h ?? r?.H ?? 0;
-                                      const hr = r?.hr ?? r?.HR ?? 0;
+                                      const hrRaw = r?.hr ?? r?.HR ?? 0;
+                                      const hr = Number(hrRaw);
                                       const rbiRaw =
                                         r?.rbi ?? r?.RBI ?? r?.bi ?? r?.타점 ?? 0;
                                       const rbi = Number(rbiRaw);
@@ -827,8 +827,10 @@ export default function App() {
                                           r?.battingAvg ??
                                           r?.타율
                                       );
-                                      const o = order == null ? "—" : String(order);
-                                      return `${o} ${name} — ${ab}타수 ${h}안타 ${rbi}타점 ${hr}홈런${
+                                      const no = (idx ?? 0) + 1;
+                                      const hrStr =
+                                        Number.isFinite(hr) && hr > 0 ? ` ${hr}홈런` : "";
+                                      return `${no}. ${name} — ${ab}타수 ${h}안타 ${rbi}타점${hrStr}${
                                         avgDot ? ` ${avgDot}` : ""
                                       }`;
                                     };
@@ -862,7 +864,9 @@ export default function App() {
                                               {awayBatters.length
                                                 ? awayBatters
                                                     .slice(0, 18)
-                                                    .map(formatBatterLine)
+                                                        .map((r, idx) =>
+                                                          formatBatterLine(r, idx)
+                                                        )
                                                     .join("\n")
                                                 : "데이터 없음"}
                                             </pre>
@@ -876,7 +880,9 @@ export default function App() {
                                               {homeBatters.length
                                                 ? homeBatters
                                                     .slice(0, 18)
-                                                    .map(formatBatterLine)
+                                                        .map((r, idx) =>
+                                                          formatBatterLine(r, idx)
+                                                        )
                                                     .join("\n")
                                                 : "데이터 없음"}
                                             </pre>
