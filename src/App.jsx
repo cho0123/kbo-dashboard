@@ -135,6 +135,11 @@ export default function App() {
   });
   const [mvpAutoBusy, setMvpAutoBusy] = useState(false);
 
+  const [grBusy, setGrBusy] = useState(false);
+  const [grOut, setGrOut] = useState({ date: today, games: [], error: null });
+  const [grOpen, setGrOpen] = useState({});
+  const [grBox, setGrBox] = useState({});
+
   const [teamKw, setTeamKw] = useState("LG");
   const [teamDays, setTeamDays] = useState("7");
   const [teamOut, setTeamOut] = useState({
@@ -209,6 +214,71 @@ export default function App() {
 
   const pending = (key) => busy === key;
 
+  const fmtKoreanDate = (iso) => {
+    const s = String(iso || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || "—";
+    const [y, m, d] = s.split("-").map((x) => Number(x));
+    return `${y}년 ${m}월 ${d}일`;
+  };
+
+  const setToToday = () => setMvpDate(today);
+  const setToYesterday = () => {
+    const parts = String(today).slice(0, 10).split("-").map(Number);
+    if (parts.length !== 3 || parts.some((x) => Number.isNaN(x))) return;
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    setMvpDate(dt.toISOString().slice(0, 10));
+  };
+
+  const fetchGameResults = async () => {
+    setActiveKey("game_results");
+    setGrBusy(true);
+    setGrOut({ date: mvpDate, games: [], error: null });
+    setGrOpen({});
+    setGrBox({});
+    try {
+      const res = await postKbo({ action: "game_results", date: mvpDate });
+      setGrOut({
+        date: res?.date || mvpDate,
+        games: Array.isArray(res?.games) ? res.games : [],
+        error: null,
+      });
+    } catch (e) {
+      setGrOut({ date: mvpDate, games: [], error: e?.message || String(e) });
+    } finally {
+      setGrBusy(false);
+    }
+  };
+
+  const toggleGame = async (gameId) => {
+    const gid = String(gameId || "").trim();
+    if (!gid) return;
+    const nextOpen = !grOpen[gid];
+    setGrOpen((m) => ({ ...m, [gid]: nextOpen }));
+    if (!nextOpen) return;
+    if (grBox[gid]?.data || grBox[gid]?.busy) return;
+    setGrBox((m) => ({ ...m, [gid]: { busy: true, error: null, data: null } }));
+    try {
+      const res = await postKbo({ action: "game_boxscore", game_id: gid });
+      setGrBox((m) => ({
+        ...m,
+        [gid]: {
+          busy: false,
+          error: null,
+          data: {
+            batters: Array.isArray(res?.batters) ? res.batters : [],
+            pitchers: Array.isArray(res?.pitchers) ? res.pitchers : [],
+          },
+        },
+      }));
+    } catch (e) {
+      setGrBox((m) => ({
+        ...m,
+        [gid]: { busy: false, error: e?.message || String(e), data: null },
+      }));
+    }
+  };
+
   return (
     <div className="app-shell shell-wide">
       <div className="layout">
@@ -254,49 +324,28 @@ export default function App() {
           {tab === "analysis" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">1. 오늘의 MVP</div>
-                <label>경기 날짜</label>
+                <div className="side-group-title">1. 경기 결과 조회</div>
+                <label>날짜</label>
                 <input
                   type="date"
                   value={mvpDate}
                   onChange={(e) => setMvpDate(e.target.value)}
                 />
+                <div className="row two">
+                  <button type="button" className="primary" onClick={setToToday}>
+                    오늘
+                  </button>
+                  <button type="button" className="primary" onClick={setToYesterday}>
+                    어제
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="primary"
-                  disabled={mvpAutoBusy}
-                  onClick={async () => {
-                    setActiveKey("mvp");
-                    setMvpAutoBusy(true);
-                    setMvpAuto({ data: null, aiText: "", error: null });
-                    try {
-                      const res = await postKbo({
-                        action: "mvp_auto",
-                        date: mvpDate,
-                      });
-                      console.log("[mvp_auto] overall_best:", res?.overall_best);
-                      console.log(
-                        "[mvp_auto] bestPitcher/bestBatter:",
-                        res?.overall_best?.pitcher,
-                        res?.overall_best?.batter
-                      );
-                      setMvpAuto({
-                        data: res,
-                        aiText: res.text ?? "",
-                        error: null,
-                      });
-                    } catch (e) {
-                      setMvpAuto({
-                        data: null,
-                        aiText: "",
-                        error: e?.message || String(e),
-                      });
-                    } finally {
-                      setMvpAutoBusy(false);
-                    }
-                  }}
+                  disabled={grBusy}
+                  onClick={fetchGameResults}
                 >
-                  MVP 분석 실행
+                  경기 결과 조회
                 </button>
               </div>
 
@@ -552,96 +601,314 @@ export default function App() {
             {/* results are rendered by activeKey; sidebar contains all controls */}
             {!activeKey ? (
               <div className="empty-state">← 좌측에서 분석을 실행하세요</div>
-            ) : activeKey === "mvp" ? (
+            ) : activeKey === "game_results" ? (
               <div className="result-page">
-                <div className="result-hero-title">🏆 전체 베스트</div>
+                <div className="result-hero-title">
+                  📅 {fmtKoreanDate(grOut.date || mvpDate)} 경기 결과 (
+                  {Array.isArray(grOut.games) ? grOut.games.length : 0}경기)
+                </div>
 
-                {mvpAutoBusy ? (
-                  <div className="empty-state">생성 중…</div>
-                ) : mvpAuto.error ? (
-                  <pre className="result-error-light">{mvpAuto.error}</pre>
-                ) : mvpAuto.data ? (
-                  (() => {
-                    const d = mvpAuto.data;
-                    const overall = d.overall_best;
-                    const games = d.games || [];
-                    const pitch = overall?.pitcher;
-                    const bat = overall?.batter;
-                    return (
-                      <>
-                        <div className="best-grid">
-                          <div className="best-card">
-                            <div className="best-head">🥎 베스트 투수</div>
-                            <div className="best-name">
-                              <strong>{pitch?.name || "—"}</strong>{" "}
-                              {pitch?.team ? (
-                                <span className="best-team">({pitch.team})</span>
-                              ) : null}
+                <div className="section soft">
+                  <div className="section-title">경기 목록</div>
+                  {grBusy ? (
+                    <div className="muted">불러오는 중…</div>
+                  ) : grOut.error ? (
+                    <pre className="result-error-light">{grOut.error}</pre>
+                  ) : Array.isArray(grOut.games) && grOut.games.length ? (
+                    <div className="game-card-list">
+                      {grOut.games.map((g) => {
+                        const gid = g?.game_id;
+                        const away = g?.away_team || "—";
+                        const home = g?.home_team || "—";
+                        const as =
+                          g?.away_score == null ? null : Number(g.away_score);
+                        const hs =
+                          g?.home_score == null ? null : Number(g.home_score);
+                        const hasScore =
+                          Number.isFinite(as) && Number.isFinite(hs);
+                        const awayWin = hasScore ? as > hs : false;
+                        const homeWin = hasScore ? hs > as : false;
+                        const winScoreStyle = {
+                          fontWeight: 1000,
+                          color: "#00c853",
+                        };
+                        const loseScoreStyle = {
+                          fontWeight: 900,
+                          color: "rgba(26,26,46,0.55)",
+                        };
+                        return (
+                          <div
+                            key={gid || `${away}_${home}`}
+                            className="game-card"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggleGame(gid)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleGame(gid);
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <div className="game-head">
+                              <div className="game-title">
+                                {away}{" "}
+                                <span style={awayWin ? winScoreStyle : loseScoreStyle}>
+                                  {hasScore ? as : "—"}
+                                </span>{" "}
+                                vs {home}{" "}
+                                <span style={homeWin ? winScoreStyle : loseScoreStyle}>
+                                  {hasScore ? hs : "—"}
+                                </span>
+                              </div>
+                              <div className="game-score mono">
+                                {grOpen[String(gid || "")] ? "상세 닫기" : "상세 보기"}
+                              </div>
                             </div>
-                            <div className="best-sub">{pitch?.key_stats || "—"}</div>
-                          </div>
-                          <div className="best-card">
-                            <div className="best-head">⚾ 베스트 타자</div>
-                            <div className="best-name">
-                              <strong>{bat?.name || "—"}</strong>{" "}
-                              {bat?.team ? (
-                                <span className="best-team">({bat.team})</span>
-                              ) : null}
+                            <div className="game-line">
+                              승리투수: {g?.winning_pitcher || "—"} / 패전투수:{" "}
+                              {g?.losing_pitcher || "—"}
                             </div>
-                            <div className="best-sub">{bat?.key_stats || "—"}</div>
-                          </div>
-                        </div>
 
-                        <div className="section soft mvp-per-game-section">
-                          <div className="section-title">📋 경기별 MVP</div>
-                          <div className="mvp-game-list">
-                            {games.length ? (
-                              games.map((g) => (
-                                <div
-                                  className="mvp-game-card"
-                                  key={g.game_id || g.matchup}
-                                >
-                                  <div className="mvp-game-title">
-                                    {mvpGameHeadline(g)}
-                                  </div>
-                                  <div className="mvp-game-line">
-                                    ⚾ 투수:{" "}
-                                    {g.pitcher_mvp
-                                      ? `${g.pitcher_mvp.name}${
-                                          g.pitcher_mvp.team
-                                            ? ` (${teamAbbr(g.pitcher_mvp.team)})`
-                                            : ""
-                                        } — ${g.pitcher_mvp.key_stats}`
-                                      : "—"}
-                                  </div>
-                                  <div className="mvp-game-line">
-                                    🏏 타자:{" "}
-                                    {g.batter_mvp
-                                      ? `${g.batter_mvp.name}${
-                                          g.batter_mvp.team
-                                            ? ` (${teamAbbr(g.batter_mvp.team)})`
-                                            : ""
-                                        } — ${g.batter_mvp.key_stats}`
-                                      : "—"}
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="muted">경기 데이터가 없습니다.</div>
+                            {grOpen[String(gid || "")] && (
+                              <div className="game-line">
+                                {grBox[String(gid || "")]?.busy ? (
+                                  <span className="muted">박스스코어 불러오는 중…</span>
+                                ) : grBox[String(gid || "")]?.error ? (
+                                  <pre className="result-error-light">
+                                    {grBox[String(gid || "")]?.error}
+                                  </pre>
+                                ) : grBox[String(gid || "")]?.data ? (
+                                  (() => {
+                                    const data = grBox[String(gid || "")]?.data;
+                                    const bats = Array.isArray(data?.batters)
+                                      ? data.batters
+                                      : [];
+                                    const pits = Array.isArray(data?.pitchers)
+                                      ? data.pitchers
+                                      : [];
+                                    const topB = [...bats]
+                                      .sort(
+                                        (a, b) =>
+                                          Number(b?.ab ?? 0) - Number(a?.ab ?? 0)
+                                      )
+                                      .slice(0, 12);
+                                    const topP = [...pits]
+                                      .sort(
+                                        (a, b) =>
+                                          Number(b?.ip ?? 0) - Number(a?.ip ?? 0)
+                                      )
+                                      .slice(0, 10);
+                                    return (
+                                      <div style={{ marginTop: 10 }}>
+                                        <div className="muted" style={{ fontWeight: 900 }}>
+                                          박스스코어 (요약)
+                                        </div>
+                                        <div
+                                          style={{
+                                            display: "grid",
+                                            gridTemplateColumns: "1fr 1fr",
+                                            gap: 10,
+                                            marginTop: 8,
+                                          }}
+                                        >
+                                          <div>
+                                            <div className="muted">타자 TOP</div>
+                                            <pre className="mono">
+                                              {topB.length
+                                                ? topB
+                                                    .map((r) => {
+                                                      const name =
+                                                        r?.player || r?.name || "—";
+                                                      const team =
+                                                        r?.team ||
+                                                        r?.team_name ||
+                                                        r?.club ||
+                                                        "";
+                                                      const ab = r?.ab ?? r?.AB ?? 0;
+                                                      const h = r?.h ?? r?.H ?? 0;
+                                                      const hr = r?.hr ?? r?.HR ?? 0;
+                                                      const rbi =
+                                                        r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
+                                                      return `${name}${
+                                                        team ? ` (${teamAbbr(team)})` : ""
+                                                      } — ${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점`;
+                                                    })
+                                                    .join("\n")
+                                                : "데이터 없음"}
+                                            </pre>
+                                          </div>
+                                          <div>
+                                            <div className="muted">투수 TOP</div>
+                                            <pre className="mono">
+                                              {topP.length
+                                                ? topP
+                                                    .map((r) => {
+                                                      const name =
+                                                        r?.player || r?.name || "—";
+                                                      const team =
+                                                        r?.team ||
+                                                        r?.team_name ||
+                                                        r?.club ||
+                                                        "";
+                                                      const ip = r?.ip ?? r?.IP ?? 0;
+                                                      const er =
+                                                        r?.er ?? r?.ER ?? r?.r ?? r?.R ?? 0;
+                                                      const so =
+                                                        r?.so ?? r?.SO ?? r?.k ?? r?.K ?? 0;
+                                                      return `${name}${
+                                                        team ? ` (${teamAbbr(team)})` : ""
+                                                      } — ${ip}이닝 ${er}실점 ${so}K`;
+                                                    })
+                                                    .join("\n")
+                                                : "데이터 없음"}
+                                            </pre>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()
+                                ) : (
+                                  <span className="muted">데이터 없음</span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="muted">경기 데이터가 없습니다.</div>
+                  )}
+                </div>
 
-                        <div className="section soft claude-rationale-section">
-                          <div className="section-title">Claude 선정 이유</div>
-                          <MarkdownView text={d.text || mvpAuto.aiText} />
-                        </div>
-                      </>
-                    );
-                  })()
-                ) : (
-                  <div className="empty-state">← 좌측에서 MVP 분석을 실행하세요</div>
-                )}
+                <div className="section soft">
+                  <div className="section-title">🏆 MVP 분석 (기존 기능)</div>
+                  <button
+                    type="button"
+                    className="ai-btn"
+                    disabled={mvpAutoBusy}
+                    onClick={async () => {
+                      setMvpAutoBusy(true);
+                      setMvpAuto({ data: null, aiText: "", error: null });
+                      try {
+                        const res = await postKbo({
+                          action: "mvp_auto",
+                          date: mvpDate,
+                        });
+                        console.log("[mvp_auto] overall_best:", res?.overall_best);
+                        console.log(
+                          "[mvp_auto] bestPitcher/bestBatter:",
+                          res?.overall_best?.pitcher,
+                          res?.overall_best?.batter
+                        );
+                        setMvpAuto({
+                          data: res,
+                          aiText: res.text ?? "",
+                          error: null,
+                        });
+                      } catch (e) {
+                        setMvpAuto({
+                          data: null,
+                          aiText: "",
+                          error: e?.message || String(e),
+                        });
+                      } finally {
+                        setMvpAutoBusy(false);
+                      }
+                    }}
+                  >
+                    {mvpAutoBusy ? "생성 중…" : "MVP 분석 실행"}
+                  </button>
+
+                  {mvpAuto.error ? (
+                    <pre className="result-error-light">{mvpAuto.error}</pre>
+                  ) : mvpAuto.data ? (
+                    (() => {
+                      const d = mvpAuto.data;
+                      const overall = d.overall_best;
+                      const games = d.games || [];
+                      const pitch = overall?.pitcher;
+                      const bat = overall?.batter;
+                      return (
+                        <>
+                          <div className="best-grid" style={{ marginTop: 12 }}>
+                            <div className="best-card">
+                              <div className="best-head">🥎 베스트 투수</div>
+                              <div className="best-name">
+                                <strong>{pitch?.name || "—"}</strong>{" "}
+                                {pitch?.team ? (
+                                  <span className="best-team">({pitch.team})</span>
+                                ) : null}
+                              </div>
+                              <div className="best-sub">{pitch?.key_stats || "—"}</div>
+                            </div>
+                            <div className="best-card">
+                              <div className="best-head">⚾ 베스트 타자</div>
+                              <div className="best-name">
+                                <strong>{bat?.name || "—"}</strong>{" "}
+                                {bat?.team ? (
+                                  <span className="best-team">({bat.team})</span>
+                                ) : null}
+                              </div>
+                              <div className="best-sub">{bat?.key_stats || "—"}</div>
+                            </div>
+                          </div>
+
+                          <div className="section soft mvp-per-game-section">
+                            <div className="section-title">📋 경기별 MVP</div>
+                            <div className="mvp-game-list">
+                              {games.length ? (
+                                games.map((g) => (
+                                  <div
+                                    className="mvp-game-card"
+                                    key={g.game_id || g.matchup}
+                                  >
+                                    <div className="mvp-game-title">
+                                      {mvpGameHeadline(g)}
+                                    </div>
+                                    <div className="mvp-game-line">
+                                      ⚾ 투수:{" "}
+                                      {g.pitcher_mvp
+                                        ? `${g.pitcher_mvp.name}${
+                                            g.pitcher_mvp.team
+                                              ? ` (${teamAbbr(g.pitcher_mvp.team)})`
+                                              : ""
+                                          } — ${g.pitcher_mvp.key_stats}`
+                                        : "—"}
+                                    </div>
+                                    <div className="mvp-game-line">
+                                      🏏 타자:{" "}
+                                      {g.batter_mvp
+                                        ? `${g.batter_mvp.name}${
+                                            g.batter_mvp.team
+                                              ? ` (${teamAbbr(g.batter_mvp.team)})`
+                                              : ""
+                                          } — ${g.batter_mvp.key_stats}`
+                                        : "—"}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="muted">경기 데이터가 없습니다.</div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="section soft claude-rationale-section">
+                            <div className="section-title">Claude 선정 이유</div>
+                            <MarkdownView text={d.text || mvpAuto.aiText} />
+                          </div>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <div className="muted" style={{ marginTop: 12 }}>
+                      위에서 MVP 분석을 실행하면 결과가 표시됩니다.
+                    </div>
+                  )}
+                </div>
               </div>
             ) : activeKey === "team_week" ? (
               <div className="result-page">

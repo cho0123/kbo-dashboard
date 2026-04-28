@@ -837,6 +837,42 @@ async function fetchPitcherRecent(db, name, maxGames = 12) {
   return lines;
 }
 
+function slimGameResultRow(g) {
+  if (!g || typeof g !== "object") return {};
+  const home = pickStr(g, ["home_team", "home", "homeTeam"]);
+  const away = pickStr(g, ["away_team", "away", "awayTeam"]);
+  const winningPitcher = pickStr(g, [
+    "winning_pitcher",
+    "win_pitcher",
+    "w_pitcher",
+    "winner_pitcher",
+    "winningPitcher",
+    "winnerPitcher",
+    "winPitcher",
+    "승리투수",
+  ]);
+  const losingPitcher = pickStr(g, [
+    "losing_pitcher",
+    "lose_pitcher",
+    "l_pitcher",
+    "loser_pitcher",
+    "losingPitcher",
+    "loserPitcher",
+    "losePitcher",
+    "패전투수",
+  ]);
+  return {
+    game_id: g.game_id ?? g.id ?? null,
+    game_date: g.game_date ?? null,
+    home_team: home || null,
+    away_team: away || null,
+    home_score: safeNum(g.home_score),
+    away_score: safeNum(g.away_score),
+    winning_pitcher: winningPitcher || null,
+    losing_pitcher: losingPitcher || null,
+  };
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
@@ -875,6 +911,44 @@ export const handler = async (event) => {
     let userQ = "";
 
     switch (action) {
+      case "game_results": {
+        const dateStr = payload.date || isoSeoulToday();
+        const rows = await fetchGamesByDate(db, dateStr);
+        const games = rows.map(slimGameResultRow);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            date: dateStr,
+            games,
+          }),
+        };
+      }
+      case "game_boxscore": {
+        const gid = payload.game_id || payload.gameId || "";
+        const gameId = String(gid || "").trim();
+        if (!gameId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ error: "Missing game_id" }),
+          };
+        }
+        const box = await fetchBoxForGames(db, [gameId]);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            game_id: gameId,
+            batters: box.batters || [],
+            pitchers: box.pitchers || [],
+          }),
+        };
+      }
       case "today_mvp": {
         const dateStr =
           payload.date ||
@@ -1331,6 +1405,8 @@ function summarizeContext(action, ctx) {
         date: ctx.date,
         games: ctx.games?.length ?? 0,
       };
+    case "game_results":
+      return { date: ctx.date, games: ctx.games?.length ?? 0 };
     case "team_week":
       return {
         games: ctx.games?.length ?? 0,
