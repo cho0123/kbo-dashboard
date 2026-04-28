@@ -1476,12 +1476,46 @@ export default function App() {
                                           r?.battingAvg ??
                                           r?.타율
                                       );
-                                      const no = (idx ?? 0) + 1;
+                                      const bo = pickBattingOrder(r);
+                                      const no = bo ?? (idx ?? 0) + 1;
                                       const hrStr =
                                         Number.isFinite(hr) && hr > 0 ? ` ${hr}홈런` : "";
                                       return `${no}. ${name} — ${ab}타수 ${h}안타 ${runs}득점 ${rbi}타점${hrStr}${
                                         avgDot ? ` ${avgDot}` : ""
                                       }`;
+                                    };
+
+                                    const batterLines = (rows) => {
+                                      const list = Array.isArray(rows) ? rows : [];
+                                      const indexed = list.map((r, idx) => ({
+                                        r,
+                                        idx,
+                                        bo: pickBattingOrder(r),
+                                      }));
+                                      indexed.sort((a, b) => {
+                                        const ao = a.bo ?? 999;
+                                        const bo = b.bo ?? 999;
+                                        if (ao !== bo) return ao - bo;
+                                        return a.idx - b.idx; // keep original order within same batting_order
+                                      });
+                                      const out = [];
+                                      let prevBo = null;
+                                      for (const it of indexed) {
+                                        const isSub =
+                                          it.bo != null && prevBo != null && it.bo === prevBo;
+                                        out.push({
+                                          key:
+                                            String(it.r?.player || it.r?.name || "") +
+                                            "_" +
+                                            String(it.idx),
+                                          text: isSub
+                                            ? `   └ ${formatBatterLine(it.r, it.idx).replace(/^\s*\d+\.\s*/, "")}`
+                                            : formatBatterLine(it.r, it.idx),
+                                          isSub,
+                                        });
+                                        if (it.bo != null) prevBo = it.bo;
+                                      }
+                                      return out;
                                     };
 
                                     const formatPitcherLine = (r) => {
@@ -1509,32 +1543,48 @@ export default function App() {
                                             <div className="muted">
                                               원정팀 타자 기록 ({away})
                                             </div>
-                                            <pre className="mono">
-                                              {awayBatters.length
-                                                ? awayBatters
-                                                    .slice(0, 18)
-                                                        .map((r, idx) =>
-                                                          formatBatterLine(r, idx)
-                                                        )
-                                                    .join("\n")
-                                                : "데이터 없음"}
-                                            </pre>
+                                            {awayBatters.length ? (
+                                              <div className="mono batter-lines">
+                                                {batterLines(awayBatters).map((x) => (
+                                                  <div
+                                                    key={x.key}
+                                                    className={
+                                                      x.isSub
+                                                        ? "batter-line batter-line-sub"
+                                                        : "batter-line"
+                                                    }
+                                                  >
+                                                    {x.text}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <div className="mono">데이터 없음</div>
+                                            )}
                                           </div>
 
                                           <div>
                                             <div className="muted">
                                               홈팀 타자 기록 ({home})
                                             </div>
-                                            <pre className="mono">
-                                              {homeBatters.length
-                                                ? homeBatters
-                                                    .slice(0, 18)
-                                                        .map((r, idx) =>
-                                                          formatBatterLine(r, idx)
-                                                        )
-                                                    .join("\n")
-                                                : "데이터 없음"}
-                                            </pre>
+                                            {homeBatters.length ? (
+                                              <div className="mono batter-lines">
+                                                {batterLines(homeBatters).map((x) => (
+                                                  <div
+                                                    key={x.key}
+                                                    className={
+                                                      x.isSub
+                                                        ? "batter-line batter-line-sub"
+                                                        : "batter-line"
+                                                    }
+                                                  >
+                                                    {x.text}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ) : (
+                                              <div className="mono">데이터 없음</div>
+                                            )}
                                           </div>
 
                                           <div>
