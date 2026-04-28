@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
@@ -107,6 +107,31 @@ function teamAbbr(team) {
   return t.slice(0, 6);
 }
 
+function fmtKstTimestamp(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return "—";
+  const s = d.toLocaleString("sv-SE", {
+    timeZone: "Asia/Seoul",
+    hour12: false,
+  });
+  return String(s).replace("T", " ").slice(0, 16);
+}
+
+function fmtTeamShort(team) {
+  const t = String(team || "").trim();
+  if (!t) return "—";
+  return t.split(/\s+/)[0].slice(0, 6);
+}
+
+function fmtGameLine(g) {
+  const away = fmtTeamShort(g?.away_team);
+  const home = fmtTeamShort(g?.home_team);
+  const as = g?.away_score;
+  const hs = g?.home_score;
+  if (as == null || hs == null) return `${away} vs ${home}`;
+  return `${away} ${as} vs ${hs} ${home}`;
+}
+
 /** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
 function mvpGameHeadline(g) {
   const score = String(g?.score || "").trim();
@@ -117,6 +142,24 @@ function mvpGameHeadline(g) {
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
   const { busy, runWith } = useAnalyzer();
+
+  const [lastMeta, setLastMeta] = useState({ data: null, error: null });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await postKbo({ action: "last_updated" });
+        if (cancelled) return;
+        setLastMeta({ data: res?.meta ?? null, error: null });
+      } catch (e) {
+        if (cancelled) return;
+        setLastMeta({ data: null, error: e?.message || String(e) });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [tab, setTab] = useState("analysis");
   const [activeKey, setActiveKey] = useState(null);
@@ -211,6 +254,38 @@ export default function App() {
 
   return (
     <div className="app-shell shell-wide">
+      <div className="topbar">
+        <div className="topbar-row">
+          <span className="topbar-k">마지막 업데이트:</span>{" "}
+          <span className="topbar-v">
+            {lastMeta.error ? "—" : fmtKstTimestamp(lastMeta.data?.timestamp)}
+          </span>
+        </div>
+        <div className="topbar-row">
+          {(() => {
+            const crawled = lastMeta.data?.crawled_date || "—";
+            const games = Array.isArray(lastMeta.data?.games)
+              ? lastMeta.data.games
+              : [];
+            const n = Number.isFinite(Number(lastMeta.data?.games_count))
+              ? Number(lastMeta.data.games_count)
+              : games.length;
+            if (!games.length) {
+              return (
+                <span className="topbar-v">
+                  경기일: {crawled} | 오늘 등록된 경기 없음
+                </span>
+              );
+            }
+            const line = games.map(fmtGameLine).join("  ");
+            return (
+              <span className="topbar-v">
+                경기일: {crawled} | {line} ({n}경기)
+              </span>
+            );
+          })()}
+        </div>
+      </div>
       <div className="layout">
         <aside className="sidebar">
           <div className="side-head">

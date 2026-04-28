@@ -261,6 +261,12 @@ async function fetchGamesByDate(db, dateStr) {
   return rows;
 }
 
+async function fetchLastUpdated(db) {
+  const snap = await db.collection("meta").doc("lastUpdated").get();
+  if (!snap.exists) return null;
+  return docSnap(snap);
+}
+
 function variantsForGameId(gid) {
   const out = new Set();
   if (gid == null || gid === "") return [];
@@ -875,6 +881,18 @@ export const handler = async (event) => {
     let userQ = "";
 
     switch (action) {
+      case "last_updated": {
+        const meta = await fetchLastUpdated(db);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            meta,
+          }),
+        };
+      }
       case "today_mvp": {
         const dateStr =
           payload.date ||
@@ -1320,6 +1338,8 @@ export const handler = async (event) => {
 
 function summarizeContext(action, ctx) {
   switch (action) {
+    case "last_updated":
+      return {};
     case "today_mvp":
       return {
         games: ctx.games?.length ?? 0,

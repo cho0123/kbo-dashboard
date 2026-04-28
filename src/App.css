@@ -48,6 +48,36 @@ body {
   max-width: 1400px;
 }
 
+.topbar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+
+.topbar-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.topbar-k {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.topbar-v {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.topbar-row + .topbar-row {
+  margin-top: 6px;
+}
+
 .layout {
   display: flex;
   gap: 18px;
