@@ -650,128 +650,98 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.save();
 
     // ball body
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    // Reference-like: off-white ball + thick black outline
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.closePath();
     ctx.fill();
 
     // outline
-    ctx.strokeStyle = "rgba(200,200,200,0.3)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,0.75)";
+    ctx.lineWidth = Math.max(10, Math.round(r * 0.03));
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.closePath();
     ctx.stroke();
 
-    // subtle inner shading like the reference illustration
+    // inner shading like reference (bottom blue-ish + top highlight)
     ctx.save();
-    ctx.fillStyle = "rgba(120,170,220,0.12)";
+    // clip to ball
     ctx.beginPath();
-    ctx.arc(cx - r * 0.05, cy + r * 0.10, r * 0.92, Math.PI * 0.15, Math.PI * 0.95);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    // bottom blue shading
+    ctx.fillStyle = "rgba(140,180,220,0.25)";
+    ctx.beginPath();
+    ctx.arc(cx, cy + r * 0.35, r * 1.05, Math.PI * 1.05, Math.PI * 1.95);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.14)";
+
+    // top highlight
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.beginPath();
-    ctx.arc(cx + r * 0.20, cy - r * 0.22, r * 0.62, 0, Math.PI * 2);
+    ctx.arc(cx + r * 0.18, cy - r * 0.25, r * 0.62, 0, Math.PI * 2);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
-    // seams: 2 curved arcs (top-left + bottom) with C-shaped stitches
-    const seamStroke = "rgba(180,0,0,0.35)";
-
-    const arcPoint = (ax, ay, ar, ang) => ({
-      x: ax + Math.cos(ang) * ar,
-      y: ay + Math.sin(ang) * ar,
-    });
-
+    // stitches-only seams (no red seam line), like the reference image
+    const stitchColor = "rgba(204,0,0,0.75)";
+    const arcPoint = (ax, ay, ar, ang) => ({ x: ax + Math.cos(ang) * ar, y: ay + Math.sin(ang) * ar });
     const arcTangent = (ang) => {
-      // derivative of (cos, sin) is (-sin, cos)
       const tx = -Math.sin(ang);
       const ty = Math.cos(ang);
       const mag = Math.hypot(tx, ty) || 1;
       return { x: tx / mag, y: ty / mag };
     };
 
-    const drawSeamArc = (ax, ay, ar, a0, a1, stitchCount, flip) => {
-      // thin seam guide (very subtle)
-      ctx.save();
-      ctx.strokeStyle = "rgba(180,0,0,0.18)";
-      ctx.lineWidth = 2;
+    const drawStitch = (sx, sy, tan, nx, ny, size, flip) => {
+      // C-like stitch as a thick bezier stroke
+      const len = size * 1.25;
+      const wid = size * 0.85;
+      const s = flip ? -1 : 1;
       ctx.beginPath();
-      ctx.arc(ax, ay, ar, a0, a1);
+      ctx.moveTo(sx - tan.x * (len * 0.5), sy - tan.y * (len * 0.5));
+      ctx.bezierCurveTo(
+        sx - tan.x * (len * 0.15) + nx * wid * s,
+        sy - tan.y * (len * 0.15) + ny * wid * s,
+        sx + tan.x * (len * 0.15) + nx * wid * s,
+        sy + tan.y * (len * 0.15) + ny * wid * s,
+        sx + tan.x * (len * 0.5),
+        sy + tan.y * (len * 0.5)
+      );
       ctx.stroke();
-      ctx.restore();
+    };
 
-      // stitches (small C-curves)
+    const drawStitchArc = (ax, ay, ar, a0, a1, count, outward) => {
       ctx.save();
-      ctx.strokeStyle = seamStroke;
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = stitchColor;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-
-      for (let i = 0; i < stitchCount; i++) {
-        const t = (i + 1) / (stitchCount + 1);
+      ctx.lineWidth = Math.max(6, Math.round(r * 0.018));
+      const size = r * 0.04;
+      for (let i = 0; i < count; i++) {
+        const t = (i + 1) / (count + 1);
         const ang = a0 + (a1 - a0) * t;
         const p = arcPoint(ax, ay, ar, ang);
         const tan = arcTangent(ang);
         const nx = -tan.y;
         const ny = tan.x;
-
-        // stitch placement: slightly off the seam line
-        const offset = r * 0.02 * (flip ? -1 : 1);
-        const cx2 = p.x + nx * offset;
-        const cy2 = p.y + ny * offset;
-
-        const len = r * 0.06;
-        const wid = r * 0.035;
-        const sgn = i % 2 === 0 ? 1 : -1;
-
-        // C-shaped stitch using a small bezier
-        ctx.beginPath();
-        ctx.moveTo(cx2 - tan.x * (len * 0.5), cy2 - tan.y * (len * 0.5));
-        ctx.bezierCurveTo(
-          cx2 - tan.x * (len * 0.15) + nx * wid * sgn,
-          cy2 - tan.y * (len * 0.15) + ny * wid * sgn,
-          cx2 + tan.x * (len * 0.15) + nx * wid * sgn,
-          cy2 + tan.y * (len * 0.15) + ny * wid * sgn,
-          cx2 + tan.x * (len * 0.5),
-          cy2 + tan.y * (len * 0.5)
-        );
-        ctx.stroke();
+        // offset slightly outward from arc path
+        const off = (r * 0.03) * (outward ? 1 : -1);
+        const sx = p.x + nx * off;
+        const sy = p.y + ny * off;
+        drawStitch(sx, sy, tan, nx, ny, size, i % 2 === 0);
       }
-
-      // main seam stroke on top (thicker)
-      ctx.strokeStyle = seamStroke;
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(ax, ay, ar, a0, a1);
-      ctx.stroke();
-
       ctx.restore();
     };
 
-    // top-left seam arc
-    drawSeamArc(
-      cx - r * 0.10,
-      cy - r * 0.18,
-      r * 0.83,
-      Math.PI * 1.20,
-      Math.PI * 1.58,
-      10,
-      false
-    );
-    // bottom seam arc
-    drawSeamArc(
-      cx + r * 0.02,
-      cy + r * 0.20,
-      r * 0.88,
-      Math.PI * 0.25,
-      Math.PI * 0.80,
-      12,
-      true
-    );
+    // Match reference placement: short top-left arc, long bottom arc
+    drawStitchArc(cx - r * 0.10, cy - r * 0.18, r * 0.83, Math.PI * 1.20, Math.PI * 1.60, 11, true);
+    drawStitchArc(cx + r * 0.02, cy + r * 0.22, r * 0.90, Math.PI * 0.22, Math.PI * 0.82, 14, false);
 
     ctx.restore();
   };
