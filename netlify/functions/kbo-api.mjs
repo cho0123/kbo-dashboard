@@ -1880,16 +1880,24 @@ export const handler = async (event) => {
           const gd = String(r.game_date || "");
           return gd >= start && gd <= end;
         };
+        const batsIn = batters.filter(inRange);
+        const pitsIn = pitchers.filter(inRange);
+        const addOpponent = (row) => {
+          const teamCode = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+          const { opponent, home_away } = deriveOpponentFromGameId(row?.game_id, teamCode);
+          return { ...row, opponent, home_away };
+        };
         context = {
           player,
           start,
           end,
-          batters: batters.filter(inRange),
-          pitchers: pitchers.filter(inRange),
+          // Claude가 표를 만들 때 팀코드(LTSS 등) 대신 팀 이름을 쓰도록 도와준다.
+          batters: batsIn.map(addOpponent),
+          pitchers: pitsIn.map(addOpponent),
         };
         userQ =
           payload.question ||
-          `기간 ${start}~${end} 동안 ${player} 선수의 성적을 한국어로 분석해줘.`;
+          `기간 ${start}~${end} 동안 ${player} 선수의 성적을 한국어로 분석해줘.\n\n표/상대팀 표기 규칙:\n- 상대는 2글자 코드가 아니라 구단명(예: 롯데 자이언츠)으로 표기해줘.\n- 홈/원정은 "홈" 또는 "원정"으로 표기해줘.`;
         break;
       }
       case "sp_compare": {
@@ -1897,10 +1905,20 @@ export const handler = async (event) => {
         const b = payload.pitcherB || "";
         const la = await fetchPitcherRecent(db, a, 15);
         const lb = await fetchPitcherRecent(db, b, 15);
-        context = { pitcherA: a, pitcherB: b, recentA: la, recentB: lb };
+        const addOpponent = (row) => {
+          const teamCode = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+          const { opponent, home_away } = deriveOpponentFromGameId(row?.game_id, teamCode);
+          return { ...row, opponent, home_away };
+        };
+        context = {
+          pitcherA: a,
+          pitcherB: b,
+          recentA: la.map(addOpponent),
+          recentB: lb.map(addOpponent),
+        };
         userQ =
           payload.question ||
-          `${a} vs ${b} 선발 투수를 최근 등판 기록 위주로 비교 분석해줘 (한국어).`;
+          `${a} vs ${b} 선발 투수를 최근 등판 기록 위주로 비교 분석해줘 (한국어).\n\n표/상대팀 표기 규칙:\n- 상대는 2글자 코드가 아니라 구단명(예: 롯데 자이언츠)으로 표기해줘.\n- 홈/원정은 "홈" 또는 "원정"으로 표기해줘.`;
         break;
       }
       case "sp_matchup": {

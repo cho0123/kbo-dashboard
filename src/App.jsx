@@ -67,14 +67,13 @@ function useAnalyzer() {
   return { busy, runWith };
 }
 
-function ResultBlock({ summary, text, pending, error }) {
+function ResultBlock({ title, text, pending, error }) {
   return (
     <div className="result">
       <div className="result-head">
-        <span>{pending ? "생성 중…" : error ? "오류" : "결과"}</span>
-        {summary && !error && (
-          <span className="mono">{JSON.stringify(summary)}</span>
-        )}
+        <span>
+          {pending ? "생성 중…" : error ? "오류" : title ? title : "결과"}
+        </span>
       </div>
       {error ? (
         <pre className="mono result-error">{error}</pre>
@@ -1814,7 +1813,10 @@ export default function App() {
                         );
                       })()}
                       <ResultBlock
-                        summary={null}
+                        title={`${prTeam || "—"} / ${prPlayer || "—"} / ${Math.max(
+                          prOut.uiData?.pitcherRows?.length ?? 0,
+                          prOut.uiData?.batterRows?.length ?? 0
+                        )}경기`}
                         text={prOut.text}
                         error={prOut.error}
                         pending={pending("player_range_4")}
@@ -1831,9 +1833,7 @@ export default function App() {
                         if (!ra.length && !rb.length) return null;
                         return (
                           <>
-                            <div className="section-title">
-                              {a} {ra.length}경기 vs {b} {rb.length}경기
-                            </div>
+                            <div className="section-title">{a} vs {b}</div>
                             {ra.length ? (
                               <>
                                 <div className="muted" style={{ marginTop: 6, fontWeight: 900 }}>
@@ -1896,7 +1896,11 @@ export default function App() {
                         );
                       })()}
                       <ResultBlock
-                        summary={null}
+                        title={`${spATeam || "—"} / ${spa || "—"} / ${(
+                          spOut.uiData?.recentA?.length ?? 0
+                        )}경기  vs  ${spBTeam || "—"} / ${spb || "—"} / ${(
+                          spOut.uiData?.recentB?.length ?? 0
+                        )}경기`}
                         text={spOut.text}
                         error={spOut.error}
                         pending={pending("sp_compare_5")}
@@ -1904,35 +1908,35 @@ export default function App() {
                     </>
                   ) : activeKey === "sp_matchup" ? (
                     <ResultBlock
-                      summary={suOut.summary}
+                      title={null}
                       text={suOut.text}
                       error={suOut.error}
                       pending={pending("sp_matchup_6")}
                     />
                   ) : activeKey === "predict_form" ? (
                     <ResultBlock
-                      summary={predOut.summary}
+                      title={null}
                       text={predOut.text}
                       error={predOut.error}
                       pending={pending("predict_form_7")}
                     />
                   ) : activeKey === "shorts_highlight" ? (
                     <ResultBlock
-                      summary={hlOut.summary}
+                      title={null}
                       text={hlOut.text}
                       error={hlOut.error}
                       pending={pending("shorts_highlight_8")}
                     />
                   ) : activeKey === "shorts_pitcher_week" ? (
                     <ResultBlock
-                      summary={wkOut.summary}
+                      title={null}
                       text={wkOut.text}
                       error={wkOut.error}
                       pending={pending("shorts_pitcher_week_9")}
                     />
                   ) : activeKey === "shorts_worst_matchup" ? (
                     <ResultBlock
-                      summary={worstOut.summary}
+                      title={null}
                       text={worstOut.text}
                       error={worstOut.error}
                       pending={pending("shorts_worst_matchup_10")}

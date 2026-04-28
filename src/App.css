@@ -244,8 +244,31 @@ button.primary.primary-fill {
   display: table-header-group;
 }
 
+.results table.pv-table {
+  width: 100%;
+  max-width: none;
+}
+
+.results .md table {
+  width: 100%;
+  max-width: none;
+  table-layout: auto;
+}
+
 .results :where(th) {
   width: 140px;
+}
+
+.results .md :where(th) {
+  width: auto;
+}
+
+.results .md :where(th, td) {
+  white-space: nowrap;
+}
+
+.results .md :where(th:nth-child(2), td:nth-child(2)) {
+  text-align: right;
 }
 
 .results :where(td, th) {
