@@ -514,6 +514,21 @@ async function loadSvgLogo(teamName) {
   return await p;
 }
 
+const __pngImageCache = new Map();
+async function loadPngImage(path) {
+  const p = String(path || "").trim();
+  if (!p) return null;
+  if (__pngImageCache.has(p)) return await __pngImageCache.get(p);
+  const promise = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = p;
+  });
+  __pngImageCache.set(p, promise);
+  return await promise;
+}
+
 function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   if (img) {
     ctx.drawImage(img, x, y, size, size);
@@ -591,7 +606,7 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   // Summary slide: baseball field vibe (grass + diamond lines)
   ctx.clearRect(0, 0, w, h);
 
@@ -645,109 +660,16 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   ctx.stroke();
   ctx.restore();
 
-  // Background baseballs
-  const drawBaseball = (cx, cy, r) => {
+  // Background baseball image (decor)
+  if (baseballImg) {
     ctx.save();
-
-    // ball body
-    // Reference-like: off-white ball + thick black outline
-    ctx.fillStyle = "rgba(255,255,255,0.22)";
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
-
-    // outline
-    ctx.strokeStyle = "rgba(0,0,0,0.75)";
-    ctx.lineWidth = Math.max(10, Math.round(r * 0.03));
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.stroke();
-
-    // inner shading like reference (bottom blue-ish + top highlight)
-    ctx.save();
-    // clip to ball
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-
-    // bottom blue shading
-    ctx.fillStyle = "rgba(140,180,220,0.25)";
-    ctx.beginPath();
-    ctx.arc(cx, cy + r * 0.35, r * 1.05, Math.PI * 1.05, Math.PI * 1.95);
-    ctx.closePath();
-    ctx.fill();
-
-    // top highlight
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.beginPath();
-    ctx.arc(cx + r * 0.18, cy - r * 0.25, r * 0.62, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.fill();
+    ctx.globalAlpha = 0.25;
+    const size = 700;
+    const centerX = 900;
+    const centerY = 1400;
+    ctx.drawImage(baseballImg, centerX - size / 2, centerY - size / 2, size, size);
     ctx.restore();
-
-    // stitches-only seams (no red seam line), like the reference image
-    const stitchColor = "rgba(204,0,0,0.75)";
-    const arcPoint = (ax, ay, ar, ang) => ({ x: ax + Math.cos(ang) * ar, y: ay + Math.sin(ang) * ar });
-    const arcTangent = (ang) => {
-      const tx = -Math.sin(ang);
-      const ty = Math.cos(ang);
-      const mag = Math.hypot(tx, ty) || 1;
-      return { x: tx / mag, y: ty / mag };
-    };
-
-    const drawStitch = (sx, sy, tan, nx, ny, size, flip) => {
-      // C-like stitch as a thick bezier stroke
-      const len = size * 1.25;
-      const wid = size * 0.85;
-      const s = flip ? -1 : 1;
-      ctx.beginPath();
-      ctx.moveTo(sx - tan.x * (len * 0.5), sy - tan.y * (len * 0.5));
-      ctx.bezierCurveTo(
-        sx - tan.x * (len * 0.15) + nx * wid * s,
-        sy - tan.y * (len * 0.15) + ny * wid * s,
-        sx + tan.x * (len * 0.15) + nx * wid * s,
-        sy + tan.y * (len * 0.15) + ny * wid * s,
-        sx + tan.x * (len * 0.5),
-        sy + tan.y * (len * 0.5)
-      );
-      ctx.stroke();
-    };
-
-    const drawStitchArc = (ax, ay, ar, a0, a1, count, outward) => {
-      ctx.save();
-      ctx.strokeStyle = stitchColor;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = Math.max(6, Math.round(r * 0.018));
-      const size = r * 0.04;
-      for (let i = 0; i < count; i++) {
-        const t = (i + 1) / (count + 1);
-        const ang = a0 + (a1 - a0) * t;
-        const p = arcPoint(ax, ay, ar, ang);
-        const tan = arcTangent(ang);
-        const nx = -tan.y;
-        const ny = tan.x;
-        // offset slightly outward from arc path
-        const off = (r * 0.03) * (outward ? 1 : -1);
-        const sx = p.x + nx * off;
-        const sy = p.y + ny * off;
-        drawStitch(sx, sy, tan, nx, ny, size, i % 2 === 0);
-      }
-      ctx.restore();
-    };
-
-    // Match reference placement: short top-left arc, long bottom arc
-    drawStitchArc(cx - r * 0.10, cy - r * 0.18, r * 0.83, Math.PI * 1.20, Math.PI * 1.60, 11, true);
-    drawStitchArc(cx + r * 0.02, cy + r * 0.22, r * 0.90, Math.PI * 0.22, Math.PI * 0.82, 14, false);
-
-    ctx.restore();
-  };
-
-  // Big baseball on the right (can go out of bounds)
-  drawBaseball(1000, 1300, 550);
+  }
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
@@ -1086,7 +1008,11 @@ function Card8Shorts({ defaultDate }) {
       logosByTeamKey[tk] = img;
     }
 
-    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
+    const baseballImg =
+      slide.type === "summary" ? await loadPngImage("/baseball.png") : null;
+
+    if (slide.type === "summary")
+      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg);
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
