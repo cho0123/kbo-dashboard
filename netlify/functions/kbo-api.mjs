@@ -1015,6 +1015,61 @@ function slimGameResultRow(g) {
   };
 }
 
+function pickPitcherResult(row) {
+  return pickAny(row, [
+    "result",
+    "RESULT",
+    "결과",
+    "res",
+    "W_L",
+    "w_l",
+    "wl",
+    "결정",
+  ]);
+}
+
+function pickPitcherName(row) {
+  return (
+    pickAny(row, ["player", "name", "player_name", "playerName", "선수명"]) ??
+    null
+  );
+}
+
+function findWinLosePitchers(pitchers) {
+  const rows = Array.isArray(pitchers) ? pitchers : [];
+  const isWin = (p) => {
+    const r = String(pickPitcherResult(p) || "").trim().toUpperCase();
+    const winFlag = pickNum(p, ["win", "w", "W", "승", "isWin", "is_win"]);
+    return r === "W" || r === "승" || winFlag === 1;
+  };
+  const isLose = (p) => {
+    const r = String(pickPitcherResult(p) || "").trim().toUpperCase();
+    const loseFlag = pickNum(p, ["lose", "l", "L", "패", "isLose", "is_lose"]);
+    return r === "L" || r === "패" || loseFlag === 1;
+  };
+  const win = rows.find(isWin) || null;
+  const lose = rows.find(isLose) || null;
+  return { win, lose };
+}
+
+async function fetchPitchersForGame(db, gameId) {
+  const out = [];
+  const seen = new Set();
+  for (const v of variantsForGameId(gameId)) {
+    const q1 = db.collection("pitchers").where("game_id", "==", v).get();
+    const q2 = db.collection("pitchers").where("gameId", "==", v).get();
+    const [s1, s2] = await Promise.all([q1, q2]);
+    for (const snap of [s1, s2]) {
+      snap.forEach((d) => {
+        if (seen.has(d.id)) return;
+        seen.add(d.id);
+        out.push({ id: d.id, ...docSnap(d) });
+      });
+    }
+  }
+  return out;
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
@@ -1058,8 +1113,38 @@ export const handler = async (event) => {
         const gameDocs = await fetchGamesByDate(db, dateStr);
         if (gameDocs?.length) {
           console.log("GAME_SAMPLE:", JSON.stringify(gameDocs[0]));
+          // games 컬렉션 실제 필드명 확인용 (Netlify Functions logs에서 확인)
+          console.log("GAME_DOC:", JSON.stringify(gameDocs[0]));
         }
-        const games = (gameDocs || []).map(slimGameResultRow);
+        const base = (gameDocs || []).map(slimGameResultRow);
+        const games = [];
+        for (const g of base) {
+          const gid = String(g?.game_id || "").trim();
+          const needsWin = !g?.winning_pitcher;
+          const needsLose = !g?.losing_pitcher;
+          if (!gid || (!needsWin && !needsLose)) {
+            games.push(g);
+            continue;
+          }
+
+          const pitchers = await fetchPitchersForGame(db, gid);
+          const { win, lose } = findWinLosePitchers(pitchers);
+
+          // 필드명 확인이 필요할 때 로그로 확인 가능하게 일부만 출력
+          if (pitchers?.length) {
+            console.log("PITCHERS_FOR_GAME_SAMPLE:", {
+              game_id: gid,
+              keys: Object.keys(pitchers[0] || {}),
+              sample: pitchers[0],
+            });
+          }
+
+          games.push({
+            ...g,
+            winning_pitcher: needsWin ? (pickPitcherName(win) || "") : g.winning_pitcher,
+            losing_pitcher: needsLose ? (pickPitcherName(lose) || "") : g.losing_pitcher,
+          });
+        }
         return {
           statusCode: 200,
           headers: corsHeaders(),
