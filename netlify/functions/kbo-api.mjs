@@ -410,6 +410,59 @@ function normalizeBatterRowForUi(row) {
 let __pitcherEraCheckLogged = 0;
 let __batterRbiCheckLogged2 = 0;
 
+function mergeBattersByPlayer(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const merged = {};
+  const out = [];
+
+  const num0 = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  for (const b0 of list) {
+    const b = b0 && typeof b0 === "object" ? b0 : {};
+    const player = String(b.player || b.name || "").trim();
+    const side = normalizeSide(b.side);
+    // 같은 이름이 양 팀에 동시에 있을 수 있으니 side까지 키에 포함
+    const key = player ? `${side}|${player}` : null;
+    if (!key) {
+      out.push(b);
+      continue;
+    }
+
+    if (!merged[key]) {
+      merged[key] = { ...b, side };
+      out.push(merged[key]);
+      continue;
+    }
+
+    const acc = merged[key];
+    acc.ab = num0(acc.ab) + num0(b.ab ?? b.AB);
+    acc.h = num0(acc.h) + num0(b.h ?? b.H);
+    acc.rbi = num0(acc.rbi) + num0(b.rbi ?? b.RBI ?? b.bi);
+    acc.runs = num0(acc.runs) + num0(b.runs ?? b.R ?? b.r);
+    acc.hr = num0(acc.hr) + num0(b.hr ?? b.HR);
+
+    // avg는 시즌 누적이므로 "마지막 값" 유지
+    if (b.avg != null) acc.avg = b.avg;
+    if (b.AVG != null) acc.AVG = b.AVG;
+    if (b.batting_avg != null) acc.batting_avg = b.batting_avg;
+    if (b.battingAvg != null) acc.battingAvg = b.battingAvg;
+    if (b.타율 != null) acc.타율 = b.타율;
+
+    // 타순 등은 첫 유효값 유지 (중복 라인은 대타일 수 있음)
+    if (acc.batting_order == null && b.batting_order != null)
+      acc.batting_order = b.batting_order;
+    if (acc.battingOrder == null && b.battingOrder != null)
+      acc.battingOrder = b.battingOrder;
+    if (acc.order == null && b.order != null) acc.order = b.order;
+    if (acc.타순 == null && b.타순 != null) acc.타순 = b.타순;
+  }
+
+  return out;
+}
+
 function normalizeSide(raw) {
   const s = String(raw || "").trim().toLowerCase();
   if (!s) return "";
@@ -1238,8 +1291,12 @@ export const handler = async (event) => {
         const awayPitchers = pitchers.filter((p) => String(p?.side) === "away");
         const homePitchers = pitchers.filter((p) => String(p?.side) === "home");
 
-        const awayBattersUi = awayBatters.map(normalizeBatterRowForUi);
-        const homeBattersUi = homeBatters.map(normalizeBatterRowForUi);
+        const awayBattersUi = mergeBattersByPlayer(
+          awayBatters.map(normalizeBatterRowForUi)
+        );
+        const homeBattersUi = mergeBattersByPlayer(
+          homeBatters.map(normalizeBatterRowForUi)
+        );
         const batters_by_side = { away: awayBattersUi, home: homeBattersUi };
         const pitchers_by_side = { away: awayPitchers, home: homePitchers };
 
