@@ -697,7 +697,8 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
-  ctx.font = `1000 78px "${FONT_TITLE}", system-ui, sans-serif`;
+  // 날짜/제목: Noto Sans KR 900
+  ctx.font = `900 78px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillStyle = "#ffffff";
   ctx.fillText(titleLeft, 64, SAFE_TOP + 80);
@@ -708,7 +709,8 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 
   // Sub-title: "오늘의 경기 결과"
   ctx.fillStyle = "#a5d6a7";
-  ctx.font = `900 52px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 52px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("오늘의 경기 결과", 64, SAFE_TOP + 80 + 74);
   resetShadow(ctx);
@@ -821,27 +823,29 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // Date header (safe zone)
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `1000 80px "${FONT_TITLE}", system-ui, sans-serif`;
+  // 날짜/제목: Noto Sans KR 900
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
   resetShadow(ctx);
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `900 50px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
   resetShadow(ctx);
 
   // Place logos below date header, within safe zone
-  const badgeY = SAFE_TOP + 260;
+  const badgeY = SAFE_TOP + 210;
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
 
-  // Logo box: wider than tall (200x150) while preserving original ratio
-  const logoBoxW = 200;
-  const logoBoxH = 150;
+  // Logo box: 1.5x bigger (280x210), preserve original ratio
+  const logoBoxW = 280;
+  const logoBoxH = 210;
   const leftCenterX = 170;
   const rightCenterX = w - 170;
-  const logoBoxY = badgeY + (200 - logoBoxH) / 2; // keep overall vertical alignment close to previous
+  const logoBoxY = badgeY;
   const homeImg = logosByTeamKey?.[hk] || null;
   const awayImg = logosByTeamKey?.[ak] || null;
 
@@ -854,6 +858,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
 
   ctx.fillStyle = TEXT_MAIN;
+  // 스코어 숫자: Black Han Sans 유지
   ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
@@ -879,13 +884,15 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // Winner pitcher
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("🏆 승리투수", boxX + 40, boxY + 90);
   resetShadow(ctx);
 
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `900 70px "${FONT_TITLE}", system-ui, sans-serif`;
+  // 승리투수 이름: Noto Sans KR 700
+  ctx.font = `700 70px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText(
     String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
@@ -896,7 +903,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // MVP
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("⭐ MVP", boxX + 40, boxY + 255);
   resetShadow(ctx);
@@ -905,20 +913,23 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
+  // MVP 이름: Noto Sans KR 700
+  ctx.font = `700 60px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 325);
   resetShadow(ctx);
 
   // Venue (small line at bottom of box)
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText(g.venue ? `🏟️ ${g.venue}` : "🏟️ —", boxX + 40, boxY + 370);
   resetShadow(ctx);
 
   ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
+  // 서브텍스트: Noto Sans KR 500
+  ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText(`${index}/${total}`, 64, SAFE_BOTTOM - 70);
   resetShadow(ctx);
