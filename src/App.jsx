@@ -195,6 +195,21 @@ function removeFirstHeading(md) {
   return text.replace(/^\s*#{1,3}\s*.+?\s*(\r?\n)+/m, "");
 }
 
+function stripCompositeSummarySection(md) {
+  const text = String(md || "");
+  // Remove a "종합 성적 요약" block (the extra vertical summary the user wants gone),
+  // but keep other sections like "경기별 ..." and the rest of the report.
+  //
+  // Matches:
+  //   ### 📌 종합 성적 요약
+  //   ... (any content including tables/lists)
+  // Until the next markdown heading or end.
+  return text.replace(
+    /^\s*#{1,4}\s*(?:📌|📊|📅|📋)?\s*종합\s*성적\s*요약[^\n]*\n+([\s\S]*?)(?=^\s*#{1,4}\s+|\s*$)/m,
+    ""
+  );
+}
+
 function stripDuplicateSummaryTables(md) {
   const text = String(md || "");
   // Remove markdown tables under summary headings if present.
@@ -1873,8 +1888,10 @@ export default function App() {
                           <div className="section-title">📊 전체 요약</div>
                           <SummaryCards batterRows={prOut.uiData?.batterRows} />
                           <MarkdownView
-                            text={stripDuplicateSummaryTables(
-                              removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
+                            text={stripCompositeSummarySection(
+                              stripDuplicateSummaryTables(
+                                removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
+                              )
                             )}
                           />
                         </>
