@@ -320,6 +320,7 @@ export default function App() {
     if (grBox[gid]?.data || grBox[gid]?.busy) return;
     setGrBox((m) => ({ ...m, [gid]: { busy: true, error: null, data: null } }));
     try {
+      console.log("BOXSCORE_REQUEST gameId:", gid);
       const res = await postKbo({ action: "game_boxscore", game_id: gid });
       setGrBox((m) => ({
         ...m,
@@ -329,6 +330,8 @@ export default function App() {
           data: {
             batters: Array.isArray(res?.batters) ? res.batters : [],
             pitchers: Array.isArray(res?.pitchers) ? res.pitchers : [],
+            batters_by_side: res?.batters_by_side ?? null,
+            pitchers_by_side: res?.pitchers_by_side ?? null,
           },
         },
       }));

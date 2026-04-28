@@ -961,6 +961,7 @@ function slimGameResultRow(g) {
   if (!g || typeof g !== "object") return {};
   const home = pickStr(g, ["home_team", "home", "homeTeam"]);
   const away = pickStr(g, ["away_team", "away", "awayTeam"]);
+  const gid = pickStr(g, ["game_id", "gameId", "gameID"]) || (g.game_id ?? g.gameId ?? g.id ?? null);
   const winningPitcher = pickStr(g, [
     "winning_pitcher",
     "win_pitcher",
@@ -982,7 +983,7 @@ function slimGameResultRow(g) {
     "패전투수",
   ]);
   return {
-    game_id: g.game_id ?? g.id ?? null,
+    game_id: gid,
     game_date: g.game_date ?? null,
     home_team: home || null,
     away_team: away || null,
@@ -1050,8 +1051,8 @@ export const handler = async (event) => {
         };
       }
       case "game_boxscore": {
-        const gid = payload.game_id || payload.gameId || "";
-        const gameId = String(gid || "").trim();
+        const gidRaw = payload.gameId || payload.game_id || "";
+        const gameId = String(gidRaw || "").trim();
         if (!gameId) {
           return {
             statusCode: 400,
@@ -1059,14 +1060,32 @@ export const handler = async (event) => {
             body: JSON.stringify({ error: "Missing game_id" }),
           };
         }
-        const box = await fetchBoxForGames(db, [gameId]);
-        console.log("BOXSCORE_QUERY:", {
-          gameId,
-          batterCount: (box.batters || []).length,
-          pitcherCount: (box.pitchers || []).length,
-        });
-        const battersBySide = splitAndSortBattersBySide(box.batters || []);
-        const pitchersBySide = splitPitchersBySide(box.pitchers || []);
+
+        // 이전에 잘 되던 단순 방식으로 복구: game_id == gameId 로 직접 조회 후 side 분리
+        const battersSnap = await db
+          .collection("batters")
+          .where("game_id", "==", gameId)
+          .get();
+        const batters = battersSnap.docs.map((d) => docSnap(d));
+        console.log("BOXSCORE batters count:", batters.length, "gameId:", gameId);
+
+        const pitchersSnap = await db
+          .collection("pitchers")
+          .where("game_id", "==", gameId)
+          .get();
+        const pitchers = pitchersSnap.docs.map((d) => docSnap(d));
+        console.log("BOXSCORE pitchers count:", pitchers.length);
+
+        const awayBatters = batters.filter((b) => String(b?.side) === "away");
+        const homeBatters = batters.filter((b) => String(b?.side) === "home");
+        const awayPitchers = pitchers.filter((p) => String(p?.side) === "away");
+        const homePitchers = pitchers.filter((p) => String(p?.side) === "home");
+
+        const awayBattersUi = awayBatters.map(normalizeBatterRowForUi);
+        const homeBattersUi = homeBatters.map(normalizeBatterRowForUi);
+        const batters_by_side = { away: awayBattersUi, home: homeBattersUi };
+        const pitchers_by_side = { away: awayPitchers, home: homePitchers };
+
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -1074,10 +1093,17 @@ export const handler = async (event) => {
             ok: true,
             action,
             game_id: gameId,
-            batters: (box.batters || []).map(normalizeBatterRowForUi),
-            pitchers: box.pitchers || [],
-            batters_by_side: battersBySide,
-            pitchers_by_side: pitchersBySide,
+            // 이전/호환 필드들
+            awayBatters: awayBattersUi,
+            homeBatters: homeBattersUi,
+            awayPitchers,
+            homePitchers,
+            // 현재 프론트가 사용하는 구조(홈/원정)
+            batters_by_side,
+            pitchers_by_side,
+            // 디버깅/호환용 원본 리스트
+            batters: awayBattersUi.concat(homeBattersUi),
+            pitchers,
           }),
         };
       }
