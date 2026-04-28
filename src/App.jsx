@@ -200,14 +200,12 @@ function stripCompositeSummarySection(md) {
   // Remove a "종합 성적 요약" block (the extra vertical summary the user wants gone),
   // but keep other sections like "경기별 ..." and the rest of the report.
   //
-  // Matches:
-  //   ### 📌 종합 성적 요약
-  //   ... (any content including tables/lists)
-  // Until the next markdown heading or end.
-  return text.replace(
-    /^\s*#{1,4}\s*(?:📌|📊|📅|📋)?\s*종합\s*성적\s*요약[^\n]*\n+([\s\S]*?)(?=^\s*#{1,4}\s+|\s*$)/m,
-    ""
-  );
+  // Claude output varies: this heading sometimes appears as a markdown heading,
+  // a bold line, or a bullet item. We strip the block until the next section
+  // heading (### ...) OR a line that starts a "경기별 ..." section.
+  const re =
+    /(^|\n)\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?\s*(?:📌|📊|📅|📋)?\s*종합\s*성적\s*요약[^\n]*\n+([\s\S]*?)(?=\n\s*(?:#{1,6}\s+|(?:[-*]\s*)?(?:\*\*)?\s*(?:📋|📅|📊|📌)?\s*경기별|$))/m;
+  return text.replace(re, "\n");
 }
 
 function stripDuplicateSummaryTables(md) {
