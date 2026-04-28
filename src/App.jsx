@@ -897,7 +897,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const boxX = 64;
   const boxY = SAFE_BOTTOM - 380;
 
-  // Bottom summary (3 lines): venue / pitcher / MVP
+  // Bottom summary (simple): ❤️ + pitcher/batter names (no stats)
   const cleanName = (s) =>
     String(s || "—")
       .replace(/\(추정\)/g, "")
@@ -906,50 +906,49 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const ipRaw =
-    g?.winning_pitcher_ip ??
-    g?.winning_pitcher_innings ??
-    g?.winning_pitcher_IP ??
-    g?.winning_pitcher_ip_raw ??
-    null;
-  const ipText = formatInnings(ipRaw) || "—";
-
-  const mvpName = cleanName(m?.name);
-  const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
-  const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
-  const venueText = String(g?.venue || "").trim();
+  const batterName = cleanName(m?.name);
 
   resetShadow(ctx); // no shadow
-  ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
   const labelColor = "#00d4aa";
   const valueColor = "#ffffff";
 
-  const drawCenteredLabelValue = (y, label, value) => {
+  const drawCenteredLabelValue = (y, label, value, labelFont, valueFont) => {
     const gap = "  ";
-    ctx.fillStyle = labelColor;
+    ctx.font = labelFont;
     const wL = ctx.measureText(label + gap).width;
-    ctx.fillStyle = valueColor;
+    ctx.font = valueFont;
     const wV = ctx.measureText(value).width;
     const totalW = wL + wV;
     const startX = (w - totalW) / 2;
+
+    ctx.font = labelFont;
     ctx.fillStyle = labelColor;
     ctx.fillText(label + gap, startX, y);
+    ctx.font = valueFont;
     ctx.fillStyle = valueColor;
     ctx.fillText(value, startX + wL, y);
   };
 
+  const emojiFont = `900 100px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
+  const labelFont = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
+  const nameFont = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
+
   const baseY = SAFE_BOTTOM - 170;
   const lineGap = 110;
-  const lines = [];
-  if (venueText) lines.push({ label: "📍", value: venueText });
-  lines.push({ label: "투수", value: `${pitcherName}  ${ipText}` });
-  lines.push({ label: "MVP", value: String(mvpText).slice(0, 24) });
 
-  const startY = baseY - lineGap * (lines.length - 1);
-  for (let i = 0; i < lines.length; i++) {
-    const yy = startY + lineGap * i;
-    drawCenteredLabelValue(yy, lines[i].label, lines[i].value);
-  }
+  // ❤️ (big, centered)
+  ctx.font = emojiFont;
+  ctx.fillStyle = "#ffffff";
+  const heart = "❤️";
+  const hw = ctx.measureText(heart).width;
+  ctx.fillText(heart, (w - hw) / 2, baseY - lineGap * 2);
+
+  // pitcher / batter lines (names only)
+  drawCenteredLabelValue(baseY - lineGap, "투수", pitcherName || "—", labelFont, nameFont);
+  drawCenteredLabelValue(baseY, "타자", batterName || "—", labelFont, nameFont);
 
   // 하단 인덱스 텍스트 제거
 }
