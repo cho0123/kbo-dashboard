@@ -664,117 +664,114 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.closePath();
     ctx.stroke();
 
-    // seams (realistic: S curve + diagonal stitches)
+    // subtle inner shading like the reference illustration
+    ctx.save();
+    ctx.fillStyle = "rgba(120,170,220,0.12)";
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.05, cy + r * 0.10, r * 0.92, Math.PI * 0.15, Math.PI * 0.95);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.beginPath();
+    ctx.arc(cx + r * 0.20, cy - r * 0.22, r * 0.62, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // seams: 2 curved arcs (top-left + bottom) with C-shaped stitches
     const seamStroke = "rgba(180,0,0,0.35)";
-    const seamWidth = 6;
-    const stitchWidth = 3;
-    const seamOffsetX = r * 0.30;
-    const seamSpanY = r * 0.82;
-    const seamSpanX = r * 0.22;
 
-    const cubicAt = (p0, p1, p2, p3, t) => {
-      const mt = 1 - t;
-      return (
-        mt * mt * mt * p0 +
-        3 * mt * mt * t * p1 +
-        3 * mt * t * t * p2 +
-        t * t * t * p3
-      );
-    };
-    const cubicDerivAt = (p0, p1, p2, p3, t) => {
-      const mt = 1 - t;
-      return (
-        3 * mt * mt * (p1 - p0) +
-        6 * mt * t * (p2 - p1) +
-        3 * t * t * (p3 - p2)
-      );
+    const arcPoint = (ax, ay, ar, ang) => ({
+      x: ax + Math.cos(ang) * ar,
+      y: ay + Math.sin(ang) * ar,
+    });
+
+    const arcTangent = (ang) => {
+      // derivative of (cos, sin) is (-sin, cos)
+      const tx = -Math.sin(ang);
+      const ty = Math.cos(ang);
+      const mag = Math.hypot(tx, ty) || 1;
+      return { x: tx / mag, y: ty / mag };
     };
 
-    const drawSeam = (side /* -1 left, +1 right */) => {
-      const x0 = cx + side * seamOffsetX;
-      const yTop = cy - seamSpanY;
-      const yMid = cy;
-      const yBot = cy + seamSpanY;
-
-      // Two cubic segments for a clean S curve
-      const seg1 = {
-        p0: { x: x0, y: yTop },
-        p1: { x: x0 + side * seamSpanX, y: cy - seamSpanY * 0.55 },
-        p2: { x: x0 - side * seamSpanX, y: cy - seamSpanY * 0.15 },
-        p3: { x: x0, y: yMid },
-      };
-      const seg2 = {
-        p0: { x: x0, y: yMid },
-        p1: { x: x0 + side * seamSpanX, y: cy + seamSpanY * 0.15 },
-        p2: { x: x0 - side * seamSpanX, y: cy + seamSpanY * 0.55 },
-        p3: { x: x0, y: yBot },
-      };
-
+    const drawSeamArc = (ax, ay, ar, a0, a1, stitchCount, flip) => {
+      // thin seam guide (very subtle)
       ctx.save();
-      ctx.strokeStyle = seamStroke;
-      ctx.lineWidth = seamWidth;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(180,0,0,0.18)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(seg1.p0.x, seg1.p0.y);
-      ctx.bezierCurveTo(seg1.p1.x, seg1.p1.y, seg1.p2.x, seg1.p2.y, seg1.p3.x, seg1.p3.y);
-      ctx.bezierCurveTo(seg2.p1.x, seg2.p1.y, seg2.p2.x, seg2.p2.y, seg2.p3.x, seg2.p3.y);
+      ctx.arc(ax, ay, ar, a0, a1);
       ctx.stroke();
       ctx.restore();
 
-      // stitches: place diagonal ticks on BOTH sides of the curve
-      const stitches = 10;
-      const stitchLen = r * 0.09;
-      const stitchGap = r * 0.055;
-
-      const stitchForSeg = (seg, t, sideSign /* -1 left-of-curve, +1 right-of-curve */) => {
-        const x = cubicAt(seg.p0.x, seg.p1.x, seg.p2.x, seg.p3.x, t);
-        const y = cubicAt(seg.p0.y, seg.p1.y, seg.p2.y, seg.p3.y, t);
-        const dx = cubicDerivAt(seg.p0.x, seg.p1.x, seg.p2.x, seg.p3.x, t);
-        const dy = cubicDerivAt(seg.p0.y, seg.p1.y, seg.p2.y, seg.p3.y, t);
-        const mag = Math.hypot(dx, dy) || 1;
-        const tx = dx / mag;
-        const ty = dy / mag;
-        // normal vector (perp to tangent)
-        const nx = -ty;
-        const ny = tx;
-
-        // offset from seam to each side
-        const ox = nx * stitchGap * sideSign;
-        const oy = ny * stitchGap * sideSign;
-
-        // diagonal direction: slightly rotated from normal to mimic real stitches
-        const rx = nx * 0.78 + tx * 0.22;
-        const ry = ny * 0.78 + ty * 0.22;
-
-        const x1 = x + ox - (rx * stitchLen) / 2;
-        const y1 = y + oy - (ry * stitchLen) / 2;
-        const x2 = x + ox + (rx * stitchLen) / 2;
-        const y2 = y + oy + (ry * stitchLen) / 2;
-
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-      };
-
+      // stitches (small C-curves)
       ctx.save();
       ctx.strokeStyle = seamStroke;
-      ctx.lineWidth = stitchWidth;
+      ctx.lineWidth = 3;
       ctx.lineCap = "round";
-      for (let i = 0; i < stitches; i++) {
-        const t = (i + 1) / (stitches + 1);
-        const seg = t < 0.5 ? seg1 : seg2;
-        const tt = t < 0.5 ? t * 2 : (t - 0.5) * 2;
-        stitchForSeg(seg, tt, -1);
-        stitchForSeg(seg, tt, +1);
+      ctx.lineJoin = "round";
+
+      for (let i = 0; i < stitchCount; i++) {
+        const t = (i + 1) / (stitchCount + 1);
+        const ang = a0 + (a1 - a0) * t;
+        const p = arcPoint(ax, ay, ar, ang);
+        const tan = arcTangent(ang);
+        const nx = -tan.y;
+        const ny = tan.x;
+
+        // stitch placement: slightly off the seam line
+        const offset = r * 0.02 * (flip ? -1 : 1);
+        const cx2 = p.x + nx * offset;
+        const cy2 = p.y + ny * offset;
+
+        const len = r * 0.06;
+        const wid = r * 0.035;
+        const sgn = i % 2 === 0 ? 1 : -1;
+
+        // C-shaped stitch using a small bezier
+        ctx.beginPath();
+        ctx.moveTo(cx2 - tan.x * (len * 0.5), cy2 - tan.y * (len * 0.5));
+        ctx.bezierCurveTo(
+          cx2 - tan.x * (len * 0.15) + nx * wid * sgn,
+          cy2 - tan.y * (len * 0.15) + ny * wid * sgn,
+          cx2 + tan.x * (len * 0.15) + nx * wid * sgn,
+          cy2 + tan.y * (len * 0.15) + ny * wid * sgn,
+          cx2 + tan.x * (len * 0.5),
+          cy2 + tan.y * (len * 0.5)
+        );
+        ctx.stroke();
       }
+
+      // main seam stroke on top (thicker)
+      ctx.strokeStyle = seamStroke;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(ax, ay, ar, a0, a1);
+      ctx.stroke();
+
       ctx.restore();
     };
 
-    // left seam: S curve, right seam: mirrored S curve
-    drawSeam(-1);
-    drawSeam(+1);
+    // top-left seam arc
+    drawSeamArc(
+      cx - r * 0.10,
+      cy - r * 0.18,
+      r * 0.83,
+      Math.PI * 1.20,
+      Math.PI * 1.58,
+      10,
+      false
+    );
+    // bottom seam arc
+    drawSeamArc(
+      cx + r * 0.02,
+      cy + r * 0.20,
+      r * 0.88,
+      Math.PI * 0.25,
+      Math.PI * 0.80,
+      12,
+      true
+    );
 
     ctx.restore();
   };
