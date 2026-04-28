@@ -288,28 +288,30 @@ async function fetchBoxForGames(db, gameIds) {
 
   async function mergeCollection(collName, rows, seen, gid) {
     for (const v of variantsForGameId(gid)) {
-      const snap = await db
-        .collection(collName)
-        .where("game_id", "==", v)
-        .get();
-      snap.forEach((d) => {
-        if (!seen.has(d.id)) {
-          seen.add(d.id);
-          const row = { id: d.id, ...docSnap(d) };
-          rows.push(row);
-          if (collName === "batters") {
-            const doc = row;
-            console.log("BATTER_RBI_CHECK:", {
-              player: doc.player,
-              game_id: doc.game_id,
-              hr: doc.hr,
-              rbi: doc.rbi,
-              h: doc.h,
-              ab: doc.ab,
-            });
+      // 일부 데이터셋은 필드명이 gameId 로 저장되어 있을 수 있어 폴백 쿼리를 추가한다.
+      const q1 = db.collection(collName).where("game_id", "==", v).get();
+      const q2 = db.collection(collName).where("gameId", "==", v).get();
+      const [snap1, snap2] = await Promise.all([q1, q2]);
+      for (const snap of [snap1, snap2]) {
+        snap.forEach((d) => {
+          if (!seen.has(d.id)) {
+            seen.add(d.id);
+            const row = { id: d.id, ...docSnap(d) };
+            rows.push(row);
+            if (collName === "batters") {
+              const doc = row;
+              console.log("BATTER_RBI_CHECK:", {
+                player: doc.player,
+                game_id: doc.game_id ?? doc.gameId,
+                hr: doc.hr,
+                rbi: doc.rbi,
+                h: doc.h,
+                ab: doc.ab,
+              });
+            }
           }
-        }
-      });
+        });
+      }
     }
   }
 
@@ -1058,6 +1060,11 @@ export const handler = async (event) => {
           };
         }
         const box = await fetchBoxForGames(db, [gameId]);
+        console.log("BOXSCORE_QUERY:", {
+          gameId,
+          batterCount: (box.batters || []).length,
+          pitcherCount: (box.pitchers || []).length,
+        });
         const battersBySide = splitAndSortBattersBySide(box.batters || []);
         const pitchersBySide = splitPitchersBySide(box.pitchers || []);
         return {
