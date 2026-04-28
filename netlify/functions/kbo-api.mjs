@@ -712,6 +712,20 @@ function isInsufficient(stat) {
   return (stat?.games ?? 0) < 3 || (stat?.ab ?? 0) < 10;
 }
 
+function mergePvStats(a, b) {
+  const ax = a && typeof a === "object" ? a : {};
+  const bx = b && typeof b === "object" ? b : {};
+  const ab = (ax.ab ?? 0) + (bx.ab ?? 0);
+  const h = (ax.h ?? 0) + (bx.h ?? 0);
+  const hr = (ax.hr ?? 0) + (bx.hr ?? 0);
+  const bb = (ax.bb ?? 0) + (bx.bb ?? 0);
+  const so = (ax.so ?? 0) + (bx.so ?? 0);
+  const games = (ax.games ?? 0) + (bx.games ?? 0);
+  const pa = (ax.pa ?? 0) + (bx.pa ?? 0);
+  const avg = ab > 0 ? (h / ab).toFixed(3) : "—";
+  return { games, pa, ab, h, hr, bb, so, avg };
+}
+
 async function pvBatterStats(db, pitcher, batter, start, end) {
   const [bats, pits] = await Promise.all([
     queryPlayerByRange(db, "batters", batter, start, end, 1800),
@@ -1676,6 +1690,18 @@ export const handler = async (event) => {
             batter
           ),
         };
+        const bothSeasons = {
+          stat: mergePvStats(thisSeason.stat, prevSeason.stat),
+          batter_lines: (prevSeason.batter_lines || []).concat(thisSeason.batter_lines || []),
+          pitcher_lines: (prevSeason.pitcher_lines || []).concat(thisSeason.pitcher_lines || []),
+          shared_game_ids: (prevSeason.shared_game_ids || []).concat(thisSeason.shared_game_ids || []),
+        };
+        const per_game_both = buildPvPerGameRows(
+          bothSeasons.batter_lines,
+          bothSeasons.pitcher_lines,
+          pitcher,
+          batter
+        );
 
         return {
           statusCode: 200,
@@ -1688,16 +1714,19 @@ export const handler = async (event) => {
             end,
             thisSeason: thisSeason.stat,
             prevSeason: prevSeason.stat,
-            per_game,
+            bothSeasons: bothSeasons.stat,
+            per_game: { ...per_game, bothSeasons: per_game_both },
             insufficient: {
               thisSeason: thisSeason.insufficient,
               prevSeason: prevSeason.insufficient,
+              bothSeasons: isInsufficient(bothSeasons.stat),
             },
             counts: {
               thisSeasonSharedGames: thisSeason.shared_game_ids.length,
               prevSeasonSharedGames: prevSeason.shared_game_ids.length,
               thisSeasonBatterLines: thisSeason.batter_lines.length,
               prevSeasonBatterLines: prevSeason.batter_lines.length,
+              bothSeasonsBatterLines: bothSeasons.batter_lines.length,
             },
           }),
         };

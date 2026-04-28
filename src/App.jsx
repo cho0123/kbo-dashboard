@@ -243,7 +243,7 @@ export default function App() {
 
   const [pvP, setPvP] = useState("");
   const [pvB, setPvB] = useState("");
-  const [pvTab, setPvTab] = useState("this"); // this | prev
+  const [pvTab, setPvTab] = useState("this"); // this | prev | both
   const [pvBusy, setPvBusy] = useState(false);
   const [pvStats, setPvStats] = useState({
     data: null,
@@ -603,7 +603,7 @@ export default function App() {
                       onChange={(e) => loadBatters(e.target.value)}
                     >
                       <option value="">팀 선택</option>
-                      {KBO_TEAM_NAMES.map((t) => (
+                      {KBO_TEAM_NAMES.filter((t) => t !== pitcherTeam).map((t) => (
                         <option key={t} value={t}>
                           {t}
                         </option>
@@ -1229,16 +1229,31 @@ export default function App() {
                   >
                     직전시즌 (2025)
                   </button>
+                  <button
+                    type="button"
+                    className={`mini-tab ${pvTab === "both" ? "active" : ""}`}
+                    onClick={() => setPvTab("both")}
+                  >
+                    2시즌 합산 (2025~2026)
+                  </button>
                 </div>
                 {pvStats.error ? (
                   <pre className="result-error-light">{pvStats.error}</pre>
                 ) : pvStats.data ? (
                   (() => {
                     const d = pvStats.data;
-                    const isThis = pvTab === "this";
-                    const s = isThis ? d.thisSeason : d.prevSeason;
+                    const s =
+                      pvTab === "this"
+                        ? d.thisSeason
+                        : pvTab === "prev"
+                          ? d.prevSeason
+                          : d.bothSeasons;
                     const rows =
-                      (isThis ? d.per_game?.thisSeason : d.per_game?.prevSeason) ?? [];
+                      (pvTab === "this"
+                        ? d.per_game?.thisSeason
+                        : pvTab === "prev"
+                          ? d.per_game?.prevSeason
+                          : d.per_game?.bothSeasons) ?? [];
                     const avg = Number(s?.avg);
                     const avgHot = Number.isFinite(avg) && avg >= 0.3;
                     return (
@@ -1253,27 +1268,49 @@ export default function App() {
                           <div className="metric">
                             <div className="metric-k">AB</div>
                             <div className="metric-v">{s?.ab ?? 0}</div>
+                            <div className="metric-sub">타수</div>
                           </div>
                           <div className="metric">
                             <div className="metric-k">H</div>
                             <div className="metric-v">{s?.h ?? 0}</div>
+                            <div className="metric-sub">안타</div>
                           </div>
                           <div className="metric">
                             <div className="metric-k">HR</div>
                             <div className="metric-v">{s?.hr ?? 0}</div>
+                            <div className="metric-sub">홈런</div>
                           </div>
                           <div className="metric">
                             <div className="metric-k">BB</div>
                             <div className="metric-v">{s?.bb ?? 0}</div>
+                            <div className="metric-sub">볼넷</div>
                           </div>
                           <div className="metric">
                             <div className="metric-k">SO</div>
                             <div className="metric-v">{s?.so ?? 0}</div>
+                            <div className="metric-sub">삼진</div>
                           </div>
                         </div>
 
                         <div className="section soft">
                           <div className="section-title">공통 출전 경기</div>
+                          <div
+                            style={{
+                              background: "#fff3e0",
+                              border: "1px solid rgba(255, 152, 0, 0.25)",
+                              color: "rgba(26, 26, 46, 0.78)",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              fontSize: "0.86rem",
+                              fontWeight: 800,
+                              marginBottom: 10,
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            ⚠️ 주의: 같은 경기에 출전한 기록 기준입니다.
+                            <br />
+                            투수 교체 시점에 따라 실제 직접 대결이 아닐 수 있습니다.
+                          </div>
                           <div className="timeline">
                             {rows.length ? (
                               rows.map((r) => (

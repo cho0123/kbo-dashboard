@@ -788,8 +788,9 @@ button.primary:disabled {
 .mini-tab {
   appearance: none;
   border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.65);
+  color: #1a1a2e;
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
@@ -799,9 +800,9 @@ button.primary:disabled {
 }
 
 .mini-tab.active {
-  background: var(--accent-dim);
-  border-color: rgba(62, 224, 169, 0.38);
-  color: var(--text);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #1a1a2e;
 }
 
 .pv-meta {
