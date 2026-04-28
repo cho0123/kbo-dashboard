@@ -529,6 +529,23 @@ async function loadPngImage(path) {
   return await promise;
 }
 
+function drawBaseballBackground(ctx, baseballImg) {
+  if (!baseballImg) return;
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  const size = 700;
+  const centerX = 900;
+  const centerY = 1400;
+  ctx.drawImage(
+    baseballImg,
+    centerX - size / 2,
+    centerY - size / 2,
+    size,
+    size
+  );
+  ctx.restore();
+}
+
 function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   if (img) {
     ctx.drawImage(img, x, y, size, size);
@@ -594,10 +611,13 @@ function canvasToBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
+function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "", baseballImg) {
   ctx.clearRect(0, 0, w, h);
   // pastel + diagonal split background
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
+
+  // decor (behind contents)
+  drawBaseballBackground(ctx, baseballImg);
 
   // NOTE: slide-specific headers should respect safe zone (y: 200~1720).
   // Keep base free of top UI chrome.
@@ -660,16 +680,8 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   ctx.stroke();
   ctx.restore();
 
-  // Background baseball image (decor)
-  if (baseballImg) {
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    const size = 700;
-    const centerX = 900;
-    const centerY = 1400;
-    ctx.drawImage(baseballImg, centerX - size / 2, centerY - size / 2, size, size);
-    ctx.restore();
-  }
+  // decor (behind contents)
+  drawBaseballBackground(ctx, baseballImg);
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
@@ -700,9 +712,24 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   }
 
   const cardW = 952;
-  const cardH = 220;
+  const cardH = 248;
   const x = 64;
   let y = SAFE_TOP + 200;
+
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      // fallback: badge centered in the box
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
 
   for (const g of games) {
     // brighter cards + 1px border
@@ -714,23 +741,18 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
     ctx.fill();
     ctx.stroke();
 
-    const logoSize = 230;
-    const ly = y + (cardH - logoSize) / 2;
+    // Wider logo box (keep original aspect ratio, but give more horizontal space)
+    const logoBoxW = 260;
+    const logoBoxH = 180;
+    const ly = y + (cardH - logoBoxH) / 2;
     const hk = teamKeyword(g.home_team);
     const ak = teamKeyword(g.away_team);
-    drawTeamLogoOrBadge(
-      ctx,
-      x + 26,
+    drawLogoInBox(x + 18, ly, logoBoxW, logoBoxH, g.home_team, logosByTeamKey?.[hk] || null);
+    drawLogoInBox(
+      x + cardW - 18 - logoBoxW,
       ly,
-      logoSize,
-      g.home_team,
-      logosByTeamKey?.[hk] || null
-    );
-    drawTeamLogoOrBadge(
-      ctx,
-      x + cardW - 26 - logoSize,
-      ly,
-      logoSize,
+      logoBoxW,
+      logoBoxH,
       g.away_team,
       logosByTeamKey?.[ak] || null
     );
@@ -750,7 +772,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
     const w2 = ctx.measureText(vsText).width;
     const totalW = w1 + w2 + w3;
     const startX = x + (cardW - totalW) / 2;
-    const yy = y + 136;
+    const yy = y + Math.round(cardH * 0.62);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = scoreFont;
@@ -770,7 +792,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, baseballImg) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
   const as = Number(g?.away_score);
@@ -782,6 +804,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
+  drawBaseballBackground(ctx, baseballImg);
 
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
@@ -891,8 +914,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   resetShadow(ctx);
 }
 
-function drawStandingsSlide(ctx, w, h, date, standings) {
-  drawSlideBase(ctx, w, h, "");
+function drawStandingsSlide(ctx, w, h, date, standings, baseballImg) {
+  drawSlideBase(ctx, w, h, "", "", "", baseballImg);
 
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
@@ -1022,9 +1045,10 @@ function Card8Shorts({ defaultDate }) {
         slide.game,
         idx,
         Math.max(1, games.length),
-        logosByTeamKey
+        logosByTeamKey,
+        baseballImg
       );
-    else drawStandingsSlide(ctx, w, h, date, standings);
+    else drawStandingsSlide(ctx, w, h, date, standings, baseballImg);
   };
 
   const onGenerate = async () => {
