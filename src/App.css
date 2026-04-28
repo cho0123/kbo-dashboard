@@ -255,6 +255,19 @@ button.primary.primary-fill {
   table-layout: auto;
 }
 
+.results .md table.md-table-2 {
+  max-width: 400px;
+  margin-left: 0;
+}
+
+.results .md table.md-table-2 :where(th:first-child, td:first-child) {
+  width: 60%;
+}
+
+.results .md table.md-table-2 :where(th:nth-child(2), td:nth-child(2)) {
+  width: 40%;
+}
+
 .results :where(th) {
   width: 140px;
 }

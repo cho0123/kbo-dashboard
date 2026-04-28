@@ -33,9 +33,44 @@ const KBO_TEAM_NAMES = [
 function MarkdownView({ text }) {
   const value = (text || "").trim();
   if (!value) return <div className="md">—</div>;
+
+  const countCols = (node) => {
+    // Try to find first <tr> and count its cells
+    const queue = [node];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (!cur) continue;
+      if (Array.isArray(cur)) {
+        for (const x of cur) queue.push(x);
+        continue;
+      }
+      if (cur?.type === "tr") {
+        const kids = Array.isArray(cur.props?.children)
+          ? cur.props.children
+          : [cur.props?.children].filter(Boolean);
+        const cells = kids.filter((c) => c && (c.type === "td" || c.type === "th"));
+        return cells.length || 0;
+      }
+      const children = cur?.props?.children;
+      if (children) queue.push(children);
+    }
+    return 0;
+  };
+
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          table({ node, ...props }) {
+            const cols = countCols(props.children);
+            const cls = cols === 2 ? "md-table md-table-2" : "md-table";
+            return <table className={cls} {...props} />;
+          },
+        }}
+      >
+        {value}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -140,6 +175,19 @@ function extractMvpTitle(md) {
   const m = text.match(/^\s*#{1,3}\s*(.+?)\s*$/m);
   if (m?.[1]) return m[1].trim();
   return "오늘의 MVP";
+}
+
+function extractFirstHeading(md) {
+  const text = String(md || "");
+  const m = text.match(/^\s*#{1,3}\s*(.+?)\s*$/m);
+  if (!m?.[1]) return null;
+  return m[1].trim();
+}
+
+function removeFirstHeading(md) {
+  const text = String(md || "");
+  // remove first markdown heading line only
+  return text.replace(/^\s*#{1,3}\s*.+?\s*(\r?\n)+/m, "");
 }
 
 function extractKoreanBattingLine(md) {
@@ -1741,86 +1789,33 @@ export default function App() {
             ) : (
               <div className="result-page">
                 <div className="section soft">
-                  <div className="section-title">결과</div>
                   {activeKey === "player_range" ? (
                     <>
                       {(() => {
-                        const ui = prOut.uiData;
-                        const pitcherRows = ui?.pitcherRows || [];
-                        const batterRows = ui?.batterRows || [];
-                        const hasPitcher = Array.isArray(pitcherRows) && pitcherRows.length;
-                        const hasBatter = Array.isArray(batterRows) && batterRows.length;
-                        if (!hasPitcher && !hasBatter) return null;
-                        return (
-                          <>
-                            {hasPitcher && (
-                              <>
-                                <div className="section-title">경기별 성적 (투수)</div>
-                                <SimpleStatsTable
-                                  headers={[
-                                    { key: "date", label: "날짜" },
-                                    { key: "opponent", label: "상대" },
-                                    { key: "home_away", label: "홈/원정" },
-                                    { key: "ip", label: "이닝" },
-                                    { key: "r", label: "실점" },
-                                    { key: "h", label: "피안타" },
-                                    { key: "so", label: "K" },
-                                    { key: "era", label: "ERA" },
-                                  ]}
-                                  rows={pitcherRows.map((r) => ({
-                                    date: r.date,
-                                    opponent: r.opponent,
-                                    home_away: r.home_away,
-                                    ip: formatInnings(r.ip) || "0이닝",
-                                    r: r.r ?? 0,
-                                    h: r.h ?? 0,
-                                    so: r.so ?? 0,
-                                    era: formatEraMaybe(r.era),
-                                  }))}
-                                />
-                              </>
-                            )}
-                            {hasBatter && (
-                              <>
-                                <div className="section-title" style={{ marginTop: 12 }}>
-                                  경기별 성적 (타자)
-                                </div>
-                                <SimpleStatsTable
-                                  headers={[
-                                    { key: "date", label: "날짜" },
-                                    { key: "opponent", label: "상대" },
-                                    { key: "home_away", label: "홈/원정" },
-                                    { key: "ab", label: "타수" },
-                                    { key: "h", label: "안타" },
-                                    { key: "rbi", label: "타점" },
-                                    { key: "hr", label: "홈런" },
-                                    { key: "avg", label: "타율" },
-                                  ]}
-                                  rows={batterRows.map((r) => ({
-                                    date: r.date,
-                                    opponent: r.opponent,
-                                    home_away: r.home_away,
-                                    ab: r.ab ?? 0,
-                                    h: r.h ?? 0,
-                                    rbi: r.rbi ?? 0,
-                                    hr: r.hr ?? 0,
-                                    avg: formatSeasonAvgDot(r.avg),
-                                  }))}
-                                />
-                              </>
-                            )}
-                          </>
-                        );
-                      })()}
-                      <ResultBlock
-                        title={`${prTeam || "—"} / ${prPlayer || "—"} / ${Math.max(
+                        const big = extractFirstHeading(prOut.text) || `${prPlayer || "선수"} 성적 분석`;
+                        const games = Math.max(
                           prOut.uiData?.pitcherRows?.length ?? 0,
                           prOut.uiData?.batterRows?.length ?? 0
-                        )}경기`}
-                        text={prOut.text}
-                        error={prOut.error}
-                        pending={pending("player_range_4")}
-                      />
+                        );
+                        const sub = `${prTeam || "—"} / ${prPlayer || "—"} / ${games}경기`;
+                        return (
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontWeight: 1000, fontSize: "1.12rem" }}>{big}</div>
+                            <div style={{ color: "rgba(26, 26, 46, 0.7)", fontWeight: 900, marginTop: 4 }}>
+                              {sub}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {prOut.error ? (
+                        <pre className="result-error-light">{prOut.error}</pre>
+                      ) : pending("player_range_4") ? (
+                        <div className="muted">생성 중…</div>
+                      ) : (
+                        <MarkdownView
+                          text={removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")}
+                        />
+                      )}
                     </>
                   ) : activeKey === "sp_compare" ? (
                     <>
