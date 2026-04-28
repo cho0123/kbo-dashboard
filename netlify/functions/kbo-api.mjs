@@ -358,6 +358,32 @@ function pickNum(obj, keys) {
   return 0;
 }
 
+function pickAny(obj, keys) {
+  for (const k of keys) {
+    if (!obj || !Object.prototype.hasOwnProperty.call(obj, k)) continue;
+    const v = obj[k];
+    if (v == null) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    return v;
+  }
+  return null;
+}
+
+function normalizeBatterRowForUi(row) {
+  if (!row || typeof row !== "object") return row;
+  const avg = pickAny(row, [
+    "avg",
+    "AVG",
+    "batting_avg",
+    "battingAvg",
+    "bat_avg",
+    "batAvg",
+    "타율",
+  ]);
+  if (avg == null) return row;
+  return { ...row, avg };
+}
+
 function normalizeGameId(x) {
   if (x == null) return "";
   const s = String(x).trim();
@@ -947,7 +973,7 @@ export const handler = async (event) => {
             ok: true,
             action,
             game_id: gameId,
-            batters: box.batters || [],
+            batters: (box.batters || []).map(normalizeBatterRowForUi),
             pitchers: box.pitchers || [],
           }),
         };

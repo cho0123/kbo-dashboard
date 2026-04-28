@@ -107,13 +107,23 @@ function teamAbbr(team) {
   return t.slice(0, 6);
 }
 
-function formatAvgDot(abRaw, hRaw) {
-  const ab = Number(abRaw);
-  const h = Number(hRaw);
-  if (!Number.isFinite(ab) || ab <= 0 || !Number.isFinite(h) || h < 0) return "";
-  const avg = h / ab;
-  const s = avg.toFixed(3); // "0.250"
-  return s.replace(/^0/, ""); // ".250"
+function formatSeasonAvgDot(avgRaw) {
+  if (avgRaw == null || avgRaw === "") return "";
+  if (typeof avgRaw === "number") {
+    if (!Number.isFinite(avgRaw)) return "";
+    // 0.333 -> ".333"
+    if (avgRaw >= 0 && avgRaw <= 1.5) return avgRaw.toFixed(3).replace(/^0/, "");
+    // already percent-like / unexpected → just show trimmed
+    return String(avgRaw);
+  }
+  const s = String(avgRaw).trim();
+  if (!s) return "";
+  // ".333" or "0.333"
+  if (/^\.\d{3,4}$/.test(s)) return s.slice(0, 5);
+  if (/^0\.\d{3,4}$/.test(s)) return s.replace(/^0/, "").slice(0, 5);
+  const n = Number(s);
+  if (Number.isFinite(n) && n >= 0 && n <= 1.5) return n.toFixed(3).replace(/^0/, "");
+  return s;
 }
 
 function inningsToNumber(ipRaw) {
@@ -765,7 +775,13 @@ export default function App() {
                                                       const hr = r?.hr ?? r?.HR ?? 0;
                                                       const rbi =
                                                         r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
-                                                      const avgDot = formatAvgDot(ab, h);
+                                                      const avgDot = formatSeasonAvgDot(
+                                                        r?.avg ??
+                                                          r?.AVG ??
+                                                          r?.batting_avg ??
+                                                          r?.battingAvg ??
+                                                          r?.타율
+                                                      );
                                                       return `${name}${
                                                         team ? ` (${teamAbbr(team)})` : ""
                                                       } — ${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점${
