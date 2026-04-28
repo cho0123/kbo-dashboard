@@ -395,6 +395,22 @@ function shadowTextStrong(ctx) {
   ctx.shadowOffsetY = 8;
 }
 
+const __fontsReady =
+  typeof document !== "undefined" && document.fonts?.ready
+    ? document.fonts.ready
+    : Promise.resolve();
+
+async function ensureCanvasFonts() {
+  try {
+    await __fontsReady;
+  } catch {
+    // ignore
+  }
+}
+
+const FONT_TITLE = "Black Han Sans";
+const FONT_BODY = "Noto Sans KR";
+
 function fmtKoreanLongDate(iso) {
   const s = String(iso || "").slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -439,7 +455,7 @@ function drawTeamBadge(ctx, cx, cy, r, teamName) {
   ctx.stroke();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 52px system-ui, sans-serif";
+  ctx.font = `900 52px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowText(ctx);
   const t = teamBadgeLabel(teamName);
   const tw = ctx.measureText(t).width;
@@ -569,19 +585,19 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 
   // Date + subtitle (safe zone)
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 80px system-ui, sans-serif";
+  ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextStrong(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
   resetShadow(ctx);
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = "900 50px system-ui, sans-serif";
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
   resetShadow(ctx);
 
   if (!games?.length) {
     ctx.fillStyle = "#ffffff";
-    ctx.font = "900 64px system-ui, sans-serif";
+    ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowText(ctx);
     ctx.fillText("오늘 등록된 경기 없음", 64, SAFE_TOP + 320);
     resetShadow(ctx);
@@ -624,7 +640,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     );
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "1000 68px system-ui, sans-serif";
+    ctx.font = `900 68px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowText(ctx);
     const s = `${g.home_score ?? "—"}  vs  ${g.away_score ?? "—"}`;
     const sw = ctx.measureText(s).width;
@@ -636,7 +652,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
 
   ctx.fillStyle = "rgba(255,255,255,0.90)";
-  ctx.font = "900 44px system-ui, sans-serif";
+  ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText(`오늘 ${games.length}경기`, 64, SAFE_BOTTOM);
   resetShadow(ctx);
@@ -660,12 +676,12 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // Date header (safe zone)
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 80px system-ui, sans-serif";
+  ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextStrong(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
   resetShadow(ctx);
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = "900 50px system-ui, sans-serif";
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
   resetShadow(ctx);
@@ -697,7 +713,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   );
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 200px system-ui, sans-serif";
+  ctx.font = `900 200px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowText(ctx);
   const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
   const sw = ctx.measureText(score).width;
@@ -719,13 +735,13 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // Winner pitcher
   ctx.fillStyle = "#00d4aa";
-  ctx.font = "900 40px system-ui, sans-serif";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText("🏆 승리투수", boxX + 40, boxY + 90);
   resetShadow(ctx);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 70px system-ui, sans-serif";
+  ctx.font = `900 70px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextStrong(ctx);
   ctx.fillText(
     String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
@@ -736,7 +752,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   // MVP
   ctx.fillStyle = "#ffd54a";
-  ctx.font = "900 40px system-ui, sans-serif";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText("⭐ MVP", boxX + 40, boxY + 255);
   resetShadow(ctx);
@@ -745,20 +761,20 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 60px system-ui, sans-serif";
+  ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextStrong(ctx);
   ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 325);
   resetShadow(ctx);
 
   // Venue (small line at bottom of box)
   ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "900 40px system-ui, sans-serif";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText(g.venue ? `🏟️ ${g.venue}` : "🏟️ —", boxX + 40, boxY + 370);
   resetShadow(ctx);
 
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = "900 34px system-ui, sans-serif";
+  ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText(`${index}/${total}`, 64, SAFE_BOTTOM - 70);
   resetShadow(ctx);
@@ -772,14 +788,14 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
 
   // Title
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 90px system-ui, sans-serif";
+  ctx.font = `900 90px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextStrong(ctx);
   ctx.fillText("KBO 현재 순위", 64, SAFE_TOP + 90);
   resetShadow(ctx);
 
   // Date
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = "900 50px system-ui, sans-serif";
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowText(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 90 + 70);
   resetShadow(ctx);
@@ -792,7 +808,7 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     ctx.fill();
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "1000 70px system-ui, sans-serif";
+    ctx.font = `900 70px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowTextStrong(ctx);
     ctx.fillText("순위 데이터 없음", 64 + 40, SAFE_TOP + 240 + 160);
     resetShadow(ctx);
@@ -818,13 +834,13 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     ctx.fill();
 
     ctx.fillStyle = medal(rank);
-    ctx.font = "1000 64px system-ui, sans-serif";
+    ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowTextStrong(ctx);
     ctx.fillText(String(rank), 96, y);
     resetShadow(ctx);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "1000 64px system-ui, sans-serif";
+    ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowTextStrong(ctx);
     ctx.fillText(fmtTeamShort(team), 200, y);
     resetShadow(ctx);
@@ -852,6 +868,7 @@ function Card8Shorts({ defaultDate }) {
 
   const renderSlideToCanvas = async (idx, canvas) => {
     if (!canvas) return;
+    await ensureCanvasFonts();
     const w = 1080;
     const h = 1920;
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
