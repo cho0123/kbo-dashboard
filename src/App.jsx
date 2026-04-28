@@ -437,22 +437,30 @@ export default function App() {
                   value={mvpDate}
                   onChange={(e) => setMvpDate(e.target.value)}
                 />
-                <div className="row two">
-                  <button type="button" className="primary" onClick={setToToday}>
+                <div className="date-actions-row">
+                  <button
+                    type="button"
+                    className="primary primary-sm"
+                    onClick={setToToday}
+                  >
                     오늘
                   </button>
-                  <button type="button" className="primary" onClick={setToYesterday}>
+                  <button
+                    type="button"
+                    className="primary primary-sm"
+                    onClick={setToYesterday}
+                  >
                     어제
                   </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    disabled={grBusy}
+                    onClick={fetchGameResults}
+                  >
+                    경기 결과 조회
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={grBusy}
-                  onClick={fetchGameResults}
-                >
-                  경기 결과 조회
-                </button>
               </div>
 
               <div className="side-group">
