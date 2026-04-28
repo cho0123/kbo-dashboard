@@ -597,15 +597,17 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 
   // Grass gradient background (top -> mid -> bottom)
   const grass = ctx.createLinearGradient(0, 0, 0, h);
-  grass.addColorStop(0.0, "#1a3a0a");
-  grass.addColorStop(0.5, "#2d5a1b");
-  grass.addColorStop(1.0, "#1a3a0a");
+  // brighter / cuter mint-green vibe
+  grass.addColorStop(0.0, "#388e3c");
+  grass.addColorStop(0.35, "#4caf50");
+  grass.addColorStop(0.6, "#66bb6a");
+  grass.addColorStop(1.0, "#43a047");
   ctx.fillStyle = grass;
   ctx.fillRect(0, 0, w, h);
 
   // Grass texture: diagonal mow lines
   ctx.save();
-  ctx.strokeStyle = "rgba(165,214,167,0.14)";
+  ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.lineWidth = 2;
   const spacing = 120;
   for (let x = -h; x <= w + h; x += spacing) {
@@ -614,7 +616,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.lineTo(x + h, h);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(165,214,167,0.10)";
+  ctx.strokeStyle = "rgba(0,0,0,0.06)";
   for (let x = -h + spacing / 2; x <= w + h; x += spacing) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -628,7 +630,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 
   // Infield diamond pattern line
   ctx.save();
-  ctx.strokeStyle = "rgba(165,214,167,0.38)";
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
   ctx.lineWidth = 6;
   const dcx = w * 0.5;
   const dcy = SAFE_TOP + 520;
@@ -641,6 +643,57 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
+
+  // Background baseballs
+  const drawBaseball = (cx, cy, r, ballAlpha, seamAlpha) => {
+    ctx.save();
+
+    // ball body
+    ctx.fillStyle = `rgba(255,255,255,${ballAlpha})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // seam curves (2)
+    ctx.strokeStyle = `rgba(255,0,0,${seamAlpha})`;
+    ctx.lineWidth = Math.max(3, Math.round(r * 0.035));
+
+    const sx = cx - r * 0.65;
+    const ex = cx + r * 0.65;
+    const y1 = cy - r * 0.1;
+    const y2 = cy + r * 0.1;
+
+    ctx.beginPath();
+    ctx.moveTo(sx, y1);
+    ctx.bezierCurveTo(
+      cx - r * 0.25,
+      cy - r * 0.85,
+      cx + r * 0.25,
+      cy + r * 0.85,
+      ex,
+      y1
+    );
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(sx, y2);
+    ctx.bezierCurveTo(
+      cx - r * 0.25,
+      cy + r * 0.85,
+      cx + r * 0.25,
+      cy - r * 0.85,
+      ex,
+      y2
+    );
+    ctx.stroke();
+
+    ctx.restore();
+  };
+
+  // big ball bottom-right, small ball top-left
+  drawBaseball(w - 220, h - 260, 350, 0.15, 0.3);
+  drawBaseball(170, 220, 120, 0.08, 0.18);
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
@@ -676,15 +729,16 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   let y = SAFE_TOP + 200;
 
   for (const g of games) {
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
-    ctx.strokeStyle = "rgba(255,255,255,0.38)";
-    ctx.lineWidth = 2;
+    // brighter cards + 1px border
+    ctx.fillStyle = "rgba(255,255,255,0.20)";
+    ctx.strokeStyle = "rgba(255,255,255,1.0)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(x, y, cardW, cardH, 24);
     ctx.fill();
     ctx.stroke();
 
-    const logoSize = 200;
+    const logoSize = 230;
     const ly = y + (cardH - logoSize) / 2;
     const hk = teamKeyword(g.home_team);
     const ak = teamKeyword(g.away_team);
@@ -705,25 +759,31 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
       logosByTeamKey?.[ak] || null
     );
 
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+    // Score: make VS bigger and yellow
+    const scoreFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+    const vsFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
     const vsText = "VS";
     const pad = "  ";
+    ctx.font = scoreFont;
     const w1 = ctx.measureText(hsText + pad).width;
-    const w2 = ctx.measureText(vsText).width;
     const w3 = ctx.measureText(pad + asText).width;
+    ctx.font = vsFont;
+    const w2 = ctx.measureText(vsText).width;
     const totalW = w1 + w2 + w3;
     const startX = x + (cardW - totalW) / 2;
     const yy = y + 136;
 
     ctx.fillStyle = "#ffffff";
+    ctx.font = scoreFont;
     ctx.fillText(hsText + pad, startX, yy);
     ctx.fillStyle = "#ffeb3b";
-    ctx.fillText(vsText, startX + w1, yy);
+    ctx.font = vsFont;
+    ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
+    ctx.font = scoreFont;
     ctx.fillText(pad + asText, startX + w1 + w2, yy);
     resetShadow(ctx);
 
@@ -731,11 +791,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     if (y > SAFE_BOTTOM - 120) break;
   }
 
-  ctx.fillStyle = "#ffeb3b";
-  ctx.font = `1000 46px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(`오늘 ${games.length}경기`, 64, SAFE_BOTTOM);
-  resetShadow(ctx);
+  // "오늘 N경기" 텍스트 제거
 }
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
