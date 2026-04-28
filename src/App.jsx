@@ -202,6 +202,7 @@ function stripDuplicateSummaryTables(md) {
   const patterns = [
     /(^|\n)\s*#{1,4}\s*📊?\s*전체\s*요약[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
     /(^|\n)\s*#{1,4}\s*📅?\s*월간\s*종합\s*성적[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
+    /(^|\n)\s*#{1,4}\s*📅?\s*전체\s*누적\s*성적[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
   ];
   let out = text;
   for (const p of patterns) out = out.replace(p, "\n");
