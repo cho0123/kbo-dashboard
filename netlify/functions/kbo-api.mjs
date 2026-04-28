@@ -847,6 +847,7 @@ function buildUiData(action, ctx) {
       const h = pickNum(b, ["h", "H", "hits"]);
       const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
       const hr = pickNum(b, ["hr", "HR", "home_run"]);
+      const runs = pickNum(b, ["runs", "run", "r", "R", "득점"]);
       const avgRaw = pickAny(b, ["avg", "AVG", "batting_avg", "battingAvg", "타율"]);
       const avgNum = avgRaw == null ? null : Number(avgRaw);
       const avg = Number.isFinite(avgNum) ? avgNum : ab > 0 ? h / ab : 0;
@@ -858,6 +859,7 @@ function buildUiData(action, ctx) {
         h,
         rbi,
         hr,
+        runs,
         avg,
       };
     });

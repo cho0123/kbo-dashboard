@@ -195,14 +195,17 @@ function removeFirstHeading(md) {
   return text.replace(/^\s*#{1,3}\s*.+?\s*(\r?\n)+/m, "");
 }
 
-function stripSummaryTable(md) {
+function stripDuplicateSummaryTables(md) {
   const text = String(md || "");
-  // Remove a markdown table under a "전체 요약" heading if present.
+  // Remove markdown tables under summary headings if present.
   // Keeps the rest of the report (e.g., 경기별 상세 성적).
-  return text.replace(
+  const patterns = [
     /(^|\n)\s*#{1,4}\s*📊?\s*전체\s*요약[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
-    "\n"
-  );
+    /(^|\n)\s*#{1,4}\s*📅?\s*월간\s*종합\s*성적[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
+  ];
+  let out = text;
+  for (const p of patterns) out = out.replace(p, "\n");
+  return out;
 }
 
 function extractKoreanBattingLine(md) {
@@ -1869,7 +1872,7 @@ export default function App() {
                           <div className="section-title">📊 전체 요약</div>
                           <SummaryCards batterRows={prOut.uiData?.batterRows} />
                           <MarkdownView
-                            text={stripSummaryTable(
+                            text={stripDuplicateSummaryTables(
                               removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
                             )}
                           />
