@@ -864,14 +864,32 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
     drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
   else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
 
-  ctx.fillStyle = TEXT_MAIN;
-  // 스코어 숫자: Black Han Sans 유지
+  // Score: winner score highlighted, loser white
+  const hsNum = Number(g?.home_score);
+  const asNum = Number(g?.away_score);
+  const awayWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && asNum > hsNum;
+  const homeWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && hsNum > asNum;
+  const winIsHome = homeWinScore || (!awayWinScore && !homeWinScore);
+
+  const hsText = String(g.home_score ?? "—");
+  const asText = String(g.away_score ?? "—");
+  const sep = "  -  ";
+
   ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
-  const sw = ctx.measureText(score).width;
-  // Center score within safe zone
-  ctx.fillText(score, (w - sw) / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2));
+  const wHs = ctx.measureText(hsText).width;
+  const wSep = ctx.measureText(sep).width;
+  const wAs = ctx.measureText(asText).width;
+  const totalW = wHs + wSep + wAs;
+  const baseX = (w - totalW) / 2;
+  const yy = Math.round((SAFE_TOP + SAFE_BOTTOM) / 2);
+
+  ctx.fillStyle = winIsHome ? "#ffeb3b" : "#ffffff";
+  ctx.fillText(hsText, baseX, yy);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(sep, baseX + wHs, yy);
+  ctx.fillStyle = winIsHome ? "#ffffff" : "#ffeb3b";
+  ctx.fillText(asText, baseX + wHs + wSep, yy);
   resetShadow(ctx);
 
   const m = g.mvp_batter;
@@ -884,7 +902,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // 라벨: Noto Sans KR 500
   ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextHeavy(ctx);
-  ctx.fillText("🏆 승리투수", boxX + 40, boxY + 90);
+  ctx.fillText("🏆 오늘의 승리투수", boxX + 40, boxY + 90);
   resetShadow(ctx);
 
   // 이름: 흰색 굵게
@@ -895,16 +913,16 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.fillText(
     String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
     boxX + 40,
-    boxY + 165
+    boxY + 175
   );
   resetShadow(ctx);
 
   // MVP
   ctx.fillStyle = "#ffeb3b";
   // 라벨: Noto Sans KR 500
-  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextHeavy(ctx);
-  ctx.fillText("⭐ MVP", boxX + 40, boxY + 255);
+  ctx.fillText("⚡ 오늘의 찐MVP", boxX + 40, boxY + 275);
   resetShadow(ctx);
 
   const mvpName = m?.name ? String(m.name).trim() : "—";
@@ -912,17 +930,12 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
   ctx.fillStyle = "#ffffff";
   // MVP 이름/기록: Noto Sans KR 700
-  ctx.font = `700 60px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `700 65px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextHeavy(ctx);
-  ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 325);
+  ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 355);
   resetShadow(ctx);
 
-  ctx.fillStyle = TEXT_MAIN;
-  // 서브텍스트: Noto Sans KR 500
-  ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(`${index}/${total}`, 64, SAFE_BOTTOM - 70);
-  resetShadow(ctx);
+  // 하단 인덱스 텍스트 제거
 }
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
@@ -1060,11 +1073,13 @@ function Card8Shorts({ defaultDate }) {
     else drawStandingsSlide(ctx, w, h, date, standings);
   };
 
-  const onGenerate = async () => {
+  const onGenerate = async (nextDate) => {
     setBusy(true);
     setError(null);
     try {
-      const res = await postKbo({ action: "shorts_slides_data", date });
+      const d = nextDate || date;
+      if (nextDate) setDate(nextDate);
+      const res = await postKbo({ action: "shorts_slides_data", date: d });
       setData(res);
       setSlideIdx(0);
     } catch (e) {
@@ -1106,7 +1121,27 @@ function Card8Shorts({ defaultDate }) {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button type="button" className="primary" onClick={onGenerate} disabled={busy}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => onGenerate(new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }))}
+          disabled={busy}
+        >
+          오늘
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const t = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+            t.setDate(t.getDate() - 1);
+            onGenerate(t.toLocaleDateString("sv-SE"));
+          }}
+          disabled={busy}
+        >
+          어제
+        </button>
+        <button type="button" className="primary" onClick={() => onGenerate()} disabled={busy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
         <button type="button" className="primary primary-fill" onClick={downloadZip} disabled={!data || busy}>
