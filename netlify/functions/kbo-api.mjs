@@ -748,6 +748,114 @@ async function pvBatterStats(db, pitcher, batter, start, end) {
   };
 }
 
+function yearOfRow(r) {
+  const y = Number(r?.year);
+  if (Number.isFinite(y) && y >= 1900 && y <= 2100) return y;
+  const gd = String(r?.game_date || "").slice(0, 4);
+  if (/^\d{4}$/.test(gd)) return Number(gd);
+  const gid = String(r?.game_id || "").slice(0, 4);
+  if (/^\d{4}$/.test(gid)) return Number(gid);
+  return 0;
+}
+
+function filterPvContextByTab(ctx, tab) {
+  const mode = String(tab || "").trim().toLowerCase();
+  const keep = (y) => {
+    if (mode === "this") return y >= 2026;
+    if (mode === "prev") return y === 2025;
+    if (mode === "both") return y >= 2025;
+    return y >= 2025;
+  };
+  const bats = (ctx?.batter_lines || []).filter((r) => keep(yearOfRow(r)));
+  const pits = (ctx?.pitcher_lines || []).filter((r) => keep(yearOfRow(r)));
+  const bg = new Set(bats.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const pg = new Set(pits.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const common = [...bg].filter((g) => pg.has(g));
+  return {
+    ...ctx,
+    shared_game_ids: common,
+    batter_lines: bats.filter((r) => pg.has(normalizeGameId(r.game_id))),
+    pitcher_lines: pits.filter((r) => bg.has(normalizeGameId(r.game_id))),
+  };
+}
+
+function deriveOpponentFromGameId(gameId, teamCode) {
+  const s = String(gameId || "").trim();
+  if (s.length < 12) return { opponent: "—", home_away: "—" };
+  const homeCode = s.slice(8, 10);
+  const awayCode = s.slice(10, 12);
+  const oppCode = teamCode === homeCode ? awayCode : homeCode;
+  const opponent = TEAM_MAP[oppCode] || oppCode || "—";
+  const home_away = teamCode === homeCode ? "홈" : "원정";
+  return { opponent, home_away };
+}
+
+function buildUiData(action, ctx) {
+  if (action === "player_range") {
+    const player = String(ctx?.player || "");
+    const start = String(ctx?.start || "");
+    const end = String(ctx?.end || "");
+    const pitcherRows = (ctx?.pitchers || []).map((p) => {
+      const teamCode = teamCodeFromGameIdAndSide(p?.game_id, p?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(p?.game_id, teamCode);
+      return {
+        date: String(p?.game_date || ""),
+        opponent,
+        home_away,
+        ip: p?.ip ?? p?.IP ?? 0,
+        r: p?.r ?? p?.R ?? 0,
+        h: p?.h ?? p?.H ?? 0,
+        so: p?.so ?? p?.SO ?? p?.k ?? p?.K ?? 0,
+        era: p?.era ?? p?.ERA ?? null,
+      };
+    });
+    const batterRows = (ctx?.batters || []).map((b) => {
+      const teamCode = teamCodeFromGameIdAndSide(b?.game_id, b?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(b?.game_id, teamCode);
+      const ab = pickNum(b, ["ab", "AB", "at_bats"]);
+      const h = pickNum(b, ["h", "H", "hits"]);
+      const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+      const hr = pickNum(b, ["hr", "HR", "home_run"]);
+      const avgRaw = pickAny(b, ["avg", "AVG", "batting_avg", "battingAvg", "타율"]);
+      const avgNum = avgRaw == null ? null : Number(avgRaw);
+      const avg = Number.isFinite(avgNum) ? avgNum : ab > 0 ? h / ab : 0;
+      return {
+        date: String(b?.game_date || ""),
+        opponent,
+        home_away,
+        ab,
+        h,
+        rbi,
+        hr,
+        avg,
+      };
+    });
+    return { player, start, end, pitcherRows, batterRows };
+  }
+  if (action === "sp_compare") {
+    const a = String(ctx?.pitcherA || "");
+    const b = String(ctx?.pitcherB || "");
+    const mapP = (p) => {
+      const teamCode = teamCodeFromGameIdAndSide(p?.game_id, p?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(p?.game_id, teamCode);
+      return {
+        date: String(p?.game_date || ""),
+        opponent,
+        home_away,
+        ip: p?.ip ?? p?.IP ?? 0,
+        r: p?.r ?? p?.R ?? 0,
+        h: p?.h ?? p?.H ?? 0,
+        so: p?.so ?? p?.SO ?? p?.k ?? p?.K ?? 0,
+        era: p?.era ?? p?.ERA ?? null,
+      };
+    };
+    const recentA = (ctx?.recentA || []).map(mapP);
+    const recentB = (ctx?.recentB || []).map(mapP);
+    return { pitcherA: a, pitcherB: b, recentA, recentB };
+  }
+  return null;
+}
+
 async function pvBatterStatsByYear(db, pitcher, batter, year, endDate = "") {
   const y = Number(year);
   const end = safeIsoDate(endDate);
@@ -1652,8 +1760,9 @@ export const handler = async (event) => {
       case "pv_batter": {
         const pitcher = payload.pitcher || "";
         const batter = payload.batter || "";
-        const ov = await pitcherBatterOverlap(db, batter, pitcher);
-        context = ov;
+        const tab = payload.tab || payload.pvTab || payload.season || "both";
+        const ov0 = await pitcherBatterOverlap(db, batter, pitcher);
+        context = filterPvContextByTab(ov0, tab);
         userQ =
           payload.question ||
           `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)`;
@@ -1895,6 +2004,7 @@ export const handler = async (event) => {
         model: MODEL,
         text,
         contextSummary: summarizeContext(action, context),
+        uiData: buildUiData(action, context),
       }),
     };
   } catch (e) {

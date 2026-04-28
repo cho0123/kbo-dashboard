@@ -50,12 +50,14 @@ function useAnalyzer() {
       setOut({
         text: res.text ?? "",
         summary: res.contextSummary ?? null,
+        uiData: res.uiData ?? null,
         error: null,
       });
     } catch (e) {
       setOut({
         text: "",
         summary: null,
+        uiData: null,
         error: e?.message || String(e),
       });
     } finally {
@@ -80,6 +82,36 @@ function ResultBlock({ summary, text, pending, error }) {
         <MarkdownView text={text} />
       )}
     </div>
+  );
+}
+
+function SimpleStatsTable({ headers, rows }) {
+  const cols = Array.isArray(headers) ? headers : [];
+  const rs = Array.isArray(rows) ? rows : [];
+  if (!cols.length || !rs.length) return null;
+  return (
+    <table className="pv-table" style={{ marginTop: 10 }}>
+      <thead>
+        <tr>
+          {cols.map((h) => (
+            <th key={h} style={{ textAlign: "left", padding: "8px 10px" }}>
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rs.map((r, idx) => (
+          <tr key={idx}>
+            {cols.map((k) => (
+              <td key={k} style={{ padding: "8px 10px", borderTop: "1px solid var(--border)" }}>
+                {r[k] ?? "—"}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -315,6 +347,7 @@ export default function App() {
   const [prOut, setPrOut] = useState({
     text: "",
     summary: null,
+    uiData: null,
     error: null,
   });
 
@@ -328,6 +361,7 @@ export default function App() {
   const [spOut, setSpOut] = useState({
     text: "",
     summary: null,
+    uiData: null,
     error: null,
   });
 
@@ -1652,6 +1686,7 @@ export default function App() {
                                   action: "pv_batter",
                                   pitcher: pvP,
                                   batter: pvB,
+                                  tab: pvTab,
                                 });
                                 setPvAiOut({ text: r.text ?? "", error: null });
                               } catch (e) {
@@ -1688,19 +1723,164 @@ export default function App() {
                 <div className="section soft">
                   <div className="section-title">결과</div>
                   {activeKey === "player_range" ? (
-                    <ResultBlock
-                      summary={prOut.summary}
-                      text={prOut.text}
-                      error={prOut.error}
-                      pending={pending("player_range_4")}
-                    />
+                    <>
+                      {(() => {
+                        const ui = prOut.uiData;
+                        const pitcherRows = ui?.pitcherRows || [];
+                        const batterRows = ui?.batterRows || [];
+                        const hasPitcher = Array.isArray(pitcherRows) && pitcherRows.length;
+                        const hasBatter = Array.isArray(batterRows) && batterRows.length;
+                        if (!hasPitcher && !hasBatter) return null;
+                        return (
+                          <>
+                            {hasPitcher && (
+                              <>
+                                <div className="section-title">경기별 성적 (투수)</div>
+                                <SimpleStatsTable
+                                  headers={[
+                                    "date",
+                                    "opponent",
+                                    "home_away",
+                                    "ip",
+                                    "r",
+                                    "h",
+                                    "so",
+                                    "era",
+                                  ]}
+                                  rows={pitcherRows.map((r) => ({
+                                    date: r.date,
+                                    opponent: r.opponent,
+                                    home_away: r.home_away,
+                                    ip: formatInnings(r.ip) || "0이닝",
+                                    r: r.r ?? 0,
+                                    h: r.h ?? 0,
+                                    so: r.so ?? 0,
+                                    era: formatEraMaybe(r.era),
+                                  }))}
+                                />
+                              </>
+                            )}
+                            {hasBatter && (
+                              <>
+                                <div className="section-title" style={{ marginTop: 12 }}>
+                                  경기별 성적 (타자)
+                                </div>
+                                <SimpleStatsTable
+                                  headers={[
+                                    "date",
+                                    "opponent",
+                                    "home_away",
+                                    "ab",
+                                    "h",
+                                    "rbi",
+                                    "hr",
+                                    "avg",
+                                  ]}
+                                  rows={batterRows.map((r) => ({
+                                    date: r.date,
+                                    opponent: r.opponent,
+                                    home_away: r.home_away,
+                                    ab: r.ab ?? 0,
+                                    h: r.h ?? 0,
+                                    rbi: r.rbi ?? 0,
+                                    hr: r.hr ?? 0,
+                                    avg: formatSeasonAvgDot(r.avg),
+                                  }))}
+                                />
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
+                      <ResultBlock
+                        summary={null}
+                        text={prOut.text}
+                        error={prOut.error}
+                        pending={pending("player_range_4")}
+                      />
+                    </>
                   ) : activeKey === "sp_compare" ? (
-                    <ResultBlock
-                      summary={spOut.summary}
-                      text={spOut.text}
-                      error={spOut.error}
-                      pending={pending("sp_compare_5")}
-                    />
+                    <>
+                      {(() => {
+                        const ui = spOut.uiData;
+                        const a = ui?.pitcherA || spa || "투수A";
+                        const b = ui?.pitcherB || spb || "투수B";
+                        const ra = Array.isArray(ui?.recentA) ? ui.recentA : [];
+                        const rb = Array.isArray(ui?.recentB) ? ui.recentB : [];
+                        if (!ra.length && !rb.length) return null;
+                        return (
+                          <>
+                            <div className="section-title">
+                              {a} {ra.length}경기 vs {b} {rb.length}경기
+                            </div>
+                            {ra.length ? (
+                              <>
+                                <div className="muted" style={{ marginTop: 6, fontWeight: 900 }}>
+                                  {a} 경기별 기록
+                                </div>
+                                <SimpleStatsTable
+                                  headers={[
+                                    "date",
+                                    "opponent",
+                                    "home_away",
+                                    "ip",
+                                    "r",
+                                    "h",
+                                    "so",
+                                    "era",
+                                  ]}
+                                  rows={ra.map((r) => ({
+                                    date: r.date,
+                                    opponent: r.opponent,
+                                    home_away: r.home_away,
+                                    ip: formatInnings(r.ip) || "0이닝",
+                                    r: r.r ?? 0,
+                                    h: r.h ?? 0,
+                                    so: r.so ?? 0,
+                                    era: formatEraMaybe(r.era),
+                                  }))}
+                                />
+                              </>
+                            ) : null}
+                            {rb.length ? (
+                              <>
+                                <div className="muted" style={{ marginTop: 10, fontWeight: 900 }}>
+                                  {b} 경기별 기록
+                                </div>
+                                <SimpleStatsTable
+                                  headers={[
+                                    "date",
+                                    "opponent",
+                                    "home_away",
+                                    "ip",
+                                    "r",
+                                    "h",
+                                    "so",
+                                    "era",
+                                  ]}
+                                  rows={rb.map((r) => ({
+                                    date: r.date,
+                                    opponent: r.opponent,
+                                    home_away: r.home_away,
+                                    ip: formatInnings(r.ip) || "0이닝",
+                                    r: r.r ?? 0,
+                                    h: r.h ?? 0,
+                                    so: r.so ?? 0,
+                                    era: formatEraMaybe(r.era),
+                                  }))}
+                                />
+                              </>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                      <ResultBlock
+                        summary={null}
+                        text={spOut.text}
+                        error={spOut.error}
+                        pending={pending("sp_compare_5")}
+                      />
+                    </>
                   ) : activeKey === "sp_matchup" ? (
                     <ResultBlock
                       summary={suOut.summary}
