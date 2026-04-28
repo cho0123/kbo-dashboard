@@ -650,7 +650,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.save();
 
     // ball body
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.closePath();
@@ -664,70 +664,123 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.closePath();
     ctx.stroke();
 
-    // seams
-    ctx.strokeStyle = "rgba(200,50,50,0.4)";
-    ctx.lineWidth = 8;
-    ctx.lineCap = "round";
-
-    const seamOffsetX = r * 0.28;
-    const seamSpanY = r * 0.78;
+    // seams (realistic: S curve + diagonal stitches)
+    const seamStroke = "rgba(180,0,0,0.35)";
+    const seamWidth = 6;
+    const stitchWidth = 3;
+    const seamOffsetX = r * 0.30;
+    const seamSpanY = r * 0.82;
     const seamSpanX = r * 0.22;
 
-    const drawSeamWithStitches = (side /* -1 left, +1 right */) => {
+    const cubicAt = (p0, p1, p2, p3, t) => {
+      const mt = 1 - t;
+      return (
+        mt * mt * mt * p0 +
+        3 * mt * mt * t * p1 +
+        3 * mt * t * t * p2 +
+        t * t * t * p3
+      );
+    };
+    const cubicDerivAt = (p0, p1, p2, p3, t) => {
+      const mt = 1 - t;
+      return (
+        3 * mt * mt * (p1 - p0) +
+        6 * mt * t * (p2 - p1) +
+        3 * t * t * (p3 - p2)
+      );
+    };
+
+    const drawSeam = (side /* -1 left, +1 right */) => {
       const x0 = cx + side * seamOffsetX;
       const yTop = cy - seamSpanY;
       const yMid = cy;
       const yBot = cy + seamSpanY;
 
-      // S-curve made of two beziers
-      ctx.beginPath();
-      ctx.moveTo(x0, yTop);
-      ctx.bezierCurveTo(
-        x0 + side * seamSpanX,
-        cy - seamSpanY * 0.55,
-        x0 - side * seamSpanX,
-        cy - seamSpanY * 0.15,
-        x0,
-        yMid
-      );
-      ctx.bezierCurveTo(
-        x0 + side * seamSpanX,
-        cy + seamSpanY * 0.15,
-        x0 - side * seamSpanX,
-        cy + seamSpanY * 0.55,
-        x0,
-        yBot
-      );
-      ctx.stroke();
+      // Two cubic segments for a clean S curve
+      const seg1 = {
+        p0: { x: x0, y: yTop },
+        p1: { x: x0 + side * seamSpanX, y: cy - seamSpanY * 0.55 },
+        p2: { x: x0 - side * seamSpanX, y: cy - seamSpanY * 0.15 },
+        p3: { x: x0, y: yMid },
+      };
+      const seg2 = {
+        p0: { x: x0, y: yMid },
+        p1: { x: x0 + side * seamSpanX, y: cy + seamSpanY * 0.15 },
+        p2: { x: x0 - side * seamSpanX, y: cy + seamSpanY * 0.55 },
+        p3: { x: x0, y: yBot },
+      };
 
-      // stitches: short horizontal-ish ticks along seam
       ctx.save();
-      ctx.strokeStyle = "rgba(200,50,50,0.35)";
-      ctx.lineWidth = 5;
-      const ticks = 9;
-      for (let i = 0; i < ticks; i++) {
-        const t = (i + 1) / (ticks + 1); // 0..1
-        const yy = yTop + (yBot - yTop) * t;
-        // alternate direction for lively seam look
-        const dx = (r * 0.065) * (i % 2 === 0 ? 1 : -1);
-        const tickLen = r * 0.12;
+      ctx.strokeStyle = seamStroke;
+      ctx.lineWidth = seamWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(seg1.p0.x, seg1.p0.y);
+      ctx.bezierCurveTo(seg1.p1.x, seg1.p1.y, seg1.p2.x, seg1.p2.y, seg1.p3.x, seg1.p3.y);
+      ctx.bezierCurveTo(seg2.p1.x, seg2.p1.y, seg2.p2.x, seg2.p2.y, seg2.p3.x, seg2.p3.y);
+      ctx.stroke();
+      ctx.restore();
+
+      // stitches: place diagonal ticks on BOTH sides of the curve
+      const stitches = 10;
+      const stitchLen = r * 0.09;
+      const stitchGap = r * 0.055;
+
+      const stitchForSeg = (seg, t, sideSign /* -1 left-of-curve, +1 right-of-curve */) => {
+        const x = cubicAt(seg.p0.x, seg.p1.x, seg.p2.x, seg.p3.x, t);
+        const y = cubicAt(seg.p0.y, seg.p1.y, seg.p2.y, seg.p3.y, t);
+        const dx = cubicDerivAt(seg.p0.x, seg.p1.x, seg.p2.x, seg.p3.x, t);
+        const dy = cubicDerivAt(seg.p0.y, seg.p1.y, seg.p2.y, seg.p3.y, t);
+        const mag = Math.hypot(dx, dy) || 1;
+        const tx = dx / mag;
+        const ty = dy / mag;
+        // normal vector (perp to tangent)
+        const nx = -ty;
+        const ny = tx;
+
+        // offset from seam to each side
+        const ox = nx * stitchGap * sideSign;
+        const oy = ny * stitchGap * sideSign;
+
+        // diagonal direction: slightly rotated from normal to mimic real stitches
+        const rx = nx * 0.78 + tx * 0.22;
+        const ry = ny * 0.78 + ty * 0.22;
+
+        const x1 = x + ox - (rx * stitchLen) / 2;
+        const y1 = y + oy - (ry * stitchLen) / 2;
+        const x2 = x + ox + (rx * stitchLen) / 2;
+        const y2 = y + oy + (ry * stitchLen) / 2;
+
         ctx.beginPath();
-        ctx.moveTo(x0 - (tickLen / 2) * side + dx, yy - r * 0.01);
-        ctx.lineTo(x0 + (tickLen / 2) * side + dx, yy + r * 0.01);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
+      };
+
+      ctx.save();
+      ctx.strokeStyle = seamStroke;
+      ctx.lineWidth = stitchWidth;
+      ctx.lineCap = "round";
+      for (let i = 0; i < stitches; i++) {
+        const t = (i + 1) / (stitches + 1);
+        const seg = t < 0.5 ? seg1 : seg2;
+        const tt = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+        stitchForSeg(seg, tt, -1);
+        stitchForSeg(seg, tt, +1);
       }
       ctx.restore();
     };
 
-    // left seam (S), right seam (mirrored S)
-    drawSeamWithStitches(-1);
-    drawSeamWithStitches(+1);
+    // left seam: S curve, right seam: mirrored S curve
+    drawSeam(-1);
+    drawSeam(+1);
 
     ctx.restore();
   };
 
   // Big baseball on the right (can go out of bounds)
-  drawBaseball(900, 1100, 600);
+  drawBaseball(1000, 1300, 550);
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
