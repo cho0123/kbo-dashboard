@@ -1463,6 +1463,9 @@ export default function App() {
                                       const h = r?.h ?? r?.H ?? 0;
                                       const hrRaw = r?.hr ?? r?.HR ?? 0;
                                       const hr = Number(hrRaw);
+                                      const runsRaw =
+                                        r?.runs ?? r?.R ?? r?.run ?? r?.RUN ?? r?.득점 ?? 0;
+                                      const runs = Number(runsRaw);
                                       const rbiRaw =
                                         r?.rbi ?? r?.RBI ?? r?.bi ?? r?.타점 ?? 0;
                                       const rbi = Number(rbiRaw);
@@ -1476,7 +1479,7 @@ export default function App() {
                                       const no = (idx ?? 0) + 1;
                                       const hrStr =
                                         Number.isFinite(hr) && hr > 0 ? ` ${hr}홈런` : "";
-                                      return `${no}. ${name} — ${ab}타수 ${h}안타 ${rbi}타점${hrStr}${
+                                      return `${no}. ${name} — ${ab}타수 ${h}안타 ${runs}득점 ${rbi}타점${hrStr}${
                                         avgDot ? ` ${avgDot}` : ""
                                       }`;
                                     };
