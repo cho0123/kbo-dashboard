@@ -322,6 +322,23 @@ export default function App() {
     try {
       console.log("BOXSCORE_REQUEST gameId:", gid);
       const res = await postKbo({ action: "game_boxscore", game_id: gid });
+      console.log("BOXSCORE_RESPONSE:", res);
+
+      const batters_by_side =
+        res?.batters_by_side && typeof res.batters_by_side === "object"
+          ? res.batters_by_side
+          : {
+              away: Array.isArray(res?.awayBatters) ? res.awayBatters : [],
+              home: Array.isArray(res?.homeBatters) ? res.homeBatters : [],
+            };
+      const pitchers_by_side =
+        res?.pitchers_by_side && typeof res.pitchers_by_side === "object"
+          ? res.pitchers_by_side
+          : {
+              away: Array.isArray(res?.awayPitchers) ? res.awayPitchers : [],
+              home: Array.isArray(res?.homePitchers) ? res.homePitchers : [],
+            };
+
       setGrBox((m) => ({
         ...m,
         [gid]: {
@@ -330,8 +347,14 @@ export default function App() {
           data: {
             batters: Array.isArray(res?.batters) ? res.batters : [],
             pitchers: Array.isArray(res?.pitchers) ? res.pitchers : [],
-            batters_by_side: res?.batters_by_side ?? null,
-            pitchers_by_side: res?.pitchers_by_side ?? null,
+            // 렌더링은 아래 두 키를 우선 사용
+            batters_by_side,
+            pitchers_by_side,
+            // 디버깅/호환용 키도 함께 유지
+            awayBatters: Array.isArray(res?.awayBatters) ? res.awayBatters : [],
+            homeBatters: Array.isArray(res?.homeBatters) ? res.homeBatters : [],
+            awayPitchers: Array.isArray(res?.awayPitchers) ? res.awayPitchers : [],
+            homePitchers: Array.isArray(res?.homePitchers) ? res.homePitchers : [],
           },
         },
       }));
@@ -750,15 +773,23 @@ export default function App() {
                                     const pitSide = data?.pitchers_by_side || null;
                                     const awayBatters = Array.isArray(batSide?.away)
                                       ? batSide.away
+                                      : Array.isArray(data?.awayBatters)
+                                        ? data.awayBatters
                                       : [];
                                     const homeBatters = Array.isArray(batSide?.home)
                                       ? batSide.home
+                                      : Array.isArray(data?.homeBatters)
+                                        ? data.homeBatters
                                       : [];
                                     const awayPitchers = Array.isArray(pitSide?.away)
                                       ? pitSide.away
+                                      : Array.isArray(data?.awayPitchers)
+                                        ? data.awayPitchers
                                       : [];
                                     const homePitchers = Array.isArray(pitSide?.home)
                                       ? pitSide.home
+                                      : Array.isArray(data?.homePitchers)
+                                        ? data.homePitchers
                                       : [];
 
                                     const formatBatterLine = (r) => {
