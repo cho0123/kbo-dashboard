@@ -64,7 +64,12 @@ function MarkdownView({ text }) {
         components={{
           table({ node, ...props }) {
             const cols = countCols(props.children);
-            const cls = cols === 2 ? "md-table md-table-2" : "md-table";
+            const cls =
+              cols === 2
+                ? "md-table md-table-2"
+                : cols >= 8
+                  ? "md-table md-table-detail"
+                  : "md-table";
             return <table className={cls} {...props} />;
           },
         }}
@@ -190,6 +195,16 @@ function removeFirstHeading(md) {
   return text.replace(/^\s*#{1,3}\s*.+?\s*(\r?\n)+/m, "");
 }
 
+function stripSummaryTable(md) {
+  const text = String(md || "");
+  // Remove a markdown table under a "전체 요약" heading if present.
+  // Keeps the rest of the report (e.g., 경기별 상세 성적).
+  return text.replace(
+    /(^|\n)\s*#{1,4}\s*📊?\s*전체\s*요약[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
+    "\n"
+  );
+}
+
 function extractKoreanBattingLine(md) {
   const text = String(md || "");
   const m = text.match(
@@ -305,6 +320,44 @@ function mvpGameHeadline(g) {
   const score = String(g?.score || "").trim();
   if (score) return score.replace(/\s*:\s*/, " vs ");
   return String(g?.matchup || "").trim() || "—";
+}
+
+function SummaryCards({ batterRows }) {
+  const rows = Array.isArray(batterRows) ? batterRows : [];
+  if (!rows.length) return null;
+  const sum = (k) => rows.reduce((acc, r) => acc + (Number(r?.[k]) || 0), 0);
+  const games = rows.length;
+  const ab = sum("ab");
+  const h = sum("h");
+  const hr = sum("hr");
+  const rbi = sum("rbi");
+  const runs = sum("runs");
+  const avg = ab > 0 ? h / ab : 0;
+  const avgDot = formatSeasonAvgDot(avg);
+
+  const cards = [
+    { label: "경기수", value: `${games}` },
+    { label: "타수", value: `${ab}` },
+    { label: "안타", value: `${h}` },
+    { label: "타율", value: avgDot || ".000", highlight: true },
+    { label: "홈런", value: `${hr}` },
+    { label: "타점", value: `${rbi}` },
+    { label: "득점", value: `${runs}` },
+  ];
+
+  return (
+    <div className="stat-cards" aria-label="전체 요약">
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          className={`stat-card ${c.highlight ? "highlight" : ""}`}
+        >
+          <div className="stat-v">{c.value}</div>
+          <div className="stat-k">{c.label}</div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function App() {
@@ -1812,9 +1865,15 @@ export default function App() {
                       ) : pending("player_range_4") ? (
                         <div className="muted">생성 중…</div>
                       ) : (
-                        <MarkdownView
-                          text={removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")}
-                        />
+                        <>
+                          <div className="section-title">📊 전체 요약</div>
+                          <SummaryCards batterRows={prOut.uiData?.batterRows} />
+                          <MarkdownView
+                            text={stripSummaryTable(
+                              removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
+                            )}
+                          />
+                        </>
                       )}
                     </>
                   ) : activeKey === "sp_compare" ? (

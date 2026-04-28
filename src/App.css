@@ -268,6 +268,77 @@ button.primary.primary-fill {
   width: 40%;
 }
 
+.results .md table.md-table-detail {
+  table-layout: fixed;
+}
+
+.results .md table.md-table-detail :where(th, td) {
+  text-align: center;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(1), td:nth-child(1)) {
+  width: 110px;
+  text-align: left;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(2), td:nth-child(2)) {
+  width: 100px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(3), td:nth-child(3)) {
+  width: 70px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(4), td:nth-child(4)),
+.results .md table.md-table-detail :where(th:nth-child(5), td:nth-child(5)),
+.results .md table.md-table-detail :where(th:nth-child(6), td:nth-child(6)),
+.results .md table.md-table-detail :where(th:nth-child(7), td:nth-child(7)),
+.results .md table.md-table-detail :where(th:nth-child(8), td:nth-child(8)) {
+  width: 60px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(9), td:nth-child(9)) {
+  width: 70px;
+}
+
+.stat-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+
+.stat-card {
+  min-width: 80px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.stat-card .stat-v {
+  font-weight: 1000;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: #1a1a2e;
+}
+
+.stat-card .stat-k {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: rgba(26, 26, 46, 0.6);
+}
+
+.stat-card.highlight {
+  border-color: rgba(62, 224, 169, 0.45);
+  background: rgba(62, 224, 169, 0.12);
+}
+
+.stat-card.highlight .stat-v {
+  color: #0c6b57;
+}
+
 .results :where(th) {
   width: 140px;
 }
