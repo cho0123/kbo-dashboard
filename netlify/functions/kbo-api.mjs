@@ -847,8 +847,8 @@ function slimGameResultRow(g) {
     "w_pitcher",
     "winner_pitcher",
     "winningPitcher",
-    "winnerPitcher",
     "winPitcher",
+    "winnerPitcher",
     "승리투수",
   ]);
   const losingPitcher = pickStr(g, [
@@ -857,8 +857,8 @@ function slimGameResultRow(g) {
     "l_pitcher",
     "loser_pitcher",
     "losingPitcher",
-    "loserPitcher",
     "losePitcher",
+    "loserPitcher",
     "패전투수",
   ]);
   return {
@@ -868,8 +868,8 @@ function slimGameResultRow(g) {
     away_team: away || null,
     home_score: safeNum(g.home_score),
     away_score: safeNum(g.away_score),
-    winning_pitcher: winningPitcher || null,
-    losing_pitcher: losingPitcher || null,
+    winning_pitcher: winningPitcher || "",
+    losing_pitcher: losingPitcher || "",
   };
 }
 
@@ -913,8 +913,11 @@ export const handler = async (event) => {
     switch (action) {
       case "game_results": {
         const dateStr = payload.date || isoSeoulToday();
-        const rows = await fetchGamesByDate(db, dateStr);
-        const games = rows.map(slimGameResultRow);
+        const gameDocs = await fetchGamesByDate(db, dateStr);
+        if (gameDocs?.length) {
+          console.log("GAME_SAMPLE:", JSON.stringify(gameDocs[0]));
+        }
+        const games = (gameDocs || []).map(slimGameResultRow);
         return {
           statusCode: 200,
           headers: corsHeaders(),

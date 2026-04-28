@@ -107,6 +107,40 @@ function teamAbbr(team) {
   return t.slice(0, 6);
 }
 
+function formatAvgDot(abRaw, hRaw) {
+  const ab = Number(abRaw);
+  const h = Number(hRaw);
+  if (!Number.isFinite(ab) || ab <= 0 || !Number.isFinite(h) || h < 0) return "";
+  const avg = h / ab;
+  const s = avg.toFixed(3); // "0.250"
+  return s.replace(/^0/, ""); // ".250"
+}
+
+function inningsToNumber(ipRaw) {
+  if (ipRaw == null) return 0;
+  const s = String(ipRaw).trim();
+  if (!s) return 0;
+  // common baseball notation: 5.1 = 5 + 1/3, 5.2 = 5 + 2/3
+  const m = s.match(/^(\d+)(?:\.(\d))?$/);
+  if (!m) {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const full = Number(m[1]);
+  const frac = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(full)) return 0;
+  if (frac === 1) return full + 1 / 3;
+  if (frac === 2) return full + 2 / 3;
+  return full;
+}
+
+function calcEra(ipRaw, erRaw) {
+  const ip = inningsToNumber(ipRaw);
+  const er = Number(erRaw);
+  if (!Number.isFinite(ip) || ip <= 0 || !Number.isFinite(er) || er < 0) return null;
+  return (er * 9) / ip;
+}
+
 /** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
 function mvpGameHeadline(g) {
   const score = String(g?.score || "").trim();
@@ -731,9 +765,12 @@ export default function App() {
                                                       const hr = r?.hr ?? r?.HR ?? 0;
                                                       const rbi =
                                                         r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
+                                                      const avgDot = formatAvgDot(ab, h);
                                                       return `${name}${
                                                         team ? ` (${teamAbbr(team)})` : ""
-                                                      } — ${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점`;
+                                                      } — ${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점${
+                                                        avgDot ? ` ${avgDot}` : ""
+                                                      }`;
                                                     })
                                                     .join("\n")
                                                 : "데이터 없음"}
@@ -754,12 +791,15 @@ export default function App() {
                                                         "";
                                                       const ip = r?.ip ?? r?.IP ?? 0;
                                                       const er =
-                                                        r?.er ?? r?.ER ?? r?.r ?? r?.R ?? 0;
+                                                        r?.er ?? r?.ER ?? r?.earned_runs ?? r?.r ?? r?.R ?? 0;
                                                       const so =
                                                         r?.so ?? r?.SO ?? r?.k ?? r?.K ?? 0;
+                                                      const era = calcEra(ip, er);
+                                                      const eraStr =
+                                                        era == null ? "" : ` ERA ${era.toFixed(2)}`;
                                                       return `${name}${
                                                         team ? ` (${teamAbbr(team)})` : ""
-                                                      } — ${ip}이닝 ${er}실점 ${so}K`;
+                                                      } — ${ip}이닝 ${er}실점 ${so}K${eraStr}`;
                                                     })
                                                     .join("\n")
                                                 : "데이터 없음"}
