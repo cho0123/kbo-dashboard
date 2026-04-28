@@ -1421,6 +1421,45 @@ async function fetchPitchersForGame(db, gameId) {
   return out;
 }
 
+async function fetchBattersForGame(db, gameId) {
+  const out = [];
+  const seen = new Set();
+  for (const v of variantsForGameId(gameId)) {
+    const q1 = db.collection("batters").where("game_id", "==", v).get();
+    const q2 = db.collection("batters").where("gameId", "==", v).get();
+    const [s1, s2] = await Promise.all([q1, q2]);
+    for (const snap of [s1, s2]) {
+      snap.forEach((d) => {
+        if (seen.has(d.id)) return;
+        seen.add(d.id);
+        out.push({ id: d.id, ...docSnap(d) });
+      });
+    }
+  }
+  return out;
+}
+
+function pickVenueName(g) {
+  return (
+    pickStr(g, ["stadium", "venue", "ballpark", "park", "place", "경기장"]) || ""
+  ).slice(0, 24);
+}
+
+async function fetchStandings(db, max = 20) {
+  try {
+    const snap = await db.collection("standings").orderBy("rank", "asc").limit(max).get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows;
+  } catch (e) {
+    // fallback: if rank field doesn't exist
+    const snap = await db.collection("standings").limit(max).get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows;
+  }
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
@@ -1459,6 +1498,92 @@ export const handler = async (event) => {
     let userQ = "";
 
     switch (action) {
+      case "shorts_slides_data": {
+        const dateStr = payload.date || isoSeoulToday();
+        const gameDocs = await fetchGamesByDate(db, dateStr);
+        const base = (gameDocs || []).map(slimGameResultRow);
+
+        const games = [];
+        for (const g of base) {
+          const gid = String(g?.game_id || "").trim();
+          if (!gid) continue;
+
+          // Winning/losing pitcher (same heuristic as game_results)
+          const needsWin = !g?.winning_pitcher;
+          const needsLose = !g?.losing_pitcher;
+          let winName = g.winning_pitcher || "";
+          let loseName = g.losing_pitcher || "";
+
+          const pitchers = await fetchPitchersForGame(db, gid);
+          const homeScore = Number(g?.home_score);
+          const awayScore = Number(g?.away_score);
+          const hasScores =
+            Number.isFinite(homeScore) &&
+            Number.isFinite(awayScore) &&
+            homeScore !== awayScore;
+
+          if (hasScores && (needsWin || needsLose)) {
+            const withSide = (Array.isArray(pitchers) ? pitchers : []).map((p) => ({
+              ...p,
+              side: normalizeSide(p?.side),
+            }));
+            const homePitchers = withSide.filter((p) => p.side === "home");
+            const awayPitchers = withSide.filter((p) => p.side === "away");
+            const homeWin = homeScore > awayScore;
+            const winSide = homeWin ? "home" : "away";
+            const loseSide = homeWin ? "away" : "home";
+            const win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
+            const lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
+            if (needsWin) winName = (pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "";
+            if (needsLose) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
+          }
+
+          // MVP batter: most hits in this game
+          const batters = await fetchBattersForGame(db, gid);
+          let best = null;
+          let bestH = -1;
+          for (const b of batters || []) {
+            const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
+            if (h > bestH) {
+              bestH = h;
+              best = b;
+            }
+          }
+          const mvp = best
+            ? {
+                name: pickPlayerName(best),
+                team: pickTeamName(best),
+                h: bestH,
+                ab: pickNum(best, ["ab", "AB", "at_bats", "타수"]),
+              }
+            : null;
+
+          // venue from game doc if present
+          const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
+          const venue = pickVenueName(rawGame);
+
+          games.push({
+            ...g,
+            winning_pitcher: winName,
+            losing_pitcher: loseName,
+            venue,
+            mvp_batter: mvp,
+          });
+        }
+
+        const standings = await fetchStandings(db, 20);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            date: dateStr,
+            games,
+            standings,
+          }),
+        };
+      }
       case "last_updated": {
         const meta = await fetchLastUpdated(db);
         return {

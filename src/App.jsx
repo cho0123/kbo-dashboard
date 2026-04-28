@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
+import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
 const KBO_TEAMS = [
@@ -328,6 +329,309 @@ function fmtGameLine(g) {
   const hs = g?.home_score;
   if (as == null || hs == null) return `${away} vs ${home}`;
   return `${away} ${as} vs ${hs} ${home}`;
+}
+
+const TEAM_COLOR = {
+  삼성: "#1e5eff",
+  LG: "#ff3b30",
+  KIA: "#ff2d55",
+  KT: "#7c4dff",
+  SSG: "#ff9500",
+  롯데: "#00b0ff",
+  두산: "#111111",
+  NC: "#00c853",
+  한화: "#ff6d00",
+  키움: "#8e24aa",
+};
+
+function teamKeyword(teamName) {
+  const t = String(teamName || "");
+  for (const kw of Object.keys(TEAM_COLOR)) {
+    if (t.includes(kw)) return kw;
+  }
+  // fall back to first token (LG 트윈스 -> LG)
+  return t.split(/\s+/)[0] || "";
+}
+
+function teamColor(teamName) {
+  return TEAM_COLOR[teamKeyword(teamName)] || "#00d4aa";
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+function drawSlideBase(ctx, w, h, title) {
+  ctx.clearRect(0, 0, w, h);
+  // dark background similar to dashboard
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, "#0c0f14");
+  g.addColorStop(1, "#131922");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  // accent bar
+  ctx.fillStyle = "rgba(0, 212, 170, 0.18)";
+  ctx.fillRect(0, 0, w, 120);
+  ctx.fillStyle = "#00d4aa";
+  ctx.fillRect(0, 116, w, 4);
+
+  ctx.fillStyle = "#e9edf5";
+  ctx.font = "900 56px system-ui, sans-serif";
+  ctx.fillText(title, 64, 84);
+}
+
+function drawSummarySlide(ctx, w, h, date, games) {
+  drawSlideBase(ctx, w, h, `KBO ${date}`);
+  ctx.fillStyle = "#8b93a7";
+  ctx.font = "800 34px system-ui, sans-serif";
+  ctx.fillText("전체 경기 결과", 64, 170);
+
+  if (!games?.length) {
+    ctx.fillStyle = "#e9edf5";
+    ctx.font = "900 56px system-ui, sans-serif";
+    ctx.fillText("오늘 등록된 경기 없음", 64, 290);
+    return;
+  }
+
+  let y = 250;
+  for (const g of games) {
+    const away = fmtTeamShort(g.away_team);
+    const home = fmtTeamShort(g.home_team);
+    const as = g.away_score ?? "—";
+    const hs = g.home_score ?? "—";
+
+    ctx.font = "900 52px system-ui, sans-serif";
+    ctx.fillStyle = teamColor(g.away_team);
+    ctx.fillText(away, 64, y);
+    ctx.fillStyle = "#e9edf5";
+    ctx.fillText(`${as} vs ${hs}`, 260, y);
+    ctx.fillStyle = teamColor(g.home_team);
+    ctx.fillText(home, 560, y);
+    y += 86;
+    if (y > h - 120) break;
+  }
+  ctx.fillStyle = "#8b93a7";
+  ctx.font = "800 30px system-ui, sans-serif";
+  ctx.fillText(`(${games.length}경기)`, 64, h - 70);
+}
+
+function drawGameSlide(ctx, w, h, date, g, index, total) {
+  const away = fmtTeamShort(g.away_team);
+  const home = fmtTeamShort(g.home_team);
+  drawSlideBase(ctx, w, h, `${index}/${total} 경기`);
+
+  ctx.fillStyle = "#8b93a7";
+  ctx.font = "800 34px system-ui, sans-serif";
+  ctx.fillText(date, 64, 170);
+
+  ctx.font = "1000 86px system-ui, sans-serif";
+  ctx.fillStyle = teamColor(g.away_team);
+  ctx.fillText(away, 64, 300);
+  ctx.fillStyle = "#e9edf5";
+  ctx.fillText(`${g.away_score ?? "—"} vs ${g.home_score ?? "—"}`, 260, 300);
+  ctx.fillStyle = teamColor(g.home_team);
+  ctx.fillText(home, 700, 300);
+
+  ctx.fillStyle = "#00d4aa";
+  ctx.font = "900 38px system-ui, sans-serif";
+  ctx.fillText(g.venue ? `구장: ${g.venue}` : "구장: —", 64, 390);
+
+  ctx.fillStyle = "#e9edf5";
+  ctx.font = "900 44px system-ui, sans-serif";
+  ctx.fillText(`승리: ${g.winning_pitcher || "—"}`, 64, 500);
+  ctx.fillText(`패전: ${g.losing_pitcher || "—"}`, 64, 565);
+
+  const m = g.mvp_batter;
+  ctx.fillStyle = "#8b93a7";
+  ctx.font = "900 34px system-ui, sans-serif";
+  ctx.fillText("오늘 MVP (안타 최다)", 64, 675);
+  ctx.fillStyle = "#e9edf5";
+  ctx.font = "1000 54px system-ui, sans-serif";
+  ctx.fillText(m?.name ? `${m.name} (${m.h ?? 0}H)` : "—", 64, 750);
+}
+
+function drawStandingsSlide(ctx, w, h, date, standings) {
+  drawSlideBase(ctx, w, h, "KBO 순위");
+  ctx.fillStyle = "#8b93a7";
+  ctx.font = "800 34px system-ui, sans-serif";
+  ctx.fillText(date, 64, 170);
+
+  const rows = Array.isArray(standings) ? standings : [];
+  let y = 260;
+  ctx.font = "900 40px system-ui, sans-serif";
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const r = rows[i];
+    const rank = r.rank ?? r.RANK ?? i + 1;
+    const team = r.team ?? r.team_name ?? r.name ?? r.id ?? "—";
+    const wv = r.wins ?? r.W ?? r.win ?? "";
+    const lv = r.losses ?? r.L ?? r.lose ?? "";
+    const pct = r.pct ?? r.win_pct ?? r.WPCT ?? r.winPct ?? "";
+
+    ctx.fillStyle = "#00d4aa";
+    ctx.fillText(String(rank).padStart(2, " "), 64, y);
+    ctx.fillStyle = teamColor(team);
+    ctx.fillText(fmtTeamShort(team), 130, y);
+    ctx.fillStyle = "#e9edf5";
+    ctx.fillText(`${wv}-${lv}`, 320, y);
+    ctx.fillStyle = "#8b93a7";
+    ctx.fillText(String(pct).slice(0, 5), 500, y);
+    y += 70;
+  }
+}
+
+function Card8Shorts({ defaultDate }) {
+  const [date, setDate] = useState(defaultDate);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  const slides = useMemo(() => {
+    const games = Array.isArray(data?.games) ? data.games : [];
+    const s = [];
+    s.push({ type: "summary" });
+    for (const g of games) s.push({ type: "game", game: g });
+    s.push({ type: "standings" });
+    return s;
+  }, [data]);
+
+  const renderSlideToCanvas = async (idx, canvas) => {
+    if (!canvas) return;
+    const w = 1080;
+    const h = 1920;
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = "360px";
+    canvas.style.height = "640px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const games = Array.isArray(data?.games) ? data.games : [];
+    const standings = Array.isArray(data?.standings) ? data.standings : [];
+    const slide = slides[idx];
+    if (!slide) return;
+    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games);
+    else if (slide.type === "game")
+      drawGameSlide(ctx, w, h, date, slide.game, idx, Math.max(1, games.length));
+    else drawStandingsSlide(ctx, w, h, date, standings);
+  };
+
+  const onGenerate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({ action: "shorts_slides_data", date });
+      setData(res);
+      setSlideIdx(0);
+    } catch (e) {
+      setError(e?.message || String(e));
+      setData(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadPng = async (idx) => {
+    const c = document.createElement("canvas");
+    await renderSlideToCanvas(idx, c);
+    const blob = await canvasToBlob(c);
+    if (!blob) return;
+    downloadBlob(blob, `shorts_${date}_${String(idx + 1).padStart(2, "0")}.png`);
+  };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < slides.length; i++) {
+      const c = document.createElement("canvas");
+      await renderSlideToCanvas(i, c);
+      const blob = await canvasToBlob(c);
+      if (!blob) continue;
+      zip.file(
+        `shorts_${date}_${String(i + 1).padStart(2, "0")}.png`,
+        blob
+      );
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob(out, `shorts_${date}.zip`);
+  };
+
+  return (
+    <div className="section soft">
+      <div className="section-title">8. 쇼츠 슬라이드 생성</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <button type="button" className="primary" onClick={onGenerate} disabled={busy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary primary-fill" onClick={downloadZip} disabled={!data || busy}>
+          전체 ZIP 다운로드
+        </button>
+      </div>
+
+      {error ? <pre className="result-error-light">{error}</pre> : null}
+
+      {data ? (
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
+          <ShortsCanvas
+            slideIdx={slideIdx}
+            renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+          />
+          <div>
+            <div className="muted" style={{ fontWeight: 900 }}>
+              슬라이드 ({slideIdx + 1}/{slides.length})
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+                disabled={slideIdx >= slides.length - 1}
+              >
+                다음
+              </button>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+                현재 슬라이드 PNG 다운로드
+              </button>
+            </div>
+            <div className="muted" style={{ marginTop: 10 }}>
+              - 슬라이드1: 전체 결과 요약<br />
+              - 슬라이드2~N: 경기별 상세(구장/승패투수/안타 최다 MVP)<br />
+              - 마지막: KBO 순위(`standings`)
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ShortsCanvas({ slideIdx, renderSlide }) {
+  const [ref, setRef] = useState(null);
+  useEffect(() => {
+    renderSlide(ref);
+  }, [slideIdx, ref, renderSlide]);
+  return (
+    <div>
+      <canvas ref={setRef} style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)" }} />
+    </div>
+  );
 }
 
 /** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
@@ -1294,7 +1598,7 @@ export default function App() {
           {tab === "shorts" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">8. 하이라이트 (쇼츠)</div>
+                <div className="side-group-title">8. 쇼츠 슬라이드 (PNG/ZIP)</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -1304,13 +1608,12 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_highlight_8")}
+                  disabled={busy === "shorts_slides_open"}
                   onClick={() => {
-                    setActiveKey("shorts_highlight");
-                    runWith("shorts_highlight", { date: shDate }, "8", setHlOut);
+                    setActiveKey("shorts_slides");
                   }}
                 >
-                  쇼츠 대본 생성
+                  슬라이드 생성 열기
                 </button>
               </div>
 
@@ -2097,6 +2400,8 @@ export default function App() {
                       error={hlOut.error}
                       pending={pending("shorts_highlight_8")}
                     />
+                  ) : activeKey === "shorts_slides" ? (
+                    <Card8Shorts defaultDate={shDate} />
                   ) : activeKey === "shorts_pitcher_week" ? (
                     <ResultBlock
                       title={null}
