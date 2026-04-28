@@ -262,6 +262,11 @@ export default function App() {
     setPitcherTeam(team);
     setPvP("");
     setPitcherList([]);
+    if (batterTeam === team) {
+      setBatterTeam("");
+      setBatterList([]);
+      setPvB("");
+    }
     if (!team) return;
     setPvPlayersBusy(true);
     try {
@@ -301,6 +306,10 @@ export default function App() {
   };
 
   const [prPlayer, setPrPlayer] = useState("");
+  const [prTeam, setPrTeam] = useState("");
+  const [prPlayerSel, setPrPlayerSel] = useState("");
+  const [prPlayerOptions, setPrPlayerOptions] = useState([]); // { value, name, label }
+  const [prPlayersBusy, setPrPlayersBusy] = useState(false);
   const [prStart, setPrStart] = useState("2026-03-01");
   const [prEnd, setPrEnd] = useState("2026-03-31");
   const [prOut, setPrOut] = useState({
@@ -311,15 +320,103 @@ export default function App() {
 
   const [spa, setSpa] = useState("");
   const [spb, setSpb] = useState("");
+  const [spATeam, setSpATeam] = useState("");
+  const [spBTeam, setSpBTeam] = useState("");
+  const [spAList, setSpAList] = useState([]);
+  const [spBList, setSpBList] = useState([]);
+  const [spPlayersBusy, setSpPlayersBusy] = useState(false);
   const [spOut, setSpOut] = useState({
     text: "",
     summary: null,
     error: null,
   });
 
+  const loadPrPlayers = async (team) => {
+    setPrTeam(team);
+    setPrPlayer("");
+    setPrPlayerSel("");
+    setPrPlayerOptions([]);
+    if (!team) return;
+    setPrPlayersBusy(true);
+    try {
+      const [pit, bat] = await Promise.all([
+        postKbo({ action: "get_players", team, type: "pitcher", year: 2026 }),
+        postKbo({ action: "get_players", team, type: "batter", year: 2026 }),
+      ]);
+      const pitNames = Array.isArray(pit?.players) ? pit.players : [];
+      const batNames = Array.isArray(bat?.players) ? bat.players : [];
+      const opts = [];
+      for (const n of pitNames) {
+        if (!n) continue;
+        opts.push({ value: `${n}__pitcher`, name: n, label: `${n} (투수)` });
+      }
+      for (const n of batNames) {
+        if (!n) continue;
+        opts.push({ value: `${n}__batter`, name: n, label: `${n} (타자)` });
+      }
+      opts.sort((a, b) => String(a.label).localeCompare(String(b.label), "ko"));
+      setPrPlayerOptions(opts);
+    } catch {
+      setPrPlayerOptions([]);
+    } finally {
+      setPrPlayersBusy(false);
+    }
+  };
+
+  const loadSpA = async (team) => {
+    setSpATeam(team);
+    setSpa("");
+    setSpAList([]);
+    if (spBTeam === team) {
+      setSpBTeam("");
+      setSpb("");
+      setSpBList([]);
+    }
+    if (!team) return;
+    setSpPlayersBusy(true);
+    try {
+      const res = await postKbo({
+        action: "get_players",
+        team,
+        type: "pitcher",
+        year: 2026,
+      });
+      setSpAList(Array.isArray(res?.players) ? res.players : []);
+    } catch {
+      setSpAList([]);
+    } finally {
+      setSpPlayersBusy(false);
+    }
+  };
+
+  const loadSpB = async (team) => {
+    setSpBTeam(team);
+    setSpb("");
+    setSpBList([]);
+    if (!team) return;
+    setSpPlayersBusy(true);
+    try {
+      const res = await postKbo({
+        action: "get_players",
+        team,
+        type: "pitcher",
+        year: 2026,
+      });
+      setSpBList(Array.isArray(res?.players) ? res.players : []);
+    } catch {
+      setSpBList([]);
+    } finally {
+      setSpPlayersBusy(false);
+    }
+  };
+
   /* Predict */
   const [suPit, setSuPit] = useState("");
   const [suOpp, setSuOpp] = useState("");
+  const [suPitcherTeam, setSuPitcherTeam] = useState("");
+  const [suOppTeam, setSuOppTeam] = useState("");
+  const [suPitcherList, setSuPitcherList] = useState([]);
+  const [suPlayersBusy, setSuPlayersBusy] = useState(false);
   const [suOut, setSuOut] = useState({
     text: "",
     summary: null,
@@ -328,11 +425,41 @@ export default function App() {
 
   const [pta, setPta] = useState("LG");
   const [ptb, setPtb] = useState("KT");
+  const [ptaTeam, setPtaTeam] = useState("");
+  const [ptbTeam, setPtbTeam] = useState("");
   const [predOut, setPredOut] = useState({
     text: "",
     summary: null,
     error: null,
   });
+
+  const teamKeywordFromFullName = (teamFull) =>
+    String(teamFull || "").trim().split(/\s+/)[0] || "";
+
+  const loadSuPitchers = async (team) => {
+    setSuPitcherTeam(team);
+    setSuPit("");
+    setSuPitcherList([]);
+    if (suOppTeam === team) {
+      setSuOppTeam("");
+      setSuOpp("");
+    }
+    if (!team) return;
+    setSuPlayersBusy(true);
+    try {
+      const res = await postKbo({
+        action: "get_players",
+        team,
+        type: "pitcher",
+        year: 2026,
+      });
+      setSuPitcherList(Array.isArray(res?.players) ? res.players : []);
+    } catch {
+      setSuPitcherList([]);
+    } finally {
+      setSuPlayersBusy(false);
+    }
+  };
 
   /* Shorts */
   const [shDate, setShDate] = useState(today);
@@ -660,11 +787,41 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">4. 기간별 선수 성적</div>
-                <label>선수 이름</label>
-                <input
-                  value={prPlayer}
-                  onChange={(e) => setPrPlayer(e.target.value)}
-                />
+                <div className="grid-2">
+                  <div>
+                    <label>팀</label>
+                    <select value={prTeam} onChange={(e) => loadPrPlayers(e.target.value)}>
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>선수</label>
+                    <select
+                      value={prPlayerSel}
+                      onChange={(e) => {
+                        const v = String(e.target.value || "");
+                        setPrPlayerSel(v);
+                        const name = v.split("__")[0] || "";
+                        setPrPlayer(name);
+                      }}
+                      disabled={!prTeam || prPlayersBusy}
+                    >
+                      <option value="">
+                        {prPlayersBusy ? "불러오는 중…" : "선수 선택"}
+                      </option>
+                      {prPlayerOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <label>시작일</label>
                 <input
                   type="date"
@@ -697,10 +854,66 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">5. 선발 투수 비교</div>
-                <label>투수 A</label>
-                <input value={spa} onChange={(e) => setSpa(e.target.value)} />
-                <label>투수 B</label>
-                <input value={spb} onChange={(e) => setSpb(e.target.value)} />
+                <div className="grid-2">
+                  <div>
+                    <label>투수 A 팀</label>
+                    <select value={spATeam} onChange={(e) => loadSpA(e.target.value)}>
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>투수 A</label>
+                    <select
+                      value={spa}
+                      onChange={(e) => setSpa(e.target.value)}
+                      disabled={!spATeam || spPlayersBusy}
+                    >
+                      <option value="">
+                        {spPlayersBusy ? "불러오는 중…" : "투수 선택"}
+                      </option>
+                      {spAList.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div>
+                    <label>투수 B 팀</label>
+                    <select value={spBTeam} onChange={(e) => loadSpB(e.target.value)}>
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.filter((t) => t !== spATeam).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>투수 B</label>
+                    <select
+                      value={spb}
+                      onChange={(e) => setSpb(e.target.value)}
+                      disabled={!spBTeam || spPlayersBusy}
+                    >
+                      <option value="">
+                        {spPlayersBusy ? "불러오는 중…" : "투수 선택"}
+                      </option>
+                      {spBList.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="primary"
@@ -725,10 +938,56 @@ export default function App() {
             <div className="side-section">
               <div className="side-group">
                 <div className="side-group-title">6. 선발 vs 상대 타선</div>
-                <label>포커스 투수</label>
-                <input value={suPit} onChange={(e) => setSuPit(e.target.value)} />
-                <label>상대 팀 키워드</label>
-                <input value={suOpp} onChange={(e) => setSuOpp(e.target.value)} />
+                <div className="grid-2">
+                  <div>
+                    <label>투수팀</label>
+                    <select
+                      value={suPitcherTeam}
+                      onChange={(e) => loadSuPitchers(e.target.value)}
+                    >
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>투수</label>
+                    <select
+                      value={suPit}
+                      onChange={(e) => setSuPit(e.target.value)}
+                      disabled={!suPitcherTeam || suPlayersBusy}
+                    >
+                      <option value="">
+                        {suPlayersBusy ? "불러오는 중…" : "투수 선택"}
+                      </option>
+                      {suPitcherList.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <label>상대팀</label>
+                <select
+                  value={suOppTeam}
+                  onChange={(e) => {
+                    const team = e.target.value;
+                    setSuOppTeam(team);
+                    setSuOpp(teamKeywordFromFullName(team));
+                  }}
+                  disabled={!suPitcherTeam}
+                >
+                  <option value="">팀 선택</option>
+                  {KBO_TEAM_NAMES.filter((t) => t !== suPitcherTeam).map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   className="primary"
@@ -749,10 +1008,49 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">7. 최근 5경기 폼 예측</div>
-                <label>팀 A</label>
-                <input value={pta} onChange={(e) => setPta(e.target.value)} />
-                <label>팀 B</label>
-                <input value={ptb} onChange={(e) => setPtb(e.target.value)} />
+                <div className="grid-2">
+                  <div>
+                    <label>팀 A</label>
+                    <select
+                      value={ptaTeam}
+                      onChange={(e) => {
+                        const team = e.target.value;
+                        setPtaTeam(team);
+                        setPta(teamKeywordFromFullName(team));
+                        if (ptbTeam === team) {
+                          setPtbTeam("");
+                          setPtb("");
+                        }
+                      }}
+                    >
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>팀 B</label>
+                    <select
+                      value={ptbTeam}
+                      onChange={(e) => {
+                        const team = e.target.value;
+                        setPtbTeam(team);
+                        setPtb(teamKeywordFromFullName(team));
+                      }}
+                      disabled={!ptaTeam}
+                    >
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.filter((t) => t !== ptaTeam).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="primary"
