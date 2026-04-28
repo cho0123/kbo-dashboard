@@ -537,6 +537,7 @@ async function loadPngImage(path) {
 }
 
 let __baseballDecorImg = null;
+let __shortsLinkRect = null; // {x,y,w,h,url} in 1080x1920 coords for onClick
 function drawBaseballBackground(ctx) {
   const baseballImg = __baseballDecorImg;
   if (!baseballImg) return;
@@ -897,7 +898,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const boxX = 64;
   const boxY = SAFE_BOTTOM - 380;
 
-  // Layout: title + name on the same line (2 lines total)
+  // Bottom summary (3 lines): venue / pitcher / MVP
   const cleanName = (s) =>
     String(s || "—")
       .replace(/\(추정\)/g, "")
@@ -906,26 +907,57 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
+  const ipRaw =
+    g?.winning_pitcher_ip ??
+    g?.winning_pitcher_innings ??
+    g?.winning_pitcher_IP ??
+    g?.winning_pitcher_ip_raw ??
+    null;
+  const ipText = formatInnings(ipRaw) || "—";
+
   const mvpName = cleanName(m?.name);
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
+  const venueText = String(g?.venue || "").trim() || "—";
 
-  // New requirement: remove titles, remove shadows, center-align at bottom, 2x font size
-  resetShadow(ctx);
-  const nameFont = `900 120px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  ctx.font = nameFont;
+  resetShadow(ctx); // no shadow
+  ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
+  const labelColor = "#00d4aa";
+  const valueColor = "#ffffff";
+
+  const drawCenteredLabelValue = (y, label, value) => {
+    const gap = "  ";
+    ctx.fillStyle = labelColor;
+    const wL = ctx.measureText(label + gap).width;
+    ctx.fillStyle = valueColor;
+    const wV = ctx.measureText(value).width;
+    const totalW = wL + wV;
+    const startX = (w - totalW) / 2;
+    ctx.fillStyle = labelColor;
+    ctx.fillText(label + gap, startX, y);
+    ctx.fillStyle = valueColor;
+    ctx.fillText(value, startX + wL, y);
+  };
+
+  const baseY = SAFE_BOTTOM - 170;
+  const lineGap = 110;
+  drawCenteredLabelValue(baseY - lineGap * 2, "📍", venueText);
+  drawCenteredLabelValue(baseY - lineGap, "투수", `${pitcherName}  ${ipText}`);
+  drawCenteredLabelValue(baseY, "MVP", String(mvpText).slice(0, 24));
+
+  // Bottom-right link (clickable in preview canvas)
+  const linkText = "🔗 koreabaseball.com";
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "#ffffff";
-
-  const line1 = pitcherName || "—";
-  const line2 = String(mvpText || "—").slice(0, 22);
-  const lineGap = 140;
-  const baseY = SAFE_BOTTOM - 120;
-
-  const w1 = ctx.measureText(line1).width;
-  ctx.fillText(line1, (w - w1) / 2, baseY - lineGap);
-
-  const w2 = ctx.measureText(line2).width;
-  ctx.fillText(line2, (w - w2) / 2, baseY);
+  const pad = 24;
+  const tw = ctx.measureText(linkText).width;
+  const tx = w - pad - tw;
+  const ty = h - pad;
+  ctx.fillText(linkText, tx, ty);
+  ctx.restore();
+  __shortsLinkRect = { x: tx, y: ty - 34, w: tw, h: 40, url: "https://www.koreabaseball.com" };
 
   // 하단 인덱스 텍스트 제거
 }
@@ -1167,7 +1199,22 @@ function ShortsCanvas({ slideIdx, renderSlide }) {
   }, [slideIdx, ref, renderSlide]);
   return (
     <div>
-      <canvas ref={setRef} style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)" }} />
+      <canvas
+        ref={setRef}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const sx = 1080 / rect.width;
+          const sy = 1920 / rect.height;
+          const x = (e.clientX - rect.left) * sx;
+          const y = (e.clientY - rect.top) * sy;
+          const r = __shortsLinkRect;
+          if (!r) return;
+          if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+            window.open(r.url, "_blank", "noopener,noreferrer");
+          }
+        }}
+        style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)", cursor: "pointer" }}
+      />
     </div>
   );
 }
