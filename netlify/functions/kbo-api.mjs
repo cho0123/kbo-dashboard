@@ -371,9 +371,10 @@ function pickAny(obj, keys) {
   return null;
 }
 
+let __avgCheckLogged = 0;
 function normalizeBatterRowForUi(row) {
   if (!row || typeof row !== "object") return row;
-  const avg = pickAny(row, [
+  const rawAvg = pickAny(row, [
     "avg",
     "AVG",
     "batting_avg",
@@ -382,8 +383,28 @@ function normalizeBatterRowForUi(row) {
     "batAvg",
     "타율",
   ]);
-  if (avg == null) return row;
-  return { ...row, avg };
+
+  const ab = pickNum(row, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  const h = pickNum(row, ["h", "H", "hits", "hit", "안타"]);
+
+  const avgNum = rawAvg == null ? null : Number(rawAvg);
+  const computedAvg = ab > 0 ? h / ab : 0;
+  const displayAvg =
+    avgNum != null && Number.isFinite(avgNum) && avgNum > 0 ? avgNum : computedAvg;
+
+  if (__avgCheckLogged < 30) {
+    __avgCheckLogged += 1;
+    console.log("AVG_CHECK:", {
+      player: row?.player ?? row?.name ?? null,
+      avg: row?.avg ?? null,
+      rawAvg,
+      ab,
+      h,
+      displayAvg,
+    });
+  }
+
+  return { ...row, avg: displayAvg };
 }
 
 function normalizeSide(raw) {
