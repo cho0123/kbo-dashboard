@@ -355,17 +355,10 @@ const TEAM_CODE_MAP = {
   "롯데 자이언츠": ["LT"],
 };
 
-// game_id 예: 20260410HTLG0 (YYYYMMDD + 홈(2) + 원정(2) + ...)
-// side: 'home'이면 홈팀, 'away'이면 원정팀
-function teamCodeFromGameIdAndSideStrict(gameId, sideRaw) {
-  const s = String(gameId ?? "").trim();
-  const side = normalizeSide(sideRaw);
-  if (s.length < 12) return "";
-  const homeCode = s.slice(8, 10);
-  const awayCode = s.slice(10, 12);
-  if (side === "home") return homeCode;
-  if (side === "away") return awayCode;
-  return "";
+// get_players 에서는 side 매핑이 데이터셋마다 다를 수 있어
+// 프로젝트 전반에서 이미 사용 중인 teamCodeFromGameIdAndSide 로직을 재사용한다.
+function teamCodeForPlayers(row) {
+  return teamCodeFromGameIdAndSide(row?.game_id, row?.side);
 }
 
 async function getPlayers(db, { team, year, type }) {
@@ -382,7 +375,7 @@ async function getPlayers(db, { team, year, type }) {
   const set = new Set();
   snap.forEach((d) => {
     const row = docSnap(d);
-    const code = teamCodeFromGameIdAndSideStrict(row?.game_id, row?.side);
+    const code = teamCodeForPlayers(row);
     if (!code || !allowedCodes.includes(code)) return;
     const n = pickStr(row, nameKeyCandidates);
     if (n) set.add(n);
