@@ -252,12 +252,42 @@ function safeNum(v) {
 }
 
 async function fetchGamesByDate(db, dateStr) {
-  const snap = await db
-    .collection("games")
-    .where("game_date", "==", dateStr)
-    .get();
   const rows = [];
-  snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+  // Primary: canonical field name (string "YYYY-MM-DD")
+  try {
+    const snap = await db
+      .collection("games")
+      .where("game_date", "==", dateStr)
+      .get();
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+  } catch (e) {
+    console.warn("[fetchGamesByDate] query(game_date==) failed:", e?.message || e);
+  }
+  if (rows.length) return rows;
+
+  // Fallback: alternate field name used in some datasets
+  try {
+    const snap2 = await db
+      .collection("games")
+      .where("gameDate", "==", dateStr)
+      .get();
+    snap2.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+  } catch (e) {
+    console.warn("[fetchGamesByDate] query(gameDate==) failed:", e?.message || e);
+  }
+  if (rows.length) return rows;
+
+  // Last resort: bounded scan + filter (handles Timestamp/dirty strings)
+  try {
+    const snap3 = await db.collection("games").limit(2500).get();
+    snap3.forEach((d) => {
+      const doc = { id: d.id, ...docSnap(d) };
+      const gd = safeIsoDate(doc.game_date || doc.gameDate || "");
+      if (gd === dateStr) rows.push(doc);
+    });
+  } catch (e) {
+    console.warn("[fetchGamesByDate] fallback scan failed:", e?.message || e);
+  }
   return rows;
 }
 
@@ -1510,7 +1540,6 @@ export const handler = async (event) => {
           body: JSON.stringify({
             ok: true,
             action,
-            meta,
             date: dateStr,
             games,
           }),

@@ -785,7 +785,7 @@ export default function App() {
                 </span>
               );
             }
-            const line = games.map(fmtGameLine).join("  ");
+            const line = games.map(fmtGameLine).join("  |  ");
             return (
               <span className="topbar-v">
                 경기일: {crawled} | {line} ({n}경기)
