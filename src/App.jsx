@@ -402,7 +402,8 @@ function fmtKoreanLongDate(iso) {
   const y = Number(m[1]);
   const mo = Number(m[2]);
   const d = Number(m[3]);
-  return `${y}년 ${mo}월 ${d}일`;
+  const wk = new Date(s).toLocaleDateString("ko-KR", { weekday: "short" });
+  return `${y}년 ${mo}월 ${d}일 (${wk})`;
 }
 
 function teamBadgeLabel(teamName) {
@@ -705,17 +706,55 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   resetShadow(ctx);
 
   const m = g.mvp_batter;
-  const info = [
-    g.venue ? `구장 ${g.venue}` : "구장 —",
-    `승리투수 ${g.winning_pitcher || "—"}`,
-    `MVP ${m?.name || "—"} (${m?.h ?? 0}H)`,
-  ].join("  |  ");
+  // Bottom highlight box (inside safe zone)
+  const boxX = 64;
+  const boxW = w - 128;
+  const boxH = 380;
+  const boxY = SAFE_BOTTOM - boxH;
 
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = "900 44px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, 28);
+  ctx.fill();
+
+  // Winner pitcher
+  ctx.fillStyle = "#00d4aa";
+  ctx.font = "900 40px system-ui, sans-serif";
   shadowText(ctx);
-  // Bottom info inside safe zone
-  ctx.fillText(info, 64, SAFE_BOTTOM - 20);
+  ctx.fillText("🏆 승리투수", boxX + 40, boxY + 90);
+  resetShadow(ctx);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 70px system-ui, sans-serif";
+  shadowTextStrong(ctx);
+  ctx.fillText(
+    String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
+    boxX + 40,
+    boxY + 165
+  );
+  resetShadow(ctx);
+
+  // MVP
+  ctx.fillStyle = "#ffd54a";
+  ctx.font = "900 40px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText("⭐ MVP", boxX + 40, boxY + 255);
+  resetShadow(ctx);
+
+  const mvpName = m?.name ? String(m.name).trim() : "—";
+  const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
+  const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 60px system-ui, sans-serif";
+  shadowTextStrong(ctx);
+  ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 325);
+  resetShadow(ctx);
+
+  // Venue (small line at bottom of box)
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.font = "900 40px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText(g.venue ? `🏟️ ${g.venue}` : "🏟️ —", boxX + 40, boxY + 370);
   resetShadow(ctx);
 
   ctx.fillStyle = "rgba(255,255,255,0.85)";
@@ -726,35 +765,72 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 }
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
-  drawSlideBase(ctx, w, h, "KBO 순위");
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = "900 36px system-ui, sans-serif";
+  drawSlideBase(ctx, w, h, "");
+
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+
+  // Title
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 90px system-ui, sans-serif";
+  shadowTextStrong(ctx);
+  ctx.fillText("KBO 현재 순위", 64, SAFE_TOP + 90);
+  resetShadow(ctx);
+
+  // Date
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "900 50px system-ui, sans-serif";
   shadowText(ctx);
-  ctx.fillText(String(date).replaceAll("-", "."), 64, 170);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 90 + 70);
   resetShadow(ctx);
 
   const rows = Array.isArray(standings) ? standings : [];
-  let y = 260;
-  ctx.font = "900 40px system-ui, sans-serif";
-  for (let i = 0; i < Math.min(rows.length, 10); i++) {
-    const r = rows[i];
-    const rank = r.rank ?? r.RANK ?? i + 1;
-    const team = r.team ?? r.team_name ?? r.name ?? r.id ?? "—";
-    const wv = r.wins ?? r.W ?? r.win ?? "";
-    const lv = r.losses ?? r.L ?? r.lose ?? "";
-    const pct = r.pct ?? r.win_pct ?? r.WPCT ?? r.winPct ?? "";
+  if (!rows.length) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.beginPath();
+    ctx.roundRect(64, SAFE_TOP + 240, w - 128, 260, 28);
+    ctx.fill();
 
-    ctx.fillStyle = "#00d4aa";
-    ctx.fillText(String(rank).padStart(2, " "), 64, y);
     ctx.fillStyle = "#ffffff";
-    shadowText(ctx);
-    ctx.fillText(fmtTeamShort(team), 130, y);
+    ctx.font = "1000 70px system-ui, sans-serif";
+    shadowTextStrong(ctx);
+    ctx.fillText("순위 데이터 없음", 64 + 40, SAFE_TOP + 240 + 160);
     resetShadow(ctx);
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.fillText(`${wv}-${lv}`, 320, y);
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.fillText(String(pct).slice(0, 5), 500, y);
-    y += 70;
+    return;
+  }
+
+  const medal = (n) =>
+    n === 1 ? "#ffd54a" : n === 2 ? "#cfd8dc" : n === 3 ? "#d7a86e" : "#00d4aa";
+
+  // List 1~10
+  let y = SAFE_TOP + 320;
+  const rowH = 110;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const r = rows[i] || {};
+    const rankRaw = r.rank ?? r.RANK ?? r.순위 ?? i + 1;
+    const rank = Number(rankRaw) || i + 1;
+    const team = r.team ?? r.team_name ?? r.name ?? r.id ?? r.팀 ?? "—";
+
+    // row background
+    ctx.fillStyle = "rgba(0,0,0,0.30)";
+    ctx.beginPath();
+    ctx.roundRect(64, y - 78, w - 128, 96, 22);
+    ctx.fill();
+
+    ctx.fillStyle = medal(rank);
+    ctx.font = "1000 64px system-ui, sans-serif";
+    shadowTextStrong(ctx);
+    ctx.fillText(String(rank), 96, y);
+    resetShadow(ctx);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "1000 64px system-ui, sans-serif";
+    shadowTextStrong(ctx);
+    ctx.fillText(fmtTeamShort(team), 200, y);
+    resetShadow(ctx);
+
+    y += rowH;
+    if (y > SAFE_BOTTOM) break;
   }
 }
 
