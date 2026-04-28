@@ -408,6 +408,7 @@ function normalizeBatterRowForUi(row) {
 }
 
 let __pitcherEraCheckLogged = 0;
+let __batterRbiCheckLogged2 = 0;
 
 function normalizeSide(raw) {
   const s = String(raw || "").trim().toLowerCase();
@@ -1204,6 +1205,17 @@ export const handler = async (event) => {
           .get();
         const batters = battersSnap.docs.map((d) => docSnap(d));
         console.log("BOXSCORE batters count:", batters.length, "gameId:", gameId);
+        for (const b of batters) {
+          if (__batterRbiCheckLogged2 >= 60) break;
+          __batterRbiCheckLogged2 += 1;
+          console.log("BATTER_RBI_CHECK2:", {
+            player: b?.player ?? b?.name ?? null,
+            rbi: b?.rbi ?? b?.RBI ?? b?.bi ?? null,
+            h: b?.h ?? b?.H ?? null,
+            ab: b?.ab ?? b?.AB ?? null,
+            game_id: b?.game_id ?? b?.gameId ?? gameId,
+          });
+        }
 
         const pitchersSnap = await db
           .collection("pitchers")
