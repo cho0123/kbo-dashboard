@@ -394,8 +394,17 @@ async function loadTeamLogoDataUrl(code) {
   if (!c) return null;
   if (__logoCache.has(c)) return __logoCache.get(c);
   try {
-    const res = await postKbo({ action: "team_logo", teamCode: c });
-    const url = res?.dataUrl || null;
+    // Prefer GET query style to match Netlify rewrites and avoid any unexpected POST/CORS behavior.
+    // Fallback to postKbo if the query endpoint isn't available.
+    let url = null;
+    try {
+      const r = await fetch(`/api/kbo-api?action=team_logo&team=${encodeURIComponent(c)}`);
+      const j = await r.json();
+      url = j?.dataUrl || null;
+    } catch {
+      const res = await postKbo({ action: "team_logo", teamCode: c });
+      url = res?.dataUrl || null;
+    }
     __logoCache.set(c, url);
     return url;
   } catch {
@@ -408,10 +417,32 @@ async function loadImage(src) {
   if (!src) return null;
   return await new Promise((resolve) => {
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
     img.src = src;
   });
+}
+
+function drawTeamCircleFallback(ctx, cx, cy, r, teamName) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(12, 15, 20, 0.35)";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 36px system-ui, sans-serif";
+  shadowText(ctx);
+  const t = fmtTeamShort(teamName);
+  const tw = ctx.measureText(t).width;
+  ctx.fillText(t, cx - tw / 2, cy + 14);
+  resetShadow(ctx);
+  ctx.restore();
 }
 
 function diagTeamGradient(ctx, w, h, homeTeam, awayTeam) {
@@ -518,24 +549,10 @@ async function drawSummarySlide(ctx, w, h, date, games) {
     const logoSize = 96;
     const ly = y + (cardH - logoSize) / 2;
     if (homeLogo) ctx.drawImage(homeLogo, x + 36, ly, logoSize, logoSize);
-    else {
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "900 38px system-ui, sans-serif";
-      shadowText(ctx);
-      ctx.fillText(fmtTeamShort(g.home_team), x + 36, y + 106);
-      resetShadow(ctx);
-    }
+    else drawTeamCircleFallback(ctx, x + 36 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
 
     if (awayLogo) ctx.drawImage(awayLogo, x + cardW - 36 - logoSize, ly, logoSize, logoSize);
-    else {
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "900 38px system-ui, sans-serif";
-      shadowText(ctx);
-      const t = fmtTeamShort(g.away_team);
-      const tw = ctx.measureText(t).width;
-      ctx.fillText(t, x + cardW - 36 - tw, y + 106);
-      resetShadow(ctx);
-    }
+    else drawTeamCircleFallback(ctx, x + cardW - 36 - logoSize / 2, ly + logoSize / 2, logoSize / 2, g.away_team);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "1000 68px system-ui, sans-serif";
@@ -581,23 +598,10 @@ async function drawGameSlide(ctx, w, h, date, g, index, total) {
   const logoSize = 220;
   const ly = 170;
   if (homeLogo) ctx.drawImage(homeLogo, 140, ly, logoSize, logoSize);
-  else {
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "1000 64px system-ui, sans-serif";
-    shadowText(ctx);
-    ctx.fillText(fmtTeamShort(g.home_team), 140, ly + 130);
-    resetShadow(ctx);
-  }
+  else drawTeamCircleFallback(ctx, 140 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
+
   if (awayLogo) ctx.drawImage(awayLogo, w - 140 - logoSize, ly, logoSize, logoSize);
-  else {
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "1000 64px system-ui, sans-serif";
-    shadowText(ctx);
-    const t = fmtTeamShort(g.away_team);
-    const tw = ctx.measureText(t).width;
-    ctx.fillText(t, w - 140 - tw, ly + 130);
-    resetShadow(ctx);
-  }
+  else drawTeamCircleFallback(ctx, w - 140 - logoSize / 2, ly + logoSize / 2, logoSize / 2, g.away_team);
 
   ctx.fillStyle = "#ffffff";
   ctx.font = "1000 150px system-ui, sans-serif";

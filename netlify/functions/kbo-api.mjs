@@ -1464,22 +1464,26 @@ export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
   }
-  if (event.httpMethod !== "POST") {
+  const method = String(event.httpMethod || "").toUpperCase();
+
+  let payload;
+  if (method === "GET") {
+    payload = event.queryStringParameters || {};
+  } else if (method === "POST") {
+    try {
+      payload = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 400,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Invalid JSON" }),
+      };
+    }
+  } else {
     return {
       statusCode: 405,
       headers: corsHeaders(),
       body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(event.body || "{}");
-  } catch {
-    return {
-      statusCode: 400,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Invalid JSON" }),
     };
   }
 
@@ -1499,7 +1503,7 @@ export const handler = async (event) => {
 
     switch (action) {
       case "team_logo": {
-        const code = String(payload.teamCode || "").trim().toUpperCase();
+        const code = String(payload.teamCode || payload.team || "").trim().toUpperCase();
         if (!/^[A-Z]{2}$/.test(code)) {
           return {
             statusCode: 400,
