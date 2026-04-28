@@ -407,6 +407,8 @@ function normalizeBatterRowForUi(row) {
   return { ...row, avg: displayAvg };
 }
 
+let __pitcherEraCheckLogged = 0;
+
 function normalizeSide(raw) {
   const s = String(raw || "").trim().toLowerCase();
   if (!s) return "";
@@ -1209,6 +1211,15 @@ export const handler = async (event) => {
           .get();
         const pitchers = pitchersSnap.docs.map((d) => docSnap(d));
         console.log("BOXSCORE pitchers count:", pitchers.length);
+        for (const p of pitchers) {
+          if (__pitcherEraCheckLogged >= 40) break;
+          __pitcherEraCheckLogged += 1;
+          console.log("PITCHER_ERA_CHECK:", {
+            player: p?.player ?? p?.name ?? null,
+            era: p?.era ?? p?.ERA ?? null,
+            game_id: p?.game_id ?? p?.gameId ?? gameId,
+          });
+        }
 
         const awayBatters = batters.filter((b) => String(b?.side) === "away");
         const homeBatters = batters.filter((b) => String(b?.side) === "home");

@@ -126,6 +126,25 @@ function formatSeasonAvgDot(avgRaw) {
   return s;
 }
 
+function formatInnings(ip) {
+  if (!ip && ip !== 0) return "";
+  const n = typeof ip === "number" ? ip : Number(ip);
+  if (!Number.isFinite(n)) return "";
+  const full = Math.floor(n);
+  const frac = n - full;
+  if (frac < 0.1) return `${full}이닝`;
+  if (frac < 0.5) return `${full}.1이닝`;
+  return `${full}.2이닝`;
+}
+
+function formatEraMaybe(eraRaw) {
+  if (eraRaw == null || eraRaw === "") return "-";
+  const n = typeof eraRaw === "number" ? eraRaw : Number(eraRaw);
+  // 비정상적으로 큰 ERA는 표시하지 않음 (데이터 오염/타입 문제 방지)
+  if (!Number.isFinite(n) || n < 0 || n > 20) return "-";
+  return n.toFixed(2);
+}
+
 function inningsToNumber(ipRaw) {
   if (ipRaw == null) return 0;
   const s = String(ipRaw).trim();
@@ -815,6 +834,7 @@ export default function App() {
                                     const formatPitcherLine = (r) => {
                                       const name = r?.player || r?.name || "—";
                                       const ip = r?.ip ?? r?.IP ?? 0;
+                                      const ipStr = formatInnings(ip) || "0이닝";
                                       const er =
                                         r?.er ??
                                         r?.ER ??
@@ -823,10 +843,8 @@ export default function App() {
                                         r?.R ??
                                         0;
                                       const so = r?.so ?? r?.SO ?? r?.k ?? r?.K ?? 0;
-                                      const era = calcEra(ip, er);
-                                      const eraStr =
-                                        era == null ? "" : ` ERA ${era.toFixed(2)}`;
-                                      return `${name} — ${ip}이닝 ${er}실점 ${so}K${eraStr}`;
+                                      const eraStr = formatEraMaybe(r?.era ?? r?.ERA);
+                                      return `${name} — ${ipStr} ${er}실점 ${so}K ERA ${eraStr}`;
                                     };
                                     return (
                                       <div style={{ marginTop: 10 }}>
