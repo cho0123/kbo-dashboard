@@ -416,18 +416,58 @@ function drawTeamBadge(ctx, cx, cy, r, teamName) {
   const [c1] = teamGrad(teamName);
   ctx.fillStyle = c1 || "#00d4aa";
   ctx.fill();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(255,255,255,0.26)";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
   ctx.stroke();
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 44px system-ui, sans-serif";
+  ctx.font = "1000 52px system-ui, sans-serif";
   shadowText(ctx);
   const t = teamBadgeLabel(teamName);
   const tw = ctx.measureText(t).width;
   ctx.fillText(t, cx - tw / 2, cy + 14);
   resetShadow(ctx);
   ctx.restore();
+}
+
+const TEAM_LOGO_PATH = {
+  삼성: "/logos/samsung.svg",
+  LG: "/logos/lg.svg",
+  KT: "/logos/kt.svg",
+  SSG: "/logos/ssg.svg",
+  NC: "/logos/nc.svg",
+  KIA: "/logos/kia.svg",
+  두산: "/logos/doosan.svg",
+  롯데: "/logos/lotte.svg",
+  한화: "/logos/hanwha.svg",
+  키움: "/logos/kiwoom.svg",
+};
+
+function teamLogoPath(teamName) {
+  return TEAM_LOGO_PATH[teamKeyword(teamName)] || null;
+}
+
+const __svgLogoCache = new Map();
+async function loadSvgLogo(teamName) {
+  const path = TEAM_LOGO_PATH[String(teamName || "").trim()] || teamLogoPath(teamName);
+  if (!path) return null;
+  if (__svgLogoCache.has(path)) return await __svgLogoCache.get(path);
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = path;
+  });
+  __svgLogoCache.set(path, p);
+  return await p;
+}
+
+function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
+  if (img) {
+    ctx.drawImage(img, x, y, size, size);
+    return;
+  }
+  drawTeamBadge(ctx, x + size / 2, y + size / 2, size / 2, teamName);
 }
 
 function diagTeamGradient(ctx, w, h, homeTeam, awayTeam) {
@@ -459,13 +499,14 @@ function hexToRgba(hex, a) {
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
   const [w1, w2] = teamGrad(winTeam);
   const [l1, l2] = teamGrad(loseTeam);
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  // Winner dominates top 70%
+  const g = ctx.createLinearGradient(0, 0, 0, 1920);
+  // Winner: 0% ~ 65% (strong)
   g.addColorStop(0.0, w1);
-  g.addColorStop(0.7, w2);
-  // Loser fades bottom 30% with opacity 0.4
-  g.addColorStop(0.7, hexToRgba(l1, 0.4));
-  g.addColorStop(1.0, hexToRgba(l2, 0.4));
+  g.addColorStop(0.65, w2);
+  // Mix: 65% ~ 80%
+  g.addColorStop(0.8, hexToRgba(l1, 0.6));
+  // Loser: 80% ~ 100% (alpha 0.6)
+  g.addColorStop(1.0, hexToRgba(l2, 0.6));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }
@@ -503,7 +544,7 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   resetShadow(ctx);
 }
 
-function drawSummarySlide(ctx, w, h, date, games) {
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   const first = (games || [])[0] || {};
   drawSlideBase(
     ctx,
@@ -524,7 +565,7 @@ function drawSummarySlide(ctx, w, h, date, games) {
   }
 
   const cardW = 952;
-  const cardH = 170;
+  const cardH = 220;
   const x = 64;
   let y = 220;
 
@@ -537,21 +578,25 @@ function drawSummarySlide(ctx, w, h, date, games) {
     ctx.fill();
     ctx.stroke();
 
-    const logoSize = 96;
+    const logoSize = 200;
     const ly = y + (cardH - logoSize) / 2;
-    drawTeamBadge(
+    const hk = teamKeyword(g.home_team);
+    const ak = teamKeyword(g.away_team);
+    drawTeamLogoOrBadge(
       ctx,
-      x + 36 + logoSize / 2,
-      ly + logoSize / 2,
-      logoSize / 2,
-      g.home_team
+      x + 26,
+      ly,
+      logoSize,
+      g.home_team,
+      logosByTeamKey?.[hk] || null
     );
-    drawTeamBadge(
+    drawTeamLogoOrBadge(
       ctx,
-      x + cardW - 36 - logoSize / 2,
-      ly + logoSize / 2,
-      logoSize / 2,
-      g.away_team
+      x + cardW - 26 - logoSize,
+      ly,
+      logoSize,
+      g.away_team,
+      logosByTeamKey?.[ak] || null
     );
 
     ctx.fillStyle = "#ffffff";
@@ -559,7 +604,7 @@ function drawSummarySlide(ctx, w, h, date, games) {
     shadowText(ctx);
     const s = `${g.home_score ?? "—"}  vs  ${g.away_score ?? "—"}`;
     const sw = ctx.measureText(s).width;
-    ctx.fillText(s, x + (cardW - sw) / 2, y + 110);
+    ctx.fillText(s, x + (cardW - sw) / 2, y + 136);
     resetShadow(ctx);
 
     y += cardH + 22;
@@ -573,7 +618,7 @@ function drawSummarySlide(ctx, w, h, date, games) {
   resetShadow(ctx);
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
   const as = Number(g?.away_score);
@@ -602,23 +647,33 @@ function drawGameSlide(ctx, w, h, date, g, index, total) {
   ctx.fillStyle = "rgba(12,15,20,0.42)";
   ctx.fillRect(0, topH, w, h - topH);
 
-  const logoSize = 220;
-  const ly = 170;
-  drawTeamBadge(ctx, 140 + logoSize / 2, ly + logoSize / 2, logoSize / 2, g.home_team);
-  drawTeamBadge(
+  const logoSize = 200;
+  const badgeY = Math.round(h * 0.25) - logoSize / 2;
+  const hk = teamKeyword(g.home_team);
+  const ak = teamKeyword(g.away_team);
+  drawTeamLogoOrBadge(
     ctx,
-    w - 140 - logoSize / 2,
-    ly + logoSize / 2,
-    logoSize / 2,
-    g.away_team
+    220 - logoSize / 2,
+    badgeY,
+    logoSize,
+    g.home_team,
+    logosByTeamKey?.[hk] || null
+  );
+  drawTeamLogoOrBadge(
+    ctx,
+    w - 220 - logoSize / 2,
+    badgeY,
+    logoSize,
+    g.away_team,
+    logosByTeamKey?.[ak] || null
   );
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "1000 150px system-ui, sans-serif";
+  ctx.font = "1000 200px system-ui, sans-serif";
   shadowText(ctx);
   const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
   const sw = ctx.measureText(score).width;
-  ctx.fillText(score, (w - sw) / 2, topH + 240);
+  ctx.fillText(score, (w - sw) / 2, Math.round(h * 0.52));
   resetShadow(ctx);
 
   const m = g.mvp_batter;
@@ -706,7 +761,25 @@ function Card8Shorts({ defaultDate }) {
     const standings = Array.isArray(data?.standings) ? data.standings : [];
     const slide = slides[idx];
     if (!slide) return;
-    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games);
+    // Preload local SVG logos (same-origin) for this slide
+    const teamKeys = new Set();
+    if (slide.type === "summary") {
+      for (const gg of games) {
+        teamKeys.add(teamKeyword(gg?.home_team));
+        teamKeys.add(teamKeyword(gg?.away_team));
+      }
+    } else if (slide.type === "game") {
+      teamKeys.add(teamKeyword(slide.game?.home_team));
+      teamKeys.add(teamKeyword(slide.game?.away_team));
+    }
+    const logosByTeamKey = {};
+    for (const tk of teamKeys) {
+      // Use the keyword to resolve path
+      const img = await loadSvgLogo(tk);
+      logosByTeamKey[tk] = img;
+    }
+
+    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
@@ -715,7 +788,8 @@ function Card8Shorts({ defaultDate }) {
         date,
         slide.game,
         idx,
-        Math.max(1, games.length)
+        Math.max(1, games.length),
+        logosByTeamKey
       );
     else drawStandingsSlide(ctx, w, h, date, standings);
   };
