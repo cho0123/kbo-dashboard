@@ -1015,19 +1015,6 @@ function slimGameResultRow(g) {
   };
 }
 
-function pickPitcherResult(row) {
-  return pickAny(row, [
-    "result",
-    "RESULT",
-    "결과",
-    "res",
-    "W_L",
-    "w_l",
-    "wl",
-    "결정",
-  ]);
-}
-
 function pickPitcherName(row) {
   return (
     pickAny(row, ["player", "name", "player_name", "playerName", "선수명"]) ??
@@ -1035,21 +1022,36 @@ function pickPitcherName(row) {
   );
 }
 
-function findWinLosePitchers(pitchers) {
+function inningsToNumber(ipRaw) {
+  if (ipRaw == null) return 0;
+  const s = String(ipRaw).trim();
+  if (!s) return 0;
+  // common baseball notation: 5.1 = 5 + 1/3, 5.2 = 5 + 2/3
+  const m = s.match(/^(\d+)(?:\.(\d))?$/);
+  if (!m) {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const full = Number(m[1]);
+  const frac = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(full)) return 0;
+  if (frac === 1) return full + 1 / 3;
+  if (frac === 2) return full + 2 / 3;
+  return full;
+}
+
+function pickTopInningsPitcher(pitchers) {
   const rows = Array.isArray(pitchers) ? pitchers : [];
-  const isWin = (p) => {
-    const r = String(pickPitcherResult(p) || "").trim().toUpperCase();
-    const winFlag = pickNum(p, ["win", "w", "W", "승", "isWin", "is_win"]);
-    return r === "W" || r === "승" || winFlag === 1;
-  };
-  const isLose = (p) => {
-    const r = String(pickPitcherResult(p) || "").trim().toUpperCase();
-    const loseFlag = pickNum(p, ["lose", "l", "L", "패", "isLose", "is_lose"]);
-    return r === "L" || r === "패" || loseFlag === 1;
-  };
-  const win = rows.find(isWin) || null;
-  const lose = rows.find(isLose) || null;
-  return { win, lose };
+  let best = null;
+  let bestIp = -1;
+  for (const p of rows) {
+    const ip = inningsToNumber(p?.ip ?? p?.IP ?? p?.inn ?? p?.innings);
+    if (ip > bestIp) {
+      bestIp = ip;
+      best = p;
+    }
+  }
+  return best;
 }
 
 async function fetchPitchersForGame(db, gameId) {
@@ -1128,7 +1130,29 @@ export const handler = async (event) => {
           }
 
           const pitchers = await fetchPitchersForGame(db, gid);
-          const { win, lose } = findWinLosePitchers(pitchers);
+          const homeScore = Number(g?.home_score);
+          const awayScore = Number(g?.away_score);
+          const hasScores =
+            Number.isFinite(homeScore) &&
+            Number.isFinite(awayScore) &&
+            homeScore !== awayScore;
+
+          const withSide = (Array.isArray(pitchers) ? pitchers : []).map((p) => ({
+            ...p,
+            side: normalizeSide(p?.side),
+          }));
+          const homePitchers = withSide.filter((p) => p.side === "home");
+          const awayPitchers = withSide.filter((p) => p.side === "away");
+
+          let win = null;
+          let lose = null;
+          if (hasScores) {
+            const homeWin = homeScore > awayScore;
+            const winSide = homeWin ? "home" : "away";
+            const loseSide = homeWin ? "away" : "home";
+            win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
+            lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
+          }
 
           // 필드명 확인이 필요할 때 로그로 확인 가능하게 일부만 출력
           if (pitchers?.length) {
@@ -1141,8 +1165,12 @@ export const handler = async (event) => {
 
           games.push({
             ...g,
-            winning_pitcher: needsWin ? (pickPitcherName(win) || "") : g.winning_pitcher,
-            losing_pitcher: needsLose ? (pickPitcherName(lose) || "") : g.losing_pitcher,
+            winning_pitcher: needsWin
+              ? ((pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "")
+              : g.winning_pitcher,
+            losing_pitcher: needsLose
+              ? ((pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "")
+              : g.losing_pitcher,
           });
         }
         return {
