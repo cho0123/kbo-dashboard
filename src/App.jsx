@@ -208,6 +208,15 @@ function stripCompositeSummarySection(md) {
   return text.replace(re, "\n");
 }
 
+function stripMonthlySummarySection(md) {
+  const text = String(md || "");
+  // Remove a "월간 종합 성적" block regardless of formatting (heading/bold/bullet),
+  // and keep the rest (e.g., 경기별 상세 성적).
+  const re =
+    /(^|\n)\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?\s*(?:📌|📊|📅|📋)?\s*월간\s*종합\s*성적[^\n]*\n+([\s\S]*?)(?=\n\s*(?:#{1,6}\s+|(?:[-*]\s*)?(?:\*\*)?\s*(?:📋|📅|📊|📌)?\s*경기별|$))/m;
+  return text.replace(re, "\n");
+}
+
 function stripDuplicateSummaryTables(md) {
   const text = String(md || "");
   // Remove markdown tables under summary headings if present.
@@ -1887,8 +1896,10 @@ export default function App() {
                           <SummaryCards batterRows={prOut.uiData?.batterRows} />
                           <MarkdownView
                             text={stripCompositeSummarySection(
-                              stripDuplicateSummaryTables(
-                                removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
+                              stripMonthlySummarySection(
+                                stripDuplicateSummaryTables(
+                                  removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
+                                )
                               )
                             )}
                           />
