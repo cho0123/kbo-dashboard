@@ -341,6 +341,58 @@ async function fetchAllGames(db, max = 2500) {
   return rows;
 }
 
+async function getPlayers(db, { team, year, type }) {
+  const y = Number(year);
+  const teamFull = String(team || "").trim();
+  const teamKey = teamFull ? teamFull.split(/\s+/)[0] : "";
+  const coll = type === "pitcher" ? "pitchers" : "batters";
+  const nameKeyCandidates = ["player", "name", "player_name", "playerName", "선수명"];
+
+  const fields = [
+    "team",
+    "team_name",
+    "teamName",
+    type === "pitcher" ? "pitcher_team" : "batter_team",
+    "club",
+    "club_name",
+  ];
+
+  const queries = [];
+  for (const f of fields) {
+    if (teamFull)
+      queries.push(
+        db
+          .collection(coll)
+          .where("year", "==", y)
+          .where(f, "==", teamFull)
+          .limit(2000)
+          .get()
+      );
+    if (teamKey)
+      queries.push(
+        db
+          .collection(coll)
+          .where("year", "==", y)
+          .where(f, "==", teamKey)
+          .limit(2000)
+          .get()
+      );
+  }
+
+  const snaps = await Promise.all(queries);
+  const set = new Set();
+  for (const snap of snaps) {
+    snap.forEach((d) => {
+      const row = docSnap(d);
+      const n = pickStr(row, nameKeyCandidates);
+      if (n) set.add(n);
+    });
+  }
+
+  const players = [...set].sort((a, b) => String(a).localeCompare(String(b), "ko"));
+  return players;
+}
+
 function teamMatches(teamField, kw) {
   return kw && String(teamField || "").includes(kw.trim());
 }
@@ -1514,6 +1566,24 @@ export const handler = async (event) => {
           `${teamKw} 팀의 최근 ${days}일 구간 경기만을 사용해 주간 성적 추이(승패·득실·타격/불펜 면에서의 인상)을 한국어로 분석해줘.`;
         break;
       }
+      case "get_players": {
+        const team = payload.team || "";
+        const year = payload.year || "2026";
+        const type = payload.type === "pitcher" ? "pitcher" : "batter";
+        const players = await getPlayers(db, { team, year, type });
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            team,
+            year: Number(year),
+            type,
+            players,
+          }),
+        };
+      }
       case "pv_batter": {
         const pitcher = payload.pitcher || "";
         const batter = payload.batter || "";
@@ -1535,24 +1605,25 @@ export const handler = async (event) => {
           };
         }
         const end = safeIsoDate(payload.end) || isoSeoulToday();
-        const overallStart = safeIsoDate(payload.overallStart) || "2024-01-01";
-        const yearStart = safeIsoDate(payload.yearStart) || "2026-01-01";
+        const thisStart = "2026-01-01";
+        const prevStart = "2025-01-01";
+        const prevEnd = "2025-12-31";
 
-        const [overall, year] = await Promise.all([
-          pvBatterStats(db, pitcher, batter, overallStart, end),
-          pvBatterStats(db, pitcher, batter, yearStart, end),
+        const [thisSeason, prevSeason] = await Promise.all([
+          pvBatterStats(db, pitcher, batter, thisStart, end),
+          pvBatterStats(db, pitcher, batter, prevStart, prevEnd),
         ]);
 
         const per_game = {
-          overall: buildPvPerGameRows(
-            overall.batter_lines,
-            overall.pitcher_lines,
+          thisSeason: buildPvPerGameRows(
+            thisSeason.batter_lines,
+            thisSeason.pitcher_lines,
             pitcher,
             batter
           ),
-          year: buildPvPerGameRows(
-            year.batter_lines,
-            year.pitcher_lines,
+          prevSeason: buildPvPerGameRows(
+            prevSeason.batter_lines,
+            prevSeason.pitcher_lines,
             pitcher,
             batter
           ),
@@ -1567,20 +1638,18 @@ export const handler = async (event) => {
             pitcher,
             batter,
             end,
-            overallStart,
-            yearStart,
-            overall: overall.stat,
-            year: year.stat,
+            thisSeason: thisSeason.stat,
+            prevSeason: prevSeason.stat,
             per_game,
             insufficient: {
-              overall: overall.insufficient,
-              year: year.insufficient,
+              thisSeason: thisSeason.insufficient,
+              prevSeason: prevSeason.insufficient,
             },
             counts: {
-              overallSharedGames: overall.shared_game_ids.length,
-              yearSharedGames: year.shared_game_ids.length,
-              overallBatterLines: overall.batter_lines.length,
-              yearBatterLines: year.batter_lines.length,
+              thisSeasonSharedGames: thisSeason.shared_game_ids.length,
+              prevSeasonSharedGames: prevSeason.shared_game_ids.length,
+              thisSeasonBatterLines: thisSeason.batter_lines.length,
+              prevSeasonBatterLines: prevSeason.batter_lines.length,
             },
           }),
         };

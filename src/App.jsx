@@ -17,6 +17,19 @@ const KBO_TEAMS = [
   { label: "키움 히어로즈", keyword: "키움" },
 ];
 
+const KBO_TEAM_NAMES = [
+  "KIA 타이거즈",
+  "LG 트윈스",
+  "SSG 랜더스",
+  "삼성 라이온즈",
+  "KT 위즈",
+  "NC 다이노스",
+  "한화 이글스",
+  "두산 베어스",
+  "키움 히어로즈",
+  "롯데 자이언츠",
+];
+
 function MarkdownView({ text }) {
   const value = (text || "").trim();
   if (!value) return <div className="md">—</div>;
@@ -230,12 +243,17 @@ export default function App() {
 
   const [pvP, setPvP] = useState("");
   const [pvB, setPvB] = useState("");
-  const [pvTab, setPvTab] = useState("all"); // all | year
+  const [pvTab, setPvTab] = useState("this"); // this | prev
   const [pvBusy, setPvBusy] = useState(false);
   const [pvStats, setPvStats] = useState({
     data: null,
     error: null,
   });
+  const [pvPitcherTeam, setPvPitcherTeam] = useState("");
+  const [pvBatterTeam, setPvBatterTeam] = useState("");
+  const [pvPitchers, setPvPitchers] = useState([]);
+  const [pvBatters, setPvBatters] = useState([]);
+  const [pvPlayersBusy, setPvPlayersBusy] = useState(false);
   const [pvAiBusy, setPvAiBusy] = useState(false);
   const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
   const [pvGamesOpen, setPvGamesOpen] = useState(false);
@@ -502,10 +520,112 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">3. 투수 vs 타자</div>
-                <label>투수 이름</label>
-                <input value={pvP} onChange={(e) => setPvP(e.target.value)} />
-                <label>타자 이름</label>
-                <input value={pvB} onChange={(e) => setPvB(e.target.value)} />
+                <div className="grid-2">
+                  <div>
+                    <label>투수팀</label>
+                    <select
+                      value={pvPitcherTeam}
+                      onChange={async (e) => {
+                        const team = e.target.value;
+                        setPvPitcherTeam(team);
+                        setPvP("");
+                        setPvPitchers([]);
+                        if (!team) return;
+                        setPvPlayersBusy(true);
+                        try {
+                          const res = await postKbo({
+                            action: "get_players",
+                            team,
+                            year: pvTab === "prev" ? 2025 : 2026,
+                            type: "pitcher",
+                          });
+                          setPvPitchers(Array.isArray(res?.players) ? res.players : []);
+                        } catch {
+                          setPvPitchers([]);
+                        } finally {
+                          setPvPlayersBusy(false);
+                        }
+                      }}
+                    >
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>투수</label>
+                    <select
+                      value={pvP}
+                      onChange={(e) => setPvP(e.target.value)}
+                      disabled={!pvPitcherTeam || pvPlayersBusy}
+                    >
+                      <option value="">
+                        {pvPlayersBusy ? "불러오는 중…" : "투수 선택"}
+                      </option>
+                      {pvPitchers.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div>
+                    <label>타자팀</label>
+                    <select
+                      value={pvBatterTeam}
+                      onChange={async (e) => {
+                        const team = e.target.value;
+                        setPvBatterTeam(team);
+                        setPvB("");
+                        setPvBatters([]);
+                        if (!team) return;
+                        setPvPlayersBusy(true);
+                        try {
+                          const res = await postKbo({
+                            action: "get_players",
+                            team,
+                            year: pvTab === "prev" ? 2025 : 2026,
+                            type: "batter",
+                          });
+                          setPvBatters(Array.isArray(res?.players) ? res.players : []);
+                        } catch {
+                          setPvBatters([]);
+                        } finally {
+                          setPvPlayersBusy(false);
+                        }
+                      }}
+                    >
+                      <option value="">팀 선택</option>
+                      {KBO_TEAM_NAMES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>타자</label>
+                    <select
+                      value={pvB}
+                      onChange={(e) => setPvB(e.target.value)}
+                      disabled={!pvBatterTeam || pvPlayersBusy}
+                    >
+                      <option value="">
+                        {pvPlayersBusy ? "불러오는 중…" : "타자 선택"}
+                      </option>
+                      {pvBatters.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="primary"
@@ -520,8 +640,6 @@ export default function App() {
                         action: "pv_batter_stats",
                         pitcher: pvP,
                         batter: pvB,
-                        overallStart: "2024-01-01",
-                        yearStart: "2026-01-01",
                       });
                       setPvStats({ data: res, error: null });
                     } catch (e) {
@@ -1097,17 +1215,17 @@ export default function App() {
                 <div className="mini-tabs" role="tablist" aria-label="기간 선택">
                   <button
                     type="button"
-                    className={`mini-tab ${pvTab === "all" ? "active" : ""}`}
-                    onClick={() => setPvTab("all")}
+                    className={`mini-tab ${pvTab === "this" ? "active" : ""}`}
+                    onClick={() => setPvTab("this")}
                   >
-                    전체 (2024~현재)
+                    이번시즌 (2026)
                   </button>
                   <button
                     type="button"
-                    className={`mini-tab ${pvTab === "year" ? "active" : ""}`}
-                    onClick={() => setPvTab("year")}
+                    className={`mini-tab ${pvTab === "prev" ? "active" : ""}`}
+                    onClick={() => setPvTab("prev")}
                   >
-                    올해 (2026)
+                    직전시즌 (2025)
                   </button>
                 </div>
                 {pvStats.error ? (
@@ -1115,10 +1233,10 @@ export default function App() {
                 ) : pvStats.data ? (
                   (() => {
                     const d = pvStats.data;
-                    const isAll = pvTab === "all";
-                    const s = isAll ? d.overall : d.year;
+                    const isThis = pvTab === "this";
+                    const s = isThis ? d.thisSeason : d.prevSeason;
                     const rows =
-                      (isAll ? d.per_game?.overall : d.per_game?.year) ?? [];
+                      (isThis ? d.per_game?.thisSeason : d.per_game?.prevSeason) ?? [];
                     const avg = Number(s?.avg);
                     const avgHot = Number.isFinite(avg) && avg >= 0.3;
                     return (
