@@ -258,6 +258,48 @@ export default function App() {
   const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
   const [pvGamesOpen, setPvGamesOpen] = useState(false);
 
+  const handlePitcherTeamChange = async (team) => {
+    setPvPitcherTeam(team);
+    setPvP("");
+    setPvPitchers([]);
+    if (!team) return;
+    setPvPlayersBusy(true);
+    try {
+      const res = await postKbo({
+        action: "get_players",
+        team,
+        type: "pitcher",
+        year: pvTab === "prev" ? 2025 : 2026,
+      });
+      setPvPitchers(Array.isArray(res?.players) ? res.players : []);
+    } catch {
+      setPvPitchers([]);
+    } finally {
+      setPvPlayersBusy(false);
+    }
+  };
+
+  const handleBatterTeamChange = async (team) => {
+    setPvBatterTeam(team);
+    setPvB("");
+    setPvBatters([]);
+    if (!team) return;
+    setPvPlayersBusy(true);
+    try {
+      const res = await postKbo({
+        action: "get_players",
+        team,
+        type: "batter",
+        year: pvTab === "prev" ? 2025 : 2026,
+      });
+      setPvBatters(Array.isArray(res?.players) ? res.players : []);
+    } catch {
+      setPvBatters([]);
+    } finally {
+      setPvPlayersBusy(false);
+    }
+  };
+
   const [prPlayer, setPrPlayer] = useState("");
   const [prStart, setPrStart] = useState("2026-03-01");
   const [prEnd, setPrEnd] = useState("2026-03-31");
@@ -525,27 +567,7 @@ export default function App() {
                     <label>투수팀</label>
                     <select
                       value={pvPitcherTeam}
-                      onChange={async (e) => {
-                        const team = e.target.value;
-                        setPvPitcherTeam(team);
-                        setPvP("");
-                        setPvPitchers([]);
-                        if (!team) return;
-                        setPvPlayersBusy(true);
-                        try {
-                          const res = await postKbo({
-                            action: "get_players",
-                            team,
-                            year: pvTab === "prev" ? 2025 : 2026,
-                            type: "pitcher",
-                          });
-                          setPvPitchers(Array.isArray(res?.players) ? res.players : []);
-                        } catch {
-                          setPvPitchers([]);
-                        } finally {
-                          setPvPlayersBusy(false);
-                        }
-                      }}
+                      onChange={(e) => handlePitcherTeamChange(e.target.value)}
                     >
                       <option value="">팀 선택</option>
                       {KBO_TEAM_NAMES.map((t) => (
@@ -578,27 +600,7 @@ export default function App() {
                     <label>타자팀</label>
                     <select
                       value={pvBatterTeam}
-                      onChange={async (e) => {
-                        const team = e.target.value;
-                        setPvBatterTeam(team);
-                        setPvB("");
-                        setPvBatters([]);
-                        if (!team) return;
-                        setPvPlayersBusy(true);
-                        try {
-                          const res = await postKbo({
-                            action: "get_players",
-                            team,
-                            year: pvTab === "prev" ? 2025 : 2026,
-                            type: "batter",
-                          });
-                          setPvBatters(Array.isArray(res?.players) ? res.players : []);
-                        } catch {
-                          setPvBatters([]);
-                        } finally {
-                          setPvPlayersBusy(false);
-                        }
-                      }}
+                      onChange={(e) => handleBatterTeamChange(e.target.value)}
                     >
                       <option value="">팀 선택</option>
                       {KBO_TEAM_NAMES.map((t) => (
