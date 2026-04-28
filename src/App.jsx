@@ -897,42 +897,47 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const boxX = 64;
   const boxY = SAFE_BOTTOM - 380;
 
-  // Winner pitcher
-  ctx.fillStyle = "#00d4aa";
-  // 라벨: Noto Sans KR 500
-  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextHeavy(ctx);
-  ctx.fillText("🏆 오늘의 승리투수", boxX + 40, boxY + 90);
-  resetShadow(ctx);
+  // Layout: title + name on the same line (2 lines total)
+  const cleanName = (s) =>
+    String(s || "—")
+      .replace(/\(추정\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 18);
 
-  // 이름: 흰색 굵게
-  ctx.fillStyle = "#ffffff";
-  // 승리투수 이름: Noto Sans KR 700
-  ctx.font = `700 70px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextHeavy(ctx);
-  ctx.fillText(
-    String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
-    boxX + 40,
-    boxY + 175
-  );
-  resetShadow(ctx);
-
-  // MVP
-  ctx.fillStyle = "#ffeb3b";
-  // 라벨: Noto Sans KR 500
-  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextHeavy(ctx);
-  ctx.fillText("⚡ 오늘의 찐MVP", boxX + 40, boxY + 275);
-  resetShadow(ctx);
-
-  const mvpName = m?.name ? String(m.name).trim() : "—";
+  const pitcherName = cleanName(g.winning_pitcher);
+  const mvpName = cleanName(m?.name);
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
-  ctx.fillStyle = "#ffffff";
-  // MVP 이름/기록: Noto Sans KR 700
-  ctx.font = `700 65px "${FONT_BODY}", system-ui, sans-serif`;
+
+  const labelFont = `900 40px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
+  const nameFont = `900 60px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
+  const gap = 26;
+
+  // Line 1: ⚾ 오늘의 승리투수  신민혁
+  const line1Y = boxY + 145;
   shadowTextHeavy(ctx);
-  ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 355);
+  ctx.font = labelFont;
+  ctx.fillStyle = "#00d4aa";
+  const pLabel = "⚾ 오늘의 승리투수";
+  ctx.fillText(pLabel, boxX + 40, line1Y);
+  const pW = ctx.measureText(pLabel).width;
+  ctx.font = nameFont;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(pitcherName, boxX + 40 + pW + gap, line1Y);
+  resetShadow(ctx);
+
+  // Line 2: 🧤 찐MVP  김선빈 2안타
+  const line2Y = line1Y + 95;
+  shadowTextHeavy(ctx);
+  ctx.font = labelFont;
+  ctx.fillStyle = "#ffeb3b";
+  const mLabel = "🧤 찐MVP";
+  ctx.fillText(mLabel, boxX + 40, line2Y);
+  const mW = ctx.measureText(mLabel).width;
+  ctx.font = nameFont;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(String(mvpText).slice(0, 22), boxX + 40 + mW + gap, line2Y);
   resetShadow(ctx);
 
   // 하단 인덱스 텍스트 제거
