@@ -1765,7 +1765,7 @@ export const handler = async (event) => {
         context = filterPvContextByTab(ov0, tab);
         userQ =
           payload.question ||
-          `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)`;
+          `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)\n\n출력 형식:\n- 마크다운을 사용해도 되지만, 표는 마크다운 테이블로 작성하되 코드블록(\\\`\\\`\\\`)으로 감싸지 마.`;
         break;
       }
       case "pv_batter_stats": {

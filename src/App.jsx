@@ -89,13 +89,16 @@ function SimpleStatsTable({ headers, rows }) {
   const cols = Array.isArray(headers) ? headers : [];
   const rs = Array.isArray(rows) ? rows : [];
   if (!cols.length || !rs.length) return null;
+  const normalized = cols.map((c) =>
+    typeof c === "string" ? { key: c, label: c } : c
+  );
   return (
     <table className="pv-table" style={{ marginTop: 10 }}>
       <thead>
         <tr>
-          {cols.map((h) => (
-            <th key={h} style={{ textAlign: "left", padding: "8px 10px" }}>
-              {h}
+          {normalized.map((c) => (
+            <th key={c.key} style={{ textAlign: "left", padding: "8px 10px" }}>
+              {c.label}
             </th>
           ))}
         </tr>
@@ -103,9 +106,12 @@ function SimpleStatsTable({ headers, rows }) {
       <tbody>
         {rs.map((r, idx) => (
           <tr key={idx}>
-            {cols.map((k) => (
-              <td key={k} style={{ padding: "8px 10px", borderTop: "1px solid var(--border)" }}>
-                {r[k] ?? "—"}
+            {normalized.map((c) => (
+              <td
+                key={c.key}
+                style={{ padding: "8px 10px", borderTop: "1px solid var(--border)" }}
+              >
+                {r[c.key] ?? "—"}
               </td>
             ))}
           </tr>
@@ -1738,14 +1744,14 @@ export default function App() {
                                 <div className="section-title">경기별 성적 (투수)</div>
                                 <SimpleStatsTable
                                   headers={[
-                                    "date",
-                                    "opponent",
-                                    "home_away",
-                                    "ip",
-                                    "r",
-                                    "h",
-                                    "so",
-                                    "era",
+                                    { key: "date", label: "날짜" },
+                                    { key: "opponent", label: "상대" },
+                                    { key: "home_away", label: "홈/원정" },
+                                    { key: "ip", label: "이닝" },
+                                    { key: "r", label: "실점" },
+                                    { key: "h", label: "피안타" },
+                                    { key: "so", label: "K" },
+                                    { key: "era", label: "ERA" },
                                   ]}
                                   rows={pitcherRows.map((r) => ({
                                     date: r.date,
@@ -1767,14 +1773,14 @@ export default function App() {
                                 </div>
                                 <SimpleStatsTable
                                   headers={[
-                                    "date",
-                                    "opponent",
-                                    "home_away",
-                                    "ab",
-                                    "h",
-                                    "rbi",
-                                    "hr",
-                                    "avg",
+                                    { key: "date", label: "날짜" },
+                                    { key: "opponent", label: "상대" },
+                                    { key: "home_away", label: "홈/원정" },
+                                    { key: "ab", label: "타수" },
+                                    { key: "h", label: "안타" },
+                                    { key: "rbi", label: "타점" },
+                                    { key: "hr", label: "홈런" },
+                                    { key: "avg", label: "타율" },
                                   ]}
                                   rows={batterRows.map((r) => ({
                                     date: r.date,
@@ -1820,14 +1826,14 @@ export default function App() {
                                 </div>
                                 <SimpleStatsTable
                                   headers={[
-                                    "date",
-                                    "opponent",
-                                    "home_away",
-                                    "ip",
-                                    "r",
-                                    "h",
-                                    "so",
-                                    "era",
+                                    { key: "date", label: "날짜" },
+                                    { key: "opponent", label: "상대" },
+                                    { key: "home_away", label: "홈/원정" },
+                                    { key: "ip", label: "이닝" },
+                                    { key: "r", label: "실점" },
+                                    { key: "h", label: "피안타" },
+                                    { key: "so", label: "K" },
+                                    { key: "era", label: "ERA" },
                                   ]}
                                   rows={ra.map((r) => ({
                                     date: r.date,
@@ -1849,14 +1855,14 @@ export default function App() {
                                 </div>
                                 <SimpleStatsTable
                                   headers={[
-                                    "date",
-                                    "opponent",
-                                    "home_away",
-                                    "ip",
-                                    "r",
-                                    "h",
-                                    "so",
-                                    "era",
+                                    { key: "date", label: "날짜" },
+                                    { key: "opponent", label: "상대" },
+                                    { key: "home_away", label: "홈/원정" },
+                                    { key: "ip", label: "이닝" },
+                                    { key: "r", label: "실점" },
+                                    { key: "h", label: "피안타" },
+                                    { key: "so", label: "K" },
+                                    { key: "era", label: "ERA" },
                                   ]}
                                   rows={rb.map((r) => ({
                                     date: r.date,
