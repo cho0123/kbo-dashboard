@@ -331,30 +331,104 @@ function fmtGameLine(g) {
   return `${away} ${as} vs ${hs} ${home}`;
 }
 
-const TEAM_COLOR = {
-  삼성: "#1e5eff",
-  LG: "#ff3b30",
-  KIA: "#ff2d55",
-  KT: "#7c4dff",
-  SSG: "#ff9500",
-  롯데: "#00b0ff",
-  두산: "#111111",
-  NC: "#00c853",
-  한화: "#ff6d00",
-  키움: "#8e24aa",
+const TEAM_GRAD = {
+  삼성: ["#0066cc", "#003d7a"],
+  LG: ["#cc0000", "#8b0000"],
+  KT: ["#000000", "#333333"],
+  SSG: ["#ce0e2d", "#8b0000"],
+  NC: ["#071d3b", "#1a3a6b"],
+  두산: ["#131230", "#2d2b6e"],
+  KIA: ["#ea0029", "#9b001c"],
+  롯데: ["#002058", "#001030"],
+  한화: ["#ff6600", "#cc4400"],
+  키움: ["#820024", "#4a0015"],
+};
+
+const TEAM_CODE = {
+  삼성: "SS",
+  LG: "LG",
+  KT: "KT",
+  SSG: "SK",
+  NC: "NC",
+  두산: "OB",
+  KIA: "HT",
+  롯데: "LT",
+  한화: "HH",
+  키움: "WO",
 };
 
 function teamKeyword(teamName) {
   const t = String(teamName || "");
-  for (const kw of Object.keys(TEAM_COLOR)) {
+  for (const kw of Object.keys(TEAM_GRAD)) {
     if (t.includes(kw)) return kw;
   }
   // fall back to first token (LG 트윈스 -> LG)
   return t.split(/\s+/)[0] || "";
 }
 
-function teamColor(teamName) {
-  return TEAM_COLOR[teamKeyword(teamName)] || "#00d4aa";
+function teamGrad(teamName) {
+  return TEAM_GRAD[teamKeyword(teamName)] || ["#0c0f14", "#131922"];
+}
+
+function teamCode(teamName) {
+  return TEAM_CODE[teamKeyword(teamName)] || "";
+}
+
+function shadowText(ctx) {
+  ctx.shadowColor = "rgba(0,0,0,0.55)";
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+}
+
+function resetShadow(ctx) {
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+const __logoCache = new Map();
+async function loadTeamLogoDataUrl(code) {
+  const c = String(code || "").trim().toUpperCase();
+  if (!c) return null;
+  if (__logoCache.has(c)) return __logoCache.get(c);
+  try {
+    const res = await postKbo({ action: "team_logo", teamCode: c });
+    const url = res?.dataUrl || null;
+    __logoCache.set(c, url);
+    return url;
+  } catch {
+    __logoCache.set(c, null);
+    return null;
+  }
+}
+
+async function loadImage(src) {
+  if (!src) return null;
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function diagTeamGradient(ctx, w, h, homeTeam, awayTeam) {
+  const [h1, h2] = teamGrad(homeTeam);
+  const [a1, a2] = teamGrad(awayTeam);
+  // base: home gradient
+  const g1 = ctx.createLinearGradient(0, 0, w, h);
+  g1.addColorStop(0, h1);
+  g1.addColorStop(1, h2);
+  ctx.fillStyle = g1;
+  ctx.fillRect(0, 0, w, h);
+  // overlay: away diagonal gradient
+  const g2 = ctx.createLinearGradient(w, 0, 0, h);
+  g2.addColorStop(0, a1 + "cc");
+  g2.addColorStop(1, a2 + "00");
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, 0, w, h);
 }
 
 function downloadBlob(blob, filename) {
@@ -372,14 +446,10 @@ function canvasToBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-function drawSlideBase(ctx, w, h, title) {
+function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   ctx.clearRect(0, 0, w, h);
-  // dark background similar to dashboard
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, "#0c0f14");
-  g.addColorStop(1, "#131922");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+  // team gradient background (home main + away diagonal)
+  diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
 
   // accent bar
   ctx.fillStyle = "rgba(0, 212, 170, 0.18)";
@@ -387,86 +457,183 @@ function drawSlideBase(ctx, w, h, title) {
   ctx.fillStyle = "#00d4aa";
   ctx.fillRect(0, 116, w, 4);
 
-  ctx.fillStyle = "#e9edf5";
+  ctx.fillStyle = "#ffffff";
   ctx.font = "900 56px system-ui, sans-serif";
+  shadowText(ctx);
   ctx.fillText(title, 64, 84);
+  resetShadow(ctx);
 }
 
-function drawSummarySlide(ctx, w, h, date, games) {
-  drawSlideBase(ctx, w, h, `KBO ${date}`);
-  ctx.fillStyle = "#8b93a7";
-  ctx.font = "800 34px system-ui, sans-serif";
-  ctx.fillText("전체 경기 결과", 64, 170);
+async function drawSummarySlide(ctx, w, h, date, games) {
+  const first = (games || [])[0] || {};
+  drawSlideBase(
+    ctx,
+    w,
+    h,
+    `⚾ KBO ${String(date).replaceAll("-", ".")}`,
+    first.home_team,
+    first.away_team
+  );
 
   if (!games?.length) {
-    ctx.fillStyle = "#e9edf5";
-    ctx.font = "900 56px system-ui, sans-serif";
-    ctx.fillText("오늘 등록된 경기 없음", 64, 290);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 64px system-ui, sans-serif";
+    shadowText(ctx);
+    ctx.fillText("오늘 등록된 경기 없음", 64, 320);
+    resetShadow(ctx);
     return;
   }
 
-  let y = 250;
+  // Preload logos (data URL via Netlify to avoid CORS canvas taint)
+  const codes = new Set();
   for (const g of games) {
-    const away = fmtTeamShort(g.away_team);
-    const home = fmtTeamShort(g.home_team);
-    const as = g.away_score ?? "—";
-    const hs = g.home_score ?? "—";
-
-    ctx.font = "900 52px system-ui, sans-serif";
-    ctx.fillStyle = teamColor(g.away_team);
-    ctx.fillText(away, 64, y);
-    ctx.fillStyle = "#e9edf5";
-    ctx.fillText(`${as} vs ${hs}`, 260, y);
-    ctx.fillStyle = teamColor(g.home_team);
-    ctx.fillText(home, 560, y);
-    y += 86;
-    if (y > h - 120) break;
+    codes.add(teamCode(g.home_team));
+    codes.add(teamCode(g.away_team));
   }
-  ctx.fillStyle = "#8b93a7";
-  ctx.font = "800 30px system-ui, sans-serif";
-  ctx.fillText(`(${games.length}경기)`, 64, h - 70);
+  const logoByCode = {};
+  for (const c of codes) {
+    const dataUrl = await loadTeamLogoDataUrl(c);
+    logoByCode[c] = await loadImage(dataUrl);
+  }
+
+  const cardW = 952;
+  const cardH = 170;
+  const x = 64;
+  let y = 220;
+
+  for (const g of games) {
+    ctx.fillStyle = "rgba(12, 15, 20, 0.35)";
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    const homeCode = teamCode(g.home_team);
+    const awayCode = teamCode(g.away_team);
+    const homeLogo = logoByCode[homeCode] || null;
+    const awayLogo = logoByCode[awayCode] || null;
+
+    const logoSize = 96;
+    const ly = y + (cardH - logoSize) / 2;
+    if (homeLogo) ctx.drawImage(homeLogo, x + 36, ly, logoSize, logoSize);
+    else {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 38px system-ui, sans-serif";
+      shadowText(ctx);
+      ctx.fillText(fmtTeamShort(g.home_team), x + 36, y + 106);
+      resetShadow(ctx);
+    }
+
+    if (awayLogo) ctx.drawImage(awayLogo, x + cardW - 36 - logoSize, ly, logoSize, logoSize);
+    else {
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 38px system-ui, sans-serif";
+      shadowText(ctx);
+      const t = fmtTeamShort(g.away_team);
+      const tw = ctx.measureText(t).width;
+      ctx.fillText(t, x + cardW - 36 - tw, y + 106);
+      resetShadow(ctx);
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "1000 68px system-ui, sans-serif";
+    shadowText(ctx);
+    const s = `${g.home_score ?? "—"}  vs  ${g.away_score ?? "—"}`;
+    const sw = ctx.measureText(s).width;
+    ctx.fillText(s, x + (cardW - sw) / 2, y + 110);
+    resetShadow(ctx);
+
+    y += cardH + 22;
+    if (y > h - 180) break;
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.font = "900 44px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText(`오늘 ${games.length}경기`, 64, h - 70);
+  resetShadow(ctx);
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total) {
-  const away = fmtTeamShort(g.away_team);
-  const home = fmtTeamShort(g.home_team);
-  drawSlideBase(ctx, w, h, `${index}/${total} 경기`);
+async function drawGameSlide(ctx, w, h, date, g, index, total) {
+  drawSlideBase(
+    ctx,
+    w,
+    h,
+    `KBO ${String(date).replaceAll("-", ".")}`,
+    g.home_team,
+    g.away_team
+  );
 
-  ctx.fillStyle = "#8b93a7";
-  ctx.font = "800 34px system-ui, sans-serif";
-  ctx.fillText(date, 64, 170);
+  const topH = Math.floor(h / 3);
+  ctx.fillStyle = "rgba(12,15,20,0.42)";
+  ctx.fillRect(0, topH, w, h - topH);
 
-  ctx.font = "1000 86px system-ui, sans-serif";
-  ctx.fillStyle = teamColor(g.away_team);
-  ctx.fillText(away, 64, 300);
-  ctx.fillStyle = "#e9edf5";
-  ctx.fillText(`${g.away_score ?? "—"} vs ${g.home_score ?? "—"}`, 260, 300);
-  ctx.fillStyle = teamColor(g.home_team);
-  ctx.fillText(home, 700, 300);
+  const homeCode = teamCode(g.home_team);
+  const awayCode = teamCode(g.away_team);
+  const [homeUrl, awayUrl] = await Promise.all([
+    loadTeamLogoDataUrl(homeCode),
+    loadTeamLogoDataUrl(awayCode),
+  ]);
+  const [homeLogo, awayLogo] = await Promise.all([loadImage(homeUrl), loadImage(awayUrl)]);
 
-  ctx.fillStyle = "#00d4aa";
-  ctx.font = "900 38px system-ui, sans-serif";
-  ctx.fillText(g.venue ? `구장: ${g.venue}` : "구장: —", 64, 390);
+  const logoSize = 220;
+  const ly = 170;
+  if (homeLogo) ctx.drawImage(homeLogo, 140, ly, logoSize, logoSize);
+  else {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "1000 64px system-ui, sans-serif";
+    shadowText(ctx);
+    ctx.fillText(fmtTeamShort(g.home_team), 140, ly + 130);
+    resetShadow(ctx);
+  }
+  if (awayLogo) ctx.drawImage(awayLogo, w - 140 - logoSize, ly, logoSize, logoSize);
+  else {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "1000 64px system-ui, sans-serif";
+    shadowText(ctx);
+    const t = fmtTeamShort(g.away_team);
+    const tw = ctx.measureText(t).width;
+    ctx.fillText(t, w - 140 - tw, ly + 130);
+    resetShadow(ctx);
+  }
 
-  ctx.fillStyle = "#e9edf5";
-  ctx.font = "900 44px system-ui, sans-serif";
-  ctx.fillText(`승리: ${g.winning_pitcher || "—"}`, 64, 500);
-  ctx.fillText(`패전: ${g.losing_pitcher || "—"}`, 64, 565);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 150px system-ui, sans-serif";
+  shadowText(ctx);
+  const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
+  const sw = ctx.measureText(score).width;
+  ctx.fillText(score, (w - sw) / 2, topH + 240);
+  resetShadow(ctx);
 
   const m = g.mvp_batter;
-  ctx.fillStyle = "#8b93a7";
+  const info = [
+    g.venue ? `구장 ${g.venue}` : "구장 —",
+    `승리투수 ${g.winning_pitcher || "—"}`,
+    `MVP ${m?.name || "—"} (${m?.h ?? 0}H)`,
+  ].join("  |  ");
+
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "900 44px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText(info, 64, h - 170);
+  resetShadow(ctx);
+
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = "900 34px system-ui, sans-serif";
-  ctx.fillText("오늘 MVP (안타 최다)", 64, 675);
-  ctx.fillStyle = "#e9edf5";
-  ctx.font = "1000 54px system-ui, sans-serif";
-  ctx.fillText(m?.name ? `${m.name} (${m.h ?? 0}H)` : "—", 64, 750);
+  shadowText(ctx);
+  ctx.fillText(`${index}/${total}`, 64, h - 110);
+  resetShadow(ctx);
 }
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
   drawSlideBase(ctx, w, h, "KBO 순위");
-  ctx.fillStyle = "#8b93a7";
-  ctx.font = "800 34px system-ui, sans-serif";
-  ctx.fillText(date, 64, 170);
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.font = "900 36px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText(String(date).replaceAll("-", "."), 64, 170);
+  resetShadow(ctx);
 
   const rows = Array.isArray(standings) ? standings : [];
   let y = 260;
@@ -481,11 +648,13 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
 
     ctx.fillStyle = "#00d4aa";
     ctx.fillText(String(rank).padStart(2, " "), 64, y);
-    ctx.fillStyle = teamColor(team);
+    ctx.fillStyle = "#ffffff";
+    shadowText(ctx);
     ctx.fillText(fmtTeamShort(team), 130, y);
-    ctx.fillStyle = "#e9edf5";
+    resetShadow(ctx);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
     ctx.fillText(`${wv}-${lv}`, 320, y);
-    ctx.fillStyle = "#8b93a7";
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.fillText(String(pct).slice(0, 5), 500, y);
     y += 70;
   }
@@ -523,9 +692,17 @@ function Card8Shorts({ defaultDate }) {
     const standings = Array.isArray(data?.standings) ? data.standings : [];
     const slide = slides[idx];
     if (!slide) return;
-    if (slide.type === "summary") drawSummarySlide(ctx, w, h, date, games);
+    if (slide.type === "summary") await drawSummarySlide(ctx, w, h, date, games);
     else if (slide.type === "game")
-      drawGameSlide(ctx, w, h, date, slide.game, idx, Math.max(1, games.length));
+      await drawGameSlide(
+        ctx,
+        w,
+        h,
+        date,
+        slide.game,
+        idx,
+        Math.max(1, games.length)
+      );
     else drawStandingsSlide(ctx, w, h, date, standings);
   };
 

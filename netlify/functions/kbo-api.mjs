@@ -1498,6 +1498,33 @@ export const handler = async (event) => {
     let userQ = "";
 
     switch (action) {
+      case "team_logo": {
+        const code = String(payload.teamCode || "").trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(code)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "Missing teamCode" }),
+          };
+        }
+        const url = `https://www.koreabaseball.com/image/teamlogo/ci/${code}_ci.png`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, action, teamCode: code, dataUrl: null }),
+          };
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        const b64 = buf.toString("base64");
+        const dataUrl = `data:image/png;base64,${b64}`;
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, action, teamCode: code, dataUrl }),
+        };
+      }
       case "shorts_slides_data": {
         const dateStr = payload.date || isoSeoulToday();
         const gameDocs = await fetchGamesByDate(db, dateStr);
