@@ -529,7 +529,9 @@ async function loadPngImage(path) {
   return await promise;
 }
 
-function drawBaseballBackground(ctx, baseballImg) {
+let __baseballDecorImg = null;
+function drawBaseballBackground(ctx) {
+  const baseballImg = __baseballDecorImg;
   if (!baseballImg) return;
   ctx.save();
   ctx.globalAlpha = 0.2;
@@ -554,6 +556,15 @@ function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   drawTeamBadge(ctx, x + size / 2, y + size / 2, size / 2, teamName);
 }
 
+function drawImageContain(ctx, img, x, y, boxW, boxH) {
+  const iw = Number(img?.width) || boxW;
+  const ih = Number(img?.height) || boxH;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+}
+
 function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   const [p] = teamGrad(primaryTeam);
   const [s] = teamGrad(secondaryTeam);
@@ -561,6 +572,9 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   // base: primary (winner/기준팀) 65%
   ctx.fillStyle = p;
   ctx.fillRect(0, 0, w, h);
+
+  // Order requirement: background → baseball → diagonal split → contents
+  drawBaseballBackground(ctx);
 
   // secondary: bottom-right 35% (사선 분할)
   ctx.beginPath();
@@ -611,13 +625,10 @@ function canvasToBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "", baseballImg) {
+function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   ctx.clearRect(0, 0, w, h);
   // pastel + diagonal split background
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
-
-  // decor (behind contents)
-  drawBaseballBackground(ctx, baseballImg);
 
   // NOTE: slide-specific headers should respect safe zone (y: 200~1720).
   // Keep base free of top UI chrome.
@@ -626,7 +637,7 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "", baseballI
   }
 }
 
-function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // Summary slide: baseball field vibe (grass + diamond lines)
   ctx.clearRect(0, 0, w, h);
 
@@ -681,7 +692,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   ctx.restore();
 
   // decor (behind contents)
-  drawBaseballBackground(ctx, baseballImg);
+  drawBaseballBackground(ctx);
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
@@ -792,7 +803,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg) {
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, baseballImg) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
   const as = Number(g?.away_score);
@@ -804,7 +815,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, basebal
 
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
-  drawBaseballBackground(ctx, baseballImg);
 
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
@@ -821,27 +831,27 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, basebal
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
   resetShadow(ctx);
 
-  const logoSize = 200;
   // Place logos below date header, within safe zone
   const badgeY = SAFE_TOP + 260;
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
-  drawTeamLogoOrBadge(
-    ctx,
-    220 - logoSize / 2,
-    badgeY,
-    logoSize,
-    g.home_team,
-    logosByTeamKey?.[hk] || null
-  );
-  drawTeamLogoOrBadge(
-    ctx,
-    w - 220 - logoSize / 2,
-    badgeY,
-    logoSize,
-    g.away_team,
-    logosByTeamKey?.[ak] || null
-  );
+
+  // Logo box: wider than tall (200x150) while preserving original ratio
+  const logoBoxW = 200;
+  const logoBoxH = 150;
+  const leftCenterX = 170;
+  const rightCenterX = w - 170;
+  const logoBoxY = badgeY + (200 - logoBoxH) / 2; // keep overall vertical alignment close to previous
+  const homeImg = logosByTeamKey?.[hk] || null;
+  const awayImg = logosByTeamKey?.[ak] || null;
+
+  if (homeImg)
+    drawImageContain(ctx, homeImg, leftCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
+  else drawTeamBadge(ctx, leftCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.home_team);
+
+  if (awayImg)
+    drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
+  else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
 
   ctx.fillStyle = TEXT_MAIN;
   ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
@@ -914,8 +924,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, basebal
   resetShadow(ctx);
 }
 
-function drawStandingsSlide(ctx, w, h, date, standings, baseballImg) {
-  drawSlideBase(ctx, w, h, "", "", "", baseballImg);
+function drawStandingsSlide(ctx, w, h, date, standings) {
+  drawSlideBase(ctx, w, h, "");
 
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
@@ -1031,11 +1041,10 @@ function Card8Shorts({ defaultDate }) {
       logosByTeamKey[tk] = img;
     }
 
-    const baseballImg =
-      slide.type === "summary" ? await loadPngImage("/baseball.png") : null;
+    __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, baseballImg);
+      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
@@ -1045,10 +1054,9 @@ function Card8Shorts({ defaultDate }) {
         slide.game,
         idx,
         Math.max(1, games.length),
-        logosByTeamKey,
-        baseballImg
+        logosByTeamKey
       );
-    else drawStandingsSlide(ctx, w, h, date, standings, baseballImg);
+    else drawStandingsSlide(ctx, w, h, date, standings);
   };
 
   const onGenerate = async () => {
