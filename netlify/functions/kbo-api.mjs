@@ -655,6 +655,35 @@ async function queryPlayerByRange(db, collection, player, start, end, max = 1800
   }
 }
 
+async function queryPlayerByYear(db, collection, player, year, max = 2200) {
+  const p = String(player || "").trim();
+  const y = Number(year);
+  if (!p || !Number.isFinite(y)) return [];
+  try {
+    // Requires composite index: (player, year)
+    const snap = await db
+      .collection(collection)
+      .where("player", "==", p)
+      .where("year", "==", y)
+      .limit(max)
+      .get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows;
+  } catch (err) {
+    console.warn(`[pv_batter_stats] year query failed (${collection}):`, err?.message || err);
+    // Fallback: player-only scan then filter by year
+    const snap = await db
+      .collection(collection)
+      .where("player", "==", p)
+      .limit(max)
+      .get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows.filter((r) => Number(r?.year) === y);
+  }
+}
+
 function summarizeMatchupFromBatterLines(batterLines) {
   const totals = {
     games: 0,
@@ -701,6 +730,35 @@ async function pvBatterStats(db, pitcher, batter, start, end) {
   const common = [...bg].filter((g) => pg.has(g));
   const batLines = bats.filter((r) => pg.has(normalizeGameId(r.game_id)));
   const pitLines = pits.filter((r) => bg.has(normalizeGameId(r.game_id)));
+  const stat = summarizeMatchupFromBatterLines(batLines);
+  return {
+    pitcher,
+    batter,
+    shared_game_ids: common,
+    batter_lines: batLines,
+    pitcher_lines: pitLines,
+    stat,
+    insufficient: isInsufficient(stat),
+  };
+}
+
+async function pvBatterStatsByYear(db, pitcher, batter, year, endDate = "") {
+  const y = Number(year);
+  const end = safeIsoDate(endDate);
+  const [bats, pits] = await Promise.all([
+    queryPlayerByYear(db, "batters", batter, y, 2200),
+    queryPlayerByYear(db, "pitchers", pitcher, y, 1800),
+  ]);
+  const batsF =
+    end && y === 2026 ? bats.filter((r) => safeIsoDate(r.game_date) <= end) : bats;
+  const pitsF =
+    end && y === 2026 ? pits.filter((r) => safeIsoDate(r.game_date) <= end) : pits;
+
+  const bg = new Set(batsF.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const pg = new Set(pitsF.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const common = [...bg].filter((g) => pg.has(g));
+  const batLines = batsF.filter((r) => pg.has(normalizeGameId(r.game_id)));
+  const pitLines = pitsF.filter((r) => bg.has(normalizeGameId(r.game_id)));
   const stat = summarizeMatchupFromBatterLines(batLines);
   return {
     pitcher,
@@ -1568,7 +1626,8 @@ export const handler = async (event) => {
       }
       case "get_players": {
         const team = payload.team || "";
-        const year = payload.year || "2026";
+        // 트레이드 선수를 고려해 '현재 시즌' 선수 목록만 제공 (2026 고정)
+        const year = "2026";
         const type = payload.type === "pitcher" ? "pitcher" : "batter";
         const players = await getPlayers(db, { team, year, type });
         return {
@@ -1605,13 +1664,10 @@ export const handler = async (event) => {
           };
         }
         const end = safeIsoDate(payload.end) || isoSeoulToday();
-        const thisStart = "2026-01-01";
-        const prevStart = "2025-01-01";
-        const prevEnd = "2025-12-31";
 
         const [thisSeason, prevSeason] = await Promise.all([
-          pvBatterStats(db, pitcher, batter, thisStart, end),
-          pvBatterStats(db, pitcher, batter, prevStart, prevEnd),
+          pvBatterStatsByYear(db, pitcher, batter, 2026, end),
+          pvBatterStatsByYear(db, pitcher, batter, 2025, "2025-12-31"),
         ]);
 
         const per_game = {

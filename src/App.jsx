@@ -249,19 +249,19 @@ export default function App() {
     data: null,
     error: null,
   });
-  const [pvPitcherTeam, setPvPitcherTeam] = useState("");
-  const [pvBatterTeam, setPvBatterTeam] = useState("");
-  const [pvPitchers, setPvPitchers] = useState([]);
-  const [pvBatters, setPvBatters] = useState([]);
+  const [pitcherTeam, setPitcherTeam] = useState("");
+  const [batterTeam, setBatterTeam] = useState("");
+  const [pitcherList, setPitcherList] = useState([]);
+  const [batterList, setBatterList] = useState([]);
   const [pvPlayersBusy, setPvPlayersBusy] = useState(false);
   const [pvAiBusy, setPvAiBusy] = useState(false);
   const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
   const [pvGamesOpen, setPvGamesOpen] = useState(false);
 
-  const handlePitcherTeamChange = async (team) => {
-    setPvPitcherTeam(team);
+  const loadPitchers = async (team) => {
+    setPitcherTeam(team);
     setPvP("");
-    setPvPitchers([]);
+    setPitcherList([]);
     if (!team) return;
     setPvPlayersBusy(true);
     try {
@@ -271,18 +271,18 @@ export default function App() {
         type: "pitcher",
         year: pvTab === "prev" ? 2025 : 2026,
       });
-      setPvPitchers(Array.isArray(res?.players) ? res.players : []);
+      setPitcherList(Array.isArray(res?.players) ? res.players : []);
     } catch {
-      setPvPitchers([]);
+      setPitcherList([]);
     } finally {
       setPvPlayersBusy(false);
     }
   };
 
-  const handleBatterTeamChange = async (team) => {
-    setPvBatterTeam(team);
+  const loadBatters = async (team) => {
+    setBatterTeam(team);
     setPvB("");
-    setPvBatters([]);
+    setBatterList([]);
     if (!team) return;
     setPvPlayersBusy(true);
     try {
@@ -292,9 +292,9 @@ export default function App() {
         type: "batter",
         year: pvTab === "prev" ? 2025 : 2026,
       });
-      setPvBatters(Array.isArray(res?.players) ? res.players : []);
+      setBatterList(Array.isArray(res?.players) ? res.players : []);
     } catch {
-      setPvBatters([]);
+      setBatterList([]);
     } finally {
       setPvPlayersBusy(false);
     }
@@ -566,8 +566,8 @@ export default function App() {
                   <div>
                     <label>투수팀</label>
                     <select
-                      value={pvPitcherTeam}
-                      onChange={(e) => handlePitcherTeamChange(e.target.value)}
+                      value={pitcherTeam}
+                      onChange={(e) => loadPitchers(e.target.value)}
                     >
                       <option value="">팀 선택</option>
                       {KBO_TEAM_NAMES.map((t) => (
@@ -582,12 +582,12 @@ export default function App() {
                     <select
                       value={pvP}
                       onChange={(e) => setPvP(e.target.value)}
-                      disabled={!pvPitcherTeam || pvPlayersBusy}
+                      disabled={!pitcherTeam || pvPlayersBusy}
                     >
                       <option value="">
                         {pvPlayersBusy ? "불러오는 중…" : "투수 선택"}
                       </option>
-                      {pvPitchers.map((p) => (
+                      {pitcherList.map((p) => (
                         <option key={p} value={p}>
                           {p}
                         </option>
@@ -599,8 +599,8 @@ export default function App() {
                   <div>
                     <label>타자팀</label>
                     <select
-                      value={pvBatterTeam}
-                      onChange={(e) => handleBatterTeamChange(e.target.value)}
+                      value={batterTeam}
+                      onChange={(e) => loadBatters(e.target.value)}
                     >
                       <option value="">팀 선택</option>
                       {KBO_TEAM_NAMES.map((t) => (
@@ -615,12 +615,12 @@ export default function App() {
                     <select
                       value={pvB}
                       onChange={(e) => setPvB(e.target.value)}
-                      disabled={!pvBatterTeam || pvPlayersBusy}
+                      disabled={!batterTeam || pvPlayersBusy}
                     >
                       <option value="">
                         {pvPlayersBusy ? "불러오는 중…" : "타자 선택"}
                       </option>
-                      {pvBatters.map((b) => (
+                      {batterList.map((b) => (
                         <option key={b} value={b}>
                           {b}
                         </option>
