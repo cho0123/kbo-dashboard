@@ -294,28 +294,30 @@ async function fetchBoxForGames(db, gameIds) {
 
   async function mergeCollection(collName, rows, seen, gid) {
     for (const v of variantsForGameId(gid)) {
-      const snap = await db
-        .collection(collName)
-        .where("game_id", "==", v)
-        .get();
-      snap.forEach((d) => {
-        if (!seen.has(d.id)) {
-          seen.add(d.id);
-          const row = { id: d.id, ...docSnap(d) };
-          rows.push(row);
-          if (collName === "batters") {
-            const doc = row;
-            console.log("BATTER_RBI_CHECK:", {
-              player: doc.player,
-              game_id: doc.game_id,
-              hr: doc.hr,
-              rbi: doc.rbi,
-              h: doc.h,
-              ab: doc.ab,
-            });
+      // 일부 데이터셋은 필드명이 gameId 로 저장되어 있을 수 있어 폴백 쿼리를 추가한다.
+      const q1 = db.collection(collName).where("game_id", "==", v).get();
+      const q2 = db.collection(collName).where("gameId", "==", v).get();
+      const [snap1, snap2] = await Promise.all([q1, q2]);
+      for (const snap of [snap1, snap2]) {
+        snap.forEach((d) => {
+          if (!seen.has(d.id)) {
+            seen.add(d.id);
+            const row = { id: d.id, ...docSnap(d) };
+            rows.push(row);
+            if (collName === "batters") {
+              const doc = row;
+              console.log("BATTER_RBI_CHECK:", {
+                player: doc.player,
+                game_id: doc.game_id ?? doc.gameId,
+                hr: doc.hr,
+                rbi: doc.rbi,
+                h: doc.h,
+                ab: doc.ab,
+              });
+            }
           }
-        }
-      });
+        });
+      }
     }
   }
 
@@ -345,6 +347,81 @@ async function fetchAllGames(db, max = 2500) {
   return rows;
 }
 
+// get_players 에서 팀 필터링용 (팀명 → game_id 2글자 코드)
+const TEAM_CODE_MAP = {
+  "KIA 타이거즈": ["HT"],
+  "LG 트윈스": ["LG"],
+  "SSG 랜더스": ["SK"],
+  "삼성 라이온즈": ["SS"],
+  "KT 위즈": ["KT"],
+  "NC 다이노스": ["NC"],
+  "한화 이글스": ["HH"],
+  "두산 베어스": ["OB"],
+  "키움 히어로즈": ["WO"],
+  "롯데 자이언츠": ["LT"],
+};
+
+// get_players 에서는 side 매핑이 데이터셋마다 다를 수 있어
+// 프로젝트 전반에서 이미 사용 중인 teamCodeFromGameIdAndSide 로직을 재사용한다.
+function teamCodeForPlayers(row) {
+  return teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+}
+
+function isPitcherPosition(posRaw) {
+  if (posRaw == null) return false;
+  const s = String(posRaw).trim().toLowerCase();
+  if (!s) return false;
+  return s === "p" || s.includes("투수") || s.includes("pitcher");
+}
+
+async function getPlayers(db, { team, year, type }) {
+  const y = Number(year);
+  const teamFull = String(team || "").trim();
+  const coll = type === "pitcher" ? "pitchers" : "batters";
+  const nameKeyCandidates = ["player", "name", "player_name", "playerName", "선수명"];
+
+  const allowedCodes = TEAM_CODE_MAP[teamFull] || [];
+  if (!allowedCodes.length) return [];
+
+  // 팀 필드가 없으므로 year로 먼저 가져온 후 game_id+side로 팀 판별
+  const snap = await db.collection(coll).where("year", "==", y).limit(4000).get();
+
+  // batters 컬렉션에 투수(포지션 P)가 섞이는 케이스 대응:
+  // - position 필드가 있으면 P/투수 제외
+  // - position이 없으면 같은 팀(코드 기준)의 pitchers 컬렉션에 있는 선수명을 투수로 간주해 제외
+  let pitcherNameSet = null;
+  if (type !== "pitcher") {
+    const pSnap = await db.collection("pitchers").where("year", "==", y).limit(4000).get();
+    const ps = new Set();
+    pSnap.forEach((d) => {
+      const row = docSnap(d);
+      const code = teamCodeForPlayers(row);
+      if (!code || !allowedCodes.includes(code)) return;
+      const n = pickStr(row, nameKeyCandidates);
+      if (n) ps.add(n);
+    });
+    pitcherNameSet = ps;
+  }
+
+  const set = new Set();
+  snap.forEach((d) => {
+    const row = docSnap(d);
+    const code = teamCodeForPlayers(row);
+    if (!code || !allowedCodes.includes(code)) return;
+    const n = pickStr(row, nameKeyCandidates);
+    if (!n) return;
+    if (type !== "pitcher") {
+      const pos = pickAny(row, ["position", "pos", "POSITION", "포지션"]);
+      if (isPitcherPosition(pos)) return;
+      if (pos == null && pitcherNameSet && pitcherNameSet.has(n)) return;
+    }
+    set.add(n);
+  });
+
+  const players = [...set].sort((a, b) => String(a).localeCompare(String(b), "ko"));
+  return players;
+}
+
 function teamMatches(teamField, kw) {
   return kw && String(teamField || "").includes(kw.trim());
 }
@@ -362,6 +439,201 @@ function pickNum(obj, keys) {
     }
   }
   return 0;
+}
+
+function pickAny(obj, keys) {
+  for (const k of keys) {
+    if (!obj || !Object.prototype.hasOwnProperty.call(obj, k)) continue;
+    const v = obj[k];
+    if (v == null) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    return v;
+  }
+  return null;
+}
+
+let __avgCheckLogged = 0;
+function normalizeBatterRowForUi(row) {
+  if (!row || typeof row !== "object") return row;
+  const rawAvg = pickAny(row, [
+    "avg",
+    "AVG",
+    "batting_avg",
+    "battingAvg",
+    "bat_avg",
+    "batAvg",
+    "타율",
+  ]);
+
+  const ab = pickNum(row, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  const h = pickNum(row, ["h", "H", "hits", "hit", "안타"]);
+
+  const avgNum = rawAvg == null ? null : Number(rawAvg);
+  const computedAvg = ab > 0 ? h / ab : 0;
+  const displayAvg =
+    avgNum != null && Number.isFinite(avgNum) && avgNum > 0 ? avgNum : computedAvg;
+
+  if (__avgCheckLogged < 30) {
+    __avgCheckLogged += 1;
+    console.log("AVG_CHECK:", {
+      player: row?.player ?? row?.name ?? null,
+      avg: row?.avg ?? null,
+      rawAvg,
+      ab,
+      h,
+      displayAvg,
+    });
+  }
+
+  return { ...row, avg: displayAvg };
+}
+
+let __pitcherEraCheckLogged = 0;
+let __batterRbiCheckLogged2 = 0;
+
+function mergeBattersByPlayer(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const merged = {};
+  const out = [];
+
+  const num0 = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  for (const b0 of list) {
+    const b = b0 && typeof b0 === "object" ? b0 : {};
+    const player = String(b.player || b.name || "").trim();
+    const side = normalizeSide(b.side);
+    // 같은 이름이 양 팀에 동시에 있을 수 있으니 side까지 키에 포함
+    const key = player ? `${side}|${player}` : null;
+    if (!key) {
+      out.push(b);
+      continue;
+    }
+
+    if (!merged[key]) {
+      merged[key] = { ...b, side };
+      out.push(merged[key]);
+      continue;
+    }
+
+    const acc = merged[key];
+    acc.ab = num0(acc.ab) + num0(b.ab ?? b.AB);
+    acc.h = num0(acc.h) + num0(b.h ?? b.H);
+    acc.rbi = num0(acc.rbi) + num0(b.rbi ?? b.RBI ?? b.bi);
+    acc.runs = num0(acc.runs) + num0(b.runs ?? b.R ?? b.r);
+    acc.hr = num0(acc.hr) + num0(b.hr ?? b.HR);
+
+    // avg는 시즌 누적이므로 "마지막 값" 유지
+    if (b.avg != null) acc.avg = b.avg;
+    if (b.AVG != null) acc.AVG = b.AVG;
+    if (b.batting_avg != null) acc.batting_avg = b.batting_avg;
+    if (b.battingAvg != null) acc.battingAvg = b.battingAvg;
+    if (b.타율 != null) acc.타율 = b.타율;
+
+    // 타순 등은 첫 유효값 유지 (중복 라인은 대타일 수 있음)
+    if (acc.batting_order == null && b.batting_order != null)
+      acc.batting_order = b.batting_order;
+    if (acc.battingOrder == null && b.battingOrder != null)
+      acc.battingOrder = b.battingOrder;
+    if (acc.order == null && b.order != null) acc.order = b.order;
+    if (acc.타순 == null && b.타순 != null) acc.타순 = b.타순;
+  }
+
+  return out;
+}
+
+function normalizeSide(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "";
+  if (s === "home" || s === "h" || s.includes("홈")) return "home";
+  if (s === "away" || s === "a" || s.includes("원정") || s.includes("visit"))
+    return "away";
+  return s;
+}
+
+function pickBattingOrder(row) {
+  const v = pickAny(row, [
+    "order",
+    "batting_order",
+    "battingOrder",
+    "lineup_order",
+    "lineupOrder",
+    "타순",
+  ]);
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 20 ? n : null;
+}
+
+function splitAndSortBattersBySide(batters) {
+  const out = { away: [], home: [] };
+  const rows = Array.isArray(batters) ? batters : [];
+  const withUi = rows.map((r) => {
+    const ui = normalizeBatterRowForUi(r);
+    const side = normalizeSide(ui?.side);
+    const batting_order = pickBattingOrder(ui);
+    return { ...ui, side, batting_order };
+  });
+
+  const bySide = {
+    away: withUi.filter((r) => r.side === "away"),
+    home: withUi.filter((r) => r.side === "home"),
+  };
+
+  for (const side of ["away", "home"]) {
+    const list = bySide[side] || [];
+    const hasAnyOrder = list.some((r) => r.batting_order != null);
+    if (hasAnyOrder) {
+      // Prefer batting_order sort; de-duplicate by (order, player)
+      const seen = new Set();
+      const uniq = [];
+      for (const r of list) {
+        const key = `${r.batting_order ?? "x"}_${String(r.player || r.name || "")}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uniq.push(r);
+      }
+      uniq.sort((a, b) => {
+        const ao = a.batting_order ?? 999;
+        const bo = b.batting_order ?? 999;
+        if (ao !== bo) return ao - bo;
+        return String(a.player || a.name || "").localeCompare(
+          String(b.player || b.name || ""),
+          "ko"
+        );
+      });
+      out[side] = uniq;
+    } else {
+      // Fallback: no batting order → group unique by player name
+      const seen = new Set();
+      const uniq = [];
+      for (const r of list) {
+        const name = String(r.player || r.name || "").trim();
+        if (!name) continue;
+        if (seen.has(name)) continue;
+        seen.add(name);
+        uniq.push(r);
+      }
+      uniq.sort((a, b) =>
+        String(a.player || a.name || "").localeCompare(String(b.player || b.name || ""), "ko")
+      );
+      out[side] = uniq;
+    }
+  }
+  return out;
+}
+
+function splitPitchersBySide(pitchers) {
+  const rows = Array.isArray(pitchers) ? pitchers : [];
+  const withSide = rows.map((r) => ({ ...r, side: normalizeSide(r?.side) }));
+  const away = withSide.filter((r) => r.side === "away");
+  const home = withSide.filter((r) => r.side === "home");
+  const sortByIpDesc = (a, b) => Number(b?.ip ?? b?.IP ?? 0) - Number(a?.ip ?? a?.IP ?? 0);
+  away.sort(sortByIpDesc);
+  home.sort(sortByIpDesc);
+  return { away, home };
 }
 
 function normalizeGameId(x) {
@@ -412,6 +684,35 @@ async function queryPlayerByRange(db, collection, player, start, end, max = 1800
   }
 }
 
+async function queryPlayerByYear(db, collection, player, year, max = 2200) {
+  const p = String(player || "").trim();
+  const y = Number(year);
+  if (!p || !Number.isFinite(y)) return [];
+  try {
+    // Requires composite index: (player, year)
+    const snap = await db
+      .collection(collection)
+      .where("player", "==", p)
+      .where("year", "==", y)
+      .limit(max)
+      .get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows;
+  } catch (err) {
+    console.warn(`[pv_batter_stats] year query failed (${collection}):`, err?.message || err);
+    // Fallback: player-only scan then filter by year
+    const snap = await db
+      .collection(collection)
+      .where("player", "==", p)
+      .limit(max)
+      .get();
+    const rows = [];
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+    return rows.filter((r) => Number(r?.year) === y);
+  }
+}
+
 function summarizeMatchupFromBatterLines(batterLines) {
   const totals = {
     games: 0,
@@ -448,6 +749,20 @@ function isInsufficient(stat) {
   return (stat?.games ?? 0) < 3 || (stat?.ab ?? 0) < 10;
 }
 
+function mergePvStats(a, b) {
+  const ax = a && typeof a === "object" ? a : {};
+  const bx = b && typeof b === "object" ? b : {};
+  const ab = (ax.ab ?? 0) + (bx.ab ?? 0);
+  const h = (ax.h ?? 0) + (bx.h ?? 0);
+  const hr = (ax.hr ?? 0) + (bx.hr ?? 0);
+  const bb = (ax.bb ?? 0) + (bx.bb ?? 0);
+  const so = (ax.so ?? 0) + (bx.so ?? 0);
+  const games = (ax.games ?? 0) + (bx.games ?? 0);
+  const pa = (ax.pa ?? 0) + (bx.pa ?? 0);
+  const avg = ab > 0 ? (h / ab).toFixed(3) : "—";
+  return { games, pa, ab, h, hr, bb, so, avg };
+}
+
 async function pvBatterStats(db, pitcher, batter, start, end) {
   const [bats, pits] = await Promise.all([
     queryPlayerByRange(db, "batters", batter, start, end, 1800),
@@ -458,6 +773,145 @@ async function pvBatterStats(db, pitcher, batter, start, end) {
   const common = [...bg].filter((g) => pg.has(g));
   const batLines = bats.filter((r) => pg.has(normalizeGameId(r.game_id)));
   const pitLines = pits.filter((r) => bg.has(normalizeGameId(r.game_id)));
+  const stat = summarizeMatchupFromBatterLines(batLines);
+  return {
+    pitcher,
+    batter,
+    shared_game_ids: common,
+    batter_lines: batLines,
+    pitcher_lines: pitLines,
+    stat,
+    insufficient: isInsufficient(stat),
+  };
+}
+
+function yearOfRow(r) {
+  const y = Number(r?.year);
+  if (Number.isFinite(y) && y >= 1900 && y <= 2100) return y;
+  const gd = String(r?.game_date || "").slice(0, 4);
+  if (/^\d{4}$/.test(gd)) return Number(gd);
+  const gid = String(r?.game_id || "").slice(0, 4);
+  if (/^\d{4}$/.test(gid)) return Number(gid);
+  return 0;
+}
+
+function filterPvContextByTab(ctx, tab) {
+  const mode = String(tab || "").trim().toLowerCase();
+  const keep = (y) => {
+    if (mode === "this") return y >= 2026;
+    if (mode === "prev") return y === 2025;
+    if (mode === "both") return y >= 2025;
+    return y >= 2025;
+  };
+  const bats = (ctx?.batter_lines || []).filter((r) => keep(yearOfRow(r)));
+  const pits = (ctx?.pitcher_lines || []).filter((r) => keep(yearOfRow(r)));
+  const bg = new Set(bats.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const pg = new Set(pits.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const common = [...bg].filter((g) => pg.has(g));
+  return {
+    ...ctx,
+    shared_game_ids: common,
+    batter_lines: bats.filter((r) => pg.has(normalizeGameId(r.game_id))),
+    pitcher_lines: pits.filter((r) => bg.has(normalizeGameId(r.game_id))),
+  };
+}
+
+function deriveOpponentFromGameId(gameId, teamCode) {
+  const s = String(gameId || "").trim();
+  if (s.length < 12) return { opponent: "—", home_away: "—" };
+  const homeCode = s.slice(8, 10);
+  const awayCode = s.slice(10, 12);
+  const oppCode = teamCode === homeCode ? awayCode : homeCode;
+  const opponent = TEAM_MAP[oppCode] || oppCode || "—";
+  const home_away = teamCode === homeCode ? "홈" : "원정";
+  return { opponent, home_away };
+}
+
+function buildUiData(action, ctx) {
+  if (action === "player_range") {
+    const player = String(ctx?.player || "");
+    const start = String(ctx?.start || "");
+    const end = String(ctx?.end || "");
+    const pitcherRows = (ctx?.pitchers || []).map((p) => {
+      const teamCode = teamCodeFromGameIdAndSide(p?.game_id, p?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(p?.game_id, teamCode);
+      return {
+        date: String(p?.game_date || ""),
+        opponent,
+        home_away,
+        ip: p?.ip ?? p?.IP ?? 0,
+        r: p?.r ?? p?.R ?? 0,
+        h: p?.h ?? p?.H ?? 0,
+        so: p?.so ?? p?.SO ?? p?.k ?? p?.K ?? 0,
+        era: p?.era ?? p?.ERA ?? null,
+      };
+    });
+    const batterRows = (ctx?.batters || []).map((b) => {
+      const teamCode = teamCodeFromGameIdAndSide(b?.game_id, b?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(b?.game_id, teamCode);
+      const ab = pickNum(b, ["ab", "AB", "at_bats"]);
+      const h = pickNum(b, ["h", "H", "hits"]);
+      const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+      const hr = pickNum(b, ["hr", "HR", "home_run"]);
+      const runs = pickNum(b, ["runs", "run", "r", "R", "득점"]);
+      const avgRaw = pickAny(b, ["avg", "AVG", "batting_avg", "battingAvg", "타율"]);
+      const avgNum = avgRaw == null ? null : Number(avgRaw);
+      const avg = Number.isFinite(avgNum) ? avgNum : ab > 0 ? h / ab : 0;
+      return {
+        date: String(b?.game_date || ""),
+        opponent,
+        home_away,
+        ab,
+        h,
+        rbi,
+        hr,
+        runs,
+        avg,
+      };
+    });
+    return { player, start, end, pitcherRows, batterRows };
+  }
+  if (action === "sp_compare") {
+    const a = String(ctx?.pitcherA || "");
+    const b = String(ctx?.pitcherB || "");
+    const mapP = (p) => {
+      const teamCode = teamCodeFromGameIdAndSide(p?.game_id, p?.side);
+      const { opponent, home_away } = deriveOpponentFromGameId(p?.game_id, teamCode);
+      return {
+        date: String(p?.game_date || ""),
+        opponent,
+        home_away,
+        ip: p?.ip ?? p?.IP ?? 0,
+        r: p?.r ?? p?.R ?? 0,
+        h: p?.h ?? p?.H ?? 0,
+        so: p?.so ?? p?.SO ?? p?.k ?? p?.K ?? 0,
+        era: p?.era ?? p?.ERA ?? null,
+      };
+    };
+    const recentA = (ctx?.recentA || []).map(mapP);
+    const recentB = (ctx?.recentB || []).map(mapP);
+    return { pitcherA: a, pitcherB: b, recentA, recentB };
+  }
+  return null;
+}
+
+async function pvBatterStatsByYear(db, pitcher, batter, year, endDate = "") {
+  const y = Number(year);
+  const end = safeIsoDate(endDate);
+  const [bats, pits] = await Promise.all([
+    queryPlayerByYear(db, "batters", batter, y, 2200),
+    queryPlayerByYear(db, "pitchers", pitcher, y, 1800),
+  ]);
+  const batsF =
+    end && y === 2026 ? bats.filter((r) => safeIsoDate(r.game_date) <= end) : bats;
+  const pitsF =
+    end && y === 2026 ? pits.filter((r) => safeIsoDate(r.game_date) <= end) : pits;
+
+  const bg = new Set(batsF.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const pg = new Set(pitsF.map((r) => normalizeGameId(r.game_id)).filter(Boolean));
+  const common = [...bg].filter((g) => pg.has(g));
+  const batLines = batsF.filter((r) => pg.has(normalizeGameId(r.game_id)));
+  const pitLines = pitsF.filter((r) => bg.has(normalizeGameId(r.game_id)));
   const stat = summarizeMatchupFromBatterLines(batLines);
   return {
     pitcher,
@@ -843,6 +1297,100 @@ async function fetchPitcherRecent(db, name, maxGames = 12) {
   return lines;
 }
 
+function slimGameResultRow(g) {
+  if (!g || typeof g !== "object") return {};
+  const home = pickStr(g, ["home_team", "home", "homeTeam"]);
+  const away = pickStr(g, ["away_team", "away", "awayTeam"]);
+  const gid = pickStr(g, ["game_id", "gameId", "gameID"]) || (g.game_id ?? g.gameId ?? g.id ?? null);
+  const winningPitcher = pickStr(g, [
+    "winning_pitcher",
+    "win_pitcher",
+    "w_pitcher",
+    "winner_pitcher",
+    "winningPitcher",
+    "winPitcher",
+    "winnerPitcher",
+    "승리투수",
+  ]);
+  const losingPitcher = pickStr(g, [
+    "losing_pitcher",
+    "lose_pitcher",
+    "l_pitcher",
+    "loser_pitcher",
+    "losingPitcher",
+    "losePitcher",
+    "loserPitcher",
+    "패전투수",
+  ]);
+  return {
+    game_id: gid,
+    game_date: g.game_date ?? null,
+    home_team: home || null,
+    away_team: away || null,
+    home_score: safeNum(g.home_score),
+    away_score: safeNum(g.away_score),
+    winning_pitcher: winningPitcher || "",
+    losing_pitcher: losingPitcher || "",
+  };
+}
+
+function pickPitcherName(row) {
+  return (
+    pickAny(row, ["player", "name", "player_name", "playerName", "선수명"]) ??
+    null
+  );
+}
+
+function inningsToNumber(ipRaw) {
+  if (ipRaw == null) return 0;
+  const s = String(ipRaw).trim();
+  if (!s) return 0;
+  // common baseball notation: 5.1 = 5 + 1/3, 5.2 = 5 + 2/3
+  const m = s.match(/^(\d+)(?:\.(\d))?$/);
+  if (!m) {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const full = Number(m[1]);
+  const frac = m[2] ? Number(m[2]) : 0;
+  if (!Number.isFinite(full)) return 0;
+  if (frac === 1) return full + 1 / 3;
+  if (frac === 2) return full + 2 / 3;
+  return full;
+}
+
+function pickTopInningsPitcher(pitchers) {
+  const rows = Array.isArray(pitchers) ? pitchers : [];
+  let best = null;
+  let bestIp = -1;
+  for (const p of rows) {
+    const ip = inningsToNumber(p?.ip ?? p?.IP ?? p?.inn ?? p?.innings);
+    if (ip > bestIp) {
+      bestIp = ip;
+      best = p;
+    }
+  }
+  return best;
+}
+
+async function fetchPitchersForGame(db, gameId) {
+  const out = [];
+  const seen = new Set();
+  for (const v of variantsForGameId(gameId)) {
+    const q1 = db.collection("pitchers").where("game_id", "==", v).get();
+    const q2 = db.collection("pitchers").where("gameId", "==", v).get();
+    const [s1, s2] = await Promise.all([q1, q2]);
+    for (const snap of [s1, s2]) {
+      snap.forEach((d) => {
+        if (seen.has(d.id)) return;
+        seen.add(d.id);
+        out.push({ id: d.id, ...docSnap(d) });
+      });
+    }
+  }
+  return out;
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
@@ -890,6 +1438,162 @@ export const handler = async (event) => {
             ok: true,
             action,
             meta,
+          }),
+        };
+      }
+      case "game_results": {
+        const dateStr = payload.date || isoSeoulToday();
+        const gameDocs = await fetchGamesByDate(db, dateStr);
+        if (gameDocs?.length) {
+          console.log("GAME_SAMPLE:", JSON.stringify(gameDocs[0]));
+          // games 컬렉션 실제 필드명 확인용 (Netlify Functions logs에서 확인)
+          console.log("GAME_DOC:", JSON.stringify(gameDocs[0]));
+        }
+        const base = (gameDocs || []).map(slimGameResultRow);
+        const games = [];
+        for (const g of base) {
+          const gid = String(g?.game_id || "").trim();
+          const needsWin = !g?.winning_pitcher;
+          const needsLose = !g?.losing_pitcher;
+          if (!gid || (!needsWin && !needsLose)) {
+            games.push(g);
+            continue;
+          }
+
+          const pitchers = await fetchPitchersForGame(db, gid);
+          const homeScore = Number(g?.home_score);
+          const awayScore = Number(g?.away_score);
+          const hasScores =
+            Number.isFinite(homeScore) &&
+            Number.isFinite(awayScore) &&
+            homeScore !== awayScore;
+
+          const withSide = (Array.isArray(pitchers) ? pitchers : []).map((p) => ({
+            ...p,
+            side: normalizeSide(p?.side),
+          }));
+          const homePitchers = withSide.filter((p) => p.side === "home");
+          const awayPitchers = withSide.filter((p) => p.side === "away");
+
+          let win = null;
+          let lose = null;
+          if (hasScores) {
+            const homeWin = homeScore > awayScore;
+            const winSide = homeWin ? "home" : "away";
+            const loseSide = homeWin ? "away" : "home";
+            win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
+            lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
+          }
+
+          // 필드명 확인이 필요할 때 로그로 확인 가능하게 일부만 출력
+          if (pitchers?.length) {
+            console.log("PITCHERS_FOR_GAME_SAMPLE:", {
+              game_id: gid,
+              keys: Object.keys(pitchers[0] || {}),
+              sample: pitchers[0],
+            });
+          }
+
+          games.push({
+            ...g,
+            winning_pitcher: needsWin
+              ? ((pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "")
+              : g.winning_pitcher,
+            losing_pitcher: needsLose
+              ? ((pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "")
+              : g.losing_pitcher,
+          });
+        }
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            meta,
+            date: dateStr,
+            games,
+          }),
+        };
+      }
+      case "game_boxscore": {
+        const gidRaw = payload.gameId || payload.game_id || "";
+        const gameId = String(gidRaw || "").trim();
+        if (!gameId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ error: "Missing game_id" }),
+          };
+        }
+
+        // 이전에 잘 되던 단순 방식으로 복구: game_id == gameId 로 직접 조회 후 side 분리
+        const battersSnap = await db
+          .collection("batters")
+          .where("game_id", "==", gameId)
+          .get();
+        const batters = battersSnap.docs.map((d) => docSnap(d));
+        console.log("BOXSCORE batters count:", batters.length, "gameId:", gameId);
+        for (const b of batters) {
+          if (__batterRbiCheckLogged2 >= 60) break;
+          __batterRbiCheckLogged2 += 1;
+          console.log("BATTER_RBI_CHECK2:", {
+            player: b?.player ?? b?.name ?? null,
+            rbi: b?.rbi ?? b?.RBI ?? b?.bi ?? null,
+            h: b?.h ?? b?.H ?? null,
+            ab: b?.ab ?? b?.AB ?? null,
+            game_id: b?.game_id ?? b?.gameId ?? gameId,
+          });
+        }
+
+        const pitchersSnap = await db
+          .collection("pitchers")
+          .where("game_id", "==", gameId)
+          .get();
+        const pitchers = pitchersSnap.docs.map((d) => docSnap(d));
+        console.log("BOXSCORE pitchers count:", pitchers.length);
+        for (const p of pitchers) {
+          if (__pitcherEraCheckLogged >= 40) break;
+          __pitcherEraCheckLogged += 1;
+          console.log("PITCHER_ERA_CHECK:", {
+            player: p?.player ?? p?.name ?? null,
+            era: p?.era ?? p?.ERA ?? null,
+            game_id: p?.game_id ?? p?.gameId ?? gameId,
+          });
+        }
+
+        const awayBatters = batters.filter((b) => String(b?.side) === "away");
+        const homeBatters = batters.filter((b) => String(b?.side) === "home");
+        const awayPitchers = pitchers.filter((p) => String(p?.side) === "away");
+        const homePitchers = pitchers.filter((p) => String(p?.side) === "home");
+
+        const awayBattersUi = mergeBattersByPlayer(
+          awayBatters.map(normalizeBatterRowForUi)
+        );
+        const homeBattersUi = mergeBattersByPlayer(
+          homeBatters.map(normalizeBatterRowForUi)
+        );
+        const batters_by_side = { away: awayBattersUi, home: homeBattersUi };
+        const pitchers_by_side = { away: awayPitchers, home: homePitchers };
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            game_id: gameId,
+            // 이전/호환 필드들
+            awayBatters: awayBattersUi,
+            homeBatters: homeBattersUi,
+            awayPitchers,
+            homePitchers,
+            // 현재 프론트가 사용하는 구조(홈/원정)
+            batters_by_side,
+            pitchers_by_side,
+            // 디버깅/호환용 원본 리스트
+            batters: awayBattersUi.concat(homeBattersUi),
+            pitchers,
           }),
         };
       }
@@ -1086,14 +1790,34 @@ export const handler = async (event) => {
           `${teamKw} 팀의 최근 ${days}일 구간 경기만을 사용해 주간 성적 추이(승패·득실·타격/불펜 면에서의 인상)을 한국어로 분석해줘.`;
         break;
       }
+      case "get_players": {
+        const team = payload.team || "";
+        // 트레이드 선수를 고려해 '현재 시즌' 선수 목록만 제공 (2026 고정)
+        const year = "2026";
+        const type = payload.type === "pitcher" ? "pitcher" : "batter";
+        const players = await getPlayers(db, { team, year, type });
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            team,
+            year: Number(year),
+            type,
+            players,
+          }),
+        };
+      }
       case "pv_batter": {
         const pitcher = payload.pitcher || "";
         const batter = payload.batter || "";
-        const ov = await pitcherBatterOverlap(db, batter, pitcher);
-        context = ov;
+        const tab = payload.tab || payload.pvTab || payload.season || "both";
+        const ov0 = await pitcherBatterOverlap(db, batter, pitcher);
+        context = filterPvContextByTab(ov0, tab);
         userQ =
           payload.question ||
-          `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)`;
+          `동일 경기에 같이 등장한 기록을 바탕으로 ${pitcher} 투수 vs ${batter} 타자의 맞대결·맥락을 한국어로 설명해줘. (완벽한 상대전 데이터가 없으면 한계를 밝혀줘)\n\n출력 형식:\n- 마크다운을 사용해도 되지만, 표는 마크다운 테이블로 작성하되 코드블록(\\\`\\\`\\\`)으로 감싸지 마.`;
         break;
       }
       case "pv_batter_stats": {
@@ -1107,28 +1831,38 @@ export const handler = async (event) => {
           };
         }
         const end = safeIsoDate(payload.end) || isoSeoulToday();
-        const overallStart = safeIsoDate(payload.overallStart) || "2024-01-01";
-        const yearStart = safeIsoDate(payload.yearStart) || "2026-01-01";
 
-        const [overall, year] = await Promise.all([
-          pvBatterStats(db, pitcher, batter, overallStart, end),
-          pvBatterStats(db, pitcher, batter, yearStart, end),
+        const [thisSeason, prevSeason] = await Promise.all([
+          pvBatterStatsByYear(db, pitcher, batter, 2026, end),
+          pvBatterStatsByYear(db, pitcher, batter, 2025, "2025-12-31"),
         ]);
 
         const per_game = {
-          overall: buildPvPerGameRows(
-            overall.batter_lines,
-            overall.pitcher_lines,
+          thisSeason: buildPvPerGameRows(
+            thisSeason.batter_lines,
+            thisSeason.pitcher_lines,
             pitcher,
             batter
           ),
-          year: buildPvPerGameRows(
-            year.batter_lines,
-            year.pitcher_lines,
+          prevSeason: buildPvPerGameRows(
+            prevSeason.batter_lines,
+            prevSeason.pitcher_lines,
             pitcher,
             batter
           ),
         };
+        const bothSeasons = {
+          stat: mergePvStats(thisSeason.stat, prevSeason.stat),
+          batter_lines: (prevSeason.batter_lines || []).concat(thisSeason.batter_lines || []),
+          pitcher_lines: (prevSeason.pitcher_lines || []).concat(thisSeason.pitcher_lines || []),
+          shared_game_ids: (prevSeason.shared_game_ids || []).concat(thisSeason.shared_game_ids || []),
+        };
+        const per_game_both = buildPvPerGameRows(
+          bothSeasons.batter_lines,
+          bothSeasons.pitcher_lines,
+          pitcher,
+          batter
+        );
 
         return {
           statusCode: 200,
@@ -1139,20 +1873,21 @@ export const handler = async (event) => {
             pitcher,
             batter,
             end,
-            overallStart,
-            yearStart,
-            overall: overall.stat,
-            year: year.stat,
-            per_game,
+            thisSeason: thisSeason.stat,
+            prevSeason: prevSeason.stat,
+            bothSeasons: bothSeasons.stat,
+            per_game: { ...per_game, bothSeasons: per_game_both },
             insufficient: {
-              overall: overall.insufficient,
-              year: year.insufficient,
+              thisSeason: thisSeason.insufficient,
+              prevSeason: prevSeason.insufficient,
+              bothSeasons: isInsufficient(bothSeasons.stat),
             },
             counts: {
-              overallSharedGames: overall.shared_game_ids.length,
-              yearSharedGames: year.shared_game_ids.length,
-              overallBatterLines: overall.batter_lines.length,
-              yearBatterLines: year.batter_lines.length,
+              thisSeasonSharedGames: thisSeason.shared_game_ids.length,
+              prevSeasonSharedGames: prevSeason.shared_game_ids.length,
+              thisSeasonBatterLines: thisSeason.batter_lines.length,
+              prevSeasonBatterLines: prevSeason.batter_lines.length,
+              bothSeasonsBatterLines: bothSeasons.batter_lines.length,
             },
           }),
         };
@@ -1166,16 +1901,24 @@ export const handler = async (event) => {
           const gd = String(r.game_date || "");
           return gd >= start && gd <= end;
         };
+        const batsIn = batters.filter(inRange);
+        const pitsIn = pitchers.filter(inRange);
+        const addOpponent = (row) => {
+          const teamCode = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+          const { opponent, home_away } = deriveOpponentFromGameId(row?.game_id, teamCode);
+          return { ...row, opponent, home_away };
+        };
         context = {
           player,
           start,
           end,
-          batters: batters.filter(inRange),
-          pitchers: pitchers.filter(inRange),
+          // Claude가 표를 만들 때 팀코드(LTSS 등) 대신 팀 이름을 쓰도록 도와준다.
+          batters: batsIn.map(addOpponent),
+          pitchers: pitsIn.map(addOpponent),
         };
         userQ =
           payload.question ||
-          `기간 ${start}~${end} 동안 ${player} 선수의 성적을 한국어로 분석해줘.`;
+          `기간 ${start}~${end} 동안 ${player} 선수의 성적을 한국어로 분석해줘.\n\n중요 지시사항(반드시 준수):\n- 응답에 전체 요약, 종합 성적 요약, 월간 종합 성적, 전체 누적 성적 같은 항목/수치 세로 테이블은 절대 포함하지 마세요.\n- 전체 요약 stat 카드는 UI에서 별도로 표시되므로 응답에 중복으로 넣지 마세요.\n- 경기별 상세 기록 테이블과 분석 텍스트만 작성하세요.\n\n표/상대팀 표기 규칙:\n- 상대는 2글자 코드가 아니라 구단명(예: 롯데 자이언츠)으로 표기해줘.\n- 홈/원정은 "홈" 또는 "원정"으로 표기해줘.`;
         break;
       }
       case "sp_compare": {
@@ -1183,10 +1926,20 @@ export const handler = async (event) => {
         const b = payload.pitcherB || "";
         const la = await fetchPitcherRecent(db, a, 15);
         const lb = await fetchPitcherRecent(db, b, 15);
-        context = { pitcherA: a, pitcherB: b, recentA: la, recentB: lb };
+        const addOpponent = (row) => {
+          const teamCode = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
+          const { opponent, home_away } = deriveOpponentFromGameId(row?.game_id, teamCode);
+          return { ...row, opponent, home_away };
+        };
+        context = {
+          pitcherA: a,
+          pitcherB: b,
+          recentA: la.map(addOpponent),
+          recentB: lb.map(addOpponent),
+        };
         userQ =
           payload.question ||
-          `${a} vs ${b} 선발 투수를 최근 등판 기록 위주로 비교 분석해줘 (한국어).`;
+          `${a} vs ${b} 선발 투수를 최근 등판 기록 위주로 비교 분석해줘 (한국어).\n\n표/상대팀 표기 규칙:\n- 상대는 2글자 코드가 아니라 구단명(예: 롯데 자이언츠)으로 표기해줘.\n- 홈/원정은 "홈" 또는 "원정"으로 표기해줘.`;
         break;
       }
       case "sp_matchup": {
@@ -1305,7 +2058,7 @@ export const handler = async (event) => {
     const ctxCap =
       action === "team_week" ? 80000 : action === "pv_batter" ? 70000 : 190000;
     const claudeOut =
-      action === "team_week" ? 1200 : action === "pv_batter" ? 500 : 2048;
+      action === "team_week" ? 1200 : action === "pv_batter" ? 1700 : 2048;
     const text = await claude(
       sys,
       `컨텍스트(JSON):\n${JSON.stringify(context).slice(0, ctxCap)}\n\n요청:\n${userQ}`,
@@ -1321,6 +2074,7 @@ export const handler = async (event) => {
         model: MODEL,
         text,
         contextSummary: summarizeContext(action, context),
+        uiData: buildUiData(action, context),
       }),
     };
   } catch (e) {
@@ -1351,6 +2105,8 @@ function summarizeContext(action, ctx) {
         date: ctx.date,
         games: ctx.games?.length ?? 0,
       };
+    case "game_results":
+      return { date: ctx.date, games: ctx.games?.length ?? 0 };
     case "team_week":
       return {
         games: ctx.games?.length ?? 0,

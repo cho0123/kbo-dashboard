@@ -144,6 +144,38 @@ body {
   margin-top: 10px;
 }
 
+.date-actions-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.date-actions-row .primary {
+  margin-top: 0;
+}
+
+button.primary.primary-sm {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+}
+
+button.primary.primary-fill {
+  flex: 1;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .side-tab {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -234,8 +266,123 @@ body {
   display: none;
 }
 
+.results table.pv-table thead {
+  display: table-header-group;
+}
+
+.results .md table thead {
+  display: table-header-group;
+}
+
+.results table.pv-table {
+  width: 100%;
+  max-width: none;
+}
+
+.results .md table {
+  width: 100%;
+  max-width: none;
+  table-layout: auto;
+}
+
+.results .md table.md-table-2 {
+  max-width: 400px;
+  margin-left: 0;
+}
+
+.results .md table.md-table-2 :where(th:first-child, td:first-child) {
+  width: 60%;
+}
+
+.results .md table.md-table-2 :where(th:nth-child(2), td:nth-child(2)) {
+  width: 40%;
+}
+
+.results .md table.md-table-detail {
+  table-layout: fixed;
+}
+
+.results .md table.md-table-detail :where(th, td) {
+  text-align: center;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(1), td:nth-child(1)) {
+  width: 110px;
+  text-align: left;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(2), td:nth-child(2)) {
+  width: 100px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(3), td:nth-child(3)) {
+  width: 70px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(4), td:nth-child(4)),
+.results .md table.md-table-detail :where(th:nth-child(5), td:nth-child(5)),
+.results .md table.md-table-detail :where(th:nth-child(6), td:nth-child(6)),
+.results .md table.md-table-detail :where(th:nth-child(7), td:nth-child(7)),
+.results .md table.md-table-detail :where(th:nth-child(8), td:nth-child(8)) {
+  width: 60px;
+}
+
+.results .md table.md-table-detail :where(th:nth-child(9), td:nth-child(9)) {
+  width: 70px;
+}
+
+.stat-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+
+.stat-card {
+  min-width: 80px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.stat-card .stat-v {
+  font-weight: 1000;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: #1a1a2e;
+}
+
+.stat-card .stat-k {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: rgba(26, 26, 46, 0.6);
+}
+
+.stat-card.highlight {
+  border-color: rgba(62, 224, 169, 0.45);
+  background: rgba(62, 224, 169, 0.12);
+}
+
+.stat-card.highlight .stat-v {
+  color: #0c6b57;
+}
+
 .results :where(th) {
   width: 140px;
+}
+
+.results .md :where(th) {
+  width: auto;
+}
+
+.results .md :where(th, td) {
+  white-space: nowrap;
+}
+
+.results .md :where(th:nth-child(2), td:nth-child(2)) {
+  text-align: right;
 }
 
 .results :where(td, th) {
@@ -786,8 +933,9 @@ button.primary:disabled {
 .mini-tab {
   appearance: none;
   border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(26, 26, 46, 0.65);
+  color: #1a1a2e;
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
@@ -797,9 +945,9 @@ button.primary:disabled {
 }
 
 .mini-tab.active {
-  background: var(--accent-dim);
-  border-color: rgba(62, 224, 169, 0.38);
-  color: var(--text);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #1a1a2e;
 }
 
 .pv-meta {
