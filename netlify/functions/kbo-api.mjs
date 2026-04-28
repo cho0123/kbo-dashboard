@@ -341,53 +341,52 @@ async function fetchAllGames(db, max = 2500) {
   return rows;
 }
 
+// get_players 에서 팀 필터링용 (팀명 → game_id 2글자 코드)
+const TEAM_CODE_MAP = {
+  "KIA 타이거즈": ["HT"],
+  "LG 트윈스": ["LG"],
+  "SSG 랜더스": ["SK"],
+  "삼성 라이온즈": ["SS"],
+  "KT 위즈": ["KT"],
+  "NC 다이노스": ["NC"],
+  "한화 이글스": ["HH"],
+  "두산 베어스": ["OB"],
+  "키움 히어로즈": ["WO"],
+  "롯데 자이언츠": ["LT"],
+};
+
+// game_id 예: 20260410HTLG0 (YYYYMMDD + 홈(2) + 원정(2) + ...)
+// side: 'home'이면 홈팀, 'away'이면 원정팀
+function teamCodeFromGameIdAndSideStrict(gameId, sideRaw) {
+  const s = String(gameId ?? "").trim();
+  const side = normalizeSide(sideRaw);
+  if (s.length < 12) return "";
+  const homeCode = s.slice(8, 10);
+  const awayCode = s.slice(10, 12);
+  if (side === "home") return homeCode;
+  if (side === "away") return awayCode;
+  return "";
+}
+
 async function getPlayers(db, { team, year, type }) {
   const y = Number(year);
   const teamFull = String(team || "").trim();
-  const teamKey = teamFull ? teamFull.split(/\s+/)[0] : "";
   const coll = type === "pitcher" ? "pitchers" : "batters";
   const nameKeyCandidates = ["player", "name", "player_name", "playerName", "선수명"];
 
-  const fields = [
-    "team",
-    "team_name",
-    "teamName",
-    type === "pitcher" ? "pitcher_team" : "batter_team",
-    "club",
-    "club_name",
-  ];
+  const allowedCodes = TEAM_CODE_MAP[teamFull] || [];
+  if (!allowedCodes.length) return [];
 
-  const queries = [];
-  for (const f of fields) {
-    if (teamFull)
-      queries.push(
-        db
-          .collection(coll)
-          .where("year", "==", y)
-          .where(f, "==", teamFull)
-          .limit(2000)
-          .get()
-      );
-    if (teamKey)
-      queries.push(
-        db
-          .collection(coll)
-          .where("year", "==", y)
-          .where(f, "==", teamKey)
-          .limit(2000)
-          .get()
-      );
-  }
-
-  const snaps = await Promise.all(queries);
+  // 팀 필드가 없으므로 year로 먼저 가져온 후 game_id+side로 팀 판별
+  const snap = await db.collection(coll).where("year", "==", y).limit(4000).get();
   const set = new Set();
-  for (const snap of snaps) {
-    snap.forEach((d) => {
-      const row = docSnap(d);
-      const n = pickStr(row, nameKeyCandidates);
-      if (n) set.add(n);
-    });
-  }
+  snap.forEach((d) => {
+    const row = docSnap(d);
+    const code = teamCodeFromGameIdAndSideStrict(row?.game_id, row?.side);
+    if (!code || !allowedCodes.includes(code)) return;
+    const n = pickStr(row, nameKeyCandidates);
+    if (n) set.add(n);
+  });
 
   const players = [...set].sort((a, b) => String(a).localeCompare(String(b), "ko"));
   return players;
