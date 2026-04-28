@@ -817,7 +817,9 @@ export default function App() {
                                       const ab = r?.ab ?? r?.AB ?? 0;
                                       const h = r?.h ?? r?.H ?? 0;
                                       const hr = r?.hr ?? r?.HR ?? 0;
-                                      const rbi = r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
+                                      const rbiRaw =
+                                        r?.rbi ?? r?.RBI ?? r?.bi ?? r?.타점 ?? 0;
+                                      const rbi = Number(rbiRaw);
                                       const avgDot = formatSeasonAvgDot(
                                         r?.avg ??
                                           r?.AVG ??
