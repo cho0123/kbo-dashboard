@@ -537,7 +537,6 @@ async function loadPngImage(path) {
 }
 
 let __baseballDecorImg = null;
-let __shortsLinkRect = null; // {x,y,w,h,url} in 1080x1920 coords for onClick
 function drawBaseballBackground(ctx) {
   const baseballImg = __baseballDecorImg;
   if (!baseballImg) return;
@@ -918,7 +917,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const mvpName = cleanName(m?.name);
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
-  const venueText = String(g?.venue || "").trim() || "—";
+  const venueText = String(g?.venue || "").trim();
 
   resetShadow(ctx); // no shadow
   ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
@@ -941,23 +940,16 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
   const baseY = SAFE_BOTTOM - 170;
   const lineGap = 110;
-  drawCenteredLabelValue(baseY - lineGap * 2, "📍", venueText);
-  drawCenteredLabelValue(baseY - lineGap, "투수", `${pitcherName}  ${ipText}`);
-  drawCenteredLabelValue(baseY, "MVP", String(mvpText).slice(0, 24));
+  const lines = [];
+  if (venueText) lines.push({ label: "📍", value: venueText });
+  lines.push({ label: "투수", value: `${pitcherName}  ${ipText}` });
+  lines.push({ label: "MVP", value: String(mvpText).slice(0, 24) });
 
-  // Bottom-right link (clickable in preview canvas)
-  const linkText = "🔗 koreabaseball.com";
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-  ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#ffffff";
-  const pad = 24;
-  const tw = ctx.measureText(linkText).width;
-  const tx = w - pad - tw;
-  const ty = h - pad;
-  ctx.fillText(linkText, tx, ty);
-  ctx.restore();
-  __shortsLinkRect = { x: tx, y: ty - 34, w: tw, h: 40, url: "https://www.koreabaseball.com" };
+  const startY = baseY - lineGap * (lines.length - 1);
+  for (let i = 0; i < lines.length; i++) {
+    const yy = startY + lineGap * i;
+    drawCenteredLabelValue(yy, lines[i].label, lines[i].value);
+  }
 
   // 하단 인덱스 텍스트 제거
 }
@@ -1157,10 +1149,20 @@ function Card8Shorts({ defaultDate }) {
 
       {data ? (
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
-          <ShortsCanvas
-            slideIdx={slideIdx}
-            renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
-          />
+          <div>
+            <ShortsCanvas
+              slideIdx={slideIdx}
+              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+            />
+            <button
+              type="button"
+              className="mini-tab"
+              style={{ marginTop: 10, width: "100%", justifyContent: "center" }}
+              onClick={() => window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")}
+            >
+              🔗 KBO 공식 홈페이지에서 검증
+            </button>
+          </div>
           <div>
             <div className="muted" style={{ fontWeight: 900 }}>
               슬라이드 ({slideIdx + 1}/{slides.length})
@@ -1201,19 +1203,7 @@ function ShortsCanvas({ slideIdx, renderSlide }) {
     <div>
       <canvas
         ref={setRef}
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const sx = 1080 / rect.width;
-          const sy = 1920 / rect.height;
-          const x = (e.clientX - rect.left) * sx;
-          const y = (e.clientY - rect.top) * sy;
-          const r = __shortsLinkRect;
-          if (!r) return;
-          if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-            window.open(r.url, "_blank", "noopener,noreferrer");
-          }
-        }}
-        style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)", cursor: "pointer" }}
+        style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)" }}
       />
     </div>
   );
