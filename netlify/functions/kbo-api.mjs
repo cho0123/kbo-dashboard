@@ -361,6 +361,13 @@ function teamCodeForPlayers(row) {
   return teamCodeFromGameIdAndSide(row?.game_id, row?.side);
 }
 
+function isPitcherPosition(posRaw) {
+  if (posRaw == null) return false;
+  const s = String(posRaw).trim().toLowerCase();
+  if (!s) return false;
+  return s === "p" || s.includes("투수") || s.includes("pitcher");
+}
+
 async function getPlayers(db, { team, year, type }) {
   const y = Number(year);
   const teamFull = String(team || "").trim();
@@ -372,13 +379,37 @@ async function getPlayers(db, { team, year, type }) {
 
   // 팀 필드가 없으므로 year로 먼저 가져온 후 game_id+side로 팀 판별
   const snap = await db.collection(coll).where("year", "==", y).limit(4000).get();
+
+  // batters 컬렉션에 투수(포지션 P)가 섞이는 케이스 대응:
+  // - position 필드가 있으면 P/투수 제외
+  // - position이 없으면 같은 팀(코드 기준)의 pitchers 컬렉션에 있는 선수명을 투수로 간주해 제외
+  let pitcherNameSet = null;
+  if (type !== "pitcher") {
+    const pSnap = await db.collection("pitchers").where("year", "==", y).limit(4000).get();
+    const ps = new Set();
+    pSnap.forEach((d) => {
+      const row = docSnap(d);
+      const code = teamCodeForPlayers(row);
+      if (!code || !allowedCodes.includes(code)) return;
+      const n = pickStr(row, nameKeyCandidates);
+      if (n) ps.add(n);
+    });
+    pitcherNameSet = ps;
+  }
+
   const set = new Set();
   snap.forEach((d) => {
     const row = docSnap(d);
     const code = teamCodeForPlayers(row);
     if (!code || !allowedCodes.includes(code)) return;
     const n = pickStr(row, nameKeyCandidates);
-    if (n) set.add(n);
+    if (!n) return;
+    if (type !== "pitcher") {
+      const pos = pickAny(row, ["position", "pos", "POSITION", "포지션"]);
+      if (isPitcherPosition(pos)) return;
+      if (pos == null && pitcherNameSet && pitcherNameSet.has(n)) return;
+    }
+    set.add(n);
   });
 
   const players = [...set].sort((a, b) => String(a).localeCompare(String(b), "ko"));
@@ -1988,7 +2019,7 @@ export const handler = async (event) => {
     const ctxCap =
       action === "team_week" ? 80000 : action === "pv_batter" ? 70000 : 190000;
     const claudeOut =
-      action === "team_week" ? 1200 : action === "pv_batter" ? 500 : 2048;
+      action === "team_week" ? 1200 : action === "pv_batter" ? 1700 : 2048;
     const text = await claude(
       sys,
       `컨텍스트(JSON):\n${JSON.stringify(context).slice(0, ctxCap)}\n\n요청:\n${userQ}`,

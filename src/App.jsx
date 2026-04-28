@@ -97,7 +97,18 @@ function SimpleStatsTable({ headers, rows }) {
       <thead>
         <tr>
           {normalized.map((c) => (
-            <th key={c.key} style={{ textAlign: "left", padding: "8px 10px" }}>
+            <th
+              key={c.key}
+              style={{
+                textAlign: "left",
+                padding: "8px 10px",
+                color: "#1a1a2e",
+                background: "rgba(0, 0, 0, 0.04)",
+                fontWeight: 900,
+                width: "auto",
+                whiteSpace: "nowrap",
+              }}
+            >
               {c.label}
             </th>
           ))}
@@ -109,7 +120,11 @@ function SimpleStatsTable({ headers, rows }) {
             {normalized.map((c) => (
               <td
                 key={c.key}
-                style={{ padding: "8px 10px", borderTop: "1px solid var(--border)" }}
+                style={{
+                  padding: "8px 10px",
+                  borderTop: "1px solid rgba(0, 0, 0, 0.08)",
+                  color: "#1a1a2e",
+                }}
               >
                 {r[c.key] ?? "—"}
               </td>
