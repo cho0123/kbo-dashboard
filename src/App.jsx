@@ -910,35 +910,22 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
 
-  const labelFont = `900 40px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  const nameFont = `900 60px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  const gap = 26;
-
-  // Line 1: ⚾ 오늘의 승리투수  신민혁
-  const line1Y = boxY + 145;
-  shadowTextHeavy(ctx);
-  ctx.font = labelFont;
-  ctx.fillStyle = "#00d4aa";
-  const pLabel = "⚾ 오늘의 승리투수";
-  ctx.fillText(pLabel, boxX + 40, line1Y);
-  const pW = ctx.measureText(pLabel).width;
+  // New requirement: remove titles, remove shadows, center-align at bottom, 2x font size
+  resetShadow(ctx);
+  const nameFont = `900 120px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
   ctx.font = nameFont;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(pitcherName, boxX + 40 + pW + gap, line1Y);
-  resetShadow(ctx);
 
-  // Line 2: 🧤 찐MVP  김선빈 2안타
-  const line2Y = line1Y + 95;
-  shadowTextHeavy(ctx);
-  ctx.font = labelFont;
-  ctx.fillStyle = "#ffeb3b";
-  const mLabel = "🧤 찐MVP";
-  ctx.fillText(mLabel, boxX + 40, line2Y);
-  const mW = ctx.measureText(mLabel).width;
-  ctx.font = nameFont;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(String(mvpText).slice(0, 22), boxX + 40 + mW + gap, line2Y);
-  resetShadow(ctx);
+  const line1 = pitcherName || "—";
+  const line2 = String(mvpText || "—").slice(0, 22);
+  const lineGap = 140;
+  const baseY = SAFE_BOTTOM - 120;
+
+  const w1 = ctx.measureText(line1).width;
+  ctx.fillText(line1, (w - w1) / 2, baseY - lineGap);
+
+  const w2 = ctx.measureText(line2).width;
+  ctx.fillText(line2, (w - w2) / 2, baseY);
 
   // 하단 인덱스 텍스트 제거
 }
@@ -1126,26 +1113,6 @@ function Card8Shorts({ defaultDate }) {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button
-          type="button"
-          className="primary"
-          onClick={() => onGenerate(new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }))}
-          disabled={busy}
-        >
-          오늘
-        </button>
-        <button
-          type="button"
-          className="primary"
-          onClick={() => {
-            const t = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-            t.setDate(t.getDate() - 1);
-            onGenerate(t.toLocaleDateString("sv-SE"));
-          }}
-          disabled={busy}
-        >
-          어제
-        </button>
         <button type="button" className="primary" onClick={() => onGenerate()} disabled={busy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
@@ -2176,16 +2143,47 @@ export default function App() {
                   value={shDate}
                   onChange={(e) => setShDate(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={busy === "shorts_slides_open"}
-                  onClick={() => {
-                    setActiveKey("shorts_slides");
-                  }}
-                >
-                  슬라이드 생성 열기
-                </button>
+                <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy === "shorts_slides_open"}
+                    onClick={() => {
+                      const todayStr = new Date().toLocaleDateString("sv-SE", {
+                        timeZone: "Asia/Seoul",
+                      });
+                      setShDate(todayStr);
+                      setActiveKey("shorts_slides");
+                    }}
+                  >
+                    오늘
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy === "shorts_slides_open"}
+                    onClick={() => {
+                      const t = new Date(
+                        new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+                      );
+                      t.setDate(t.getDate() - 1);
+                      setShDate(t.toLocaleDateString("sv-SE"));
+                      setActiveKey("shorts_slides");
+                    }}
+                  >
+                    어제
+                  </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    disabled={busy === "shorts_slides_open"}
+                    onClick={() => {
+                      setActiveKey("shorts_slides");
+                    }}
+                  >
+                    슬라이드 생성 열기
+                  </button>
+                </div>
               </div>
 
               <div className="side-group">
