@@ -598,9 +598,10 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // Grass gradient background (top -> mid -> bottom)
   const grass = ctx.createLinearGradient(0, 0, 0, h);
   // brighter / cuter mint-green vibe
-  grass.addColorStop(0.0, "#388e3c");
-  grass.addColorStop(0.35, "#4caf50");
-  grass.addColorStop(0.6, "#66bb6a");
+  grass.addColorStop(0.0, "#43a047");
+  grass.addColorStop(0.28, "#4caf50");
+  grass.addColorStop(0.52, "#57c75a"); // 밝고 귀여운 그린
+  grass.addColorStop(0.72, "#66bb6a");
   grass.addColorStop(1.0, "#43a047");
   ctx.fillStyle = grass;
   ctx.fillRect(0, 0, w, h);
@@ -645,55 +646,88 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   ctx.restore();
 
   // Background baseballs
-  const drawBaseball = (cx, cy, r, ballAlpha, seamAlpha) => {
+  const drawBaseball = (cx, cy, r) => {
     ctx.save();
 
     // ball body
-    ctx.fillStyle = `rgba(255,255,255,${ballAlpha})`;
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.closePath();
     ctx.fill();
 
-    // seam curves (2)
-    ctx.strokeStyle = `rgba(255,0,0,${seamAlpha})`;
-    ctx.lineWidth = Math.max(3, Math.round(r * 0.035));
-
-    const sx = cx - r * 0.65;
-    const ex = cx + r * 0.65;
-    const y1 = cy - r * 0.1;
-    const y2 = cy + r * 0.1;
-
+    // outline
+    ctx.strokeStyle = "rgba(200,200,200,0.3)";
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(sx, y1);
-    ctx.bezierCurveTo(
-      cx - r * 0.25,
-      cy - r * 0.85,
-      cx + r * 0.25,
-      cy + r * 0.85,
-      ex,
-      y1
-    );
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.closePath();
     ctx.stroke();
 
-    ctx.beginPath();
-    ctx.moveTo(sx, y2);
-    ctx.bezierCurveTo(
-      cx - r * 0.25,
-      cy + r * 0.85,
-      cx + r * 0.25,
-      cy - r * 0.85,
-      ex,
-      y2
-    );
-    ctx.stroke();
+    // seams
+    ctx.strokeStyle = "rgba(200,50,50,0.4)";
+    ctx.lineWidth = 8;
+    ctx.lineCap = "round";
+
+    const seamOffsetX = r * 0.28;
+    const seamSpanY = r * 0.78;
+    const seamSpanX = r * 0.22;
+
+    const drawSeamWithStitches = (side /* -1 left, +1 right */) => {
+      const x0 = cx + side * seamOffsetX;
+      const yTop = cy - seamSpanY;
+      const yMid = cy;
+      const yBot = cy + seamSpanY;
+
+      // S-curve made of two beziers
+      ctx.beginPath();
+      ctx.moveTo(x0, yTop);
+      ctx.bezierCurveTo(
+        x0 + side * seamSpanX,
+        cy - seamSpanY * 0.55,
+        x0 - side * seamSpanX,
+        cy - seamSpanY * 0.15,
+        x0,
+        yMid
+      );
+      ctx.bezierCurveTo(
+        x0 + side * seamSpanX,
+        cy + seamSpanY * 0.15,
+        x0 - side * seamSpanX,
+        cy + seamSpanY * 0.55,
+        x0,
+        yBot
+      );
+      ctx.stroke();
+
+      // stitches: short horizontal-ish ticks along seam
+      ctx.save();
+      ctx.strokeStyle = "rgba(200,50,50,0.35)";
+      ctx.lineWidth = 5;
+      const ticks = 9;
+      for (let i = 0; i < ticks; i++) {
+        const t = (i + 1) / (ticks + 1); // 0..1
+        const yy = yTop + (yBot - yTop) * t;
+        // alternate direction for lively seam look
+        const dx = (r * 0.065) * (i % 2 === 0 ? 1 : -1);
+        const tickLen = r * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(x0 - (tickLen / 2) * side + dx, yy - r * 0.01);
+        ctx.lineTo(x0 + (tickLen / 2) * side + dx, yy + r * 0.01);
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+
+    // left seam (S), right seam (mirrored S)
+    drawSeamWithStitches(-1);
+    drawSeamWithStitches(+1);
 
     ctx.restore();
   };
 
-  // big ball bottom-right, small ball top-left
-  drawBaseball(w - 220, h - 260, 350, 0.15, 0.3);
-  drawBaseball(170, 220, 120, 0.08, 0.18);
+  // Big baseball on the right (can go out of bounds)
+  drawBaseball(900, 1100, 600);
 
   // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
   const titleLeft = "⚾ KBO ";
