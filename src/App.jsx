@@ -151,6 +151,23 @@ function calcEra(ipRaw, erRaw) {
   return (er * 9) / ip;
 }
 
+function pickBattingOrder(row) {
+  const v =
+    row?.batting_order ??
+    row?.battingOrder ??
+    row?.batting_order_no ??
+    row?.batting_order_num ??
+    row?.batting_order_number ??
+    row?.batting_order_idx ??
+    row?.order ??
+    row?.batting_order ??
+    row?.lineup_order ??
+    row?.lineupOrder ??
+    row?.타순;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 20 ? n : null;
+}
+
 /** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
 function mvpGameHeadline(g) {
   const score = String(g?.score || "").trim();
@@ -726,100 +743,124 @@ export default function App() {
                                 ) : grBox[String(gid || "")]?.data ? (
                                   (() => {
                                     const data = grBox[String(gid || "")]?.data;
-                                    const bats = Array.isArray(data?.batters)
-                                      ? data.batters
+                                    const batSide = data?.batters_by_side || null;
+                                    const pitSide = data?.pitchers_by_side || null;
+                                    const awayBatters = Array.isArray(batSide?.away)
+                                      ? batSide.away
                                       : [];
-                                    const pits = Array.isArray(data?.pitchers)
-                                      ? data.pitchers
+                                    const homeBatters = Array.isArray(batSide?.home)
+                                      ? batSide.home
                                       : [];
-                                    const topB = [...bats]
-                                      .sort(
-                                        (a, b) =>
-                                          Number(b?.ab ?? 0) - Number(a?.ab ?? 0)
-                                      )
-                                      .slice(0, 12);
-                                    const topP = [...pits]
-                                      .sort(
-                                        (a, b) =>
-                                          Number(b?.ip ?? 0) - Number(a?.ip ?? 0)
-                                      )
-                                      .slice(0, 10);
+                                    const awayPitchers = Array.isArray(pitSide?.away)
+                                      ? pitSide.away
+                                      : [];
+                                    const homePitchers = Array.isArray(pitSide?.home)
+                                      ? pitSide.home
+                                      : [];
+
+                                    const formatBatterLine = (r) => {
+                                      const order = pickBattingOrder(r);
+                                      const name = r?.player || r?.name || "—";
+                                      const ab = r?.ab ?? r?.AB ?? 0;
+                                      const h = r?.h ?? r?.H ?? 0;
+                                      const hr = r?.hr ?? r?.HR ?? 0;
+                                      const rbi = r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
+                                      const avgDot = formatSeasonAvgDot(
+                                        r?.avg ??
+                                          r?.AVG ??
+                                          r?.batting_avg ??
+                                          r?.battingAvg ??
+                                          r?.타율
+                                      );
+                                      const o = order == null ? "—" : String(order);
+                                      return `${o} ${name} — ${ab}타수 ${h}안타 ${rbi}타점 ${hr}홈런${
+                                        avgDot ? ` ${avgDot}` : ""
+                                      }`;
+                                    };
+
+                                    const formatPitcherLine = (r) => {
+                                      const name = r?.player || r?.name || "—";
+                                      const ip = r?.ip ?? r?.IP ?? 0;
+                                      const er =
+                                        r?.er ??
+                                        r?.ER ??
+                                        r?.earned_runs ??
+                                        r?.r ??
+                                        r?.R ??
+                                        0;
+                                      const so = r?.so ?? r?.SO ?? r?.k ?? r?.K ?? 0;
+                                      const era = calcEra(ip, er);
+                                      const eraStr =
+                                        era == null ? "" : ` ERA ${era.toFixed(2)}`;
+                                      return `${name} — ${ip}이닝 ${er}실점 ${so}K${eraStr}`;
+                                    };
                                     return (
                                       <div style={{ marginTop: 10 }}>
                                         <div className="muted" style={{ fontWeight: 900 }}>
-                                          박스스코어 (요약)
+                                          박스스코어
                                         </div>
-                                        <div
-                                          style={{
-                                            display: "grid",
-                                            gridTemplateColumns: "1fr 1fr",
-                                            gap: 10,
-                                            marginTop: 8,
-                                          }}
-                                        >
+                                        <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
                                           <div>
-                                            <div className="muted">타자 TOP</div>
+                                            <div className="muted">
+                                              원정팀 타자 기록 ({away})
+                                            </div>
                                             <pre className="mono">
-                                              {topB.length
-                                                ? topB
-                                                    .map((r) => {
-                                                      const name =
-                                                        r?.player || r?.name || "—";
-                                                      const team =
-                                                        r?.team ||
-                                                        r?.team_name ||
-                                                        r?.club ||
-                                                        "";
-                                                      const ab = r?.ab ?? r?.AB ?? 0;
-                                                      const h = r?.h ?? r?.H ?? 0;
-                                                      const hr = r?.hr ?? r?.HR ?? 0;
-                                                      const rbi =
-                                                        r?.rbi ?? r?.RBI ?? r?.bi ?? 0;
-                                                      const avgDot = formatSeasonAvgDot(
-                                                        r?.avg ??
-                                                          r?.AVG ??
-                                                          r?.batting_avg ??
-                                                          r?.battingAvg ??
-                                                          r?.타율
-                                                      );
-                                                      return `${name}${
-                                                        team ? ` (${teamAbbr(team)})` : ""
-                                                      } — ${ab}타수 ${h}안타 ${hr}홈런 ${rbi}타점${
-                                                        avgDot ? ` ${avgDot}` : ""
-                                                      }`;
-                                                    })
+                                              {awayBatters.length
+                                                ? awayBatters
+                                                    .slice(0, 18)
+                                                    .map(formatBatterLine)
                                                     .join("\n")
                                                 : "데이터 없음"}
                                             </pre>
                                           </div>
+
                                           <div>
-                                            <div className="muted">투수 TOP</div>
+                                            <div className="muted">
+                                              홈팀 타자 기록 ({home})
+                                            </div>
                                             <pre className="mono">
-                                              {topP.length
-                                                ? topP
-                                                    .map((r) => {
-                                                      const name =
-                                                        r?.player || r?.name || "—";
-                                                      const team =
-                                                        r?.team ||
-                                                        r?.team_name ||
-                                                        r?.club ||
-                                                        "";
-                                                      const ip = r?.ip ?? r?.IP ?? 0;
-                                                      const er =
-                                                        r?.er ?? r?.ER ?? r?.earned_runs ?? r?.r ?? r?.R ?? 0;
-                                                      const so =
-                                                        r?.so ?? r?.SO ?? r?.k ?? r?.K ?? 0;
-                                                      const era = calcEra(ip, er);
-                                                      const eraStr =
-                                                        era == null ? "" : ` ERA ${era.toFixed(2)}`;
-                                                      return `${name}${
-                                                        team ? ` (${teamAbbr(team)})` : ""
-                                                      } — ${ip}이닝 ${er}실점 ${so}K${eraStr}`;
-                                                    })
+                                              {homeBatters.length
+                                                ? homeBatters
+                                                    .slice(0, 18)
+                                                    .map(formatBatterLine)
                                                     .join("\n")
                                                 : "데이터 없음"}
                                             </pre>
+                                          </div>
+
+                                          <div>
+                                            <div className="muted">투수 기록</div>
+                                            <div
+                                              style={{
+                                                display: "grid",
+                                                gridTemplateColumns: "1fr 1fr",
+                                                gap: 10,
+                                                marginTop: 6,
+                                              }}
+                                            >
+                                              <div>
+                                                <div className="muted">원정 ({away})</div>
+                                                <pre className="mono">
+                                                  {awayPitchers.length
+                                                    ? awayPitchers
+                                                        .slice(0, 16)
+                                                        .map(formatPitcherLine)
+                                                        .join("\n")
+                                                    : "데이터 없음"}
+                                                </pre>
+                                              </div>
+                                              <div>
+                                                <div className="muted">홈 ({home})</div>
+                                                <pre className="mono">
+                                                  {homePitchers.length
+                                                    ? homePitchers
+                                                        .slice(0, 16)
+                                                        .map(formatPitcherLine)
+                                                        .join("\n")
+                                                    : "데이터 없음"}
+                                                </pre>
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>

@@ -384,6 +384,98 @@ function normalizeBatterRowForUi(row) {
   return { ...row, avg };
 }
 
+function normalizeSide(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "";
+  if (s === "home" || s === "h" || s.includes("홈")) return "home";
+  if (s === "away" || s === "a" || s.includes("원정") || s.includes("visit"))
+    return "away";
+  return s;
+}
+
+function pickBattingOrder(row) {
+  const v = pickAny(row, [
+    "order",
+    "batting_order",
+    "battingOrder",
+    "lineup_order",
+    "lineupOrder",
+    "타순",
+  ]);
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 20 ? n : null;
+}
+
+function splitAndSortBattersBySide(batters) {
+  const out = { away: [], home: [] };
+  const rows = Array.isArray(batters) ? batters : [];
+  const withUi = rows.map((r) => {
+    const ui = normalizeBatterRowForUi(r);
+    const side = normalizeSide(ui?.side);
+    const batting_order = pickBattingOrder(ui);
+    return { ...ui, side, batting_order };
+  });
+
+  const bySide = {
+    away: withUi.filter((r) => r.side === "away"),
+    home: withUi.filter((r) => r.side === "home"),
+  };
+
+  for (const side of ["away", "home"]) {
+    const list = bySide[side] || [];
+    const hasAnyOrder = list.some((r) => r.batting_order != null);
+    if (hasAnyOrder) {
+      // Prefer batting_order sort; de-duplicate by (order, player)
+      const seen = new Set();
+      const uniq = [];
+      for (const r of list) {
+        const key = `${r.batting_order ?? "x"}_${String(r.player || r.name || "")}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uniq.push(r);
+      }
+      uniq.sort((a, b) => {
+        const ao = a.batting_order ?? 999;
+        const bo = b.batting_order ?? 999;
+        if (ao !== bo) return ao - bo;
+        return String(a.player || a.name || "").localeCompare(
+          String(b.player || b.name || ""),
+          "ko"
+        );
+      });
+      out[side] = uniq;
+    } else {
+      // Fallback: no batting order → group unique by player name
+      const seen = new Set();
+      const uniq = [];
+      for (const r of list) {
+        const name = String(r.player || r.name || "").trim();
+        if (!name) continue;
+        if (seen.has(name)) continue;
+        seen.add(name);
+        uniq.push(r);
+      }
+      uniq.sort((a, b) =>
+        String(a.player || a.name || "").localeCompare(String(b.player || b.name || ""), "ko")
+      );
+      out[side] = uniq;
+    }
+  }
+  return out;
+}
+
+function splitPitchersBySide(pitchers) {
+  const rows = Array.isArray(pitchers) ? pitchers : [];
+  const withSide = rows.map((r) => ({ ...r, side: normalizeSide(r?.side) }));
+  const away = withSide.filter((r) => r.side === "away");
+  const home = withSide.filter((r) => r.side === "home");
+  const sortByIpDesc = (a, b) => Number(b?.ip ?? b?.IP ?? 0) - Number(a?.ip ?? a?.IP ?? 0);
+  away.sort(sortByIpDesc);
+  home.sort(sortByIpDesc);
+  return { away, home };
+}
+
 function normalizeGameId(x) {
   if (x == null) return "";
   const s = String(x).trim();
@@ -966,6 +1058,8 @@ export const handler = async (event) => {
           };
         }
         const box = await fetchBoxForGames(db, [gameId]);
+        const battersBySide = splitAndSortBattersBySide(box.batters || []);
+        const pitchersBySide = splitPitchersBySide(box.pitchers || []);
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -975,6 +1069,8 @@ export const handler = async (event) => {
             game_id: gameId,
             batters: (box.batters || []).map(normalizeBatterRowForUi),
             pitchers: box.pitchers || [],
+            batters_by_side: battersBySide,
+            pitchers_by_side: pitchersBySide,
           }),
         };
       }
