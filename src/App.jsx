@@ -331,17 +331,20 @@ function fmtGameLine(g) {
   return `${away} ${as} vs ${hs} ${home}`;
 }
 
+const TEXT_DARK = "#1a1a2e";
+
+// 파스텔 팀 컬러 (MZ 스타일 배경용)
 const TEAM_GRAD = {
-  삼성: ["#0066cc", "#003d7a"],
-  LG: ["#cc0000", "#8b0000"],
-  KT: ["#000000", "#333333"],
-  SSG: ["#ce0e2d", "#8b0000"],
-  NC: ["#071d3b", "#1a3a6b"],
-  두산: ["#131230", "#2d2b6e"],
-  KIA: ["#ea0029", "#9b001c"],
-  롯데: ["#002058", "#001030"],
-  한화: ["#ff6600", "#cc4400"],
-  키움: ["#820024", "#4a0015"],
+  삼성: ["#a8c8f0", "#a8c8f0"], // 파스텔 블루
+  LG: ["#f0a8a8", "#f0a8a8"], // 파스텔 레드
+  KT: ["#b0b0b0", "#b0b0b0"], // 파스텔 그레이
+  SSG: ["#f0a8b0", "#f0a8b0"], // 파스텔 핑크레드
+  NC: ["#a8b8d8", "#a8b8d8"], // 파스텔 네이비
+  두산: ["#b0a8d8", "#b0a8d8"], // 파스텔 퍼플
+  KIA: ["#f0b8a8", "#f0b8a8"], // 파스텔 오렌지레드
+  롯데: ["#a8b0d0", "#a8b0d0"], // 파스텔 블루네이비
+  한화: ["#f0cfa8", "#f0cfa8"], // 파스텔 오렌지
+  키움: ["#d0a8b8", "#d0a8b8"], // 파스텔 와인
 };
 
 const TEAM_CODE = {
@@ -454,13 +457,11 @@ function drawTeamBadge(ctx, cx, cy, r, teamName) {
   ctx.strokeStyle = "rgba(255,255,255,0.9)";
   ctx.stroke();
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 52px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowText(ctx);
   const t = teamBadgeLabel(teamName);
   const tw = ctx.measureText(t).width;
   ctx.fillText(t, cx - tw / 2, cy + 14);
-  resetShadow(ctx);
   ctx.restore();
 }
 
@@ -504,21 +505,31 @@ function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   drawTeamBadge(ctx, x + size / 2, y + size / 2, size / 2, teamName);
 }
 
-function diagTeamGradient(ctx, w, h, homeTeam, awayTeam) {
-  const [h1, h2] = teamGrad(homeTeam);
-  const [a1, a2] = teamGrad(awayTeam);
-  // base: home gradient
-  const g1 = ctx.createLinearGradient(0, 0, w, h);
-  g1.addColorStop(0, h1);
-  g1.addColorStop(1, h2);
-  ctx.fillStyle = g1;
+function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
+  const [p] = teamGrad(primaryTeam);
+  const [s] = teamGrad(secondaryTeam);
+
+  // base: primary (winner/기준팀) 65%
+  ctx.fillStyle = p;
   ctx.fillRect(0, 0, w, h);
-  // overlay: away diagonal gradient
-  const g2 = ctx.createLinearGradient(w, 0, 0, h);
-  g2.addColorStop(0, a1 + "cc");
-  g2.addColorStop(1, a2 + "00");
-  ctx.fillStyle = g2;
-  ctx.fillRect(0, 0, w, h);
+
+  // secondary: bottom-right 35% (사선 분할)
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.45);
+  ctx.lineTo(w, h * 0.75);
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = s;
+  ctx.fill();
+
+  // boundary line (white / semi-white 4px)
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.45);
+  ctx.lineTo(w, h * 0.75);
+  ctx.stroke();
 }
 
 function hexToRgba(hex, a) {
@@ -531,15 +542,8 @@ function hexToRgba(hex, a) {
 }
 
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
-  const [wMain, wDark] = teamGrad(winTeam);
-  const [lMain] = teamGrad(loseTeam);
-  // Diagonal gradient: top-left (winner) -> bottom-right (loser)
-  const g = ctx.createLinearGradient(0, 0, 1080, 1920);
-  g.addColorStop(0.0, wMain);
-  g.addColorStop(0.6, wDark);
-  g.addColorStop(1.0, hexToRgba(lMain, 0.7));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+  // 유지용 이름이지만, 실제 동작은 "사선 분할" 배경으로 변경합니다.
+  diagTeamGradient(ctx, w, h, winTeam, loseTeam);
 }
 
 function downloadBlob(blob, filename) {
@@ -559,7 +563,7 @@ function canvasToBlob(canvas) {
 
 function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   ctx.clearRect(0, 0, w, h);
-  // team gradient background (home main + away diagonal)
+  // pastel + diagonal split background
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
 
   // NOTE: slide-specific headers should respect safe zone (y: 200~1720).
@@ -584,23 +588,17 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   const SAFE_BOTTOM = 1720;
 
   // Date + subtitle (safe zone)
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextStrong(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
-  resetShadow(ctx);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
-  resetShadow(ctx);
 
   if (!games?.length) {
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = TEXT_DARK;
     ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowText(ctx);
     ctx.fillText("오늘 등록된 경기 없음", 64, SAFE_TOP + 320);
-    resetShadow(ctx);
     return;
   }
 
@@ -610,8 +608,8 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   let y = SAFE_TOP + 200;
 
   for (const g of games) {
-    ctx.fillStyle = "rgba(12, 15, 20, 0.35)";
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(x, y, cardW, cardH, 24);
@@ -639,23 +637,19 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
       logosByTeamKey?.[ak] || null
     );
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = TEXT_DARK;
     ctx.font = `900 68px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowText(ctx);
     const s = `${g.home_score ?? "—"}  vs  ${g.away_score ?? "—"}`;
     const sw = ctx.measureText(s).width;
     ctx.fillText(s, x + (cardW - sw) / 2, y + 136);
-    resetShadow(ctx);
 
     y += cardH + 22;
     if (y > SAFE_BOTTOM - 120) break;
   }
 
-  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText(`오늘 ${games.length}경기`, 64, SAFE_BOTTOM);
-  resetShadow(ctx);
 }
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
@@ -675,20 +669,12 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const SAFE_BOTTOM = 1720;
 
   // Date header (safe zone)
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextStrong(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
-  resetShadow(ctx);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
-  resetShadow(ctx);
-
-  const topH = Math.floor(h / 3);
-  ctx.fillStyle = "rgba(12,15,20,0.42)";
-  ctx.fillRect(0, topH, w, h - topH);
 
   const logoSize = 200;
   // Place logos below date header, within safe zone
@@ -712,14 +698,12 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
     logosByTeamKey?.[ak] || null
   );
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 200px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowText(ctx);
   const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
   const sw = ctx.measureText(score).width;
   // Center score within safe zone
   ctx.fillText(score, (w - sw) / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2));
-  resetShadow(ctx);
 
   const m = g.mvp_batter;
   // Bottom highlight box (inside safe zone)
@@ -728,56 +712,47 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   const boxH = 380;
   const boxY = SAFE_BOTTOM - boxH;
 
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillStyle = "rgba(255,255,255,0.62)";
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(boxX, boxY, boxW, boxH, 28);
   ctx.fill();
+  ctx.stroke();
 
   // Winner pitcher
-  ctx.fillStyle = "#00d4aa";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText("🏆 승리투수", boxX + 40, boxY + 90);
-  resetShadow(ctx);
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 70px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextStrong(ctx);
   ctx.fillText(
     String(g.winning_pitcher || "—").replace(/\s+/g, " ").trim().slice(0, 18),
     boxX + 40,
     boxY + 165
   );
-  resetShadow(ctx);
 
   // MVP
-  ctx.fillStyle = "#ffd54a";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText("⭐ MVP", boxX + 40, boxY + 255);
-  resetShadow(ctx);
 
   const mvpName = m?.name ? String(m.name).trim() : "—";
   const mvpHits = Number.isFinite(Number(m?.h)) ? Number(m.h) : 0;
   const mvpText = m?.name ? `${mvpName} ${mvpHits}안타` : "—";
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextStrong(ctx);
   ctx.fillText(mvpText.slice(0, 22), boxX + 40, boxY + 325);
-  resetShadow(ctx);
 
   // Venue (small line at bottom of box)
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText(g.venue ? `🏟️ ${g.venue}` : "🏟️ —", boxX + 40, boxY + 370);
-  resetShadow(ctx);
 
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText(`${index}/${total}`, 64, SAFE_BOTTOM - 70);
-  resetShadow(ctx);
 }
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
@@ -787,18 +762,14 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   const SAFE_BOTTOM = 1720;
 
   // Title
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `900 90px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextStrong(ctx);
   ctx.fillText("KBO 현재 순위", 64, SAFE_TOP + 90);
-  resetShadow(ctx);
 
   // Date
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillStyle = TEXT_DARK;
   ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowText(ctx);
   ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 90 + 70);
-  resetShadow(ctx);
 
   const rows = Array.isArray(standings) ? standings : [];
   if (!rows.length) {
