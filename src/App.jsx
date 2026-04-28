@@ -195,42 +195,6 @@ function removeFirstHeading(md) {
   return text.replace(/^\s*#{1,3}\s*.+?\s*(\r?\n)+/m, "");
 }
 
-function stripCompositeSummarySection(md) {
-  const text = String(md || "");
-  // Remove a "종합 성적 요약" block (the extra vertical summary the user wants gone),
-  // but keep other sections like "경기별 ..." and the rest of the report.
-  //
-  // Claude output varies: this heading sometimes appears as a markdown heading,
-  // a bold line, or a bullet item. We strip the block until the next section
-  // heading (### ...) OR a line that starts a "경기별 ..." section.
-  const re =
-    /(^|\n)\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?\s*(?:📌|📊|📅|📋)?\s*종합\s*성적\s*요약[^\n]*\n+([\s\S]*?)(?=\n\s*(?:#{1,6}\s+|(?:[-*]\s*)?(?:\*\*)?\s*(?:📋|📅|📊|📌)?\s*경기별|$))/m;
-  return text.replace(re, "\n");
-}
-
-function stripMonthlySummarySection(md) {
-  const text = String(md || "");
-  // Remove a "월간 종합 성적" block regardless of formatting (heading/bold/bullet),
-  // and keep the rest (e.g., 경기별 상세 성적).
-  const re =
-    /(^|\n)\s*(?:#{1,6}\s*)?(?:[-*]\s*)?(?:\*\*)?\s*(?:📌|📊|📅|📋)?\s*월간\s*종합\s*성적[^\n]*\n+([\s\S]*?)(?=\n\s*(?:#{1,6}\s+|(?:[-*]\s*)?(?:\*\*)?\s*(?:📋|📅|📊|📌)?\s*경기별|$))/m;
-  return text.replace(re, "\n");
-}
-
-function stripDuplicateSummaryTables(md) {
-  const text = String(md || "");
-  // Remove markdown tables under summary headings if present.
-  // Keeps the rest of the report (e.g., 경기별 상세 성적).
-  const patterns = [
-    /(^|\n)\s*#{1,4}\s*📊?\s*전체\s*요약[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
-    /(^|\n)\s*#{1,4}\s*📅?\s*월간\s*종합\s*성적[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
-    /(^|\n)\s*#{1,4}\s*📅?\s*전체\s*누적\s*성적[^\n]*\n+(?:\|.*\n)+\|(?:\s*:?[-]+:?[\s|]*)\n(?:\|.*\n)+/m,
-  ];
-  let out = text;
-  for (const p of patterns) out = out.replace(p, "\n");
-  return out;
-}
-
 function extractKoreanBattingLine(md) {
   const text = String(md || "");
   const m = text.match(
@@ -1895,13 +1859,7 @@ export default function App() {
                           <div className="section-title">📊 전체 요약</div>
                           <SummaryCards batterRows={prOut.uiData?.batterRows} />
                           <MarkdownView
-                            text={stripCompositeSummarySection(
-                              stripMonthlySummarySection(
-                                stripDuplicateSummaryTables(
-                                  removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")
-                                )
-                              )
-                            )}
+                            text={removeFirstHeading(prOut.text).replace(/^\s*0\s*(\r?\n)+/, "")}
                           />
                         </>
                       )}
