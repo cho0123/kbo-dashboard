@@ -388,6 +388,23 @@ function resetShadow(ctx) {
   ctx.shadowOffsetY = 0;
 }
 
+function shadowTextStrong(ctx) {
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 8;
+}
+
+function fmtKoreanLongDate(iso) {
+  const s = String(iso || "").slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s || "—";
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  return `${y}년 ${mo}월 ${d}일`;
+}
+
 function teamBadgeLabel(teamName) {
   // Requested: NC, KIA, LG, 삼성, KT, SSG, 두산, 롯데, 한화, 키움
   const kw = teamKeyword(teamName);
@@ -497,16 +514,13 @@ function hexToRgba(hex, a) {
 }
 
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
-  const [w1, w2] = teamGrad(winTeam);
-  const [l1, l2] = teamGrad(loseTeam);
-  const g = ctx.createLinearGradient(0, 0, 0, 1920);
-  // Winner: 0% ~ 65% (strong)
-  g.addColorStop(0.0, w1);
-  g.addColorStop(0.65, w2);
-  // Mix: 65% ~ 80%
-  g.addColorStop(0.8, hexToRgba(l1, 0.6));
-  // Loser: 80% ~ 100% (alpha 0.6)
-  g.addColorStop(1.0, hexToRgba(l2, 0.6));
+  const [wMain, wDark] = teamGrad(winTeam);
+  const [lMain] = teamGrad(loseTeam);
+  // Diagonal gradient: top-left (winner) -> bottom-right (loser)
+  const g = ctx.createLinearGradient(0, 0, 1080, 1920);
+  g.addColorStop(0.0, wMain);
+  g.addColorStop(0.6, wDark);
+  g.addColorStop(1.0, hexToRgba(lMain, 0.7));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 }
@@ -531,17 +545,11 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   // team gradient background (home main + away diagonal)
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
 
-  // accent bar
-  ctx.fillStyle = "rgba(0, 212, 170, 0.18)";
-  ctx.fillRect(0, 0, w, 120);
-  ctx.fillStyle = "#00d4aa";
-  ctx.fillRect(0, 116, w, 4);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "900 56px system-ui, sans-serif";
-  shadowText(ctx);
-  ctx.fillText(title, 64, 84);
-  resetShadow(ctx);
+  // NOTE: slide-specific headers should respect safe zone (y: 200~1720).
+  // Keep base free of top UI chrome.
+  if (title) {
+    ctx.fillStyle = "rgba(255,255,255,0.0)";
+  }
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
@@ -550,16 +558,31 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx,
     w,
     h,
-    `⚾ KBO ${String(date).replaceAll("-", ".")}`,
+    "",
     first.home_team,
     first.away_team
   );
+
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+
+  // Date + subtitle (safe zone)
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "1000 80px system-ui, sans-serif";
+  shadowTextStrong(ctx);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "900 50px system-ui, sans-serif";
+  shadowText(ctx);
+  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
+  resetShadow(ctx);
 
   if (!games?.length) {
     ctx.fillStyle = "#ffffff";
     ctx.font = "900 64px system-ui, sans-serif";
     shadowText(ctx);
-    ctx.fillText("오늘 등록된 경기 없음", 64, 320);
+    ctx.fillText("오늘 등록된 경기 없음", 64, SAFE_TOP + 320);
     resetShadow(ctx);
     return;
   }
@@ -567,7 +590,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   const cardW = 952;
   const cardH = 220;
   const x = 64;
-  let y = 220;
+  let y = SAFE_TOP + 200;
 
   for (const g of games) {
     ctx.fillStyle = "rgba(12, 15, 20, 0.35)";
@@ -608,13 +631,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     resetShadow(ctx);
 
     y += cardH + 22;
-    if (y > h - 180) break;
+    if (y > SAFE_BOTTOM - 120) break;
   }
 
   ctx.fillStyle = "rgba(255,255,255,0.90)";
   ctx.font = "900 44px system-ui, sans-serif";
   shadowText(ctx);
-  ctx.fillText(`오늘 ${games.length}경기`, 64, h - 70);
+  ctx.fillText(`오늘 ${games.length}경기`, 64, SAFE_BOTTOM);
   resetShadow(ctx);
 }
 
@@ -631,16 +654,19 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
 
-  // Top title bar (same accent style)
-  ctx.fillStyle = "rgba(0, 212, 170, 0.18)";
-  ctx.fillRect(0, 0, w, 120);
-  ctx.fillStyle = "#00d4aa";
-  ctx.fillRect(0, 116, w, 4);
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
 
+  // Date header (safe zone)
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 56px system-ui, sans-serif";
+  ctx.font = "1000 80px system-ui, sans-serif";
+  shadowTextStrong(ctx);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "900 50px system-ui, sans-serif";
   shadowText(ctx);
-  ctx.fillText(`KBO ${String(date).replaceAll("-", ".")}`, 64, 84);
+  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
   resetShadow(ctx);
 
   const topH = Math.floor(h / 3);
@@ -648,7 +674,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.fillRect(0, topH, w, h - topH);
 
   const logoSize = 200;
-  const badgeY = Math.round(h * 0.25) - logoSize / 2;
+  // Place logos below date header, within safe zone
+  const badgeY = SAFE_TOP + 260;
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
   drawTeamLogoOrBadge(
@@ -673,7 +700,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   shadowText(ctx);
   const score = `${g.home_score ?? "—"}  -  ${g.away_score ?? "—"}`;
   const sw = ctx.measureText(score).width;
-  ctx.fillText(score, (w - sw) / 2, Math.round(h * 0.52));
+  // Center score within safe zone
+  ctx.fillText(score, (w - sw) / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2));
   resetShadow(ctx);
 
   const m = g.mvp_batter;
@@ -686,13 +714,14 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.font = "900 44px system-ui, sans-serif";
   shadowText(ctx);
-  ctx.fillText(info, 64, h - 170);
+  // Bottom info inside safe zone
+  ctx.fillText(info, 64, SAFE_BOTTOM - 20);
   resetShadow(ctx);
 
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = "900 34px system-ui, sans-serif";
   shadowText(ctx);
-  ctx.fillText(`${index}/${total}`, 64, h - 110);
+  ctx.fillText(`${index}/${total}`, 64, SAFE_BOTTOM - 70);
   resetShadow(ctx);
 }
 
