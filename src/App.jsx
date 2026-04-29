@@ -1051,6 +1051,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
     const tk = teamKeyword(teamRaw);
     const logo = logosByTeamKey?.[tk] || null;
+    console.log("logo check:", tk, !!logosByTeamKey?.[tk], logosByTeamKey?.[tk]);
     const winsN = Number(ws);
     const lossesN = Number(ls);
     return {
