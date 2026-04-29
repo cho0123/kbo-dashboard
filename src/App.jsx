@@ -853,6 +853,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
+  console.log("game keys:", Object.keys(g));
   const homeWin = Number(g.home_score) > Number(g.away_score);
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
