@@ -940,11 +940,13 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const winTeamBatters = (Array.isArray(batters) ? batters : []).filter(
-    (b) =>
+  const winTeamBatters = (Array.isArray(batters) ? batters : []).filter((b) => {
+    const sameGame = !b?.game_id || b?.game_id === g?.game_id;
+    const sameTeam =
       String(b?.team || "").includes(teamKeyword(winTeam)) ||
-      String(winTeam || "").includes(teamKeyword(b?.team))
-  );
+      String(winTeam || "").includes(teamKeyword(b?.team));
+    return sameGame && sameTeam;
+  });
   const mvp = winTeamBatters.sort((a, b) => {
     if ((b.hr || 0) !== (a.hr || 0)) return (b.hr || 0) - (a.hr || 0);
     return (b.h || 0) - (a.h || 0);
