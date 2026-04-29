@@ -666,7 +666,7 @@ function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
 
 /** 순위 슬라이드 배경 — 단색 네이비 + 야구공 워터마크 */
 function drawStandingsSolidBackground(ctx, w, h) {
-  ctx.fillStyle = "#4A7FD4";
+  ctx.fillStyle = "#1E88E5";
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 }
@@ -1139,9 +1139,9 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.textBaseline = "middle";
     const lineY = y + TOP_H / 2;
     ctx.fillStyle = "#FFD700";
-    ctx.font = `800 52px "${FONT_BODY}", sans-serif`;
+    ctx.font = `800 104px "${FONT_BODY}", sans-serif`;
     ctx.letterSpacing = "-0.5px";
-    const leftText = `🥇 ${d.rank}위 ${d.team}`;
+    const leftText = `${d.team}`;
     ctx.fillText(leftText, tx, lineY);
     const leftW = ctx.measureText(leftText).width;
     ctx.letterSpacing = "0px";
@@ -1180,9 +1180,9 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const gbPart = gb != null ? `  GB ${gb}` : "";
     const lineY = y + TOP_H / 2;
     ctx.fillStyle = "#1a3a5c";
-    ctx.font = `800 52px "${FONT_BODY}", sans-serif`;
+    ctx.font = `800 104px "${FONT_BODY}", sans-serif`;
     ctx.letterSpacing = "-0.5px";
-    const leftText = `🥈 ${d.rank}위 ${d.team}`;
+    const leftText = `${d.team}`;
     ctx.fillText(leftText, tx, lineY);
     const leftW = ctx.measureText(leftText).width;
     ctx.letterSpacing = "0px";
@@ -1215,20 +1215,10 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.stroke();
 
     ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const rowCenterY = y + GRID_H / 2;
-    ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#1a3a5c";
-    const medal = d.rank === 3 ? "🥉 " : "";
-    ctx.fillText(`${medal}${d.rank}위 ${d.team}`, x + 24, rowCenterY - 22);
-    ctx.save();
-    ctx.globalAlpha = 0.8;
-    ctx.font = `400 30px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#1a3a5c";
-    const gb = gbOf(d);
-    const gbPart = gb != null ? `  GB ${gb}` : "";
-    ctx.fillText(`${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`, x + 24, rowCenterY + 24);
-    ctx.restore();
+    ctx.textBaseline = "top";
+    ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(String(d.rank), x + 24, y + 24);
     ctx.restore();
   }
 }
