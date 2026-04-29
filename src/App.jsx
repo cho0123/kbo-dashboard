@@ -433,8 +433,8 @@ const SHORTS_SUMMARY_ACCENT = "#FFD700";
 
 /** Card8Shorts 마지막 슬라이드(순위) — canvas ctx.font · JSX CSS 변수 동기화 */
 const STANDINGS_CANVAS = {
-  topPad: 80,
-  bottomPad: 60,
+  topPad: 120,
+  bottomPad: 120,
   titleFs: 58,
   titleWeight: 900,
   dateFs: 26,
@@ -443,10 +443,10 @@ const STANDINGS_CANVAS = {
   dividerOffsetBelowDate: 14,
   gapBelowDivider: 20,
   rankLine: {
-    1: { fs: 58, weight: 900, color: "#FFD700" },
-    2: { fs: 46, weight: 700, color: "#FFFFFF" },
-    3: { fs: 40, weight: 700, color: "#FFFFFF" },
-    rest: { fs: 32, weight: 500, color: "#CCCCCC" },
+    1: { fs: 44, weight: 900, color: "#FFD700" },
+    2: { fs: 44, weight: 700, color: "#FFFFFF" },
+    3: { fs: 44, weight: 700, color: "#FFFFFF" },
+    rest: { fs: 44, weight: 500, color: "#CCCCCC" },
   },
 };
 
