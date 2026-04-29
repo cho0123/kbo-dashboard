@@ -1003,7 +1003,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   // 날짜는 타이틀 오른쪽에 같은 줄로 (작게)
   const titleWidth = ctx.measureText("KBO 현재 순위").width;
   ctx.fillStyle = `rgba(255,255,255,0.8)`;
-  ctx.font = `500 28px "${FONT_BODY}", sans-serif`;
+  ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
   ctx.fillText(dateLabel, 64 + titleWidth + 24, TITLE_BASELINE);
 
   ctx.strokeStyle = "rgba(255,255,255,0.55)";
@@ -1049,7 +1049,20 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
     const tk = teamKeyword(teamRaw);
     const logo = logosByTeamKey?.[tk] || null;
-    return { rank, team, ws, ls, pct, teamRaw, tk, logo };
+    const winsN = Number(ws);
+    const lossesN = Number(ls);
+    return {
+      rank,
+      team,
+      ws,
+      ls,
+      pct,
+      teamRaw,
+      tk,
+      logo,
+      winsN: Number.isFinite(winsN) ? winsN : null,
+      lossesN: Number.isFinite(lossesN) ? lossesN : null,
+    };
   };
 
   const drawLogo = (img, x, y, boxW, boxH, fallbackTeamName) => {
@@ -1058,12 +1071,34 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
       drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, fallbackTeamName);
       return;
     }
-    const iw = Number(img.width) || boxW;
-    const ih = Number(img.height) || boxH;
+    const iw = Number(img.width);
+    const ih = Number(img.height);
+    if (!Number.isFinite(iw) || !Number.isFinite(ih) || iw <= 0 || ih <= 0) {
+      // Some SVG images can report 0x0 even when drawable.
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(img, x, y, boxW, boxH);
+      ctx.restore();
+      return;
+    }
     const scale = Math.min(boxW / iw, boxH / ih);
     const dw = iw * scale;
     const dh = ih * scale;
+    ctx.save();
+    ctx.globalAlpha = 1;
     ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+    ctx.restore();
+  };
+
+  const leader = pick(0);
+  const gbOf = (d) => {
+    if (!leader || leader.winsN == null || leader.lossesN == null) return null;
+    if (!d || d.winsN == null || d.lossesN == null) return null;
+    const gamesBehind = ((leader.winsN - d.winsN) + (d.lossesN - leader.lossesN)) / 2;
+    if (!Number.isFinite(gamesBehind)) return null;
+    // KBO GB usually in 0.5 steps; show one decimal, trim trailing .0
+    const s = gamesBehind.toFixed(1);
+    return s.endsWith(".0") ? s.slice(0, -2) : s;
   };
 
   // 1st box
@@ -1092,10 +1127,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.textBaseline = "alphabetic";
     ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#FFD700";
-    ctx.fillText(`${d.rank}위 ${d.team}`, tx, y + 78);
-    ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#CCCCCC";
-    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, tx, y + 130);
+    ctx.fillText(`${d.rank}위 ${d.team}  ${d.ws}승 ${d.ls}패 ${d.pct}`, tx, y + 110);
     ctx.restore();
   }
 
@@ -1123,10 +1155,13 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.textBaseline = "alphabetic";
     ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(`${d.rank}위 ${d.team}`, tx, y + 78);
-    ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#CCCCCC";
-    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, tx, y + 130);
+    const gb = gbOf(d);
+    const gbPart = gb != null ? `  GB ${gb}` : "";
+    ctx.fillText(
+      `${d.rank}위 ${d.team}  ${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`,
+      tx,
+      y + 110
+    );
     ctx.restore();
   }
 
@@ -1156,7 +1191,9 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.fillText(`${d.rank}위 ${d.team}`, x + 24, y + 54);
     ctx.font = `500 28px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#CCCCCC";
-    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, x + 24, y + 92);
+    const gb = gbOf(d);
+    const gbPart = gb != null ? `  GB ${gb}` : "";
+    ctx.fillText(`${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`, x + 24, y + 92);
     ctx.restore();
   }
 }
