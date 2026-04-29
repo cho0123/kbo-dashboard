@@ -433,20 +433,20 @@ const SHORTS_SUMMARY_ACCENT = "#FFD700";
 
 /** Card8Shorts 마지막 슬라이드(순위) — canvas ctx.font · JSX CSS 변수 동기화 */
 const STANDINGS_CANVAS = {
-  topPad: 40,
-  bottomPad: 40,
-  titleFs: 52,
+  topPad: 80,
+  bottomPad: 60,
+  titleFs: 58,
   titleWeight: 900,
-  dateFs: 22,
+  dateFs: 26,
   dateOpacity: 0.9,
-  dateGapBelowTitle: 16,
-  dividerOffsetBelowDate: 8,
-  gapBelowDivider: 12,
+  dateGapBelowTitle: 36,
+  dividerOffsetBelowDate: 14,
+  gapBelowDivider: 20,
   rankLine: {
     1: { fs: 58, weight: 900, color: "#FFD700" },
-    2: { fs: 48, weight: 700, color: "#FFFFFF" },
-    3: { fs: 42, weight: 700, color: "#FFFFFF" },
-    rest: { fs: 34, weight: 500, color: "#CCCCCC" },
+    2: { fs: 46, weight: 700, color: "#FFFFFF" },
+    3: { fs: 40, weight: 700, color: "#FFFFFF" },
+    rest: { fs: 32, weight: 500, color: "#CCCCCC" },
   },
 };
 
@@ -799,8 +799,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  const accent = SHORTS_SUMMARY_ACCENT;
-
   // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 골드 고정
   const titleLeft = "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
@@ -810,13 +808,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillStyle = "#ffffff";
   ctx.fillText(titleLeft, 64, titleBaseline);
   const leftW = ctx.measureText(titleLeft).width;
-  ctx.fillStyle = accent;
+  ctx.fillStyle = "#FFD700";
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
   // 서브타이틀 (골드 고정)
   const subBaseline = titleBaseline + 78;
-  ctx.fillStyle = accent;
+  ctx.fillStyle = "#FFD700";
   ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("오늘의 경기 결과", 64, subBaseline);
@@ -828,7 +826,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   const headlineBaseline = subBaseline + 52;
   const maxTextW = w - 128;
   ctx.save();
-  ctx.fillStyle = accent;
+  ctx.fillStyle = "#FFD700";
   ctx.letterSpacing = "-1px";
   const headlineFs = measureFitFontSize(
     ctx,
@@ -919,7 +917,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
     ctx.fillStyle = "#ffffff";
     ctx.font = scoreFont;
     ctx.fillText(hsText + pad, startX, yy);
-    ctx.fillStyle = accent;
+    ctx.fillStyle = "#FFD700";
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
