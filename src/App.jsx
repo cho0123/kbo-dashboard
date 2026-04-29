@@ -967,8 +967,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   };
 
   const emojiFont = `900 100px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  const labelFont = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
-  const nameFont = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
+  const labelFont = `900 60px "Gmarket Sans", system-ui, sans-serif`;
+  const nameFont = `900 80px "Gmarket Sans", system-ui, sans-serif`;
 
   const baseY = SAFE_BOTTOM - 170;
   const lineGap = 110;
