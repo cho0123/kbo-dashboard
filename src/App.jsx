@@ -1214,11 +1214,26 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.fill();
     ctx.stroke();
 
+    // rank (top-left)
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFF5E0";
     ctx.fillText(String(d.rank), x + 24, y + 24);
+
+    // logo (center) or team name fallback
+    const logoSize = GRID_H * 0.6;
+    const lx = x + (GRID_W - logoSize) / 2;
+    const ly = y + (GRID_H - logoSize) / 2;
+    if (d.logo) {
+      drawLogoInBox(lx, ly, logoSize, logoSize, d.teamRaw, d.logo);
+    } else {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `800 48px "${FONT_BODY}", sans-serif`;
+      ctx.fillStyle = "#FFF5E0";
+      ctx.fillText(d.team, x + GRID_W / 2, y + GRID_H / 2);
+    }
     ctx.restore();
   }
 }
