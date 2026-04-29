@@ -765,7 +765,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
 
   const cardW = 952;
-  const cardH = 248;
+  const cardH = 175;
   const x = 64;
   let y = SAFE_TOP + 200;
 
@@ -812,14 +812,24 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 
     // Score: make VS bigger and yellow
     const scoreFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+    const winScoreFont = `900 88px "${FONT_TITLE}", system-ui, sans-serif`;
     const vsFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
     const vsText = "VS";
     const pad = "  ";
-    ctx.font = scoreFont;
+    const hsNum = Number(g?.home_score);
+    const asNum = Number(g?.away_score);
+    const homeWin = Number.isFinite(hsNum) && Number.isFinite(asNum) && hsNum > asNum;
+    const awayWin = Number.isFinite(hsNum) && Number.isFinite(asNum) && asNum > hsNum;
+
+    const homeFont = homeWin ? winScoreFont : scoreFont;
+    const awayFont = awayWin ? winScoreFont : scoreFont;
+
+    ctx.font = homeFont;
     const w1 = ctx.measureText(hsText + pad).width;
+    ctx.font = awayFont;
     const w3 = ctx.measureText(pad + asText).width;
     ctx.font = vsFont;
     const w2 = ctx.measureText(vsText).width;
@@ -828,13 +838,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     const yy = y + Math.round(cardH * 0.62);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = scoreFont;
+    ctx.font = homeFont;
     ctx.fillText(hsText + pad, startX, yy);
     ctx.fillStyle = "#F9FF00";
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
-    ctx.font = scoreFont;
+    ctx.font = awayFont;
     ctx.fillText(pad + asText, startX + w1 + w2, yy);
     resetShadow(ctx);
 
