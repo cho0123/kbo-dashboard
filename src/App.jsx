@@ -985,7 +985,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.fillText(star, (w - hw) / 2, baseY - lineGap * 2);
 
   // pitcher / batter lines (names only)
-  drawCenteredLabelValue(baseY - lineGap, "투수", pitcherName || "—", labelFont, nameFont);
+  drawCenteredLabelValue(baseY - lineGap, "선발", pitcherName || "—", labelFont, nameFont);
   drawCenteredLabelValue(baseY, "타자", batterName || "—", labelFont, nameFont);
 
   // 하단 인덱스 텍스트 제거
