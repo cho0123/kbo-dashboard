@@ -981,10 +981,7 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   const BOTTOM_PAD = 120;
   const TITLE_FS = 58;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DATE_GAP_BELOW_TITLE = 36;
-  const DATE_FS = 26;
-  const DATE_BASELINE = TITLE_BASELINE + DATE_GAP_BELOW_TITLE;
-  const DIVIDER_Y = DATE_BASELINE + 14;
+  const DIVIDER_Y = TITLE_BASELINE + 20;
   const LIST_TOP = DIVIDER_Y + 20;
   const LIST_BOTTOM = h - BOTTOM_PAD;
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
@@ -1003,9 +1000,11 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("KBO 현재 순위", 64, TITLE_BASELINE);
 
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(dateLabel, 64, DATE_BASELINE);
+  // 날짜는 타이틀 오른쪽에 같은 줄로 (작게)
+  const titleWidth = ctx.measureText("KBO 현재 순위").width;
+  ctx.fillStyle = `rgba(255,255,255,0.8)`;
+  ctx.font = `500 28px "${FONT_BODY}", sans-serif`;
+  ctx.fillText(dateLabel, 64 + titleWidth + 24, TITLE_BASELINE);
 
   ctx.strokeStyle = "rgba(255,255,255,0.55)";
   ctx.lineWidth = 2;
@@ -1039,7 +1038,7 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = `700 44px "${FONT_BODY}", sans-serif`;
+    ctx.font = `700 60px "${FONT_BODY}", sans-serif`;
     ctx.fillText(line, 64, rowCenterY);
     ctx.restore();
   }
