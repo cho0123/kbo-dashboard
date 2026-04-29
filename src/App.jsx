@@ -812,12 +812,14 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
-  // Claude 헤드라인: 900, 자동 축소, 그림자, letter-spacing (서브타이틀 없음 — 제목 바로 아래)
+  // Claude 헤드라인: Nanum Pen Script, 자동 축소, 그림자 (서브타이틀 없음)
   const headline =
     String(dailyHeadline || "").trim() || "오늘의 경기 한줄 요약";
-  const headlineBaseline = titleBaseline + 78;
+  const headlineBaseline = titleBaseline + 100;
   const maxTextW = w - 128;
+  const headlineFont = "Nanum Pen Script";
   ctx.save();
+  ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
   ctx.letterSpacing = "-1px";
   const headlineFs = measureFitFontSize(
@@ -826,16 +828,16 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
     maxTextW,
     62,
     14,
-    900,
-    FONT_BODY,
+    400,
+    headlineFont,
     "-1px"
   );
-  ctx.font = `900 ${headlineFs}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `400 ${headlineFs}px "${headlineFont}", cursive, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 16;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 2;
-  ctx.fillText(headline, 64, headlineBaseline, maxTextW);
+  ctx.fillText(headline, w / 2, headlineBaseline, maxTextW);
   ctx.restore();
   resetShadow(ctx);
 

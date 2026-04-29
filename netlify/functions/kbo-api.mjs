@@ -1617,9 +1617,8 @@ export const handler = async (event) => {
         const sys =
           "한국어로만 답한다. 출력은 본문 한 줄만, 따옴표나 접두 없이.";
         const user =
-          `오늘(${dateStr}) KBO 경기 결과를 바탕으로 한 줄로 임팩트 있게 요약해줘.\n` +
-          `조건: 20자 이내, 이모티콘·이모지 금지, 흥미롭고 재미있게.\n\n` +
-          `데이터(JSON):\n${JSON.stringify(gamesForPrompt)}`;
+          "오늘 KBO 경기를 임팩트 있게 요약해줘. 반드시 10자 이내, 이모티콘 없이, 흥미롭고 재미있게. 10자를 절대 넘지 마." +
+          `\n\n데이터(JSON):\n${JSON.stringify(gamesForPrompt)}`;
         let headline = "";
         try {
           const raw = await claude(sys, user, 256);
@@ -1627,9 +1626,8 @@ export const handler = async (event) => {
             .replace(/\s+/g, " ")
             .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
             .trim()
-            .replace(/^["']|["']$/g, "");
-          const arr = [...headline];
-          headline = arr.length > 20 ? arr.slice(0, 20).join("") : headline;
+            .replace(/^["']|["']$/g, "")
+            .slice(0, 10);
         } catch (e) {
           console.error("[daily_headline]", e);
           headline = "오늘의 경기 한줄 요약";
