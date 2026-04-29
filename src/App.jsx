@@ -930,7 +930,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   ctx.fillText(asText, baseX + wHs + wSep, yy);
   resetShadow(ctx);
 
-  const m = g.mvp_batter;
   // Winner pitcher / MVP (no background box; text only)
   const boxX = 64;
   const boxY = SAFE_BOTTOM - 380;
@@ -944,7 +943,11 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const batterName = cleanName(m?.name);
+  const homeWin = Number(g.home_score) > Number(g.away_score);
+  const winTeam = homeWin ? g.home_team : g.away_team;
+  const matchups = Array.isArray(g?.matchups) ? g.matchups : null;
+  const m = matchups?.find((x) => x?.team === winTeam);
+  const batterName = cleanName(m?.mvp_batter?.name ?? m?.mvp_batter_name ?? m?.name);
 
   resetShadow(ctx); // no shadow
   ctx.textAlign = "left";
