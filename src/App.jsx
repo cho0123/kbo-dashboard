@@ -458,19 +458,19 @@ function fmtStandingsWinRateDot(v) {
 /** 순위 슬라이드 한 줄 (순위별 크기·색·웨이트 통합) */
 function drawStandingsLineUnified(ctx, x, cy, rank, team, ws, ls, pct, fontBody) {
   const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
-  let fs = 30;
+  let fs = 34;
   let weight = 500;
   let color = "#CCCCCC";
   if (rank === 1) {
-    fs = 52;
+    fs = 58;
     weight = 900;
     color = "#FFD700";
   } else if (rank === 2) {
-    fs = 44;
+    fs = 48;
     weight = 700;
     color = "#FFFFFF";
   } else if (rank === 3) {
-    fs = 38;
+    fs = 42;
     weight = 700;
     color = "#FFFFFF";
   }
@@ -705,12 +705,12 @@ function summarySlidePointColor(dateStr) {
   const s = String(dateStr || "").trim().slice(0, 10);
   const d = new Date(s);
   const dow = Number.isNaN(d.getTime()) ? 0 : d.getDay();
-  if (dow === 1 || dow === 2) return "#FF6EB4";
-  if (dow === 3) return "#7C6FFF";
-  if (dow === 4) return "#3FA9FF";
-  if (dow === 5) return "#FFD93D";
-  if (dow === 6) return "#FF4D94";
-  return "#00E5A0";
+  if (dow === 1 || dow === 2) return "#FFB3DE";
+  if (dow === 3) return "#C4B5FD";
+  if (dow === 4) return "#BAE6FD";
+  if (dow === 5) return "#FEF08A";
+  if (dow === 6) return "#FBCFE8";
+  return "#A7F3D0";
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
@@ -1052,13 +1052,14 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
 
   const TOP_PAD = 80;
   const BOTTOM_PAD = 80;
-  const TITLE_FS = 70;
+  const TITLE_FS = 64;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DATE_GAP = 32;
-  const DATE_FS = 26;
-  const DATE_BASELINE = TITLE_BASELINE + DATE_GAP + DATE_FS;
+  const DATE_GAP_BELOW_TITLE = 34;
+  const DATE_FS = 28;
+  const DATE_BASELINE = TITLE_BASELINE + DATE_GAP_BELOW_TITLE;
   const DIVIDER_Y = DATE_BASELINE + 14;
-  const LIST_TOP = DIVIDER_Y + 36;
+  const GAP_BELOW_DIVIDER = 40;
+  const LIST_TOP = DIVIDER_Y + GAP_BELOW_DIVIDER;
   const LIST_BOTTOM = h - BOTTOM_PAD;
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
 
@@ -1073,10 +1074,10 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${TITLE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("KBO 현재 순위", 64, TITLE_BASELINE);
 
-  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(dateLabel, 64, DATE_BASELINE);
 
