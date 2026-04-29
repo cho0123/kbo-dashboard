@@ -765,7 +765,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
 
   const cardW = 952;
-  const cardH = 190;
+  const cardH = 195;
   const x = 64;
   let y = SAFE_TOP + 200;
 
@@ -833,13 +833,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     const yy = y + Math.round(cardH * 0.62);
 
     ctx.font = scoreFont;
-    ctx.fillStyle = homeWin ? "#FDD5EC" : "#FFFFFF";
+    ctx.fillStyle = homeWin ? "#FFB3DE" : "#FFFFFF";
     ctx.fillText(hsText + pad, startX, yy);
     ctx.fillStyle = "#F9FF00";
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.font = scoreFont;
-    ctx.fillStyle = awayWin ? "#FDD5EC" : "#FFFFFF";
+    ctx.fillStyle = awayWin ? "#FFB3DE" : "#FFFFFF";
     ctx.fillText(pad + asText, startX + w1 + w2, yy);
     resetShadow(ctx);
 
