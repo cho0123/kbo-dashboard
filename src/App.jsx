@@ -853,7 +853,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
-  console.log("game keys:", Object.keys(g));
   const homeWin = Number(g.home_score) > Number(g.away_score);
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
@@ -941,16 +940,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const matchups = Array.isArray(g?.matchups) ? g.matchups : null;
-  const m = matchups?.find(
-    (x) =>
-      String(x?.team || "").includes(teamKeyword(winTeam)) ||
-      String(winTeam || "").includes(teamKeyword(x?.team))
-  );
-  console.log("matchups:", JSON.stringify(matchups?.slice(0, 2)));
-  console.log("winTeam:", winTeam);
-  console.log("m:", JSON.stringify(m));
-  const batterName = cleanName(m?.mvp_batter?.name ?? m?.mvp_batter_name ?? m?.name);
+  const batterName = cleanName(g?.mvp_batter?.name ?? g?.mvp_batter ?? "—");
 
   resetShadow(ctx); // no shadow
   ctx.textAlign = "left";
