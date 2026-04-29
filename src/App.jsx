@@ -428,17 +428,20 @@ async function ensureCanvasFonts() {
 const FONT_TITLE = "Black Han Sans";
 const FONT_BODY = "Noto Sans KR";
 
-/** Card8Shorts 마지막 슬라이드(순위) — canvas 논리 좌표(px). JSX 미사용, ctx.font만 사용 */
+/** Card8Shorts 첫 슬라이드 악센트 — 날짜·VS·서브타이틀·헤드라인 고정 */
+const SHORTS_SUMMARY_ACCENT = "#FFD700";
+
+/** Card8Shorts 마지막 슬라이드(순위) — canvas ctx.font · JSX CSS 변수 동기화 */
 const STANDINGS_CANVAS = {
-  topPad: 80,
-  bottomPad: 80,
+  topPad: 60,
+  bottomPad: 60,
   titleFs: 64,
   titleWeight: 900,
   dateFs: 28,
   dateOpacity: 0.9,
-  dateGapBelowTitle: 34,
-  dividerOffsetBelowDate: 14,
-  gapBelowDivider: 52,
+  dateGapBelowTitle: 28,
+  dividerOffsetBelowDate: 10,
+  gapBelowDivider: 22,
   rankLine: {
     1: { fs: 58, weight: 900, color: "#FFD700" },
     2: { fs: 48, weight: 700, color: "#FFFFFF" },
@@ -690,25 +693,34 @@ function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
   diagTeamGradient(ctx, w, h, winTeam, loseTeam);
 }
 
-/** 순위 슬라이드 — 게임 슬라이드와 동일 사선 각도, 고정 네이비 2색 */
-function diagSplitStandingsBackground(ctx, w, h) {
+/** 순위 슬라이드 배경 — 단색 네이비 + 야구공 워터마크 */
+function drawStandingsSolidBackground(ctx, w, h) {
   ctx.fillStyle = "#0d1b2a";
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
-  ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
-  ctx.lineTo(w, h);
-  ctx.lineTo(0, h);
-  ctx.closePath();
-  ctx.fillStyle = "#1a2f45";
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
-  ctx.stroke();
+}
+
+/** JSX `<section>`에서 canvas 순위 폰트 스펙과 동일한 CSS 변수 노출 */
+function card8StandingsCssVars() {
+  const R = STANDINGS_CANVAS.rankLine;
+  return {
+    "--c8-standings-pad-top": `${STANDINGS_CANVAS.topPad}px`,
+    "--c8-standings-pad-bottom": `${STANDINGS_CANVAS.bottomPad}px`,
+    "--c8-standings-title-fs": `${STANDINGS_CANVAS.titleFs}px`,
+    "--c8-standings-date-fs": `${STANDINGS_CANVAS.dateFs}px`,
+    "--c8-standings-rank1-fs": `${R[1].fs}px`,
+    "--c8-standings-rank1-weight": String(R[1].weight),
+    "--c8-standings-rank1-color": R[1].color,
+    "--c8-standings-rank2-fs": `${R[2].fs}px`,
+    "--c8-standings-rank2-weight": String(R[2].weight),
+    "--c8-standings-rank2-color": R[2].color,
+    "--c8-standings-rank3-fs": `${R[3].fs}px`,
+    "--c8-standings-rank3-weight": String(R[3].weight),
+    "--c8-standings-rank3-color": R[3].color,
+    "--c8-standings-rank4-fs": `${R.rest.fs}px`,
+    "--c8-standings-rank4-weight": String(R.rest.weight),
+    "--c8-standings-rank4-color": R.rest.color,
+  };
 }
 
 function downloadBlob(blob, filename) {
@@ -738,21 +750,8 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-/** 첫 슬라이드 요일별 포인트 컬러만 (텍스트용, getDay: 0=일…6=토) */
-function summarySlidePointColor(dateStr) {
-  const s = String(dateStr || "").trim().slice(0, 10);
-  const d = new Date(s);
-  const dow = Number.isNaN(d.getTime()) ? 0 : d.getDay();
-  if (dow === 1 || dow === 2) return "#FF85C1";
-  if (dow === 3) return "#B39DFF";
-  if (dow === 4) return "#70C8FF";
-  if (dow === 5) return "#FFE566";
-  if (dow === 6) return "#FF80C0";
-  return "#5DFFC4";
-}
-
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
-  // Summary slide: 고정 야구장 그린 + 요일별 포인트(텍스트만)
+  // Summary slide: 고정 야구장 그린 + 골드 악센트(텍스트만)
   ctx.clearRect(0, 0, w, h);
 
   ctx.fillStyle = "#4CAF50";
@@ -800,9 +799,9 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  const point = summarySlidePointColor(date);
+  const accent = SHORTS_SUMMARY_ACCENT;
 
-  // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 포인트 컬러
+  // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 골드 고정
   const titleLeft = "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
   const titleBaseline = SAFE_TOP + 80;
@@ -811,13 +810,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillStyle = "#ffffff";
   ctx.fillText(titleLeft, 64, titleBaseline);
   const leftW = ctx.measureText(titleLeft).width;
-  ctx.fillStyle = point;
+  ctx.fillStyle = accent;
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
-  // 서브타이틀 (포인트 컬러)
+  // 서브타이틀 (골드 고정)
   const subBaseline = titleBaseline + 78;
-  ctx.fillStyle = point;
+  ctx.fillStyle = accent;
   ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("오늘의 경기 결과", 64, subBaseline);
@@ -829,7 +828,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   const headlineBaseline = subBaseline + 52;
   const maxTextW = w - 128;
   ctx.save();
-  ctx.fillStyle = point;
+  ctx.fillStyle = accent;
   ctx.letterSpacing = "-1px";
   const headlineFs = measureFitFontSize(
     ctx,
@@ -920,7 +919,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
     ctx.fillStyle = "#ffffff";
     ctx.font = scoreFont;
     ctx.fillText(hsText + pad, startX, yy);
-    ctx.fillStyle = point;
+    ctx.fillStyle = accent;
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
@@ -1078,7 +1077,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.clearRect(0, 0, w, h);
-  diagSplitStandingsBackground(ctx, w, h);
+  drawStandingsSolidBackground(ctx, w, h);
 
   const TOP_PAD = STANDINGS_CANVAS.topPad;
   const BOTTOM_PAD = STANDINGS_CANVAS.bottomPad;
@@ -1266,7 +1265,7 @@ function Card8Shorts({ defaultDate }) {
   };
 
   return (
-    <div className="section soft">
+    <div className="section soft" style={card8StandingsCssVars()}>
       <div className="section-title">8. 쇼츠 슬라이드 생성</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
