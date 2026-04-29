@@ -857,6 +857,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
 
+  console.log("batters sample:", JSON.stringify(batters?.slice(0,2)));
+  console.log("g.game_id:", g?.game_id, "winTeam:", winTeam);
+
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
 
@@ -947,6 +950,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       String(winTeam || "").includes(teamKeyword(b?.team));
     return sameGame && sameTeam;
   });
+  console.log("winTeamBatters count:", winTeamBatters?.length);
   const mvp = winTeamBatters.sort((a, b) => {
     if ((b.hr || 0) !== (a.hr || 0)) return (b.hr || 0) - (a.hr || 0);
     return (b.h || 0) - (a.h || 0);
