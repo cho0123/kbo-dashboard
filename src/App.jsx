@@ -951,6 +951,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       String(x?.team || "").includes(teamKeyword(winTeam)) ||
       String(winTeam || "").includes(teamKeyword(x?.team))
   );
+  console.log("matchups:", JSON.stringify(matchups?.slice(0, 2)));
+  console.log("winTeam:", winTeam);
+  console.log("m:", JSON.stringify(m));
   const batterName = cleanName(m?.mvp_batter?.name ?? m?.mvp_batter_name ?? m?.name);
 
   resetShadow(ctx); // no shadow
