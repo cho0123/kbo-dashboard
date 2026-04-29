@@ -812,38 +812,30 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
-  // 서브타이틀 (골드 고정)
-  const subBaseline = titleBaseline + 78;
-  ctx.fillStyle = "#F9FF00";
-  ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("오늘의 경기 결과", 64, subBaseline);
-  resetShadow(ctx);
-
-  // Claude 헤드라인: 900, 자동 축소, 그림자, letter-spacing
+  // Claude 헤드라인: 900, 자동 축소, 그림자, letter-spacing (서브타이틀 없음 — 제목 바로 아래)
   const headline =
     String(dailyHeadline || "").trim() || "오늘의 경기 한줄 요약";
-  const headlineBaseline = subBaseline + 52;
+  const headlineBaseline = titleBaseline + 78;
   const maxTextW = w - 128;
   ctx.save();
-  ctx.fillStyle = "#F9FF00";
+  ctx.fillStyle = "#FFFFFF";
   ctx.letterSpacing = "-1px";
   const headlineFs = measureFitFontSize(
     ctx,
     headline,
     maxTextW,
     62,
-    18,
+    14,
     900,
     FONT_BODY,
     "-1px"
   );
   ctx.font = `900 ${headlineFs}px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 12;
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 16;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 2;
-  ctx.fillText(headline, 64, headlineBaseline);
+  ctx.fillText(headline, 64, headlineBaseline, maxTextW);
   ctx.restore();
   resetShadow(ctx);
 
