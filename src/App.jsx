@@ -765,7 +765,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
 
   const cardW = 952;
-  const cardH = 195;
+  const cardH = 200;
   const x = 64;
   let y = SAFE_TOP + 200;
 
@@ -1238,6 +1238,16 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
       ctx.font = `800 48px "${FONT_BODY}", sans-serif`;
       ctx.fillStyle = "#FFF5E0";
       ctx.fillText(d.team, x + GRID_W / 2, y + GRID_H / 2);
+    }
+
+    // GB (bottom-right)
+    const gb = gbOf(d);
+    if (gb != null) {
+      ctx.textAlign = "right";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `900 28px "${FONT_TITLE}", system-ui, sans-serif`;
+      ctx.fillStyle = "#FFF5E0";
+      ctx.fillText(`GB ${gb}`, x + GRID_W - 16, y + GRID_H - 16);
     }
     ctx.restore();
   }
