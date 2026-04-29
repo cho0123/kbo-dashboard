@@ -666,7 +666,7 @@ function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
 
 /** 순위 슬라이드 배경 — 단색 네이비 + 야구공 워터마크 */
 function drawStandingsSolidBackground(ctx, w, h) {
-  ctx.fillStyle = "#A0D8FF";
+  ctx.fillStyle = "#4A7FD4";
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 }
