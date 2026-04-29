@@ -340,18 +340,31 @@ function shadowTextSoft(ctx) {
   ctx.shadowOffsetY = 3;
 }
 
-// 선명한 파스텔 팀 컬러 (Card8Shorts 배경용)
+// 파스텔 팀 컬러 (Card8Shorts 배경용)
 const TEAM_GRAD = {
-  삼성: ["#4fc3f7", "#4fc3f7"], // 네온 스카이블루
-  LG: ["#ff5252", "#ff5252"], // 네온 레드
-  KT: ["#90a4ae", "#90a4ae"], // 밝은 블루그레이
-  SSG: ["#ff4081", "#ff4081"], // 네온 핫핑크
-  NC: ["#448aff", "#448aff"], // 네온 블루
-  두산: ["#7c4dff", "#7c4dff"], // 네온 퍼플
-  KIA: ["#ff6d00", "#ff6d00"], // 네온 오렌지
-  롯데: ["#2979ff", "#2979ff"], // 네온 로얄블루
-  한화: ["#ffab40", "#ffab40"], // 네온 오렌지옐로우
-  키움: ["#f06292", "#f06292"], // 네온 핑크
+  삼성: ["#64c8ff", "#64c8ff"],
+  LG: ["#ff7878", "#ff7878"],
+  KT: ["#90a4ae", "#90a4ae"],
+  SSG: ["#ff96b4", "#ff96b4"],
+  NC: ["#64a0ff", "#64a0ff"],
+  두산: ["#b482ff", "#b482ff"],
+  KIA: ["#ffa050", "#ffa050"],
+  롯데: ["#648cff", "#648cff"],
+  한화: ["#ffc864", "#ffc864"],
+  키움: ["#f08cb4", "#f08cb4"],
+};
+
+const TEAM_PASTEL_BG = {
+  KT: "rgba(144,164,174,0.30)",
+  LG: "rgba(255,120,120,0.30)",
+  SSG: "rgba(255,150,180,0.30)",
+  NC: "rgba(100,160,255,0.30)",
+  삼성: "rgba(100,200,255,0.30)",
+  KIA: "rgba(255,160,80,0.30)",
+  두산: "rgba(180,130,255,0.30)",
+  한화: "rgba(255,200,100,0.30)",
+  키움: "rgba(240,140,180,0.30)",
+  롯데: "rgba(100,140,255,0.30)",
 };
 
 const TEAM_CODE = {
@@ -1104,7 +1117,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const x = X0;
     const y = LIST_TOP;
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.15)";
     ctx.strokeStyle = "rgba(255,255,255,0.4)";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -1122,9 +1135,20 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const tx = lx + logoSize + 28;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
+    const lineY = y + TOP_H / 2;
     ctx.fillStyle = "#FFD700";
-    ctx.fillText(`${d.rank}위 ${d.team}  ${d.ws}승 ${d.ls}패 ${d.pct}`, tx, y + TOP_H / 2);
+    ctx.font = `800 52px "${FONT_BODY}", sans-serif`;
+    ctx.letterSpacing = "-0.5px";
+    const leftText = `${d.rank}위 ${d.team}`;
+    ctx.fillText(leftText, tx, lineY);
+    const leftW = ctx.measureText(leftText).width;
+    ctx.letterSpacing = "0px";
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.font = `400 52px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(`  ${d.ws}승 ${d.ls}패 ${d.pct}`, tx + leftW, lineY);
+    ctx.restore();
     ctx.restore();
   }
 
@@ -1134,7 +1158,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const x = X0;
     const y = LIST_TOP + TOP_H + TOP_GAP;
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.15)";
     ctx.strokeStyle = "rgba(255,255,255,0.4)";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -1150,15 +1174,22 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const tx = lx + logoSize + 28;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#FFFFFF";
     const gb = gbOf(d);
     const gbPart = gb != null ? `  GB ${gb}` : "";
-    ctx.fillText(
-      `${d.rank}위 ${d.team}  ${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`,
-      tx,
-      y + TOP_H / 2
-    );
+    const lineY = y + TOP_H / 2;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `800 52px "${FONT_BODY}", sans-serif`;
+    ctx.letterSpacing = "-0.5px";
+    const leftText = `${d.rank}위 ${d.team}`;
+    ctx.fillText(leftText, tx, lineY);
+    const leftW = ctx.measureText(leftText).width;
+    ctx.letterSpacing = "0px";
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.font = `400 52px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(`  ${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`, tx + leftW, lineY);
+    ctx.restore();
     ctx.restore();
   }
 
@@ -1173,7 +1204,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const y = gridStartY + row * (GRID_H + GRID_ROW_GAP);
 
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.10)";
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1186,11 +1217,14 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#FFFFFF";
     ctx.fillText(`${d.rank}위 ${d.team}`, x + 24, y + 62);
-    ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.font = `400 30px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#CCCCCC";
     const gb = gbOf(d);
     const gbPart = gb != null ? `  GB ${gb}` : "";
     ctx.fillText(`${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`, x + 24, y + 118);
+    ctx.restore();
     ctx.restore();
   }
 }
