@@ -1445,18 +1445,21 @@ function pickVenueName(g) {
   ).slice(0, 24);
 }
 
-async function fetchStandings(db, max = 20) {
+/**
+ * 업로드 스크립트 기준: standings 컬렉션 단일 문서 `{ year, standings: [...] }`
+ * 문서 ID 예: 2026_standings
+ */
+async function fetchStandings2026Document(db) {
   try {
-    const snap = await db.collection("standings").orderBy("rank", "asc").limit(max).get();
-    const rows = [];
-    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
-    return rows;
+    const snap = await db.collection("standings").doc("2026_standings").get();
+    if (!snap.exists) return { standings: [], year: 2026 };
+    const data = docSnap(snap);
+    const standings = Array.isArray(data.standings) ? data.standings : [];
+    const year = typeof data.year === "number" ? data.year : 2026;
+    return { standings, year };
   } catch (e) {
-    // fallback: if rank field doesn't exist
-    const snap = await db.collection("standings").limit(max).get();
-    const rows = [];
-    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
-    return rows;
+    console.warn("[fetchStandings2026Document]", e?.message || e);
+    return { standings: [], year: 2026 };
   }
 }
 
@@ -1575,7 +1578,7 @@ export const handler = async (event) => {
           });
         }
 
-        const standings = await fetchStandings(db, 20);
+        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -1585,6 +1588,7 @@ export const handler = async (event) => {
             date: dateStr,
             games,
             standings,
+            standingsYear,
           }),
         };
       }
