@@ -1269,16 +1269,10 @@ function Card8Shorts({ defaultDate }) {
     try {
       const d = nextDate || date;
       if (nextDate) setDate(nextDate);
-      const [res, hl] = await Promise.all([
-        postKbo({ action: "shorts_slides_data", date: d }),
-        postKbo({ action: "daily_headline", date: d }).catch(() => ({
-          headline: "",
-        })),
-      ]);
+      const res = await postKbo({ action: "shorts_slides_data", date: d });
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
       setData({
         ...res,
-        headline: hl?.headline != null ? String(hl.headline) : "",
       });
       setSlideIdx(0);
     } catch (e) {
