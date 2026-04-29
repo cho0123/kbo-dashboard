@@ -750,7 +750,7 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // Summary slide: 고정 야구장 그린 + 골드 악센트(텍스트만)
   ctx.clearRect(0, 0, w, h);
 
@@ -812,35 +812,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
-  // Claude 헤드라인: Nanum Pen Script, 자동 축소, 그림자 (서브타이틀 없음)
-  const headline =
-    String(dailyHeadline || "").trim() || "오늘의 경기 한줄 요약";
-  const headlineBaseline = titleBaseline + 100;
-  const maxTextW = w - 128;
-  const headlineFont = "Nanum Pen Script";
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.letterSpacing = "-1px";
-  const headlineFs = measureFitFontSize(
-    ctx,
-    headline,
-    maxTextW,
-    72,
-    14,
-    400,
-    headlineFont,
-    "-1px"
-  );
-  ctx.font = `400 ${headlineFs}px "${headlineFont}", cursive, sans-serif`;
-  ctx.shadowColor = "rgba(0,0,0,0.8)";
-  ctx.shadowBlur = 16;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 2;
-  ctx.fillText(headline, w / 2, headlineBaseline, maxTextW);
-  ctx.restore();
-  resetShadow(ctx);
-
   if (!games?.length) {
     return;
   }
@@ -848,7 +819,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   const cardW = 952;
   const cardH = 248;
   const x = 64;
-  let y = Math.max(SAFE_TOP + 200, headlineBaseline + headlineFs + 36);
+  let y = SAFE_TOP + 200;
 
   const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
     if (!img) {
@@ -1192,7 +1163,7 @@ function Card8Shorts({ defaultDate }) {
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, data?.headline);
+      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
     else if (slide.type === "game")
       drawGameSlide(
         ctx,

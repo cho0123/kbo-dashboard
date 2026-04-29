@@ -1592,57 +1592,6 @@ export const handler = async (event) => {
           }),
         };
       }
-      case "daily_headline": {
-        const dateStr = payload.date || isoSeoulToday();
-        const gameDocs = await fetchGamesByDate(db, dateStr);
-        const gamesForPrompt = (gameDocs || []).map((g) => ({
-          away_team: g.away_team,
-          home_team: g.home_team,
-          away_score: g.away_score,
-          home_score: g.home_score,
-          game_id: g.game_id ?? g.gameId ?? null,
-        }));
-        if (!gamesForPrompt.length) {
-          return {
-            statusCode: 200,
-            headers: corsHeaders(),
-            body: JSON.stringify({
-              ok: true,
-              action: "daily_headline",
-              date: dateStr,
-              headline: "등록된 경기가 없습니다",
-            }),
-          };
-        }
-        const sys =
-          "한국어로만 답한다. 출력은 본문 한 줄만, 따옴표나 접두 없이.";
-        const user =
-          "오늘 KBO 경기를 임팩트 있게 요약해줘. 반드시 15자 이내로 완성된 문장으로. 이모티콘 없이, 흥미롭고 재미있게. 15자를 절대 넘지 마." +
-          `\n\n데이터(JSON):\n${JSON.stringify(gamesForPrompt)}`;
-        let headline = "";
-        try {
-          const raw = await claude(sys, user, 256);
-          headline = String(raw || "")
-            .replace(/\s+/g, " ")
-            .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
-            .trim()
-            .replace(/^["']|["']$/g, "")
-            .slice(0, 15);
-        } catch (e) {
-          console.error("[daily_headline]", e);
-          headline = "오늘의 경기 한줄 요약";
-        }
-        return {
-          statusCode: 200,
-          headers: corsHeaders(),
-          body: JSON.stringify({
-            ok: true,
-            action: "daily_headline",
-            date: dateStr,
-            headline: headline || "오늘의 경기 한줄 요약",
-          }),
-        };
-      }
       case "last_updated": {
         const meta = await fetchLastUpdated(db);
         return {
