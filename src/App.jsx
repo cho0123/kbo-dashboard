@@ -431,25 +431,6 @@ const FONT_BODY = "Noto Sans KR";
 /** Card8Shorts 첫 슬라이드 악센트 — 날짜·VS·서브타이틀·헤드라인 고정 */
 const SHORTS_SUMMARY_ACCENT = "#FFD700";
 
-/** Card8Shorts 마지막 슬라이드(순위) — canvas ctx.font · JSX CSS 변수 동기화 */
-const STANDINGS_CANVAS = {
-  topPad: 120,
-  bottomPad: 120,
-  titleFs: 58,
-  titleWeight: 900,
-  dateFs: 26,
-  dateOpacity: 0.9,
-  dateGapBelowTitle: 36,
-  dividerOffsetBelowDate: 14,
-  gapBelowDivider: 20,
-  rankLine: {
-    1: { fs: 44, weight: 900, color: "#FFD700" },
-    2: { fs: 44, weight: 700, color: "#FFFFFF" },
-    3: { fs: 44, weight: 700, color: "#FFFFFF" },
-    rest: { fs: 44, weight: 500, color: "#CCCCCC" },
-  },
-};
-
 function fmtKoreanLongDate(iso) {
   const s = String(iso || "").slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -475,29 +456,6 @@ function fmtStandingsWinRateDot(v) {
   if (Number.isNaN(n)) return String(v);
   const s = n.toFixed(3);
   return s.startsWith("0.") ? s.slice(1) : s;
-}
-
-/** 순위 슬라이드 한 줄 — STANDINGS_CANVAS.rankLine 기준으로 ctx.font 강제 */
-function drawStandingsLineUnified(ctx, x, cy, rank, team, ws, ls, pct, fontBody) {
-  const rk = Math.trunc(Number(rank));
-  const safeRank = Number.isFinite(Number(rank)) && rk >= 1 ? rk : 1;
-  const tier =
-    safeRank === 1
-      ? STANDINGS_CANVAS.rankLine[1]
-      : safeRank === 2
-        ? STANDINGS_CANVAS.rankLine[2]
-        : safeRank === 3
-          ? STANDINGS_CANVAS.rankLine[3]
-          : STANDINGS_CANVAS.rankLine.rest;
-  const { fs, weight, color } = tier;
-  const line = `${safeRank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
-  ctx.save();
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
-  ctx.fillStyle = color;
-  ctx.font = `${weight} ${fs}px "${fontBody}", sans-serif`;
-  ctx.fillText(line, x, cy);
-  ctx.restore();
 }
 
 function measureFitFontSize(
@@ -698,29 +656,6 @@ function drawStandingsSolidBackground(ctx, w, h) {
   ctx.fillStyle = "#0d1b2a";
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
-}
-
-/** JSX `<section>`에서 canvas 순위 폰트 스펙과 동일한 CSS 변수 노출 */
-function card8StandingsCssVars() {
-  const R = STANDINGS_CANVAS.rankLine;
-  return {
-    "--c8-standings-pad-top": `${STANDINGS_CANVAS.topPad}px`,
-    "--c8-standings-pad-bottom": `${STANDINGS_CANVAS.bottomPad}px`,
-    "--c8-standings-title-fs": `${STANDINGS_CANVAS.titleFs}px`,
-    "--c8-standings-date-fs": `${STANDINGS_CANVAS.dateFs}px`,
-    "--c8-standings-rank1-fs": `${R[1].fs}px`,
-    "--c8-standings-rank1-weight": String(R[1].weight),
-    "--c8-standings-rank1-color": R[1].color,
-    "--c8-standings-rank2-fs": `${R[2].fs}px`,
-    "--c8-standings-rank2-weight": String(R[2].weight),
-    "--c8-standings-rank2-color": R[2].color,
-    "--c8-standings-rank3-fs": `${R[3].fs}px`,
-    "--c8-standings-rank3-weight": String(R[3].weight),
-    "--c8-standings-rank3-color": R[3].color,
-    "--c8-standings-rank4-fs": `${R.rest.fs}px`,
-    "--c8-standings-rank4-weight": String(R.rest.weight),
-    "--c8-standings-rank4-color": R.rest.color,
-  };
 }
 
 function downloadBlob(blob, filename) {
@@ -1042,15 +977,15 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.clearRect(0, 0, w, h);
   drawStandingsSolidBackground(ctx, w, h);
 
-  const TOP_PAD = STANDINGS_CANVAS.topPad;
-  const BOTTOM_PAD = STANDINGS_CANVAS.bottomPad;
-  const TITLE_FS = STANDINGS_CANVAS.titleFs;
+  const TOP_PAD = 120;
+  const BOTTOM_PAD = 120;
+  const TITLE_FS = 58;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DATE_GAP_BELOW_TITLE = STANDINGS_CANVAS.dateGapBelowTitle;
-  const DATE_FS = STANDINGS_CANVAS.dateFs;
+  const DATE_GAP_BELOW_TITLE = 36;
+  const DATE_FS = 26;
   const DATE_BASELINE = TITLE_BASELINE + DATE_GAP_BELOW_TITLE;
-  const DIVIDER_Y = DATE_BASELINE + STANDINGS_CANVAS.dividerOffsetBelowDate;
-  const LIST_TOP = DIVIDER_Y + STANDINGS_CANVAS.gapBelowDivider;
+  const DIVIDER_Y = DATE_BASELINE + 14;
+  const LIST_TOP = DIVIDER_Y + 20;
   const LIST_BOTTOM = h - BOTTOM_PAD;
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
 
@@ -1065,10 +1000,10 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `${STANDINGS_CANVAS.titleWeight} ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
+  ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("KBO 현재 순위", 64, TITLE_BASELINE);
 
-  ctx.fillStyle = `rgba(255,255,255,${STANDINGS_CANVAS.dateOpacity})`;
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", sans-serif`;
   ctx.fillText(dateLabel, 64, DATE_BASELINE);
 
@@ -1093,19 +1028,20 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const r = rows[i] || {};
-    const rankRaw = r.rank ?? r.RANK ?? r.순위 ?? i + 1;
-    const rank = Number(rankRaw) || i + 1;
-    const team = fmtTeamShort(
-      r.team ?? r.TEAM_NM ?? r.team_name ?? r.name ?? r.id ?? r.팀 ?? "—"
-    );
-    const wn = r.wins ?? r.W ?? r.WIN;
-    const ln = r.losses ?? r.L ?? r.LOSE;
-    const ws = wn != null && String(wn).trim() !== "" ? String(wn) : "—";
-    const ls = ln != null && String(ln).trim() !== "" ? String(ln) : "—";
+    const rank = Number(r.rank ?? r.RANK ?? i + 1) || i + 1;
+    const team = fmtTeamShort(r.team ?? r.TEAM_NM ?? r.team_name ?? r.name ?? "—");
+    const ws = r.wins ?? r.W ?? r.WIN ?? "—";
+    const ls = r.losses ?? r.L ?? r.LOSE ?? "—";
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
-
     const rowCenterY = LIST_TOP + i * ROW_PITCH + ROW_PITCH / 2;
-    drawStandingsLineUnified(ctx, 64, rowCenterY, rank, team, ws, ls, pct, FONT_BODY);
+    const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
+    ctx.save();
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `700 44px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(line, 64, rowCenterY);
+    ctx.restore();
   }
 }
 
@@ -1228,7 +1164,7 @@ function Card8Shorts({ defaultDate }) {
   };
 
   return (
-    <div className="section soft" style={card8StandingsCssVars()}>
+    <div className="section soft">
       <div className="section-title">8. 쇼츠 슬라이드 생성</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
