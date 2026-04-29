@@ -987,6 +987,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
 
   const rows = Array.isArray(standings) ? standings : [];
+  console.log("standings[0]:", JSON.stringify(rows[0]));
   const rawDate =
     rows[0]?.date ?? rows[0]?.DATE ?? rows[0]?.game_date ?? "";
   const isoPick = String(rawDate || date || "").slice(0, 10);
@@ -1274,6 +1275,7 @@ function Card8Shorts({ defaultDate }) {
           headline: "",
         })),
       ]);
+      console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
       setData({
         ...res,
         headline: hl?.headline != null ? String(hl.headline) : "",
