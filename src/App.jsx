@@ -992,9 +992,10 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
 
   const TOP_PAD = 120;
   const BOTTOM_PAD = 120;
-  const TITLE_FS = 58;
+  const TITLE_FS = 72;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DIVIDER_Y = TITLE_BASELINE + 20;
+  const DATE_BASELINE = TITLE_BASELINE + 80;
+  const DIVIDER_Y = DATE_BASELINE + 20;
   const LIST_TOP = DIVIDER_Y + 60;
   const LIST_BOTTOM = h - BOTTOM_PAD;
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
@@ -1007,21 +1008,19 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   const dateLabel =
     /^\d{4}-\d{2}-\d{2}$/.test(isoPick) ? fmtKoreanLongDate(isoPick) : fmtKoreanLongDate(date);
 
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
 
-  const titleText = "⚾ KBO 현재 순위";
-  ctx.fillStyle = "#1a3a5c";
+  const titleText = "KBO 현재 순위";
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
-  ctx.letterSpacing = "2px";
-  ctx.fillText(titleText, 64, TITLE_BASELINE);
-  ctx.letterSpacing = "0px";
+  ctx.fillText(titleText, w / 2, TITLE_BASELINE);
 
-  // 날짜는 타이틀 오른쪽에 같은 줄로 (작게)
-  const titleWidth = ctx.measureText(titleText).width;
-  ctx.fillStyle = `#1a3a5c`;
-  ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(dateLabel, 64 + titleWidth + 24, TITLE_BASELINE);
+  ctx.fillStyle = `#F9FF00`;
+  ctx.font = `700 40px "${FONT_BODY}", sans-serif`;
+  ctx.fillText(dateLabel, w / 2, DATE_BASELINE);
+
+  ctx.textAlign = "left";
 
   ctx.strokeStyle = "rgba(255,255,255,0.55)";
   ctx.lineWidth = 2;
@@ -1053,7 +1052,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
 
   // Bottom (3~10) grid
   const GRID_W = 460;
-  const GRID_H = 150;
+  const GRID_H = 230;
   const GRID_COL_GAP = GRID_GAP;
   const GRID_ROW_GAP = GRID_GAP;
 
@@ -1120,7 +1119,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const x = X0;
     const y = LIST_TOP;
     ctx.save();
-    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.15)";
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.strokeStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.4)";
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1161,7 +1160,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const x = X0;
     const y = LIST_TOP + TOP_H + TOP_GAP;
     ctx.save();
-    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.15)";
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.strokeStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.4)";
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -1207,7 +1206,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     const y = gridStartY + row * (GRID_H + GRID_ROW_GAP);
 
     ctx.save();
-    ctx.fillStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.10)";
+    ctx.fillStyle = "rgba(255,255,255,0.20)";
     ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.lineWidth = 1;
     ctx.beginPath();
