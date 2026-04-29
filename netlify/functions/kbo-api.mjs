@@ -673,7 +673,7 @@ function normalizeGameId(x) {
 }
 
 function safeIsoDate(x) {
-  const s = String(x || "").slice(0, 10);
+  const s = String(x || "").slice(0, 15);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
 }
 
@@ -1136,7 +1136,7 @@ function gamesForTeamWindow(allGames, teamKw, days = 7) {
   const end = new Date(last.game_date + "T12:00:00");
   const start = new Date(end);
   start.setDate(start.getDate() - (days - 1));
-  const iso = (dt) => dt.toISOString().slice(0, 10);
+  const iso = (dt) => dt.toISOString().slice(0, 15);
   const from = iso(start);
   const to = iso(end);
   const kw = (teamKw || "").trim();
@@ -1151,15 +1151,15 @@ function gamesForTeamWindow(allGames, teamKw, days = 7) {
 /** team_week 전용: 최근 N일(포함) 구간의 시작일 (YYYY-MM-DD, UTC 일 단위) */
 function inclusiveDateWindowFromEnd(endIso, days) {
   const n = Math.max(1, Math.min(Number(days) || 7, 366));
-  const parts = String(endIso).slice(0, 10).split("-").map(Number);
+  const parts = String(endIso).slice(0, 15).split("-").map(Number);
   if (parts.length !== 3 || parts.some((x) => Number.isNaN(x))) {
-    const e = String(endIso).slice(0, 10);
+    const e = String(endIso).slice(0, 15);
     return { from: e, to: e };
   }
   const end = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - (n - 1));
-  const iso = (dt) => dt.toISOString().slice(0, 10);
+  const iso = (dt) => dt.toISOString().slice(0, 15);
   return { from: iso(start), to: iso(end) };
 }
 
@@ -1217,11 +1217,11 @@ function filterAndSlimTeamWeekGames(rows, teamKw) {
 function filterGamesInRollingWindow(sortedAsc, teamKw, days) {
   const last = sortedAsc[sortedAsc.length - 1];
   if (!last?.game_date) return [];
-  const endIso = String(last.game_date).slice(0, 10);
+  const endIso = String(last.game_date).slice(0, 15);
   const { from } = inclusiveDateWindowFromEnd(endIso, days);
   const kw = (teamKw || "").trim();
   return sortedAsc.filter((g) => {
-    const gd = String(g.game_date || "").slice(0, 10);
+    const gd = String(g.game_date || "").slice(0, 15);
     if (gd < from || gd > endIso) return false;
     if (!kw) return true;
     return teamMatches(g.away_team, kw) || teamMatches(g.home_team, kw);
@@ -1239,7 +1239,7 @@ async function fetchGamesForTeamWeek(db, teamKw, days) {
     if (!latest?.game_date) {
       return { games: [], window: null, queryNote: "empty_db" };
     }
-    const endIso = String(latest.game_date).slice(0, 10);
+    const endIso = String(latest.game_date).slice(0, 15);
     const { from, to } = inclusiveDateWindowFromEnd(endIso, dayCount);
     const inRange = await fetchGamesDateRange(db, from, to);
     const games = filterAndSlimTeamWeekGames(inRange, teamKw);
@@ -1260,11 +1260,11 @@ async function fetchGamesForTeamWeek(db, teamKw, days) {
       .map(slimTeamWeekGame);
     const first =
       subset.length > 0
-        ? String(subset[0].game_date || "").slice(0, 10)
+        ? String(subset[0].game_date || "").slice(0, 15)
         : null;
     const last =
       subset.length > 0
-        ? String(subset[subset.length - 1].game_date || "").slice(0, 10)
+        ? String(subset[subset.length - 1].game_date || "").slice(0, 15)
         : null;
     return {
       games: slim,
@@ -1617,7 +1617,7 @@ export const handler = async (event) => {
         const sys =
           "한국어로만 답한다. 출력은 본문 한 줄만, 따옴표나 접두 없이.";
         const user =
-          "오늘 KBO 경기를 임팩트 있게 요약해줘. 반드시 10자 이내, 이모티콘 없이, 흥미롭고 재미있게. 10자를 절대 넘지 마." +
+          "오늘 KBO 경기를 임팩트 있게 요약해줘. 반드시 15자 이내로 완성된 문장으로. 이모티콘 없이, 흥미롭고 재미있게. 15자를 절대 넘지 마." +
           `\n\n데이터(JSON):\n${JSON.stringify(gamesForPrompt)}`;
         let headline = "";
         try {
@@ -1627,7 +1627,7 @@ export const handler = async (event) => {
             .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
             .trim()
             .replace(/^["']|["']$/g, "")
-            .slice(0, 10);
+            .slice(0, 15);
         } catch (e) {
           console.error("[daily_headline]", e);
           headline = "오늘의 경기 한줄 요약";

@@ -826,7 +826,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
     ctx,
     headline,
     maxTextW,
-    62,
+    72,
     14,
     400,
     headlineFont,
