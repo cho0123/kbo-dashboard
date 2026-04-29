@@ -1924,6 +1924,21 @@ export default function App() {
           <span className="topbar-v">
             {lastMeta.error ? "—" : fmtKstTimestamp(lastMeta.data?.timestamp)}
           </span>
+          {" "}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const r = await postKbo({ action: "trigger_crawl" });
+                if (r?.success) alert("✅ 크롤링 시작됐어요!");
+                else alert("❌ 실패했어요");
+              } catch {
+                alert("❌ 실패했어요");
+              }
+            }}
+          >
+            크롤링 실행
+          </button>
         </div>
         <div className="topbar-row">
           {(() => {

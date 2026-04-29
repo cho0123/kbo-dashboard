@@ -1505,6 +1505,41 @@ export const handler = async (event) => {
     let userQ = "";
 
     switch (action) {
+      case "trigger_crawl": {
+        const response = await fetch(
+          "https://api.github.com/repos/cho0123/kbo-project/actions/workflows/crawl.yml/dispatches",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ ref: "main" }),
+          }
+        );
+        if (response.status === 204) {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              success: true,
+              message: "크롤링 시작됐어요!",
+            }),
+          };
+        } else {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              success: false,
+              message: "크롤링 실행 실패",
+            }),
+          };
+        }
+      }
       case "shorts_slides_data": {
         const dateStr = payload.date || isoSeoulToday();
         const gameDocs = await fetchGamesByDate(db, dateStr);
