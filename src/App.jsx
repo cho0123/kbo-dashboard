@@ -428,6 +428,25 @@ async function ensureCanvasFonts() {
 const FONT_TITLE = "Black Han Sans";
 const FONT_BODY = "Noto Sans KR";
 
+/** Card8Shorts 마지막 슬라이드(순위) — canvas 논리 좌표(px). JSX 미사용, ctx.font만 사용 */
+const STANDINGS_CANVAS = {
+  topPad: 80,
+  bottomPad: 80,
+  titleFs: 64,
+  titleWeight: 900,
+  dateFs: 28,
+  dateOpacity: 0.9,
+  dateGapBelowTitle: 34,
+  dividerOffsetBelowDate: 14,
+  gapBelowDivider: 52,
+  rankLine: {
+    1: { fs: 58, weight: 900, color: "#FFD700" },
+    2: { fs: 48, weight: 700, color: "#FFFFFF" },
+    3: { fs: 42, weight: 700, color: "#FFFFFF" },
+    rest: { fs: 34, weight: 500, color: "#CCCCCC" },
+  },
+};
+
 function fmtKoreanLongDate(iso) {
   const s = String(iso || "").slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -455,29 +474,27 @@ function fmtStandingsWinRateDot(v) {
   return s.startsWith("0.") ? s.slice(1) : s;
 }
 
-/** 순위 슬라이드 한 줄 (순위별 크기·색·웨이트 통합) */
+/** 순위 슬라이드 한 줄 — STANDINGS_CANVAS.rankLine 기준으로 ctx.font 강제 */
 function drawStandingsLineUnified(ctx, x, cy, rank, team, ws, ls, pct, fontBody) {
-  const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
-  let fs = 34;
-  let weight = 500;
-  let color = "#CCCCCC";
-  if (rank === 1) {
-    fs = 58;
-    weight = 900;
-    color = "#FFD700";
-  } else if (rank === 2) {
-    fs = 48;
-    weight = 700;
-    color = "#FFFFFF";
-  } else if (rank === 3) {
-    fs = 42;
-    weight = 700;
-    color = "#FFFFFF";
-  }
+  const rk = Math.trunc(Number(rank));
+  const safeRank = Number.isFinite(Number(rank)) && rk >= 1 ? rk : 1;
+  const tier =
+    safeRank === 1
+      ? STANDINGS_CANVAS.rankLine[1]
+      : safeRank === 2
+        ? STANDINGS_CANVAS.rankLine[2]
+        : safeRank === 3
+          ? STANDINGS_CANVAS.rankLine[3]
+          : STANDINGS_CANVAS.rankLine.rest;
+  const { fs, weight, color } = tier;
+  const line = `${safeRank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
+  ctx.save();
   ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
   ctx.fillStyle = color;
-  ctx.font = `${weight} ${fs}px "${fontBody}", system-ui, sans-serif`;
+  ctx.font = `${weight} ${fs}px "${fontBody}", sans-serif`;
   ctx.fillText(line, x, cy);
+  ctx.restore();
 }
 
 function measureFitFontSize(
@@ -673,6 +690,27 @@ function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
   diagTeamGradient(ctx, w, h, winTeam, loseTeam);
 }
 
+/** 순위 슬라이드 — 게임 슬라이드와 동일 사선 각도, 고정 네이비 2색 */
+function diagSplitStandingsBackground(ctx, w, h) {
+  ctx.fillStyle = "#0d1b2a";
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.45);
+  ctx.lineTo(w, h * 0.75);
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = "#1a2f45";
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.45);
+  ctx.lineTo(w, h * 0.75);
+  ctx.stroke();
+}
+
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -705,12 +743,12 @@ function summarySlidePointColor(dateStr) {
   const s = String(dateStr || "").trim().slice(0, 10);
   const d = new Date(s);
   const dow = Number.isNaN(d.getTime()) ? 0 : d.getDay();
-  if (dow === 1 || dow === 2) return "#FFB3DE";
-  if (dow === 3) return "#C4B5FD";
-  if (dow === 4) return "#BAE6FD";
-  if (dow === 5) return "#FEF08A";
-  if (dow === 6) return "#FBCFE8";
-  return "#A7F3D0";
+  if (dow === 1 || dow === 2) return "#FF85C1";
+  if (dow === 3) return "#B39DFF";
+  if (dow === 4) return "#70C8FF";
+  if (dow === 5) return "#FFE566";
+  if (dow === 6) return "#FF80C0";
+  return "#5DFFC4";
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
@@ -1040,26 +1078,17 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 
 function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.clearRect(0, 0, w, h);
+  diagSplitStandingsBackground(ctx, w, h);
 
-  const navy = ctx.createLinearGradient(0, 0, 0, h);
-  navy.addColorStop(0.0, "#0a0e27");
-  navy.addColorStop(0.5, "#1a1e4a");
-  navy.addColorStop(1.0, "#0d1235");
-  ctx.fillStyle = navy;
-  ctx.fillRect(0, 0, w, h);
-
-  drawBaseballBackground(ctx);
-
-  const TOP_PAD = 80;
-  const BOTTOM_PAD = 80;
-  const TITLE_FS = 64;
+  const TOP_PAD = STANDINGS_CANVAS.topPad;
+  const BOTTOM_PAD = STANDINGS_CANVAS.bottomPad;
+  const TITLE_FS = STANDINGS_CANVAS.titleFs;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DATE_GAP_BELOW_TITLE = 34;
-  const DATE_FS = 28;
+  const DATE_GAP_BELOW_TITLE = STANDINGS_CANVAS.dateGapBelowTitle;
+  const DATE_FS = STANDINGS_CANVAS.dateFs;
   const DATE_BASELINE = TITLE_BASELINE + DATE_GAP_BELOW_TITLE;
-  const DIVIDER_Y = DATE_BASELINE + 14;
-  const GAP_BELOW_DIVIDER = 40;
-  const LIST_TOP = DIVIDER_Y + GAP_BELOW_DIVIDER;
+  const DIVIDER_Y = DATE_BASELINE + STANDINGS_CANVAS.dividerOffsetBelowDate;
+  const LIST_TOP = DIVIDER_Y + STANDINGS_CANVAS.gapBelowDivider;
   const LIST_BOTTOM = h - BOTTOM_PAD;
   const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
 
@@ -1074,11 +1103,11 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `${STANDINGS_CANVAS.titleWeight} ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("KBO 현재 순위", 64, TITLE_BASELINE);
 
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = `rgba(255,255,255,${STANDINGS_CANVAS.dateOpacity})`;
+  ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", sans-serif`;
   ctx.fillText(dateLabel, 64, DATE_BASELINE);
 
   ctx.strokeStyle = "rgba(255,255,255,0.55)";
