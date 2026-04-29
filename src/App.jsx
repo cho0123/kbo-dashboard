@@ -1227,70 +1227,11 @@ function Card8Shorts({ defaultDate }) {
 
       {data ? (
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "stretch",
-              gap: 12,
-              flexWrap: "nowrap",
-            }}
-          >
-            <div style={{ flexShrink: 0 }}>
-              <ShortsCanvas
-                slideIdx={slideIdx}
-                renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
-              />
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                justifyContent: "center",
-                minWidth: 200,
-                flex: "0 0 auto",
-              }}
-            >
-              <button
-                type="button"
-                className="primary"
-                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
-                onClick={() =>
-                  window.open(
-                    `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                네이버 야구에서 검증
-              </button>
-              <button
-                type="button"
-                className="primary"
-                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
-                onClick={() =>
-                  window.open(
-                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                네이버 팀순위
-              </button>
-              <button
-                type="button"
-                className="primary"
-                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
-                onClick={() =>
-                  window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
-                }
-              >
-                KBO 공식 홈페이지에서 검증
-              </button>
-            </div>
+          <div style={{ flexShrink: 0 }}>
+            <ShortsCanvas
+              slideIdx={slideIdx}
+              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+            />
           </div>
           <div>
             <div className="muted" style={{ fontWeight: 900 }}>
@@ -1315,6 +1256,51 @@ function Card8Shorts({ defaultDate }) {
               - 슬라이드1: 전체 결과 요약<br />
               - 슬라이드2~N: 경기별 상세(구장/승패투수/안타 최다 MVP)<br />
               - 마지막: KBO 순위(`standings`)
+            </div>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                width: "100%",
+              }}
+            >
+              <button
+                type="button"
+                className="shorts-verify-link"
+                onClick={() =>
+                  window.open(
+                    `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                🔍 네이버 야구에서 검증
+              </button>
+              <button
+                type="button"
+                className="shorts-verify-link"
+                onClick={() =>
+                  window.open(
+                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                📊 네이버 팀순위
+              </button>
+              <button
+                type="button"
+                className="shorts-verify-link"
+                onClick={() =>
+                  window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
+                }
+              >
+                ⚾ KBO 공식 홈페이지
+              </button>
             </div>
           </div>
         </div>

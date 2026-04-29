@@ -1276,3 +1276,25 @@ button.primary:disabled {
   font-size: 0.84rem;
   color: var(--muted);
 }
+
+/* Card8Shorts — 외부 검증 링크(슬림 텍스트형) */
+.shorts-verify-link {
+  width: 100%;
+  padding: 4px 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.35);
+  color: #1d4ed8;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.shorts-verify-link:hover {
+  text-decoration: underline;
+  background: rgba(255, 255, 255, 0.55);
+}
