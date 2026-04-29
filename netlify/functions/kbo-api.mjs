@@ -1580,13 +1580,23 @@ export const handler = async (event) => {
             if (needsLose) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
           }
 
-          // MVP batter: most hits in this game
+          // MVP batter: winner team only, HR first then hits
           const batters = await fetchBattersForGame(db, gid);
+          const homeWin = (g.home_score ?? 0) > (g.away_score ?? 0);
+          const winTeam = homeWin ? g.home_team : g.away_team;
+
+          const winBatters = (batters || []).filter((b) => {
+            const bt = pickTeamName(b);
+            return bt && winTeam && (bt.includes(winTeam) || winTeam.includes(bt));
+          });
           let best = null;
+          let bestHr = -1;
           let bestH = -1;
-          for (const b of batters || []) {
+          for (const b of winBatters) {
+            const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
             const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-            if (h > bestH) {
+            if (hr > bestHr || (hr === bestHr && h > bestH)) {
+              bestHr = hr;
               bestH = h;
               best = b;
             }
@@ -1596,6 +1606,7 @@ export const handler = async (event) => {
                 name: pickPlayerName(best),
                 team: pickTeamName(best),
                 h: bestH,
+                hr: bestHr,
                 ab: pickNum(best, ["ab", "AB", "at_bats", "타수"]),
               }
             : null;
