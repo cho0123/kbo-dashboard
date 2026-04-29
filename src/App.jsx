@@ -765,7 +765,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
 
   const cardW = 952;
-  const cardH = 215;
+  const cardH = 230;
   const x = 64;
   let y = SAFE_TOP + 200;
 
@@ -1245,7 +1245,7 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
     if (gb != null) {
       ctx.textAlign = "right";
       ctx.textBaseline = "alphabetic";
-      ctx.font = `700 22px "${FONT_BODY}", sans-serif`;
+      ctx.font = `700 40px "${FONT_BODY}", sans-serif`;
       ctx.fillStyle = "#F9FF00";
       ctx.fillText(`GB ${gb}`, x + GRID_W - 16, y + GRID_H - 16);
     }
