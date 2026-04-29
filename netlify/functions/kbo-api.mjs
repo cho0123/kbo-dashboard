@@ -1592,6 +1592,59 @@ export const handler = async (event) => {
           }),
         };
       }
+      case "daily_headline": {
+        const dateStr = payload.date || isoSeoulToday();
+        const gameDocs = await fetchGamesByDate(db, dateStr);
+        const gamesForPrompt = (gameDocs || []).map((g) => ({
+          away_team: g.away_team,
+          home_team: g.home_team,
+          away_score: g.away_score,
+          home_score: g.home_score,
+          game_id: g.game_id ?? g.gameId ?? null,
+        }));
+        if (!gamesForPrompt.length) {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              action: "daily_headline",
+              date: dateStr,
+              headline: "등록된 경기가 없습니다",
+            }),
+          };
+        }
+        const sys =
+          "한국어로만 답한다. 출력은 본문 한 줄만, 따옴표나 접두 없이.";
+        const user =
+          `오늘(${dateStr}) KBO 경기 결과를 바탕으로 한 줄로 임팩트 있게 요약해줘.\n` +
+          `조건: 20자 이내, 이모티콘·이모지 금지, 흥미롭고 재미있게.\n\n` +
+          `데이터(JSON):\n${JSON.stringify(gamesForPrompt)}`;
+        let headline = "";
+        try {
+          const raw = await claude(sys, user, 256);
+          headline = String(raw || "")
+            .replace(/\s+/g, " ")
+            .replace(/[\u{1F300}-\u{1FAFF}]/gu, "")
+            .trim()
+            .replace(/^["']|["']$/g, "");
+          const arr = [...headline];
+          headline = arr.length > 20 ? arr.slice(0, 20).join("") : headline;
+        } catch (e) {
+          console.error("[daily_headline]", e);
+          headline = "오늘의 경기 한줄 요약";
+        }
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action: "daily_headline",
+            date: dateStr,
+            headline: headline || "오늘의 경기 한줄 요약",
+          }),
+        };
+      }
       case "last_updated": {
         const meta = await fetchLastUpdated(db);
         return {

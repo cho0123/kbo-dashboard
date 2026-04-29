@@ -455,6 +455,30 @@ function fmtStandingsWinRateDot(v) {
   return s.startsWith("0.") ? s.slice(1) : s;
 }
 
+/** 순위 슬라이드 한 줄: 순위(민트) · 팀(흰) · 승패(연회색) · 승률(노랑) */
+function drawStandingsLineParts(ctx, x, cy, rank, team, ws, ls, pct, fs, fontBody) {
+  const rankStr = `${rank}위`;
+  const wl = ` ${ws}승 ${ls}패`;
+  const pctStr = ` ${pct}`;
+  const sp = "  ";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${fs}px "${fontBody}", system-ui, sans-serif`;
+  let xi = x;
+  ctx.fillStyle = "#2dd4bf";
+  ctx.fillText(rankStr, xi, cy);
+  xi += ctx.measureText(rankStr).width;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(sp, xi, cy);
+  xi += ctx.measureText(sp).width;
+  ctx.fillText(team, xi, cy);
+  xi += ctx.measureText(team).width;
+  ctx.fillStyle = "#94a3b8";
+  ctx.fillText(wl, xi, cy);
+  xi += ctx.measureText(wl).width;
+  ctx.fillStyle = "#ffeb3b";
+  ctx.fillText(pctStr, xi, cy);
+}
+
 function teamBadgeLabel(teamName) {
   // Requested: NC, KIA, LG, 삼성, KT, SSG, 두산, 롯데, 한화, 키움
   const kw = teamKeyword(teamName);
@@ -652,18 +676,45 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
-  // Summary slide: baseball field vibe (grass + diamond lines)
+/** 첫 슬라이드 요일별 배경·포인트 (월/화 동일, getDay: 0=일…6=토) */
+function summarySlideThemeFromDate(dateStr) {
+  const s = String(dateStr || "").slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dow = m
+    ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()
+    : new Date(dateStr).getDay();
+  // 월·화(1,2): 동일 테마
+  if (dow === 1 || dow === 2) {
+    return {
+      gradient: ["#388e3c", "#2e7d32", "#1b5e20"],
+      point: "#FF9FF3",
+    };
+  }
+  if (dow === 3) {
+    return { gradient: ["#43a047", "#388e3c", "#2e7d32"], point: "#A29BFE" };
+  }
+  if (dow === 4) {
+    return { gradient: ["#2e7d32", "#1b5e20", "#0d2808"], point: "#74B9FF" };
+  }
+  if (dow === 5) {
+    return { gradient: ["#4caf50", "#43a047", "#2e7d32"], point: "#FFEAA7" };
+  }
+  if (dow === 6) {
+    return { gradient: ["#81c784", "#66bb6a", "#43a047"], point: "#FD79A8" };
+  }
+  // 일(0)
+  return { gradient: ["#27ae60", "#1e8449", "#145a32"], point: "#55EFC4" };
+}
+
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
+  // Summary slide: 요일별 그린 테마 + 포인트 컬러
   ctx.clearRect(0, 0, w, h);
 
-  // Grass gradient background (top -> mid -> bottom)
+  const theme = summarySlideThemeFromDate(date);
   const grass = ctx.createLinearGradient(0, 0, 0, h);
-  // brighter / cuter mint-green vibe
-  grass.addColorStop(0.0, "#43a047");
-  grass.addColorStop(0.28, "#4caf50");
-  grass.addColorStop(0.52, "#57c75a"); // 밝고 귀여운 그린
-  grass.addColorStop(0.72, "#66bb6a");
-  grass.addColorStop(1.0, "#43a047");
+  grass.addColorStop(0.0, theme.gradient[0]);
+  grass.addColorStop(0.5, theme.gradient[1]);
+  grass.addColorStop(1.0, theme.gradient[2]);
   ctx.fillStyle = grass;
   ctx.fillRect(0, 0, w, h);
 
@@ -709,33 +760,30 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  // Title: "⚾ KBO 2026.04.28 (화)" (white + yellow mix)
+  const point = theme.point;
+
+  // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 포인트 컬러
   const titleLeft = "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
-  // 날짜/제목: Noto Sans KR 900
   ctx.font = `900 78px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillStyle = "#ffffff";
   ctx.fillText(titleLeft, 64, SAFE_TOP + 80);
   const leftW = ctx.measureText(titleLeft).width;
-  ctx.fillStyle = "#ffeb3b";
+  ctx.fillStyle = point;
   ctx.fillText(titleRight, 64 + leftW, SAFE_TOP + 80);
   resetShadow(ctx);
 
-  // Sub-title: "오늘의 경기 결과"
-  ctx.fillStyle = "#a5d6a7";
-  // 서브텍스트: Noto Sans KR 500
-  ctx.font = `500 52px "${FONT_BODY}", system-ui, sans-serif`;
+  // Claude 한 줄 헤드라인 (서브타이틀 자리)
+  const headline =
+    String(dailyHeadline || "").trim() || "오늘의 경기 결과";
+  ctx.fillStyle = point;
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("오늘의 경기 결과", 64, SAFE_TOP + 80 + 74);
+  ctx.fillText(headline, 64, SAFE_TOP + 80 + 74);
   resetShadow(ctx);
 
   if (!games?.length) {
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText("오늘 등록된 경기 없음", 64, SAFE_TOP + 320);
-    resetShadow(ctx);
     return;
   }
 
@@ -805,7 +853,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
     ctx.fillStyle = "#ffffff";
     ctx.font = scoreFont;
     ctx.fillText(hsText + pad, startX, yy);
-    ctx.fillStyle = "#ffeb3b";
+    ctx.fillStyle = point;
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
@@ -964,29 +1012,24 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
 function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.clearRect(0, 0, w, h);
 
-  const grass = ctx.createLinearGradient(0, 0, 0, h);
-  grass.addColorStop(0.0, "#43a047");
-  grass.addColorStop(0.48, "#4caf50");
-  grass.addColorStop(1.0, "#43a047");
-  ctx.fillStyle = grass;
+  const navy = ctx.createLinearGradient(0, 0, 0, h);
+  navy.addColorStop(0.0, "#0a0e27");
+  navy.addColorStop(0.5, "#1a1e4a");
+  navy.addColorStop(1.0, "#0d1235");
+  ctx.fillStyle = navy;
   ctx.fillRect(0, 0, w, h);
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,0.09)";
-  ctx.lineWidth = 2;
-  const spacing = 110;
-  for (let x = -h; x <= w + h; x += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x + h, h);
-    ctx.stroke();
-  }
-  ctx.restore();
 
   drawBaseballBackground(ctx);
 
-  const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
+  const HEADER_TOP = 200;
+  const TITLE_FS = 70;
+  const TITLE_BASELINE = HEADER_TOP + TITLE_FS;
+  const DATE_GAP = 32;
+  const DATE_FS = 26;
+  const DATE_BASELINE = TITLE_BASELINE + DATE_GAP + DATE_FS;
+  const LIST_TOP = 350;
+  const DIVIDER_Y = DATE_BASELINE + 12;
+  const ROW_PITCH = (h - LIST_TOP) / 10;
 
   const rows = Array.isArray(standings) ? standings : [];
   const rawDate =
@@ -999,37 +1042,32 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
   ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `900 90px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("KBO 현재 순위", 64, SAFE_TOP + 90);
-  resetShadow(ctx);
+  ctx.font = `700 ${TITLE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("KBO 현재 순위", 64, TITLE_BASELINE);
 
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `500 28px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(dateLabel, 64, SAFE_TOP + 90 + 52);
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = `700 ${DATE_FS}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(dateLabel, 64, DATE_BASELINE);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(64, DIVIDER_Y);
+  ctx.lineTo(w - 64, DIVIDER_Y);
+  ctx.stroke();
 
   if (!rows.length) {
-    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
     ctx.beginPath();
-    ctx.roundRect(64, SAFE_TOP + 200, w - 128, 220, 24);
+    ctx.roundRect(64, LIST_TOP + 40, w - 128, 200, 20);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `900 64px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowTextStrong(ctx);
-    ctx.fillText("순위 데이터 없음", 88, SAFE_TOP + 200 + 130);
-    resetShadow(ctx);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillText("순위 데이터 없음", 88, LIST_TOP + 40 + 100);
     return;
   }
 
-  const rankColor = (n) => {
-    if (n === 1) return "#FFD700";
-    if (n === 2) return "#C0C0C0";
-    if (n === 3) return "#CD7F32";
-    return "#ffffff";
-  };
-
-  let y = SAFE_TOP + 210;
-  const lineGap = 108;
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const r = rows[i] || {};
     const rankRaw = r.rank ?? r.RANK ?? r.순위 ?? i + 1;
@@ -1042,18 +1080,13 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     const ws = wn != null && String(wn).trim() !== "" ? String(wn) : "—";
     const ls = ln != null && String(ln).trim() !== "" ? String(ln) : "—";
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
-    const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
 
-    const bigFirst = rank === 1;
-    const fs = bigFirst ? 80 : 60;
-    ctx.fillStyle = rankColor(rank);
-    ctx.font = `900 ${fs}px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowTextStrong(ctx);
-    ctx.fillText(line, 64, y);
-    resetShadow(ctx);
+    let fs = 60;
+    if (rank === 1) fs = 80;
+    else if (rank === 2 || rank === 3) fs = 65;
 
-    y += lineGap + (bigFirst ? 14 : 0);
-    if (y > SAFE_BOTTOM) break;
+    const rowCenterY = LIST_TOP + i * ROW_PITCH + ROW_PITCH / 2;
+    drawStandingsLineParts(ctx, 64, rowCenterY, rank, team, ws, ls, pct, fs, FONT_BODY);
   }
 }
 
@@ -1111,7 +1144,7 @@ function Card8Shorts({ defaultDate }) {
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
+      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, data?.headline);
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
@@ -1132,8 +1165,16 @@ function Card8Shorts({ defaultDate }) {
     try {
       const d = nextDate || date;
       if (nextDate) setDate(nextDate);
-      const res = await postKbo({ action: "shorts_slides_data", date: d });
-      setData(res);
+      const [res, hl] = await Promise.all([
+        postKbo({ action: "shorts_slides_data", date: d }),
+        postKbo({ action: "daily_headline", date: d }).catch(() => ({
+          headline: "",
+        })),
+      ]);
+      setData({
+        ...res,
+        headline: hl?.headline != null ? String(hl.headline) : "",
+      });
       setSlideIdx(0);
     } catch (e) {
       setError(e?.message || String(e));
@@ -1185,26 +1226,36 @@ function Card8Shorts({ defaultDate }) {
       {error ? <pre className="result-error-light">{error}</pre> : null}
 
       {data ? (
-        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
-          <div>
-            <ShortsCanvas
-              slideIdx={slideIdx}
-              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
-            />
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "stretch",
+              gap: 12,
+              flexWrap: "nowrap",
+            }}
+          >
+            <div style={{ flexShrink: 0 }}>
+              <ShortsCanvas
+                slideIdx={slideIdx}
+                renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+              />
+            </div>
             <div
               style={{
-                marginTop: 8,
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                width: "100%",
-                maxWidth: 360,
+                justifyContent: "center",
+                minWidth: 200,
+                flex: "0 0 auto",
               }}
             >
               <button
                 type="button"
                 className="primary"
-                style={{ width: "100%", justifyContent: "center" }}
+                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
                 onClick={() =>
                   window.open(
                     `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
@@ -1218,7 +1269,21 @@ function Card8Shorts({ defaultDate }) {
               <button
                 type="button"
                 className="primary"
-                style={{ width: "100%", justifyContent: "center" }}
+                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
+                onClick={() =>
+                  window.open(
+                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                네이버 팀순위
+              </button>
+              <button
+                type="button"
+                className="primary"
+                style={{ justifyContent: "center", whiteSpace: "nowrap" }}
                 onClick={() =>
                   window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
                 }
