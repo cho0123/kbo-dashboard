@@ -1238,6 +1238,10 @@ function Card8Shorts({ defaultDate }) {
     } else if (slide.type === "game") {
       teamKeys.add(teamKeyword(slide.game?.home_team));
       teamKeys.add(teamKeyword(slide.game?.away_team));
+    } else if (slide.type === "standings") {
+      for (const r of standings) {
+        teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
+      }
     }
     const logosByTeamKey = {};
     for (const tk of teamKeys) {
