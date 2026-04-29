@@ -853,12 +853,9 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
-  const as = Number(g?.away_score);
-  const hs = Number(g?.home_score);
-  const awayWin = Number.isFinite(as) && Number.isFinite(hs) && as > hs;
-  const homeWin = Number.isFinite(as) && Number.isFinite(hs) && hs > as;
-  const winTeam = awayWin ? g.away_team : homeWin ? g.home_team : g.home_team;
-  const loseTeam = awayWin ? g.home_team : homeWin ? g.away_team : g.away_team;
+  const homeWin = Number(g.home_score) > Number(g.away_score);
+  const winTeam = homeWin ? g.home_team : g.away_team;
+  const loseTeam = homeWin ? g.away_team : g.home_team;
 
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
@@ -943,8 +940,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const homeWin = Number(g.home_score) > Number(g.away_score);
-  const winTeam = homeWin ? g.home_team : g.away_team;
   const matchups = Array.isArray(g?.matchups) ? g.matchups : null;
   const m = matchups?.find(
     (x) =>
