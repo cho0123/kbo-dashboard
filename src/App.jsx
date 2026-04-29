@@ -850,7 +850,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
   const homeWin = Number(g.home_score) > Number(g.away_score);
@@ -940,15 +940,16 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .slice(0, 18);
 
   const pitcherName = cleanName(g.winning_pitcher);
-  const mvpBatter = g?.mvp_batter;
-  const mvpTeam = String(mvpBatter?.team || "");
-  const winTeamStr = String((homeWin ? g.home_team : g.away_team) || "");
-  const isMvpWinner =
-    mvpTeam &&
-    winTeamStr &&
-    (mvpTeam.includes(teamKeyword(winTeamStr)) ||
-      winTeamStr.includes(teamKeyword(mvpTeam)));
-  const batterName = isMvpWinner ? cleanName(mvpBatter?.name) : "—";
+  const winTeamBatters = (Array.isArray(batters) ? batters : []).filter(
+    (b) =>
+      String(b?.team || "").includes(teamKeyword(winTeam)) ||
+      String(winTeam || "").includes(teamKeyword(b?.team))
+  );
+  const mvp = winTeamBatters.sort((a, b) => {
+    if ((b.hr || 0) !== (a.hr || 0)) return (b.hr || 0) - (a.hr || 0);
+    return (b.h || 0) - (a.h || 0);
+  })[0];
+  const batterName = cleanName(mvp?.name ?? mvp?.batter ?? "—");
 
   resetShadow(ctx); // no shadow
   ctx.textAlign = "left";
@@ -1288,6 +1289,7 @@ function Card8Shorts({ defaultDate }) {
 
     const games = Array.isArray(data?.games) ? data.games : [];
     const standings = Array.isArray(data?.standings) ? data.standings : [];
+    const batters = Array.isArray(data?.batters) ? data.batters : [];
     const slide = slides[idx];
     if (!slide) return;
     // Preload local SVG logos (same-origin) for this slide
@@ -1325,7 +1327,8 @@ function Card8Shorts({ defaultDate }) {
         slide.game,
         idx,
         Math.max(1, games.length),
-        logosByTeamKey
+        logosByTeamKey,
+        batters
       );
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
