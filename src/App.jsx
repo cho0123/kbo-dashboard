@@ -973,7 +973,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
   // 하단 인덱스 텍스트 제거
 }
 
-function drawStandingsSlide(ctx, w, h, date, standings) {
+function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   ctx.clearRect(0, 0, w, h);
   drawStandingsSolidBackground(ctx, w, h);
 
@@ -1025,21 +1025,138 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     return;
   }
 
-  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+  // Layout constants
+  const X0 = 64;
+  const GAP = 28;
+
+  // Top (1~2)
+  const TOP_W = 952;
+  const TOP_H = 180;
+
+  // Bottom (3~10) grid
+  const GRID_W = 460;
+  const GRID_H = 120;
+  const GRID_COL_GAP = GAP;
+  const GRID_ROW_GAP = GAP;
+
+  const pick = (i) => {
     const r = rows[i] || {};
     const rank = Number(r.rank ?? r.RANK ?? i + 1) || i + 1;
-    const team = fmtTeamShort(r.team ?? r.TEAM_NM ?? r.team_name ?? r.name ?? "—");
+    const teamRaw = r.team ?? r.TEAM_NM ?? r.team_name ?? r.name ?? "—";
+    const team = fmtTeamShort(teamRaw);
     const ws = r.wins ?? r.W ?? r.WIN ?? "—";
     const ls = r.losses ?? r.L ?? r.LOSE ?? "—";
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
-    const rowCenterY = LIST_TOP + i * ROW_PITCH + ROW_PITCH / 2;
-    const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
+    const tk = teamKeyword(teamRaw);
+    const logo = logosByTeamKey?.[tk] || null;
+    return { rank, team, ws, ls, pct, teamRaw, tk, logo };
+  };
+
+  const drawLogo = (img, x, y, boxW, boxH, fallbackTeamName) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, fallbackTeamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+
+  // 1st box
+  {
+    const d = pick(0);
+    const x = X0;
+    const y = LIST_TOP;
     ctx.save();
-    ctx.textBaseline = "middle";
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, TOP_W, TOP_H, 20);
+    ctx.fill();
+    ctx.stroke();
+
+    // logo (120x120)
+    const logoSize = 120;
+    const lx = x + 28;
+    const ly = y + (TOP_H - logoSize) / 2;
+    drawLogo(d.logo, lx, ly, logoSize, logoSize, d.teamRaw);
+
+    // text
+    const tx = lx + logoSize + 28;
     ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(`${d.rank}위 ${d.team}`, tx, y + 78);
+    ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#CCCCCC";
+    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, tx, y + 130);
+    ctx.restore();
+  }
+
+  // 2nd box
+  if (rows.length >= 2) {
+    const d = pick(1);
+    const x = X0;
+    const y = LIST_TOP + TOP_H + GAP;
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, TOP_W, TOP_H, 20);
+    ctx.fill();
+    ctx.stroke();
+
+    const logoSize = 120;
+    const lx = x + 28;
+    const ly = y + (TOP_H - logoSize) / 2;
+    drawLogo(d.logo, lx, ly, logoSize, logoSize, d.teamRaw);
+
+    const tx = lx + logoSize + 28;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `900 52px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = `700 60px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(line, 64, rowCenterY);
+    ctx.fillText(`${d.rank}위 ${d.team}`, tx, y + 78);
+    ctx.font = `500 36px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#CCCCCC";
+    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, tx, y + 130);
+    ctx.restore();
+  }
+
+  // 3~10 boxes (2 columns x 4 rows)
+  const gridStartY = LIST_TOP + (TOP_H + GAP) * 2;
+  for (let idx = 2; idx < Math.min(rows.length, 10); idx++) {
+    const d = pick(idx);
+    const j = idx - 2; // 0..7
+    const col = j % 2; // 0..1
+    const row = Math.floor(j / 2); // 0..3
+    const x = X0 + col * (GRID_W + GRID_COL_GAP);
+    const y = gridStartY + row * (GRID_H + GRID_ROW_GAP);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x, y, GRID_W, GRID_H, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `700 38px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(`${d.rank}위 ${d.team}`, x + 24, y + 54);
+    ctx.font = `500 28px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "#CCCCCC";
+    ctx.fillText(`${d.ws}승 ${d.ls}패  ${d.pct}`, x + 24, y + 92);
     ctx.restore();
   }
 }
@@ -1110,7 +1227,7 @@ function Card8Shorts({ defaultDate }) {
         Math.max(1, games.length),
         logosByTeamKey
       );
-    else drawStandingsSlide(ctx, w, h, date, standings);
+    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
 
   const onGenerate = async (nextDate) => {
