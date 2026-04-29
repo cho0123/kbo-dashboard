@@ -455,28 +455,52 @@ function fmtStandingsWinRateDot(v) {
   return s.startsWith("0.") ? s.slice(1) : s;
 }
 
-/** 순위 슬라이드 한 줄: 순위(민트) · 팀(흰) · 승패(연회색) · 승률(노랑) */
-function drawStandingsLineParts(ctx, x, cy, rank, team, ws, ls, pct, fs, fontBody) {
-  const rankStr = `${rank}위`;
-  const wl = ` ${ws}승 ${ls}패`;
-  const pctStr = ` ${pct}`;
-  const sp = "  ";
+/** 순위 슬라이드 한 줄 (순위별 크기·색·웨이트 통합) */
+function drawStandingsLineUnified(ctx, x, cy, rank, team, ws, ls, pct, fontBody) {
+  const line = `${rank}위  ${team}  ${ws}승 ${ls}패  ${pct}`;
+  let fs = 30;
+  let weight = 500;
+  let color = "#CCCCCC";
+  if (rank === 1) {
+    fs = 52;
+    weight = 900;
+    color = "#FFD700";
+  } else if (rank === 2) {
+    fs = 44;
+    weight = 700;
+    color = "#FFFFFF";
+  } else if (rank === 3) {
+    fs = 38;
+    weight = 700;
+    color = "#FFFFFF";
+  }
   ctx.textBaseline = "middle";
-  ctx.font = `700 ${fs}px "${fontBody}", system-ui, sans-serif`;
-  let xi = x;
-  ctx.fillStyle = "#2dd4bf";
-  ctx.fillText(rankStr, xi, cy);
-  xi += ctx.measureText(rankStr).width;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(sp, xi, cy);
-  xi += ctx.measureText(sp).width;
-  ctx.fillText(team, xi, cy);
-  xi += ctx.measureText(team).width;
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText(wl, xi, cy);
-  xi += ctx.measureText(wl).width;
-  ctx.fillStyle = "#ffeb3b";
-  ctx.fillText(pctStr, xi, cy);
+  ctx.fillStyle = color;
+  ctx.font = `${weight} ${fs}px "${fontBody}", system-ui, sans-serif`;
+  ctx.fillText(line, x, cy);
+}
+
+function measureFitFontSize(
+  ctx,
+  text,
+  maxWidth,
+  startSize,
+  minSize,
+  fontWeight,
+  fontFamily,
+  letterSpacing
+) {
+  const prevSpacing = ctx.letterSpacing;
+  if (letterSpacing != null) ctx.letterSpacing = letterSpacing;
+  try {
+    for (let fs = startSize; fs >= minSize; fs--) {
+      ctx.font = `${fontWeight} ${fs}px "${fontFamily}", system-ui, sans-serif`;
+      if (ctx.measureText(text).width <= maxWidth) return fs;
+    }
+    return minSize;
+  } finally {
+    ctx.letterSpacing = prevSpacing;
+  }
 }
 
 function teamBadgeLabel(teamName) {
@@ -676,46 +700,24 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-/** 첫 슬라이드 요일별 배경·포인트 (월/화 동일, getDay: 0=일…6=토) */
-function summarySlideThemeFromDate(dateStr) {
-  const s = String(dateStr || "").slice(0, 10);
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const dow = m
-    ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getDay()
-    : new Date(dateStr).getDay();
-  // 월·화(1,2): 동일 테마
-  if (dow === 1 || dow === 2) {
-    return {
-      gradient: ["#388e3c", "#2e7d32", "#1b5e20"],
-      point: "#FF9FF3",
-    };
-  }
-  if (dow === 3) {
-    return { gradient: ["#43a047", "#388e3c", "#2e7d32"], point: "#A29BFE" };
-  }
-  if (dow === 4) {
-    return { gradient: ["#2e7d32", "#1b5e20", "#0d2808"], point: "#74B9FF" };
-  }
-  if (dow === 5) {
-    return { gradient: ["#4caf50", "#43a047", "#2e7d32"], point: "#FFEAA7" };
-  }
-  if (dow === 6) {
-    return { gradient: ["#81c784", "#66bb6a", "#43a047"], point: "#FD79A8" };
-  }
-  // 일(0)
-  return { gradient: ["#27ae60", "#1e8449", "#145a32"], point: "#55EFC4" };
+/** 첫 슬라이드 요일별 포인트 컬러만 (텍스트용, getDay: 0=일…6=토) */
+function summarySlidePointColor(dateStr) {
+  const s = String(dateStr || "").trim().slice(0, 10);
+  const d = new Date(s);
+  const dow = Number.isNaN(d.getTime()) ? 0 : d.getDay();
+  if (dow === 1 || dow === 2) return "#FF6EB4";
+  if (dow === 3) return "#7C6FFF";
+  if (dow === 4) return "#3FA9FF";
+  if (dow === 5) return "#FFD93D";
+  if (dow === 6) return "#FF4D94";
+  return "#00E5A0";
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline) {
-  // Summary slide: 요일별 그린 테마 + 포인트 컬러
+  // Summary slide: 고정 야구장 그린 + 요일별 포인트(텍스트만)
   ctx.clearRect(0, 0, w, h);
 
-  const theme = summarySlideThemeFromDate(date);
-  const grass = ctx.createLinearGradient(0, 0, 0, h);
-  grass.addColorStop(0.0, theme.gradient[0]);
-  grass.addColorStop(0.5, theme.gradient[1]);
-  grass.addColorStop(1.0, theme.gradient[2]);
-  ctx.fillStyle = grass;
+  ctx.fillStyle = "#4CAF50";
   ctx.fillRect(0, 0, w, h);
 
   // Grass texture: diagonal mow lines
@@ -760,27 +762,54 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  const point = theme.point;
+  const point = summarySlidePointColor(date);
 
   // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 포인트 컬러
   const titleLeft = "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
+  const titleBaseline = SAFE_TOP + 80;
   ctx.font = `900 78px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(titleLeft, 64, SAFE_TOP + 80);
+  ctx.fillText(titleLeft, 64, titleBaseline);
   const leftW = ctx.measureText(titleLeft).width;
   ctx.fillStyle = point;
-  ctx.fillText(titleRight, 64 + leftW, SAFE_TOP + 80);
+  ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
-  // Claude 한 줄 헤드라인 (서브타이틀 자리)
-  const headline =
-    String(dailyHeadline || "").trim() || "오늘의 경기 결과";
+  // 서브타이틀 (포인트 컬러)
+  const subBaseline = titleBaseline + 78;
   ctx.fillStyle = point;
-  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(headline, 64, SAFE_TOP + 80 + 74);
+  ctx.fillText("오늘의 경기 결과", 64, subBaseline);
+  resetShadow(ctx);
+
+  // Claude 헤드라인: 900, 자동 축소, 그림자, letter-spacing
+  const headline =
+    String(dailyHeadline || "").trim() || "오늘의 경기 한줄 요약";
+  const headlineBaseline = subBaseline + 52;
+  const maxTextW = w - 128;
+  ctx.save();
+  ctx.fillStyle = point;
+  ctx.letterSpacing = "-1px";
+  const headlineFs = measureFitFontSize(
+    ctx,
+    headline,
+    maxTextW,
+    62,
+    18,
+    900,
+    FONT_BODY,
+    "-1px"
+  );
+  ctx.font = `900 ${headlineFs}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(headline, 64, headlineBaseline);
+  ctx.restore();
   resetShadow(ctx);
 
   if (!games?.length) {
@@ -790,7 +819,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   const cardW = 952;
   const cardH = 248;
   const x = 64;
-  let y = SAFE_TOP + 200;
+  let y = Math.max(SAFE_TOP + 200, headlineBaseline + headlineFs + 36);
 
   const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
     if (!img) {
@@ -1021,15 +1050,17 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
 
   drawBaseballBackground(ctx);
 
-  const HEADER_TOP = 200;
+  const TOP_PAD = 80;
+  const BOTTOM_PAD = 80;
   const TITLE_FS = 70;
-  const TITLE_BASELINE = HEADER_TOP + TITLE_FS;
+  const TITLE_BASELINE = TOP_PAD + TITLE_FS;
   const DATE_GAP = 32;
   const DATE_FS = 26;
   const DATE_BASELINE = TITLE_BASELINE + DATE_GAP + DATE_FS;
-  const LIST_TOP = 350;
-  const DIVIDER_Y = DATE_BASELINE + 12;
-  const ROW_PITCH = (h - LIST_TOP) / 10;
+  const DIVIDER_Y = DATE_BASELINE + 14;
+  const LIST_TOP = DIVIDER_Y + 36;
+  const LIST_BOTTOM = h - BOTTOM_PAD;
+  const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
 
   const rows = Array.isArray(standings) ? standings : [];
   const rawDate =
@@ -1081,12 +1112,8 @@ function drawStandingsSlide(ctx, w, h, date, standings) {
     const ls = ln != null && String(ln).trim() !== "" ? String(ln) : "—";
     const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
 
-    let fs = 60;
-    if (rank === 1) fs = 80;
-    else if (rank === 2 || rank === 3) fs = 65;
-
     const rowCenterY = LIST_TOP + i * ROW_PITCH + ROW_PITCH / 2;
-    drawStandingsLineParts(ctx, 64, rowCenterY, rank, team, ws, ls, pct, fs, FONT_BODY);
+    drawStandingsLineUnified(ctx, 64, rowCenterY, rank, team, ws, ls, pct, FONT_BODY);
   }
 }
 
@@ -1268,7 +1295,7 @@ function Card8Shorts({ defaultDate }) {
             >
               <button
                 type="button"
-                className="shorts-verify-link"
+                className="shorts-verify-link shorts-verify-link--naver"
                 onClick={() =>
                   window.open(
                     `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
@@ -1281,7 +1308,7 @@ function Card8Shorts({ defaultDate }) {
               </button>
               <button
                 type="button"
-                className="shorts-verify-link"
+                className="shorts-verify-link shorts-verify-link--naver"
                 onClick={() =>
                   window.open(
                     "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
@@ -1294,7 +1321,7 @@ function Card8Shorts({ defaultDate }) {
               </button>
               <button
                 type="button"
-                className="shorts-verify-link"
+                className="shorts-verify-link shorts-verify-link--kbo"
                 onClick={() =>
                   window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
                 }

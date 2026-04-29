@@ -1277,24 +1277,35 @@ button.primary:disabled {
   color: var(--muted);
 }
 
-/* Card8Shorts — 외부 검증 링크(슬림 텍스트형) */
+/* Card8Shorts — 외부 검증 링크 */
 .shorts-verify-link {
   width: 100%;
-  padding: 4px 12px;
-  font-size: 12px;
+  padding: 5px 12px;
+  font-size: 13px;
   line-height: 1.35;
   text-align: left;
   border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.35);
-  color: #1d4ed8;
+  border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 500;
+  font-weight: 600;
   box-shadow: none;
 }
 
-.shorts-verify-link:hover {
-  text-decoration: underline;
-  background: rgba(255, 255, 255, 0.55);
+.shorts-verify-link--naver {
+  background: #03c75a;
+  color: #ffffff;
+}
+
+.shorts-verify-link--naver:hover {
+  filter: brightness(0.95);
+}
+
+.shorts-verify-link--kbo {
+  background: #002d6a;
+  color: #ffffff;
+}
+
+.shorts-verify-link--kbo:hover {
+  filter: brightness(1.08);
 }
