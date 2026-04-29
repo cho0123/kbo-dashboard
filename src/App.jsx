@@ -808,13 +808,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   ctx.fillStyle = "#ffffff";
   ctx.fillText(titleLeft, 64, titleBaseline);
   const leftW = ctx.measureText(titleLeft).width;
-  ctx.fillStyle = "#FFD400";
+  ctx.fillStyle = "#F9FF00";
   ctx.fillText(titleRight, 64 + leftW, titleBaseline);
   resetShadow(ctx);
 
   // 서브타이틀 (골드 고정)
   const subBaseline = titleBaseline + 78;
-  ctx.fillStyle = "#FFD400";
+  ctx.fillStyle = "#F9FF00";
   ctx.font = `700 34px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("오늘의 경기 결과", 64, subBaseline);
@@ -826,7 +826,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
   const headlineBaseline = subBaseline + 52;
   const maxTextW = w - 128;
   ctx.save();
-  ctx.fillStyle = "#FFD400";
+  ctx.fillStyle = "#F9FF00";
   ctx.letterSpacing = "-1px";
   const headlineFs = measureFitFontSize(
     ctx,
@@ -917,7 +917,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, dailyHeadline)
     ctx.fillStyle = "#ffffff";
     ctx.font = scoreFont;
     ctx.fillText(hsText + pad, startX, yy);
-    ctx.fillStyle = "#FFD400";
+    ctx.fillStyle = "#F9FF00";
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.fillStyle = "#ffffff";
