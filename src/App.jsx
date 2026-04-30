@@ -1153,10 +1153,10 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
   ctx.font = `1000 155px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 60);
+  ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -1175,36 +1175,51 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   };
 
   // 팀 배치: 상단팀은 더 위로, 하단팀은 더 아래로
-  const logoY = SAFE_TOP + 120;
   const logoBoxW = 260;
   const logoBoxH = 180;
   const MAIN_LOGO_SCALE = 1.3;
   const mainLogoW = Math.round(logoBoxW * MAIN_LOGO_SCALE);
   const mainLogoH = Math.round(logoBoxH * MAIN_LOGO_SCALE);
+
+  const PAD_X = 64;
+  const RIGHT_X = w - 64 - logoBoxW;
+
+  // 상단(원정팀): SAFE_TOP + 100 근처
+  const topMainY = SAFE_TOP + 100;
+  const topOppY = topMainY + Math.round((mainLogoH - logoBoxH) / 2);
+
+  // 하단(홈팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
+  // info2(상대전적) baseline이 (h - 300) 근처가 되도록 역산
+  const bottomInfo2YTarget = h - 300;
+  const botMainY = Math.max(
+    DIVIDER_Y + 120,
+    bottomInfo2YTarget - (mainLogoH + 70 + 70)
+  );
+  const botOppY = botMainY + Math.round((mainLogoH - logoBoxH) / 2);
   const topTeamImg = logosByTeamKey?.[top.teamKey] || null;
   const topOppImg = logosByTeamKey?.[top.oppKey] || null;
-  drawLogoInBox(
-    64,
-    logoY - Math.round((mainLogoH - logoBoxH) / 2),
-    mainLogoW,
-    mainLogoH,
-    top.team,
-    topTeamImg
-  );
-  drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, top.opponent, topOppImg);
+  drawLogoInBox(PAD_X, topMainY, mainLogoW, mainLogoH, top.team, topTeamImg);
+  drawLogoInBox(RIGHT_X, topOppY, logoBoxW, logoBoxH, top.opponent, topOppImg);
 
-  // 3) 상단: VS
+  // 3) 상단: VS (두 로고 정중앙)
+  const topLeftCx = PAD_X + mainLogoW / 2;
+  const topLeftCy = topMainY + mainLogoH / 2;
+  const topRightCx = RIGHT_X + logoBoxW / 2;
+  const topRightCy = topOppY + logoBoxH / 2;
+  const topVsX = (topLeftCx + topRightCx) / 2;
+  const topVsY = (topLeftCy + topRightCy) / 2;
+
   ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "#F9FF00";
   ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, logoY + 420);
+  ctx.fillText("VS", topVsX, topVsY);
   resetShadow(ctx);
 
   // 상단팀(원정팀) 로고 아래 정보 (좌측 메인 로고 아래)
-  const topInfoX = 64;
-  const topInfoY = logoY + mainLogoH + 70;
+  const topInfoX = PAD_X;
+  const topInfoY = topMainY + mainLogoH + 70;
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
@@ -1219,31 +1234,30 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   resetShadow(ctx);
 
   // ===== 하단: home_next_game 데이터 =====
-  const botLogoY = DIVIDER_Y + 520;
   const botTeamImg = logosByTeamKey?.[bot.teamKey] || null;
   const botOppImg = logosByTeamKey?.[bot.oppKey] || null;
-  drawLogoInBox(
-    64,
-    botLogoY - Math.round((mainLogoH - logoBoxH) / 2),
-    mainLogoW,
-    mainLogoH,
-    bot.team,
-    botTeamImg
-  );
-  drawLogoInBox(w - 64 - logoBoxW, botLogoY, logoBoxW, logoBoxH, bot.opponent, botOppImg);
+  drawLogoInBox(PAD_X, botMainY, mainLogoW, mainLogoH, bot.team, botTeamImg);
+  drawLogoInBox(RIGHT_X, botOppY, logoBoxW, logoBoxH, bot.opponent, botOppImg);
 
-  // 하단: VS
+  // 하단: VS (두 로고 정중앙)
+  const botLeftCx = PAD_X + mainLogoW / 2;
+  const botLeftCy = botMainY + mainLogoH / 2;
+  const botRightCx = RIGHT_X + logoBoxW / 2;
+  const botRightCy = botOppY + logoBoxH / 2;
+  const botVsX = (botLeftCx + botRightCx) / 2;
+  const botVsY = (botLeftCy + botRightCy) / 2;
+
   ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "#F9FF00";
   ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, botLogoY + 420);
+  ctx.fillText("VS", botVsX, botVsY);
   resetShadow(ctx);
 
   // 하단팀(홈팀) 로고 아래 정보 (좌측 메인 로고 아래)
-  const botInfoX = 64;
-  const botInfoY = botLogoY + mainLogoH + 70;
+  const botInfoX = PAD_X;
+  const botInfoY = botMainY + mainLogoH + 70;
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
