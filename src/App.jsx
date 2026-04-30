@@ -1126,19 +1126,37 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const h2hDraw = Number(h2h?.draw ?? 0) || 0;
   const h2hLose = Number(h2h?.lose ?? 0) || 0;
 
+  const fmtKoreanMonthDayDow = (iso) => {
+    const s = String(iso || "").slice(0, 10);
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return "—";
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    const dt = new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T12:00:00`);
+    const dows = ["일", "월", "화", "수", "목", "금", "토"];
+    const dow = dows[dt.getDay()] ?? "";
+    return `${mo}월 ${d}일 (${dow})`;
+  };
+
+  const shortVenue = (v) => {
+    const s = String(v || "").trim();
+    if (!s) return "—";
+    // "광주-기아 챔피언스 필드" -> "광주", "잠실" -> "잠실"
+    return s.split(/[\s-]/)[0] || s;
+  };
+
   // 배경: 상단 원정팀 컬러 / 하단 홈팀 컬러 (사선 분할 유지)
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, awayTeam, homeTeam);
 
-  // 1) 상단 헤더: 잘림 방지 2줄 (NEXT GAME / 날짜+시간)
-  ctx.textAlign = "left";
+  // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.font = `1000 155px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("NEXT GAME", 64, SAFE_TOP + 80);
-  ctx.font = `800 66px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${fmtKoreanLongDate(top.dateIso)}  ${top.time}`, 64, SAFE_TOP + 150);
+  ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 60);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -1156,7 +1174,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
   };
 
-  const logoY = SAFE_TOP + 220;
+  // 팀 배치: 상단팀은 더 위로, 하단팀은 더 아래로
+  const logoY = SAFE_TOP + 120;
   const logoBoxW = 260;
   const logoBoxH = 180;
   const MAIN_LOGO_SCALE = 1.3;
@@ -1180,31 +1199,27 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillStyle = "#F9FF00";
   ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, SAFE_TOP + 520);
+  ctx.fillText("VS", w / 2, logoY + 420);
   resetShadow(ctx);
 
-  // 4) 상단: 구장명
-  ctx.textAlign = "center";
+  // 상단팀(원정팀) 로고 아래 정보 (좌측 메인 로고 아래)
+  const topInfoX = 64;
+  const topInfoY = logoY + mainLogoH + 70;
+  ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 54px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(top.venue || "—", w / 2, SAFE_TOP + 640);
-  resetShadow(ctx);
-
-  // 5) 상단: 시즌 상대전적 (원정팀 기준 = 홈팀 기준 win/lose 반전)
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 50px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
+  ctx.fillText(`${fmtKoreanMonthDayDow(top.dateIso)}  ${shortVenue(top.venue)}`, topInfoX, topInfoY);
+  ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const topH2h =
     h2h
-      ? `시즌 상대전적  ${h2hLose}승 ${h2hDraw}무 ${h2hWin}패`
-      : `시즌 상대전적 데이터 없음`;
-  ctx.fillText(topH2h, w / 2, SAFE_TOP + 740);
+      ? `시즌 상대전적 : ${h2hLose}승 ${h2hDraw}무 ${h2hWin}패`
+      : `시즌 상대전적 : 데이터 없음`;
+  ctx.fillText(topH2h, topInfoX, topInfoY + 70);
   resetShadow(ctx);
 
   // ===== 하단: home_next_game 데이터 =====
-  const botLogoY = DIVIDER_Y + 180;
+  const botLogoY = DIVIDER_Y + 520;
   const botTeamImg = logosByTeamKey?.[bot.teamKey] || null;
   const botOppImg = logosByTeamKey?.[bot.oppKey] || null;
   drawLogoInBox(
@@ -1223,27 +1238,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillStyle = "#F9FF00";
   ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, DIVIDER_Y + 520);
+  ctx.fillText("VS", w / 2, botLogoY + 420);
   resetShadow(ctx);
 
-  // 하단: 구장명
-  ctx.textAlign = "center";
+  // 하단팀(홈팀) 로고 아래 정보 (좌측 메인 로고 아래)
+  const botInfoX = 64;
+  const botInfoY = botLogoY + mainLogoH + 70;
+  ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 54px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(bot.venue || "—", w / 2, DIVIDER_Y + 640);
-  resetShadow(ctx);
-
-  // 하단: 시즌 상대전적 (홈팀 기준 그대로)
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 50px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
+  ctx.fillText(`${fmtKoreanMonthDayDow(bot.dateIso)}  ${shortVenue(bot.venue)}`, botInfoX, botInfoY);
+  ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const botH2h =
     h2h
-      ? `시즌 상대전적  ${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
-      : `시즌 상대전적 데이터 없음`;
-  ctx.fillText(botH2h, w / 2, DIVIDER_Y + 740);
+      ? `시즌 상대전적 : ${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
+      : `시즌 상대전적 : 데이터 없음`;
+  ctx.fillText(botH2h, botInfoX, botInfoY + 70);
   resetShadow(ctx);
 
   void standings;
