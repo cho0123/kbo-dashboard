@@ -2201,7 +2201,7 @@ function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
     ctx.textBaseline = "middle";
     ctx.fillStyle = isTop ? WEEKLY_POINT : "#FFFFFF";
     ctx.font = `900 ${isTop ? 62 : 56}px ${WEEKLY_FONT}`;
-    ctx.fillText(teamShortName(teamRaw), x0 + 130, y + (rowH - 14) / 2);
+    ctx.fillText(teamRaw || "—", x0 + 130, y + (rowH - 14) / 2);
 
     // W-L-D
     ctx.textAlign = "right";
@@ -2262,7 +2262,7 @@ function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
 
       ctx.fillStyle = "rgba(255,255,255,0.88)";
       ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
-      ctx.fillText(teamShortName(teamRaw), x + 290, y + (big ? 140 : 118));
+      ctx.fillText(teamRaw || "—", x + 290, y + (big ? 140 : 118));
 
       ctx.textAlign = "right";
       ctx.fillStyle = WEEKLY_POINT;
@@ -2337,7 +2337,7 @@ function drawWeeklyPitcherSlide(ctx, w, h, weeklyTopPitchers, logosByTeamKey) {
 
       ctx.fillStyle = "rgba(255,255,255,0.88)";
       ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
-      ctx.fillText(teamShortName(teamRaw), x + 290, y + (big ? 140 : 118));
+      ctx.fillText(teamRaw || "—", x + 290, y + (big ? 140 : 118));
 
       ctx.textAlign = "right";
       ctx.fillStyle = WEEKLY_POINT;
