@@ -641,8 +641,8 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.lineTo(w, h);
   ctx.lineTo(0, h);
   ctx.closePath();
-  // loser: same hue, lighter via opacity
-  ctx.fillStyle = hexToRgba(s, 0.6);
+  // secondary: full opacity (same treatment as primary)
+  ctx.fillStyle = s;
   ctx.fill();
 
   // boundary line (white 5px)
