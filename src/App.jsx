@@ -987,7 +987,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const homePart = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)})`;
   const awayPart = `${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
   const vsPart = "  vs  ";
-  const yStarter = SAFE_TOP + 680;
+  const yStarter = SAFE_TOP + 640;
   ctx.textAlign = "left";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   const wHomeP = ctx.measureText(homePart).width;
@@ -1002,56 +1002,45 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
   // 하단 영역
-  // 7) 구장
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`📍 ${String(g?.venue || "—").slice(0, 24)}`, w / 2, DIVIDER_Y + 80);
+  const leftX = 72;
+  const listTop = DIVIDER_Y + 110;
+  const lineGap = 100;
 
-  // 8) 승리투수 / 패전투수
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+
+  // • 구장명
+  ctx.font = `700 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
+  ctx.fillText(`• ${venueText}`, leftX, listTop);
+
+  // • 승/패 투수
   const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
   const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
   const winEra = g?.winning_pitcher_era ?? null;
   const loseEra = g?.losing_pitcher_era ?? null;
-  const winText = `승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})`;
-  const loseText = `패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
-  const wlY = DIVIDER_Y + 180;
+  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`,
+    leftX,
+    listTop + lineGap * 1
+  );
 
-  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
-  const midGap = 34;
-  const wWin = ctx.measureText(winText).width;
-  const wLose = ctx.measureText(loseText).width;
-  const wlTotal = wWin + midGap + wLose;
-  const wlStartX = (w - wlTotal) / 2;
-
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#FFB3DE";
-  ctx.fillText(winText, wlStartX, wlY);
-  ctx.fillStyle = "#CCCCCC";
-  ctx.fillText(loseText, wlStartX + wWin + midGap, wlY);
-
-  // 9) MVP 타자
+  // • ⭐ MVP
   const mvpName = cleanName(g?.mvp_batter?.name ?? "—");
   const mvpH = g?.mvp_batter?.h ?? null;
   const mvpHr = g?.mvp_batter?.hr ?? null;
   const mvpStat =
-    (mvpH == null && mvpHr == null) ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 52px "Gmarket Sans", system-ui, sans-serif`;
-  ctx.fillText(`⭐ ${mvpName}${mvpStat}`, w / 2, DIVIDER_Y + 300);
+    mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
+  ctx.font = `700 50px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 2);
 
-  // 연속승패 (하단 배치)
-  ctx.fillStyle = "#F9FF00";
+  // • 승리팀/패전팀 연속승패
   ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${homeStreak || "—"} | ${awayStreak || "—"}`, w / 2, DIVIDER_Y + 380);
-
-  // 10) 연속승패 뱃지
-  ctx.fillStyle = "#F9FF00";
-  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(
-    `승리팀: 🔥 ${winStreak || "—"} / 패전팀: ${loseStreak || "—"}`,
-    w / 2,
-    DIVIDER_Y + 420
+    `• 승리팀 ${winStreak || "—"} / 패전팀 ${loseStreak || "—"}`,
+    leftX,
+    listTop + lineGap * 3
   );
 
   // 하단 인덱스 텍스트 제거
