@@ -1570,12 +1570,16 @@ export const handler = async (event) => {
           let loseName = g.losing_pitcher || "";
 
           const pitchers = await fetchPitchersForGame(db, gid);
-          const homeStarter = pitchers.find(
-            (p) => normalizeSide(p?.side) === "home"
-          );
-          const awayStarter = pitchers.find(
-            (p) => normalizeSide(p?.side) === "away"
-          );
+          const homeStarter =
+            pitchers.find(
+              (p) => normalizeSide(p?.side) === "home" && p?.is_starter === true
+            ) ||
+            pitchers.find((p) => normalizeSide(p?.side) === "home");
+          const awayStarter =
+            pitchers.find(
+              (p) => normalizeSide(p?.side) === "away" && p?.is_starter === true
+            ) ||
+            pitchers.find((p) => normalizeSide(p?.side) === "away");
           const homeScore = Number(g?.home_score);
           const awayScore = Number(g?.away_score);
           const hasScores =
@@ -1593,10 +1597,26 @@ export const handler = async (event) => {
             const homeWin = homeScore > awayScore;
             const winSide = homeWin ? "home" : "away";
             const loseSide = homeWin ? "away" : "home";
-            const win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
-            const lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
-            if (needsWin) winName = (pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "";
-            if (needsLose) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
+            const winByResult = (pitchers || []).find(
+              (p) => String(p?.result || "").trim() === "승"
+            );
+            const loseByResult = (pitchers || []).find(
+              (p) => String(p?.result || "").trim() === "패"
+            );
+
+            if (needsWin && winByResult) {
+              winName = pickPitcherName(winByResult) || "";
+            }
+            if (needsLose && loseByResult) {
+              loseName = pickPitcherName(loseByResult) || "";
+            }
+
+            if ((needsWin && !winName) || (needsLose && !loseName)) {
+              const win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
+              const lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
+              if (needsWin && !winName) winName = (pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "";
+              if (needsLose && !loseName) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
+            }
           }
 
           // MVP batter: winner team only, HR first then hits
