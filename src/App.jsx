@@ -1004,7 +1004,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // 하단 영역
   const leftX = 72;
   const listTop = DIVIDER_Y + 180;
-  const lineGap = 102;
+  const lineGap = 107;
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
