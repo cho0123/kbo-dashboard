@@ -392,6 +392,17 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
     if (after && gd <= after) continue;
     const hk = normalizeTeamKey(r?.home_team || "");
     const ak = normalizeTeamKey(r?.away_team || "");
+    if (scheduleRows && scheduleRows.indexOf(r) === 0) {
+      console.log(
+        "[pickNext] first row hk:",
+        hk,
+        "ak:",
+        ak,
+        "raw:",
+        r?.home_team,
+        r?.away_team
+      );
+    }
     const match =
       (hk === a && ak === b) ||
       (hk === b && ak === a);
