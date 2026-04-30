@@ -2313,7 +2313,7 @@ export default function App() {
             type="button"
             onClick={async () => {
               try {
-                const r = await postKbo({ action: "trigger_crawl" });
+                const r = await postKbo({ action: "trigger_crawl", date: mvpDate });
                 if (r?.success) alert("✅ 크롤링 시작됐어요!");
                 else alert("❌ 실패했어요");
               } catch {

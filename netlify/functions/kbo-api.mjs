@@ -1692,6 +1692,10 @@ export const handler = async (event) => {
 
     switch (action) {
       case "trigger_crawl": {
+        const dateInput = safeIsoDate(payload.date || "");
+        const dispatchBody = dateInput
+          ? { ref: "main", inputs: { date: dateInput } }
+          : { ref: "main" };
         const response = await fetch(
           "https://api.github.com/repos/cho0123/kbo-project/actions/workflows/crawl.yml/dispatches",
           {
@@ -1701,7 +1705,7 @@ export const handler = async (event) => {
               Accept: "application/vnd.github+json",
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ ref: "main" }),
+            body: JSON.stringify(dispatchBody),
           }
         );
         if (response.status === 204) {
@@ -1711,7 +1715,10 @@ export const handler = async (event) => {
             body: JSON.stringify({
               ok: true,
               success: true,
-              message: "크롤링 시작됐어요!",
+              date: dateInput || null,
+              message: dateInput
+                ? `${dateInput} 크롤링 시작됐어요!`
+                : "크롤링 시작됐어요!",
             }),
           };
         } else {
@@ -1721,6 +1728,7 @@ export const handler = async (event) => {
             body: JSON.stringify({
               ok: true,
               success: false,
+              date: dateInput || null,
               message: "크롤링 실행 실패",
             }),
           };
