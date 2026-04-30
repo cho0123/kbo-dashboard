@@ -342,16 +342,25 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
   const a = normalizeTeamKey(teamA);
   const b = normalizeTeamKey(teamB);
   const after = String(afterDateIso || "").slice(0, 10);
+  console.log("[next_game] target teams:", { teamA, teamB, a, b, after });
   const scored = [];
+  let __dbgCount = 0;
   for (const r of scheduleRows || []) {
     const gd = String(r?.game_date || "").slice(0, 10);
     if (!gd) continue;
     if (after && gd <= after) continue;
     const hk = normalizeTeamKey(r?.home_team || "");
     const ak = normalizeTeamKey(r?.away_team || "");
+    if (__dbgCount < 8) {
+      console.log("[next_game] compare:", { hk, ak, a, b, gd });
+      __dbgCount += 1;
+    }
     const match =
       (hk === a && ak === b) ||
       (hk === b && ak === a);
+    if (match) {
+      console.log("[next_game] matched:", { hk, ak, a, b, gd, game_time: r?.game_time });
+    }
     if (!match) continue;
     const tm = String(r?.game_time || "").trim();
     const stamp = `${gd}T${tm || "00:00"}`;
@@ -1707,11 +1716,20 @@ export const handler = async (event) => {
         const __h2hCache = new Map();
         const __nextGameCache = new Map();
         const scheduleRows = await fetchScheduleFromDate(db, dateStr);
+        console.log("[next_game] scheduleRows[0] teams:", {
+          home_team: scheduleRows?.[0]?.home_team,
+          away_team: scheduleRows?.[0]?.away_team,
+        });
 
         const games = [];
         for (const g of base) {
           const gid = String(g?.game_id || "").trim();
           if (!gid) continue;
+          console.log("[next_game] current game teams:", {
+            home_team: g?.home_team,
+            away_team: g?.away_team,
+            gid,
+          });
 
           // Winning/losing pitcher (same heuristic as game_results)
           const needsWin = !g?.winning_pitcher;
