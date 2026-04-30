@@ -1113,9 +1113,24 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     };
   };
 
-  // 상단: 홈팀(home_next_game), 하단: 원정팀(away_next_game)
-  const top = pickNextInfoForTeam(homeTeam, homeNg);
-  const bot = pickNextInfoForTeam(awayTeam, awayNg);
+  // 승/패 팀 판별 (drawGameSlide와 동일 방식)
+  const hsNum = Number(g?.home_score);
+  const asNum = Number(g?.away_score);
+  const homeWin =
+    Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
+  const winTeam = homeWin ? homeTeam : awayTeam;
+  const loseTeam = homeWin ? awayTeam : homeTeam;
+
+  const pickNgForTeam = (teamName) => {
+    const k = teamKeyword(teamName);
+    if (k && k === teamKeyword(homeTeam)) return homeNg;
+    if (k && k === teamKeyword(awayTeam)) return awayNg;
+    return null;
+  };
+
+  // next_game 슬라이드: 반드시 반대로 교차 (상단=패전팀, 하단=승리팀)
+  const top = pickNextInfoForTeam(loseTeam, pickNgForTeam(loseTeam));
+  const bot = pickNextInfoForTeam(winTeam, pickNgForTeam(winTeam));
 
   const h2h =
     g?.headToHead ??
@@ -1126,19 +1141,6 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const h2hWin = Number(h2h?.win ?? 0) || 0;
   const h2hDraw = Number(h2h?.draw ?? 0) || 0;
   const h2hLose = Number(h2h?.lose ?? 0) || 0;
-
-  const fmtKoreanMonthDayDow = (iso) => {
-    const s = String(iso || "").slice(0, 10);
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return "—";
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const d = Number(m[3]);
-    const dt = new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}T12:00:00`);
-    const dows = ["일", "월", "화", "수", "목", "금", "토"];
-    const dow = dows[dt.getDay()] ?? "";
-    return `${mo}월 ${d}일 (${dow})`;
-  };
 
   const shortVenue = (v) => {
     const s = String(v || "").trim();
@@ -1163,9 +1165,9 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     return VENUE_FULLNAME[key] || String(v || key || "—");
   };
 
-  // 배경: 상단 홈팀 컬러 / 하단 원정팀 컬러 (사선 분할 유지)
+  // 배경: next_game는 승패팀 색상 교차 (상단=패전팀, 하단=승리팀)
   ctx.clearRect(0, 0, w, h);
-  winLoseVerticalGradient(ctx, w, h, homeTeam, awayTeam);
+  winLoseVerticalGradient(ctx, w, h, loseTeam, winTeam);
 
   // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
   ctx.textAlign = "center";
@@ -1179,10 +1181,12 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // NEXT GAME 아래 날짜/시간
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.fillStyle = "#FFD700";
   ctx.font = `1000 78px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${fmtKoreanLongDate(top.dateIso)}  ${top.time}`, w / 2, DIVIDER_Y + 120);
+  const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
+  const timeText = top.time && top.time !== "—" ? top.time : bot.time;
+  ctx.fillText(`${fmtKoreanLongDate(dateIso)}  ${timeText}`, w / 2, DIVIDER_Y + 120);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -1203,16 +1207,18 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // 팀 배치: 상단팀은 더 위로, 하단팀은 더 아래로
   const logoBoxW = 260;
   const logoBoxH = 180;
-  const MAIN_LOGO_SCALE = 1.3;
+  const MAIN_LOGO_SCALE = 1.3 * 1.3; // 기존 대비 +30%
   const mainLogoW = Math.round(logoBoxW * MAIN_LOGO_SCALE);
   const mainLogoH = Math.round(logoBoxH * MAIN_LOGO_SCALE);
+  const oppLogoW = Math.round(mainLogoW / 2);
+  const oppLogoH = Math.round(mainLogoH / 2);
 
   const PAD_X = 64;
-  const RIGHT_X = w - 64 - logoBoxW;
+  const RIGHT_X = w - 64 - oppLogoW;
 
   // 상단(홈팀): SAFE_TOP + 100 근처
   const topMainY = SAFE_TOP + 100;
-  const topOppY = topMainY + Math.round((mainLogoH - logoBoxH) / 2);
+  const topOppY = topMainY + Math.round((mainLogoH - oppLogoH) / 2);
 
   // 하단(원정팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
   // info2(상대전적) baseline이 (h - 300) 근처가 되도록 역산
@@ -1221,17 +1227,17 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     DIVIDER_Y + 120,
     bottomInfo2YTarget - (mainLogoH + 70 + 70)
   );
-  const botOppY = botMainY + Math.round((mainLogoH - logoBoxH) / 2);
+  const botOppY = botMainY + Math.round((mainLogoH - oppLogoH) / 2);
   const topTeamImg = logosByTeamKey?.[top.teamKey] || null;
   const topOppImg = logosByTeamKey?.[top.oppKey] || null;
   drawLogoInBox(PAD_X, topMainY, mainLogoW, mainLogoH, top.team, topTeamImg);
-  drawLogoInBox(RIGHT_X, topOppY, logoBoxW, logoBoxH, top.opponent, topOppImg);
+  drawLogoInBox(RIGHT_X, topOppY, oppLogoW, oppLogoH, top.opponent, topOppImg);
 
   // 3) 상단: VS (두 로고 정중앙)
   const topLeftCx = PAD_X + mainLogoW / 2;
   const topLeftCy = topMainY + mainLogoH / 2;
-  const topRightCx = RIGHT_X + logoBoxW / 2;
-  const topRightCy = topOppY + logoBoxH / 2;
+  const topRightCx = RIGHT_X + oppLogoW / 2;
+  const topRightCy = topOppY + oppLogoH / 2;
   const topVsX = (topLeftCx + topRightCx) / 2;
   const topVsY = (topLeftCy + topRightCy) / 2;
 
@@ -1249,15 +1255,14 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(
-    `${fmtKoreanMonthDayDow(top.dateIso)}  ${venueFullName(top.venue)}`,
-    w / 2,
-    topInfoY
-  );
+  ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const topIsHome = teamKeyword(top.team) === teamKeyword(homeTeam);
+  const topW = topIsHome ? h2hWin : h2hLose;
+  const topL = topIsHome ? h2hLose : h2hWin;
   const topH2h =
     h2h
-      ? `시즌 상대전적 : ${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
+      ? `시즌 상대전적 : ${topW}승 ${h2hDraw}무 ${topL}패`
       : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(topH2h, w / 2, topInfoY + 70);
   resetShadow(ctx);
@@ -1266,13 +1271,13 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const botTeamImg = logosByTeamKey?.[bot.teamKey] || null;
   const botOppImg = logosByTeamKey?.[bot.oppKey] || null;
   drawLogoInBox(PAD_X, botMainY, mainLogoW, mainLogoH, bot.team, botTeamImg);
-  drawLogoInBox(RIGHT_X, botOppY, logoBoxW, logoBoxH, bot.opponent, botOppImg);
+  drawLogoInBox(RIGHT_X, botOppY, oppLogoW, oppLogoH, bot.opponent, botOppImg);
 
   // 하단: VS (두 로고 정중앙)
   const botLeftCx = PAD_X + mainLogoW / 2;
   const botLeftCy = botMainY + mainLogoH / 2;
-  const botRightCx = RIGHT_X + logoBoxW / 2;
-  const botRightCy = botOppY + logoBoxH / 2;
+  const botRightCx = RIGHT_X + oppLogoW / 2;
+  const botRightCy = botOppY + oppLogoH / 2;
   const botVsX = (botLeftCx + botRightCx) / 2;
   const botVsY = (botLeftCy + botRightCy) / 2;
 
@@ -1290,15 +1295,14 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(
-    `${fmtKoreanMonthDayDow(bot.dateIso)}  ${venueFullName(bot.venue)}`,
-    w / 2,
-    botInfoY
-  );
+  ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const botIsHome = teamKeyword(bot.team) === teamKeyword(homeTeam);
+  const botW = botIsHome ? h2hWin : h2hLose;
+  const botL = botIsHome ? h2hLose : h2hWin;
   const botH2h =
     h2h
-      ? `시즌 상대전적 : ${h2hLose}승 ${h2hDraw}무 ${h2hWin}패`
+      ? `시즌 상대전적 : ${botW}승 ${h2hDraw}무 ${botL}패`
       : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(botH2h, w / 2, botInfoY + 70);
   resetShadow(ctx);
