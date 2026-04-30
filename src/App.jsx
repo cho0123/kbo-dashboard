@@ -1994,6 +1994,553 @@ function Card8Shorts({ defaultDate }) {
   );
 }
 
+function getKstIsoToday() {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
+
+function getWeekRangeKst(mode) {
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  // JS: Sunday=0 ... Saturday=6, we want Monday start
+  const day = now.getDay();
+  const daysSinceMon = (day + 6) % 7;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - daysSinceMon);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+
+  const fromThis = mon.toLocaleDateString("sv-SE");
+  const toThis = sun.toLocaleDateString("sv-SE");
+
+  if (mode === "this") {
+    return { from: fromThis, to: toThis };
+  }
+  // last week
+  const mon2 = new Date(mon);
+  mon2.setDate(mon.getDate() - 7);
+  const sun2 = new Date(sun);
+  sun2.setDate(sun.getDate() - 7);
+  return { from: mon2.toLocaleDateString("sv-SE"), to: sun2.toLocaleDateString("sv-SE") };
+}
+
+function drawWeeklyIntroSlide(ctx, w, h, from, to, logosByTeamKey) {
+  drawBackground(ctx, w, h, "#0b0f2b");
+  drawTopBrand(ctx, w);
+  drawLogoCollage(ctx, w, h, logosByTeamKey);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `1000 82px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillText("KBO 주간 분석", w / 2, 420);
+  ctx.font = `900 54px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#F9FF00";
+  ctx.fillText(`${from} ~ ${to}`, w / 2, 500);
+  ctx.restore();
+}
+
+function drawWeeklyTeamRecordsSlide(ctx, w, h, from, to, weeklyGames, standingsDiff, logosByTeamKey) {
+  drawBackground(ctx, w, h, "#0b0f2b");
+  drawTopBrand(ctx, w);
+  drawTopDatePill(ctx, w, `${from}~${to}`);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("주간 팀별 성적", w / 2, 220);
+  ctx.restore();
+
+  const list = Array.isArray(weeklyGames) ? weeklyGames : [];
+  const top10 = list.slice(0, 10);
+
+  const diffMap = new Map();
+  for (const d of Array.isArray(standingsDiff) ? standingsDiff : []) {
+    if (d?.team) diffMap.set(String(d.team), d);
+  }
+
+  const x0 = 90;
+  const y0 = 340;
+  const rowH = 120;
+  for (let i = 0; i < top10.length; i++) {
+    const r = top10[i] || {};
+    const teamRaw = String(r.team || "");
+    const tk = teamKeyword(teamRaw);
+    const logo = logosByTeamKey?.[tk] || null;
+    const y = y0 + i * rowH;
+
+    ctx.save();
+    // row bg
+    ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)";
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x0, y, w - x0 * 2, rowH - 10, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    // rank idx
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `900 46px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#F9FF00";
+    ctx.fillText(String(i + 1), x0 + 22, y + (rowH - 10) / 2);
+
+    // logo + team
+    const lx = x0 + 90;
+    const ly = y + 18;
+    if (logo) drawLogoInBox(lx, ly, 84, 84, teamRaw, logo);
+    ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(teamShortName(teamRaw), x0 + 190, y + (rowH - 10) / 2);
+
+    // W-L-D
+    ctx.textAlign = "right";
+    ctx.font = `900 42px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFFFFF";
+    const wl = `${r.wins ?? 0}승 ${r.losses ?? 0}패 ${r.draws ?? 0}무`;
+    ctx.fillText(wl, w - x0 - 200, y + (rowH - 10) / 2);
+
+    // rank diff
+    const dd = diffMap.get(String(r.team || "")) || null;
+    const diff = dd?.diff;
+    const diffText =
+      diff == null ? "—" : diff === 0 ? "0" : diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`;
+    ctx.font = `1000 44px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = diff > 0 ? "#00e676" : diff < 0 ? "#ff5252" : "#B0BEC5";
+    ctx.fillText(diffText, w - x0 - 40, y + (rowH - 10) / 2);
+
+    ctx.restore();
+  }
+}
+
+function drawWeeklyTopBattersSlide(ctx, w, h, from, to, topBatters, logosByTeamKey) {
+  drawBackground(ctx, w, h, "#0b0f2b");
+  drawTopBrand(ctx, w);
+  drawTopDatePill(ctx, w, `${from}~${to}`);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("주간 최다 홈런 TOP3", w / 2, 220);
+  ctx.restore();
+
+  const list = Array.isArray(topBatters) ? topBatters : [];
+  const cards = list.slice(0, 3);
+  const cardW = 900;
+  const cardH = 360;
+  const x = (w - cardW) / 2;
+  const y0 = 380;
+  const gap = 34;
+
+  for (let i = 0; i < 3; i++) {
+    const b = cards[i] || null;
+    const y = y0 + i * (cardH + gap);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#F9FF00";
+    ctx.fillText(String(i + 1), x + 26, y + 26);
+
+    if (b) {
+      const teamRaw = String(b.team || "");
+      const tk = teamKeyword(teamRaw);
+      const logo = logosByTeamKey?.[tk] || null;
+      if (logo) drawLogoInBox(x + 120, y + 40, 120, 120, teamRaw, logo);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `1000 54px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText(String(b.player || "—").slice(0, 12), x + 270, y + 52);
+      ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(teamShortName(teamRaw), x + 270, y + 118);
+
+      ctx.textAlign = "right";
+      ctx.font = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+      ctx.fillStyle = "#F9FF00";
+      ctx.fillText(`${b.hr ?? 0} HR`, x + cardW - 30, y + 50);
+
+      ctx.font = `900 44px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(`H ${b.h ?? 0}`, x + cardW - 30, y + 160);
+      ctx.fillText(`RBI ${b.rbi ?? 0}`, x + cardW - 30, y + 220);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText("데이터 없음", x + 120, y + 140);
+    }
+    ctx.restore();
+  }
+}
+
+function drawWeeklyTopPitchersSlide(ctx, w, h, from, to, topPitchers, logosByTeamKey) {
+  drawBackground(ctx, w, h, "#0b0f2b");
+  drawTopBrand(ctx, w);
+  drawTopDatePill(ctx, w, `${from}~${to}`);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("주간 최고 투수 TOP3", w / 2, 220);
+  ctx.restore();
+
+  const list = Array.isArray(topPitchers) ? topPitchers : [];
+  const cards = list.slice(0, 3);
+  const cardW = 900;
+  const cardH = 360;
+  const x = (w - cardW) / 2;
+  const y0 = 380;
+  const gap = 34;
+
+  for (let i = 0; i < 3; i++) {
+    const p = cards[i] || null;
+    const y = y0 + i * (cardH + gap);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#F9FF00";
+    ctx.fillText(String(i + 1), x + 26, y + 26);
+
+    if (p) {
+      const teamRaw = String(p.team || "");
+      const tk = teamKeyword(teamRaw);
+      const logo = logosByTeamKey?.[tk] || null;
+      if (logo) drawLogoInBox(x + 120, y + 40, 120, 120, teamRaw, logo);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `1000 54px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText(String(p.player || "—").slice(0, 12), x + 270, y + 52);
+      ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(teamShortName(teamRaw), x + 270, y + 118);
+
+      ctx.textAlign = "right";
+      ctx.font = `1000 68px "${FONT_TITLE}", system-ui, sans-serif`;
+      ctx.fillStyle = "#F9FF00";
+      ctx.fillText(`${Number(p.ip ?? 0).toFixed(1)} IP`, x + cardW - 30, y + 50);
+
+      ctx.font = `900 44px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "#FFFFFF";
+      const era = p.era == null ? "—" : Number(p.era).toFixed(2);
+      ctx.fillText(`ERA ${era}`, x + cardW - 30, y + 160);
+      ctx.fillText(`W ${p.wins ?? 0}`, x + cardW - 30, y + 220);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText("데이터 없음", x + 120, y + 140);
+    }
+    ctx.restore();
+  }
+}
+
+function drawWeeklyNextWeekSlide(ctx, w, h, from, to, highlights, logosByTeamKey) {
+  drawBackground(ctx, w, h, "#0b0f2b");
+  drawTopBrand(ctx, w);
+  drawTopDatePill(ctx, w, `${from}~${to}`);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("다음주 주목 경기", w / 2, 220);
+  ctx.restore();
+
+  const list = Array.isArray(highlights) ? highlights : [];
+  const cardW = 900;
+  const cardH = 360;
+  const x = (w - cardW) / 2;
+  const y0 = 420;
+  const gap = 40;
+
+  for (let i = 0; i < 3; i++) {
+    const g = list[i] || null;
+    const y = y0 + i * (cardH + gap);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#F9FF00";
+    ctx.fillText(String(i + 1), x + 26, y + 26);
+
+    if (g) {
+      const awayRaw = String(g.away_team || "");
+      const homeRaw = String(g.home_team || "");
+      const atk = teamKeyword(awayRaw);
+      const htk = teamKeyword(homeRaw);
+      const aLogo = logosByTeamKey?.[atk] || null;
+      const hLogo = logosByTeamKey?.[htk] || null;
+      if (aLogo) drawLogoInBox(x + 120, y + 70, 120, 120, awayRaw, aLogo);
+      if (hLogo) drawLogoInBox(x + cardW - 120 - 30, y + 70, 120, 120, homeRaw, hLogo);
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(`${teamShortName(awayRaw)}  VS  ${teamShortName(homeRaw)}`, x + cardW / 2, y + 84);
+
+      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillText(`${String(g.game_date || "").slice(0, 10)} ${String(g.game_time || "").trim()}`, x + cardW / 2, y + 160);
+
+      ctx.font = `800 40px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillText(String(g.venue || "").slice(0, 22), x + cardW / 2, y + 220);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText("데이터 없음", x + 120, y + 140);
+    }
+    ctx.restore();
+  }
+}
+
+function Card9WeeklySummary() {
+  const last = useMemo(() => getWeekRangeKst("last"), []);
+  const [fromDate, setFromDate] = useState(last.from);
+  const [toDate, setToDate] = useState(last.to);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  const slides = useMemo(
+    () => [
+      { type: "intro" },
+      { type: "weekly_games" },
+      { type: "weekly_top_batters" },
+      { type: "weekly_top_pitchers" },
+      { type: "next_week_highlights" },
+    ],
+    []
+  );
+
+  const renderSlideToCanvas = async (idx, canvas) => {
+    if (!canvas) return;
+    await ensureCanvasFonts();
+    const w = 1080;
+    const h = 1920;
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = "360px";
+    canvas.style.height = "640px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const slide = slides[idx];
+    if (!slide) return;
+
+    const weeklyGames = Array.isArray(data?.weekly_games) ? data.weekly_games : [];
+    const topBatters = Array.isArray(data?.weekly_top_batters) ? data.weekly_top_batters : [];
+    const topPitchers = Array.isArray(data?.weekly_top_pitchers) ? data.weekly_top_pitchers : [];
+    const standingsDiff = Array.isArray(data?.weekly_standings_diff) ? data.weekly_standings_diff : [];
+    const highlights = Array.isArray(data?.next_week_highlights) ? data.next_week_highlights : [];
+
+    const teamKeys = new Set();
+    // preload common 10 team logos for intro
+    if (slide.type === "intro") {
+      for (const tk of ["KIA", "삼성", "LG", "두산", "KT", "SSG", "롯데", "한화", "NC", "키움"]) {
+        teamKeys.add(tk);
+      }
+    } else if (slide.type === "weekly_games") {
+      for (const r of weeklyGames.slice(0, 10)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "weekly_top_batters") {
+      for (const r of topBatters.slice(0, 3)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "weekly_top_pitchers") {
+      for (const r of topPitchers.slice(0, 3)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "next_week_highlights") {
+      for (const g of highlights.slice(0, 3)) {
+        teamKeys.add(teamKeyword(g?.home_team || ""));
+        teamKeys.add(teamKeyword(g?.away_team || ""));
+      }
+    }
+
+    const logosByTeamKey = {};
+    for (const tk of teamKeys) {
+      const img = await loadSvgLogo(tk);
+      logosByTeamKey[tk] = img;
+    }
+    __baseballDecorImg = await loadPngImage("/baseball.png");
+
+    if (slide.type === "intro") drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey);
+    else if (slide.type === "weekly_games")
+      drawWeeklyTeamRecordsSlide(ctx, w, h, fromDate, toDate, weeklyGames, standingsDiff, logosByTeamKey);
+    else if (slide.type === "weekly_top_batters")
+      drawWeeklyTopBattersSlide(ctx, w, h, fromDate, toDate, topBatters, logosByTeamKey);
+    else if (slide.type === "weekly_top_pitchers")
+      drawWeeklyTopPitchersSlide(ctx, w, h, fromDate, toDate, topPitchers, logosByTeamKey);
+    else drawWeeklyNextWeekSlide(ctx, w, h, fromDate, toDate, highlights, logosByTeamKey);
+  };
+
+  const onFetch = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({
+        action: "weekly_summary",
+        from_date: fromDate,
+        to_date: toDate,
+      });
+      setData(res);
+      setSlideIdx(0);
+    } catch (e) {
+      setError(e?.message || String(e));
+      setData(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadPng = async (idx) => {
+    const c = document.createElement("canvas");
+    await renderSlideToCanvas(idx, c);
+    const blob = await canvasToBlob(c);
+    if (!blob) return;
+    downloadBlob(
+      blob,
+      `weekly_${fromDate}_${toDate}_${String(idx + 1).padStart(2, "0")}.png`
+    );
+  };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < slides.length; i++) {
+      const c = document.createElement("canvas");
+      await renderSlideToCanvas(i, c);
+      const blob = await canvasToBlob(c);
+      if (!blob) continue;
+      zip.file(
+        `weekly_${fromDate}_${toDate}_${String(i + 1).padStart(2, "0")}.png`,
+        blob
+      );
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob(out, `weekly_${fromDate}_${toDate}.zip`);
+  };
+
+  return (
+    <div className="section soft">
+      <div className="section-title">9. 쇼츠-주간-분석(월요일)</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted" style={{ fontWeight: 900 }}>시작</span>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted" style={{ fontWeight: 900 }}>종료</span>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const r = getWeekRangeKst("this");
+            setFromDate(r.from);
+            setToDate(r.to);
+          }}
+          disabled={busy}
+        >
+          이번주
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const r = getWeekRangeKst("last");
+            setFromDate(r.from);
+            setToDate(r.to);
+          }}
+          disabled={busy}
+        >
+          지난주
+        </button>
+
+        <button type="button" className="primary primary-fill" onClick={onFetch} disabled={busy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary" onClick={downloadZip} disabled={!data || busy}>
+          전체 ZIP 다운로드
+        </button>
+      </div>
+
+      {error ? <pre className="result-error-light">{error}</pre> : null}
+
+      {data ? (
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
+          <div style={{ flexShrink: 0 }}>
+            <ShortsCanvas
+              slideIdx={slideIdx}
+              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+            />
+          </div>
+          <div>
+            <div className="muted" style={{ fontWeight: 900 }}>
+              슬라이드 ({slideIdx + 1}/{slides.length})
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+                disabled={slideIdx >= slides.length - 1}
+              >
+                다음
+              </button>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+                현재 슬라이드 PNG 다운로드
+              </button>
+            </div>
+            <div className="muted" style={{ marginTop: 10 }}>
+              - 슬라이드1: 인트로<br />
+              - 슬라이드2: 주간 팀별 순위/성적<br />
+              - 슬라이드3: 주간 최다 홈런 Top3<br />
+              - 슬라이드4: 주간 최고 투수 Top3<br />
+              - 슬라이드5: 다음주 주목 경기
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ShortsCanvas({ slideIdx, renderSlide }) {
   const [ref, setRef] = useState(null);
   useEffect(() => {
@@ -3043,13 +3590,11 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_pitcher_week_9")}
                   onClick={() => {
-                    setActiveKey("shorts_pitcher_week");
-                    runWith("shorts_pitcher_week", {}, "9", setWkOut);
+                    setActiveKey("shorts_weekly_summary");
                   }}
                 >
-                  생성
+                  열기
                 </button>
               </div>
 
@@ -3823,6 +4368,8 @@ export default function App() {
                     />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} />
+                  ) : activeKey === "shorts_weekly_summary" ? (
+                    <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
                     <ResultBlock
                       title={null}
