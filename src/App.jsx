@@ -1074,8 +1074,17 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 }
 
 function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, standings) {
-  const TOP_H = Math.floor(h / 2);
-  const BOT_H = h - TOP_H;
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  const DIVIDER_Y = 960;
+
+  const homeTeam = String(g?.home_team || "—");
+  const awayTeam = String(g?.away_team || "—");
+
+  // 홈팀 기준 다음 경기 데이터 사용 (없으면 호환용 next_game 폴백)
+  const ng = g?.home_next_game ?? g?.next_game ?? g?.nextGame ?? null;
+  const ngDateIso = String(ng?.game_date || date || "").slice(0, 10);
+  const ngTime = String(ng?.game_time || "—").trim() || "—";
 
   const cleanName = (s) =>
     String(s || "—")
@@ -1084,117 +1093,121 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
       .trim()
       .slice(0, 18);
 
-  const buildTeamNextInfo = (teamName, ng) => {
-    const team = String(teamName || "—");
-    const key = teamKeyword(team);
-    const ngObj = ng && typeof ng === "object" ? ng : null;
-    const hasNg = Boolean(ngObj?.game_date || ngObj?.game_time || ngObj?.home_team || ngObj?.away_team);
-    if (!hasNg) {
-      return {
-        team,
-        key,
-        date: "—",
-        time: "—",
-        opponent: "—",
-        venue: "—",
-        starter: "미정",
-      };
-    }
-    const dateIso = String(ngObj?.game_date || "").slice(0, 10) || "—";
-    const timeText = String(ngObj?.game_time || "—").trim() || "—";
-    const homeTeam = String(ngObj?.home_team || "—");
-    const awayTeam = String(ngObj?.away_team || "—");
-    const tKey = teamKeyword(team);
-    const isHome = teamKeyword(homeTeam) === tKey;
-    const opponent = isHome ? awayTeam : homeTeam;
-    const venue = String(ngObj?.venue || "—").slice(0, 24) || "—";
-    const starterRaw = isHome ? ngObj?.home_starter : ngObj?.away_starter;
-    const starter = cleanName(starterRaw ?? "미정") || "미정";
-    return {
-      team,
-      key,
-      date: dateIso,
-      time: timeText,
-      opponent: String(opponent || "—"),
-      venue,
-      starter,
-    };
-  };
+  const hk = teamKeyword(homeTeam);
+  const ak = teamKeyword(awayTeam);
+  const homeImg = logosByTeamKey?.[hk] || null;
+  const awayImg = logosByTeamKey?.[ak] || null;
 
-  const homeTeam = String(g?.home_team || "—");
-  const awayTeam = String(g?.away_team || "—");
-  const homeInfo = buildTeamNextInfo(homeTeam, g?.home_next_game ?? null);
-  const awayInfo = buildTeamNextInfo(awayTeam, g?.away_next_game ?? null);
-
-  const drawHalf = (y0, hh, teamInfo, accentHex, logoImg) => {
-    // Background: solid team color + baseball watermark
-    ctx.fillStyle = accentHex;
-    ctx.fillRect(0, y0, w, hh);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, y0, w, hh);
-    ctx.clip();
-    drawBaseballBackground(ctx);
-    ctx.restore();
-
-    const padX = 64;
-    const padY = 80;
-    const titleY = y0 + padY + 80;
-    const logoSize = 200;
-
-    // Team header row
-    const logoX = padX;
-    const logoY = y0 + padY + 120;
-    drawTeamLogoOrBadge(ctx, logoX, logoY, logoSize, teamInfo.team, logoImg);
-
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(cleanName(teamInfo.team), logoX + logoSize + 24, titleY);
-    resetShadow(ctx);
-
-    // Date / time
-    ctx.fillStyle = "#F9FF00";
-    ctx.font = `900 70px "${FONT_TITLE}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(`${fmtKoreanLongDate(teamInfo.date)}  ${teamInfo.time}`, logoX + logoSize + 24, titleY + 110);
-    resetShadow(ctx);
-
-    // Details
-    const textX = padX;
-    const baseY = y0 + padY + 420;
-    const gap = 92;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `700 56px "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(`상대  ${cleanName(teamInfo.opponent)}`, textX, baseY);
-    ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(`구장  ${teamInfo.venue}`, textX, baseY + gap);
-    ctx.fillText(`예상선발  ${teamInfo.starter}`, textX, baseY + gap * 2);
-    resetShadow(ctx);
-  };
-
+  // 배경: drawGameSlide와 동일한 사선 분할(상단 홈팀 컬러 / 하단 원정팀 컬러)
   ctx.clearRect(0, 0, w, h);
-  const [homeC] = teamGrad(homeInfo.team);
-  const [awayC] = teamGrad(awayInfo.team);
-  const homeImg = logosByTeamKey?.[homeInfo.key] || null;
-  const awayImg = logosByTeamKey?.[awayInfo.key] || null;
+  winLoseVerticalGradient(ctx, w, h, homeTeam, awayTeam);
 
-  drawHalf(0, TOP_H, homeInfo, homeC, homeImg);
-  drawHalf(TOP_H, BOT_H, awayInfo, awayC, awayImg);
+  // 1) 좌상단: NEXT GAME (날짜 자리)
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("NEXT GAME", 64, SAFE_TOP + 80);
+  resetShadow(ctx);
 
-  // Divider
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(0, TOP_H);
-  ctx.lineTo(w, TOP_H);
-  ctx.stroke();
+  // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+
+  const logoY = SAFE_TOP + 220;
+  const logoBoxW = 260;
+  const logoBoxH = 180;
+  drawLogoInBox(64, logoY, logoBoxW, logoBoxH, homeTeam, homeImg);
+  drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, awayTeam, awayImg);
+
+  // 3) 중앙: 날짜 + 요일 + 시간
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `900 90px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  const centerLine = `${fmtKoreanLongDate(ngDateIso)}  ${ngTime}`;
+  ctx.fillText(centerLine, w / 2, SAFE_TOP + 520);
+  resetShadow(ctx);
+
+  // 4) 그 아래: 예상선발 (홈선발 vs 원정선발) — home_next_game 기준
+  const ngHomeTeam = String(ng?.home_team || "");
+  const ngAwayTeam = String(ng?.away_team || "");
+  const homeIsNgHome = teamKeyword(ngHomeTeam) === teamKeyword(homeTeam);
+  const homeStarter = cleanName(
+    homeIsNgHome ? ng?.home_starter ?? "미정" : ng?.away_starter ?? "미정"
+  );
+  const awayStarter = cleanName(
+    homeIsNgHome ? ng?.away_starter ?? "미정" : ng?.home_starter ?? "미정"
+  );
+
+  const homePart = `${homeStarter || "미정"}`;
+  const awayPart = `${awayStarter || "미정"}`;
+  const vsPart = "  vs  ";
+  const yStarter = SAFE_TOP + 640;
+  ctx.textAlign = "left";
+  ctx.font = `800 60px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  const wHomeP = ctx.measureText(homePart).width;
+  const wVsP = ctx.measureText(vsPart).width;
+  const wAwayP = ctx.measureText(awayPart).width;
+  const sx = (w - (wHomeP + wVsP + wAwayP)) / 2;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(homePart, sx, yStarter);
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText(vsPart, sx + wHomeP, yStarter);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
+  resetShadow(ctx);
+
+  // 하단 영역 (원정팀 컬러) - 왼쪽 정렬 불릿
+  const leftX = 72;
+  const listTop = DIVIDER_Y + 180;
+  const lineGap = 107;
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+
+  // • 구장
+  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const venueText = String(ng?.venue || "—").slice(0, 24) || "—";
+  ctx.fillText(`• ${venueText}`, leftX, listTop);
+
+  // • 상대전적 (홈팀기준) — 기존 game slide와 동일
+  const h2h =
+    g?.headToHead ??
+    g?.head_to_head ??
+    g?.headToHeadRecord ??
+    g?.head_to_head_record ??
+    null;
+  const h2hText = h2h
+    ? `• 상대전적  ${homeTeam} ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
+    : `• 상대전적 데이터 없음`;
+  ctx.font = `700 50px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 1);
+
+  // • 예상선발: 홈팀투수 vs 원정팀투수 (동일 라인 재표시)
+  ctx.font = `800 54px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `• 예상선발  ${homePart}${vsPart}${awayPart}`,
+    leftX,
+    listTop + lineGap * 2
+  );
 
   void standings;
+  void SAFE_BOTTOM;
   void index;
   void total;
 }
