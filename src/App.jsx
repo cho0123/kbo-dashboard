@@ -619,16 +619,16 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
 
   // Team logos (irregular collage above the main title)
   const placements = [
-    { team: "KIA", x: 150, y: 400, size: 120, angle: -15 },
-    { team: "삼성", x: 400, y: 350, size: 90, angle: 10 },
-    { team: "LG", x: 650, y: 420, size: 110, angle: -8 },
-    { team: "두산", x: 200, y: 580, size: 80, angle: 12 },
-    { team: "KT", x: 500, y: 500, size: 100, angle: -5 },
-    { team: "SSG", x: 750, y: 480, size: 85, angle: 18 },
-    { team: "롯데", x: 130, y: 720, size: 95, angle: -20 },
-    { team: "한화", x: 380, y: 680, size: 105, angle: 8 },
-    { team: "NC", x: 620, y: 650, size: 88, angle: -12 },
-    { team: "키움", x: 820, y: 600, size: 92, angle: 15 },
+    { team: "KIA", x: 180, y: 370, size: 160, angle: -12 },
+    { team: "삼성", x: 540, y: 340, size: 145, angle: 8 },
+    { team: "LG", x: 880, y: 380, size: 155, angle: -6 },
+    { team: "두산", x: 150, y: 560, size: 140, angle: 15 },
+    { team: "KT", x: 430, y: 520, size: 150, angle: -10 },
+    { team: "SSG", x: 750, y: 540, size: 145, angle: 12 },
+    { team: "롯데", x: 220, y: 730, size: 155, angle: -8 },
+    { team: "한화", x: 500, y: 700, size: 148, angle: 6 },
+    { team: "NC", x: 800, y: 720, size: 142, angle: -14 },
+    { team: "키움", x: 960, y: 580, size: 138, angle: 10 },
   ];
 
   ctx.shadowColor = "transparent";
