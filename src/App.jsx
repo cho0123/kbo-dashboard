@@ -651,7 +651,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
     const tk = teamKeyword(p.team);
     const img = logosByTeamKey?.[tk] || null;
     // shrink from current rendered size
-    const size = p.size * 1.8 * 0.55;
+    const size = p.size * 1.8 * 0.55 * 1.05;
     ctx.save();
     ctx.translate(p.x + size / 2, p.y + size / 2);
     ctx.rotate((p.angle * Math.PI) / 180);
@@ -673,13 +673,20 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   // Top: title (single line)
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.shadowColor = "rgba(0,0,0,0.5)";
-  ctx.shadowBlur = 8;
+  // No shadow (explicitly disable)
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 4;
+  ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 85px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("프로야구 경기 결과", centerX, topY);
+  const titleText = "프로야구 경기 결과";
+  let titleSize = 100;
+  ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  while (ctx.measureText(titleText).width > 960 && titleSize > 60) {
+    titleSize -= 2;
+    ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.fillText(titleText, centerX, topY);
 
   // Center: "1분컷"
   ctx.textBaseline = "middle";
