@@ -948,8 +948,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   const homeIsWinner =
     Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
-  const scoreFont = `1000 140px "${FONT_TITLE}", system-ui, sans-serif`;
-  const vsFont = `1000 140px "${FONT_TITLE}", system-ui, sans-serif`;
+  const scoreFont = `1000 145px "${FONT_TITLE}", system-ui, sans-serif`;
+  const vsFont = `1000 145px "${FONT_TITLE}", system-ui, sans-serif`;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -983,9 +983,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const starterLine = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
 
   ctx.textAlign = "center";
-  ctx.font = `700 46px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#F9FF00";
-  ctx.fillText("선발", w / 2, SAFE_TOP + 610);
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   const homePart = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)})`;
   const awayPart = `${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
@@ -999,9 +996,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const sx = (w - (wHomeP + wVsP + wAwayP)) / 2;
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(homePart, sx, yStarter);
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.fillText(vsPart, sx + wHomeP, yStarter);
-  ctx.fillStyle = "#F9FF00";
+  ctx.fillStyle = "#FFFFFF";
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
   // 하단 영역
