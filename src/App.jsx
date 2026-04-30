@@ -2988,7 +2988,7 @@ export default function App() {
           {tab === "shorts" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">8. 쇼츠 슬라이드 (PNG/ZIP)</div>
+                <div className="side-group-title">8. 쇼츠-일간-경기결과</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -3039,7 +3039,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">9. 주간 최고 투수 (쇼츠)</div>
+                <div className="side-group-title">9. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
