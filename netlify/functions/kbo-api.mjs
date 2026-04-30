@@ -1871,6 +1871,38 @@ export const handler = async (event) => {
             __nextGameCache.set(awayKey, awayNextGame ?? null);
           }
 
+          const attachNextH2H = async (teamName, nextGameObj) => {
+            if (!nextGameObj) return null;
+            const teamKey = normalizeTeamKey(teamName || "");
+            const nh = String(nextGameObj?.home_team || "");
+            const na = String(nextGameObj?.away_team || "");
+            const nhKey = normalizeTeamKey(nh);
+            const naKey = normalizeTeamKey(na);
+            const opponent =
+              teamKey && nhKey === teamKey
+                ? na
+                : teamKey && naKey === teamKey
+                  ? nh
+                  : nh || na || "";
+            if (!teamName || !opponent) return { ...nextGameObj, next_h2h: null };
+            const key = `next_h2h:2026:${teamKey}__${normalizeTeamKey(opponent)}`;
+            let rec = __h2hCache.get(key);
+            if (!rec) {
+              rec = await fetchHeadToHeadRecord(db, teamName, opponent, 2026);
+              __h2hCache.set(key, rec);
+            }
+            return { ...nextGameObj, next_h2h: rec };
+          };
+
+          const homeNextGameWithH2h = await attachNextH2H(
+            g?.home_team || "",
+            homeNextGame
+          );
+          const awayNextGameWithH2h = await attachNextH2H(
+            g?.away_team || "",
+            awayNextGame
+          );
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -1902,10 +1934,10 @@ export const handler = async (event) => {
             venue,
             headToHead,
             mvp_batter: mvp,
-            home_next_game: homeNextGame ?? null,
-            away_next_game: awayNextGame ?? null,
+            home_next_game: homeNextGameWithH2h ?? null,
+            away_next_game: awayNextGameWithH2h ?? null,
             // Backward-compat: keep next_game but align with home team next game
-            next_game: homeNextGame ?? null,
+            next_game: homeNextGameWithH2h ?? null,
           });
         }
 

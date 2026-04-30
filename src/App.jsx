@@ -1110,6 +1110,7 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
       dateIso,
       time,
       venue,
+      next_h2h: obj?.next_h2h ?? null,
     };
   };
 
@@ -1131,16 +1132,6 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // next_game 슬라이드: 반드시 반대로 교차 (상단=패전팀, 하단=승리팀)
   const top = pickNextInfoForTeam(loseTeam, pickNgForTeam(loseTeam));
   const bot = pickNextInfoForTeam(winTeam, pickNgForTeam(winTeam));
-
-  const h2h =
-    g?.headToHead ??
-    g?.head_to_head ??
-    g?.headToHeadRecord ??
-    g?.head_to_head_record ??
-    null;
-  const h2hWin = Number(h2h?.win ?? 0) || 0;
-  const h2hDraw = Number(h2h?.draw ?? 0) || 0;
-  const h2hLose = Number(h2h?.lose ?? 0) || 0;
 
   const shortVenue = (v) => {
     const s = String(v || "").trim();
@@ -1257,13 +1248,9 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   shadowTextSoft(ctx);
   ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const topIsHome = teamKeyword(top.team) === teamKeyword(homeTeam);
-  const topW = topIsHome ? h2hWin : h2hLose;
-  const topL = topIsHome ? h2hLose : h2hWin;
-  const topH2h =
-    h2h
-      ? `시즌 상대전적 : ${topW}승 ${h2hDraw}무 ${topL}패`
-      : `시즌 상대전적 : 데이터 없음`;
+  const topH2h = top?.next_h2h
+    ? `시즌 상대전적 : ${Number(top.next_h2h.win ?? 0) || 0}승 ${Number(top.next_h2h.draw ?? 0) || 0}무 ${Number(top.next_h2h.lose ?? 0) || 0}패`
+    : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(topH2h, w / 2, topInfoY + 70);
   resetShadow(ctx);
 
@@ -1297,13 +1284,9 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   shadowTextSoft(ctx);
   ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const botIsHome = teamKeyword(bot.team) === teamKeyword(homeTeam);
-  const botW = botIsHome ? h2hWin : h2hLose;
-  const botL = botIsHome ? h2hLose : h2hWin;
-  const botH2h =
-    h2h
-      ? `시즌 상대전적 : ${botW}승 ${h2hDraw}무 ${botL}패`
-      : `시즌 상대전적 : 데이터 없음`;
+  const botH2h = bot?.next_h2h
+    ? `시즌 상대전적 : ${Number(bot.next_h2h.win ?? 0) || 0}승 ${Number(bot.next_h2h.draw ?? 0) || 0}무 ${Number(bot.next_h2h.lose ?? 0) || 0}패`
+    : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(botH2h, w / 2, botInfoY + 70);
   resetShadow(ctx);
 
