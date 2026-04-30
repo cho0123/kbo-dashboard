@@ -1621,6 +1621,7 @@ export const handler = async (event) => {
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
           const venue = pickVenueName(rawGame);
           console.log("venue check:", gid, venue);
+          console.log("rawGame keys:", Object.keys(rawGame));
 
           games.push({
             ...g,
