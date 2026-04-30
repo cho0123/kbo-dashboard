@@ -855,11 +855,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 }
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
-  if (!window.__didLogDrawGameSlideG) {
-    window.__didLogDrawGameSlideG = true;
-    console.log("[drawGameSlide] g sample:", g);
-    console.log("[drawGameSlide] g.headToHead:", g?.headToHead, "g.head_to_head:", g?.head_to_head);
-  }
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1008,14 +1003,14 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // 하단 영역
   const leftX = 72;
-  const listTop = DIVIDER_Y + 110;
+  const listTop = DIVIDER_Y + 130;
   const lineGap = 100;
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
 
   // • 구장명
-  ctx.font = `700 46px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `700 47px "${FONT_BODY}", system-ui, sans-serif`;
   const venueText = String(g?.venue || "—").slice(0, 24) || "—";
   ctx.fillText(`• ${venueText}`, leftX, listTop);
 
@@ -1029,7 +1024,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const h2hText = h2h
     ? `• 상대전적 (홈팀기준) ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
     : `• 상대전적 데이터 없음`;
-  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `600 45px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(h2hText, leftX, listTop + lineGap * 1);
 
   // • 승/패 투수
@@ -1037,7 +1032,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
   const winEra = g?.winning_pitcher_era ?? null;
   const loseEra = g?.losing_pitcher_era ?? null;
-  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `600 45px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(
     `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`,
     leftX,
@@ -1050,7 +1045,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const mvpHr = g?.mvp_batter?.hr ?? null;
   const mvpStat =
     mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
-  ctx.font = `700 50px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.font = `700 51px "Gmarket Sans", system-ui, sans-serif`;
   ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 3);
 
   // 하단 인덱스 텍스트 제거
@@ -1402,8 +1397,6 @@ function Card8Shorts({ defaultDate }) {
       if (nextDate) setDate(nextDate);
       const res = await postKbo({ action: "shorts_slides_data", date: d });
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
-      console.log("[shorts_slides_data] games[0] sample:", res?.games?.[0]);
-      console.log("[shorts_slides_data] games[0].headToHead:", res?.games?.[0]?.headToHead);
       setData({
         ...res,
       });
