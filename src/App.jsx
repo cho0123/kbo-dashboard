@@ -630,16 +630,16 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
 
   // Team logos (irregular collage above the main title)
   const placements = [
-    { team: "KIA", x: 180, y: 370, size: 160, angle: -12 },
-    { team: "삼성", x: 540, y: 340, size: 145, angle: 8 },
-    { team: "LG", x: 880, y: 380, size: 155, angle: -6 },
-    { team: "두산", x: 150, y: 560, size: 140, angle: 15 },
-    { team: "KT", x: 430, y: 520, size: 150, angle: -10 },
-    { team: "SSG", x: 750, y: 540, size: 145, angle: 12 },
-    { team: "롯데", x: 220, y: 730, size: 155, angle: -8 },
-    { team: "한화", x: 500, y: 700, size: 148, angle: 6 },
-    { team: "NC", x: 800, y: 720, size: 142, angle: -14 },
-    { team: "키움", x: 960, y: 580, size: 138, angle: 10 },
+    { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
+    { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
+    { team: "LG", x: 820, y: 440, size: 155, angle: -6 },
+    { team: "두산", x: 90, y: 620, size: 140, angle: 15 },
+    { team: "KT", x: 370, y: 580, size: 150, angle: -10 },
+    { team: "SSG", x: 690, y: 600, size: 145, angle: 12 },
+    { team: "롯데", x: 160, y: 790, size: 155, angle: -8 },
+    { team: "한화", x: 440, y: 760, size: 148, angle: 6 },
+    { team: "NC", x: 740, y: 780, size: 142, angle: -14 },
+    { team: "키움", x: 900, y: 640, size: 138, angle: 10 },
   ];
 
   ctx.shadowColor = "transparent";
@@ -670,7 +670,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   }
   ctx.globalAlpha = 1;
 
-  // Top: "프로야구"
+  // Top: title (single line)
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.shadowColor = "rgba(0,0,0,0.5)";
@@ -678,13 +678,8 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 4;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("프로야구", centerX, topY);
-
-  // Top: "경기 결과"
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 70px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("경기 결과", centerX, topY + 80 + gapTop);
+  ctx.font = `800 85px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("프로야구 경기 결과", centerX, topY);
 
   // Center: "1분컷"
   ctx.textBaseline = "middle";
