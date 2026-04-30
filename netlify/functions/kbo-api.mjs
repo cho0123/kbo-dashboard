@@ -1846,16 +1846,29 @@ export const handler = async (event) => {
             __h2hCache.set(h2hKey, headToHead);
           }
 
-          const nextKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.home_team || "")}__${normalizeTeamKey(g?.away_team || "")}`;
-          let nextGame = __nextGameCache.get(nextKey);
-          if (nextGame === undefined) {
-            nextGame = pickNextGameForTeams(
+          const homeKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.home_team || "")}`;
+          const awayKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.away_team || "")}`;
+
+          let homeNextGame = __nextGameCache.get(homeKey);
+          if (homeNextGame === undefined) {
+            homeNextGame = pickNextGameForTeams(
               scheduleRows,
               g?.home_team || "",
-              g?.away_team || "",
+              "",
               dateStr
             );
-            __nextGameCache.set(nextKey, nextGame ?? null);
+            __nextGameCache.set(homeKey, homeNextGame ?? null);
+          }
+
+          let awayNextGame = __nextGameCache.get(awayKey);
+          if (awayNextGame === undefined) {
+            awayNextGame = pickNextGameForTeams(
+              scheduleRows,
+              g?.away_team || "",
+              "",
+              dateStr
+            );
+            __nextGameCache.set(awayKey, awayNextGame ?? null);
           }
 
           games.push({
@@ -1889,7 +1902,10 @@ export const handler = async (event) => {
             venue,
             headToHead,
             mvp_batter: mvp,
-            next_game: nextGame ?? null,
+            home_next_game: homeNextGame ?? null,
+            away_next_game: awayNextGame ?? null,
+            // Backward-compat: keep next_game but align with home team next game
+            next_game: homeNextGame ?? null,
           });
         }
 
