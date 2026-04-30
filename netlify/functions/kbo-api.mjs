@@ -2251,6 +2251,11 @@ export const handler = async (event) => {
         const weekly_top_batters = buildWeeklyTopBatters(box.batters, 3);
         const weekly_top_pitchers = buildWeeklyTopPitchers(box.pitchers, 3);
 
+        console.log("[weekly] from:", from, "to:", to);
+        console.log("[weekly] games:", weekly_games?.length);
+        console.log("[weekly] batters:", weekly_top_batters?.length);
+        console.log("[weekly] pitchers:", weekly_top_pitchers?.length);
+
         const [prevStand, curStand] = await Promise.all([
           fetchClosestStandingsHistoryDoc(db, from),
           fetchClosestStandingsHistoryDoc(db, to),
