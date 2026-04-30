@@ -948,9 +948,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   const homeIsWinner =
     Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
-  const winFont = `900 88px "${FONT_BODY}", system-ui, sans-serif`;
-  const loseFont = `700 72px "${FONT_BODY}", system-ui, sans-serif`;
-  const vsFont = `900 88px "${FONT_BODY}", system-ui, sans-serif`;
+  const winFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
+  const loseFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+  const vsFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
   const pad = "  ";
 
   ctx.textAlign = "left";
@@ -982,7 +982,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const awayStarterName = cleanName(g?.away_starter?.name ?? "");
   const homeStarterEra = g?.home_starter?.era ?? null;
   const awayStarterEra = g?.away_starter?.era ?? null;
-  const starterLine = `홈선발 ${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs 원정선발 ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
+  const starterLine = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
 
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.85)";

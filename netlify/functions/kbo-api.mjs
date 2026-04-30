@@ -1620,6 +1620,7 @@ export const handler = async (event) => {
           // venue from game doc if present
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
           const venue = pickVenueName(rawGame);
+          console.log("venue check:", gid, venue);
 
           games.push({
             ...g,
