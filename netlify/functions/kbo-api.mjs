@@ -385,6 +385,10 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
     "rows:",
     (scheduleRows || []).length
   );
+  console.log(
+    "[pickNext] all teams:",
+    (scheduleRows || []).map((r) => r?.home_team + "vs" + r?.away_team)
+  );
   const scored = [];
   for (const r of scheduleRows || []) {
     const gd = String(r?.game_date || "").slice(0, 10);
@@ -392,17 +396,6 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
     if (after && gd <= after) continue;
     const hk = normalizeTeamKey(r?.home_team || "");
     const ak = normalizeTeamKey(r?.away_team || "");
-    if (scheduleRows && scheduleRows.indexOf(r) === 0) {
-      console.log(
-        "[pickNext] first row hk:",
-        hk,
-        "ak:",
-        ak,
-        "raw:",
-        r?.home_team,
-        r?.away_team
-      );
-    }
     const match =
       (hk === a && ak === b) ||
       (hk === b && ak === a);
