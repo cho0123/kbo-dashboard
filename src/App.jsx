@@ -2418,6 +2418,7 @@ function Card9WeeklySummary() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const weeklyData = data;
   const [slideIdx, setSlideIdx] = useState(0);
 
   const slides = useMemo(
@@ -2447,10 +2448,22 @@ function Card9WeeklySummary() {
     const slide = slides[idx];
     if (!slide) return;
 
-    const weeklyGames = Array.isArray(data?.weekly_games) ? data.weekly_games : [];
-    const topBatters = Array.isArray(data?.weekly_top_batters) ? data.weekly_top_batters : [];
-    const topPitchers = Array.isArray(data?.weekly_top_pitchers) ? data.weekly_top_pitchers : [];
-    const highlights = Array.isArray(data?.next_week_highlights) ? data.next_week_highlights : [];
+    const weeklyGames = Array.isArray(weeklyData?.weekly_games) ? weeklyData.weekly_games : [];
+    const topBatters = Array.isArray(weeklyData?.weekly_top_batters)
+      ? weeklyData.weekly_top_batters
+      : [];
+    const topPitchers = Array.isArray(weeklyData?.weekly_top_pitchers)
+      ? weeklyData.weekly_top_pitchers
+      : [];
+    const highlights = Array.isArray(weeklyData?.next_week_highlights)
+      ? weeklyData.next_week_highlights
+      : [];
+
+    console.log(
+      "[weekly slides] data:",
+      weeklyData?.weekly_games?.length,
+      weeklyData?.weekly_top_batters?.length
+    );
 
     const teamKeys = new Set();
     // preload common 10 team logos for intro
