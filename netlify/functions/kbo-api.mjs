@@ -375,6 +375,16 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
   const a = normalizeTeamKey(teamA);
   const b = normalizeTeamKey(teamB);
   const after = String(afterDateIso || "").slice(0, 10);
+  console.log(
+    "[pickNext] a:",
+    a,
+    "b:",
+    b,
+    "after:",
+    after,
+    "rows:",
+    (scheduleRows || []).length
+  );
   const scored = [];
   for (const r of scheduleRows || []) {
     const gd = String(r?.game_date || "").slice(0, 10);
@@ -385,6 +395,9 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
     const match =
       (hk === a && ak === b) ||
       (hk === b && ak === a);
+    if (match) {
+      console.log("[pickNext] matched:", r?.game_date, r?.home_team, r?.away_team);
+    }
     if (!match) continue;
     const tm = String(r?.game_time || "").trim();
     const stamp = `${gd}T${tm || "00:00"}`;
