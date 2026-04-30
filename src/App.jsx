@@ -584,6 +584,7 @@ async function loadPngImage(path) {
 }
 
 let __baseballDecorImg = null;
+let __introBgImg = null;
 function drawBaseballBackground(ctx) {
   const baseballImg = __baseballDecorImg;
   if (!baseballImg) return;
@@ -599,6 +600,28 @@ function drawBaseballBackground(ctx) {
     size,
     size
   );
+  ctx.restore();
+}
+
+function drawIntroSlide(ctx, w, h, date, introBgImg) {
+  ctx.save();
+  if (introBgImg) {
+    ctx.drawImage(introBgImg, 0, 0, w, h);
+  } else {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  const y = 1600;
+  const text = fmtKoreanLongDate(date);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 60px "Gmarket Sans", system-ui, sans-serif`;
+  shadowTextHeavy(ctx);
+  ctx.fillText(text, w / 2, y);
+  resetShadow(ctx);
+
   ctx.restore();
 }
 
@@ -1595,6 +1618,7 @@ function Card8Shorts({ defaultDate }) {
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
+    s.push({ type: "intro" });
     // Summary slides: 누적 표시 (1경기 → 2경기 → ... → 전체)
     const n = Math.max(1, games.length);
     for (let upto = 1; upto <= n; upto++) {
@@ -1633,7 +1657,9 @@ function Card8Shorts({ defaultDate }) {
     if (!slide) return;
     // Preload local SVG logos (same-origin) for this slide
     const teamKeys = new Set();
-    if (slide.type === "summary") {
+    if (slide.type === "intro") {
+      // no team logos
+    } else if (slide.type === "summary") {
       const upto = Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1));
       const subset = games.slice(0, upto);
       for (const gg of subset) {
@@ -1672,8 +1698,10 @@ function Card8Shorts({ defaultDate }) {
     }
 
     __baseballDecorImg = await loadPngImage("/baseball.png");
+    if (slide.type === "intro") __introBgImg = await loadPngImage("/intro_bg.png");
 
-    if (slide.type === "summary")
+    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date, __introBgImg);
+    else if (slide.type === "summary")
       drawSummarySlide(
         ctx,
         w,
