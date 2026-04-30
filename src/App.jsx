@@ -1595,7 +1595,11 @@ function Card8Shorts({ defaultDate }) {
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
-    s.push({ type: "summary" });
+    // Summary slides: 누적 표시 (1경기 → 2경기 → ... → 전체)
+    const n = Math.max(1, games.length);
+    for (let upto = 1; upto <= n; upto++) {
+      s.push({ type: "summary", upto });
+    }
     for (const g of games) {
       s.push({ type: "game", game: g });
       if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame)
@@ -1630,7 +1634,9 @@ function Card8Shorts({ defaultDate }) {
     // Preload local SVG logos (same-origin) for this slide
     const teamKeys = new Set();
     if (slide.type === "summary") {
-      for (const gg of games) {
+      const upto = Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1));
+      const subset = games.slice(0, upto);
+      for (const gg of subset) {
         teamKeys.add(teamKeyword(gg?.home_team));
         teamKeys.add(teamKeyword(gg?.away_team));
       }
@@ -1668,7 +1674,14 @@ function Card8Shorts({ defaultDate }) {
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
+      drawSummarySlide(
+        ctx,
+        w,
+        h,
+        date,
+        games.slice(0, Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1))),
+        logosByTeamKey
+      );
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
