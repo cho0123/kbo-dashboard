@@ -1203,6 +1203,7 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
   const y = Number(season) || 2026;
   const from = `${y}-01-01`;
   const to = `${y}-12-31`;
+  console.log("[h2h] teams:", teamA, "vs", teamB, "season:", y);
 
   const keyOf = (nameRaw) => {
     const s = String(nameRaw || "").trim();
@@ -1220,7 +1221,9 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
   if (!aKey || !bKey) return { win: 0, draw: 0, lose: 0 };
 
   const rows = await fetchGamesDateRange(db, from, to);
+  console.log("[h2h] games fetched:", Array.isArray(rows) ? rows.length : 0);
   const out = { win: 0, draw: 0, lose: 0 };
+  let matched = 0;
 
   for (const g of rows || []) {
     const gd = String(g?.game_date || g?.gameDate || "");
@@ -1231,6 +1234,7 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
     const isMatch =
       (hKey === aKey && awKey === bKey) || (hKey === bKey && awKey === aKey);
     if (!isMatch) continue;
+    matched += 1;
 
     const hsRaw = g?.home_score;
     const asRaw = g?.away_score;
@@ -1254,6 +1258,8 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
     else out.lose += 1;
   }
 
+  console.log("[h2h] matched games:", matched);
+  console.log("[h2h] result:", out);
   return out;
 }
 

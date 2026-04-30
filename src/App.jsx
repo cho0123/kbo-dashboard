@@ -1018,7 +1018,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const h2h = g?.headToHead || null;
   const h2hText = h2h
     ? `• 상대전적 (홈팀기준) ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
-    : `• 상대전적 (홈팀기준) —`;
+    : `• 상대전적 데이터 없음`;
   ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(h2hText, leftX, listTop + lineGap * 1);
 
