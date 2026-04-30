@@ -1895,7 +1895,7 @@ function Card8Shorts({ defaultDate }) {
 
   return (
     <div className="section soft">
-      <div className="section-title">8. 쇼츠 슬라이드 생성</div>
+      <div className="section-title">1. 쇼츠 슬라이드 생성</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
@@ -2567,7 +2567,7 @@ function Card9WeeklySummary() {
 
   return (
     <div className="section soft">
-      <div className="section-title">9. 쇼츠-주간-분석(월요일)</div>
+      <div className="section-title">2. 쇼츠-주간-분석(월요일)</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
@@ -3166,7 +3166,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              분석 (1–5)
+              분석 (4–8)
             </button>
             <button
               type="button"
@@ -3176,7 +3176,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              예측 (6–7)
+              예측 (9–10)
             </button>
             <button
               type="button"
@@ -3186,14 +3186,14 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              쇼츠 (8–10)
+              쇼츠 (1–3)
             </button>
           </nav>
 
           {tab === "analysis" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">1. 경기 결과 조회</div>
+                <div className="side-group-title">4. 경기 결과 조회</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -3227,7 +3227,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">2. 팀별 주간 트렌드</div>
+                <div className="side-group-title">5. 팀별 주간 트렌드</div>
                 <label>팀</label>
                 <select
                   value={teamKw}
@@ -3264,7 +3264,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">3. 투수 vs 타자</div>
+                <div className="side-group-title">6. 투수 vs 타자</div>
                 <div className="grid-2">
                   <div>
                     <label>투수팀</label>
@@ -3362,7 +3362,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 기간별 선수 성적</div>
+                <div className="side-group-title">7. 기간별 선수 성적</div>
                 <div className="grid-2">
                   <div>
                     <label>팀</label>
@@ -3429,7 +3429,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">5. 선발 투수 비교</div>
+                <div className="side-group-title">8. 선발 투수 비교</div>
                 <div className="grid-2">
                   <div>
                     <label>투수 A 팀</label>
@@ -3513,7 +3513,7 @@ export default function App() {
           {tab === "predict" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">6. 선발 vs 상대 타선</div>
+                <div className="side-group-title">9. 선발 vs 상대 타선</div>
                 <div className="grid-2">
                   <div>
                     <label>투수팀</label>
@@ -3583,7 +3583,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">7. 최근 5경기 폼 예측</div>
+                <div className="side-group-title">10. 최근 5경기 폼 예측</div>
                 <div className="grid-2">
                   <div>
                     <label>팀 A</label>
@@ -3650,7 +3650,7 @@ export default function App() {
           {tab === "shorts" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">8. 쇼츠-일간-경기결과</div>
+                <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -3701,7 +3701,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">9. 쇼츠-주간-분석(월요일)</div>
+                <div className="side-group-title">2. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
@@ -3714,7 +3714,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">10. 최악 매칭업 (쇼츠)</div>
+                <div className="side-group-title">3. 최악 매칭업</div>
                 <button
                   type="button"
                   className="primary"
