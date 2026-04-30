@@ -855,6 +855,11 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 }
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
+  if (!window.__didLogDrawGameSlideG) {
+    window.__didLogDrawGameSlideG = true;
+    console.log("[drawGameSlide] g sample:", g);
+    console.log("[drawGameSlide] g.headToHead:", g?.headToHead, "g.head_to_head:", g?.head_to_head);
+  }
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1397,6 +1402,8 @@ function Card8Shorts({ defaultDate }) {
       if (nextDate) setDate(nextDate);
       const res = await postKbo({ action: "shorts_slides_data", date: d });
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
+      console.log("[shorts_slides_data] games[0] sample:", res?.games?.[0]);
+      console.log("[shorts_slides_data] games[0].headToHead:", res?.games?.[0]?.headToHead);
       setData({
         ...res,
       });
