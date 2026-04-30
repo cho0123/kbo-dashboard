@@ -1474,6 +1474,10 @@ function Card8Shorts({ defaultDate }) {
     return s;
   }, [data]);
 
+  useEffect(() => {
+    console.log("[slides] total:", slides.length);
+  }, [slides.length]);
+
   const renderSlideToCanvas = async (idx, canvas) => {
     if (!canvas) return;
     await ensureCanvasFonts();
@@ -1561,6 +1565,7 @@ function Card8Shorts({ defaultDate }) {
       const d = nextDate || date;
       if (nextDate) setDate(nextDate);
       const res = await postKbo({ action: "shorts_slides_data", date: d });
+      console.log("[next_game] games[0].next_game:", res?.games?.[0]?.next_game);
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
       setData({
         ...res,
