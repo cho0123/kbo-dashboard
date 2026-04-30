@@ -604,8 +604,19 @@ function drawBaseballBackground(ctx) {
 
 function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   ctx.save();
-  // Background: KBO official deep navy
-  ctx.fillStyle = "#002B5B";
+  // Background: day-of-week color
+  const DAY_COLORS = {
+    0: "#C0392B", // Sun
+    1: "#1A5276", // Mon
+    2: "#1A5276", // Tue
+    3: "#1E8449", // Wed
+    4: "#D35400", // Thu
+    5: "#6C3483", // Fri
+    6: "#B7950B", // Sat
+  };
+  const iso = String(date || "").slice(0, 10);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
+  ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
   ctx.fillRect(0, 0, w, h);
 
   // Baseball (same position/size/opacity as other slides)
@@ -702,7 +713,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   const dateY = divY + 80;
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 65px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(fmtKoreanLongDate(date), centerX, dateY);
 
   ctx.restore();
