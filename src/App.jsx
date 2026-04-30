@@ -650,7 +650,8 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   for (const p of placements) {
     const tk = teamKeyword(p.team);
     const img = logosByTeamKey?.[tk] || null;
-    const size = p.size * 1.8;
+    // shrink from current rendered size
+    const size = p.size * 1.8 * 0.55;
     ctx.save();
     ctx.translate(p.x + size / 2, p.y + size / 2);
     ctx.rotate((p.angle * Math.PI) / 180);
@@ -672,16 +673,16 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   // Top: "프로야구"
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 8;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+  ctx.shadowOffsetY = 4;
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("프로야구", centerX, topY);
 
-  // Top: "경기 결과" (red)
-  ctx.fillStyle = "#D4001A";
+  // Top: "경기 결과"
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 70px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("경기 결과", centerX, topY + 80 + gapTop);
 
