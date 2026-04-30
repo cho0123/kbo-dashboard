@@ -584,7 +584,6 @@ async function loadPngImage(path) {
 }
 
 let __baseballDecorImg = null;
-let __introBgImg = null;
 function drawBaseballBackground(ctx) {
   const baseballImg = __baseballDecorImg;
   if (!baseballImg) return;
@@ -603,35 +602,67 @@ function drawBaseballBackground(ctx) {
   ctx.restore();
 }
 
-function drawIntroSlide(ctx, w, h, date, introBgImg) {
+function drawIntroSlide(ctx, w, h, date) {
   ctx.save();
-  if (introBgImg) {
-    ctx.drawImage(introBgImg, 0, 0, w, h);
-  } else {
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, w, h);
-  }
+  // Background: KBO official deep navy
+  ctx.fillStyle = "#002B5B";
+  ctx.fillRect(0, 0, w, h);
 
-  const y = 1480;
-  const text = fmtKoreanLongDate(date);
+  // Baseball (same position/size/opacity as other slides)
+  drawBaseballBackground(ctx);
+
+  // Layout anchors
+  const centerX = w / 2;
+  const topY = 180;
+  const gapTop = 20;
+  const centralY = Math.round(h * 0.64); // tuned to place divider+date around ~1480px
+
+  // Top: "프로야구"
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  // No shadow
+  ctx.textBaseline = "top";
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("프로야구", centerX, topY);
 
-  // Pacifico style with slight tilt
-  const x = w / 2;
-  ctx.fillStyle = "#FFD700";
-  ctx.font = `400 100px "Pacifico", "Gmarket Sans", system-ui, sans-serif`;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate((-8 * Math.PI) / 180);
-  ctx.fillText(text, 0, 0);
-  ctx.restore();
+  // Top: "경기 결과" (red)
+  ctx.fillStyle = "#D4001A";
+  ctx.font = `800 70px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("경기 결과", centerX, topY + 80 + gapTop);
+
+  // Center: "1분컷"
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText("1분컷", centerX, centralY);
+
+  // Divider (white line) - 60px below "1분컷"
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  const divY = centralY + 110 + 60; // 220px font → approx half-height 110
+  const divW = 600;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - divW / 2, divY);
+  ctx.lineTo(centerX + divW / 2, divY);
+  ctx.stroke();
+
+  // Bottom: date (80px below divider)
+  const dateY = divY + 80;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 65px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtKoreanLongDate(date), centerX, dateY);
 
   ctx.restore();
 }
@@ -1709,9 +1740,8 @@ function Card8Shorts({ defaultDate }) {
     }
 
     __baseballDecorImg = await loadPngImage("/baseball.png");
-    if (slide.type === "intro") __introBgImg = await loadPngImage("/intro_bg.png");
 
-    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date, __introBgImg);
+    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date);
     else if (slide.type === "summary")
       drawSummarySlide(
         ctx,
