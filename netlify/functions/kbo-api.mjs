@@ -1199,6 +1199,64 @@ async function fetchGamesDateRange(db, fromStr, toStr) {
   return rows;
 }
 
+async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
+  const y = Number(season) || 2026;
+  const from = `${y}-01-01`;
+  const to = `${y}-12-31`;
+
+  const keyOf = (nameRaw) => {
+    const s = String(nameRaw || "").trim();
+    if (!s) return "";
+    const keys = Object.keys(TEAM_STADIUM);
+    const hit = keys.find((k) => s.includes(k));
+    if (hit) return hit;
+    // fallback: TEAM_MAP values (e.g. "KT 위즈") → keys ("KT")
+    const hit2 = keys.find((k) => (TEAM_MAP?.[k] || "") && s.includes(TEAM_MAP[k]));
+    return hit2 || s;
+  };
+
+  const aKey = keyOf(teamA);
+  const bKey = keyOf(teamB);
+  if (!aKey || !bKey) return { win: 0, draw: 0, lose: 0 };
+
+  const rows = await fetchGamesDateRange(db, from, to);
+  const out = { win: 0, draw: 0, lose: 0 };
+
+  for (const g of rows || []) {
+    const gd = String(g?.game_date || g?.gameDate || "");
+    if (!gd.startsWith(`${y}-`)) continue;
+
+    const hKey = keyOf(g?.home_team);
+    const awKey = keyOf(g?.away_team);
+    const isMatch =
+      (hKey === aKey && awKey === bKey) || (hKey === bKey && awKey === aKey);
+    if (!isMatch) continue;
+
+    const hsRaw = g?.home_score;
+    const asRaw = g?.away_score;
+    if (hsRaw == null || asRaw == null) continue;
+    if (typeof hsRaw === "string" && hsRaw.trim() === "") continue;
+    if (typeof asRaw === "string" && asRaw.trim() === "") continue;
+
+    const hs = Number(hsRaw);
+    const as = Number(asRaw);
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+
+    if (hs === as) {
+      out.draw += 1;
+      continue;
+    }
+
+    const teamAIsHome = hKey === aKey;
+    const teamAScore = teamAIsHome ? hs : as;
+    const teamBScore = teamAIsHome ? as : hs;
+    if (teamAScore > teamBScore) out.win += 1;
+    else out.lose += 1;
+  }
+
+  return out;
+}
+
 function filterAndSlimTeamWeekGames(rows, teamKw) {
   const kw = (teamKw || "").trim();
   const filtered = rows.filter(
@@ -1558,6 +1616,8 @@ export const handler = async (event) => {
         const gameDocs = await fetchGamesByDate(db, dateStr);
         const base = (gameDocs || []).map(slimGameResultRow);
 
+        const __h2hCache = new Map();
+
         const games = [];
         for (const g of base) {
           const gid = String(g?.game_id || "").trim();
@@ -1657,6 +1717,18 @@ export const handler = async (event) => {
           );
           const venue = venueKey ? TEAM_STADIUM[venueKey] : "";
 
+          const h2hKey = `2026:${String(g?.home_team || "")}__${String(g?.away_team || "")}`;
+          let headToHead = __h2hCache.get(h2hKey);
+          if (!headToHead) {
+            headToHead = await fetchHeadToHeadRecord(
+              db,
+              g?.home_team || "",
+              g?.away_team || "",
+              2026
+            );
+            __h2hCache.set(h2hKey, headToHead);
+          }
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -1686,6 +1758,7 @@ export const handler = async (event) => {
                   pickPitcherName(p) === loseName.replace(" (추정)", "")
               )?.era ?? null,
             venue,
+            headToHead,
             mvp_batter: mvp,
           });
         }

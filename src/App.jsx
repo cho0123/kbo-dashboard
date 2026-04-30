@@ -1014,6 +1014,14 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const venueText = String(g?.venue || "—").slice(0, 24) || "—";
   ctx.fillText(`• ${venueText}`, leftX, listTop);
 
+  // • 상대전적 (홈팀기준)
+  const h2h = g?.headToHead || null;
+  const h2hText = h2h
+    ? `• 상대전적 (홈팀기준) ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
+    : `• 상대전적 (홈팀기준) —`;
+  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 1);
+
   // • 승/패 투수
   const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
   const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
@@ -1023,7 +1031,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillText(
     `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`,
     leftX,
-    listTop + lineGap * 1
+    listTop + lineGap * 2
   );
 
   // • ⭐ MVP
@@ -1033,7 +1041,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const mvpStat =
     mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
   ctx.font = `700 50px "Gmarket Sans", system-ui, sans-serif`;
-  ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 2);
+  ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 3);
 
   // 하단 인덱스 텍스트 제거
 }
