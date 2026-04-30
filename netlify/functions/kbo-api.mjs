@@ -1557,6 +1557,12 @@ export const handler = async (event) => {
           let loseName = g.losing_pitcher || "";
 
           const pitchers = await fetchPitchersForGame(db, gid);
+          const homeStarter = pitchers.find(
+            (p) => normalizeSide(p?.side) === "home"
+          );
+          const awayStarter = pitchers.find(
+            (p) => normalizeSide(p?.side) === "away"
+          );
           const homeScore = Number(g?.home_score);
           const awayScore = Number(g?.away_score);
           const hasScores =
@@ -1619,6 +1625,30 @@ export const handler = async (event) => {
             ...g,
             winning_pitcher: winName,
             losing_pitcher: loseName,
+            home_starter: homeStarter
+              ? {
+                  name: pickPitcherName(homeStarter),
+                  era: homeStarter?.era ?? null,
+                  ip: homeStarter?.ip ?? null,
+                }
+              : null,
+            away_starter: awayStarter
+              ? {
+                  name: pickPitcherName(awayStarter),
+                  era: awayStarter?.era ?? null,
+                  ip: awayStarter?.ip ?? null,
+                }
+              : null,
+            winning_pitcher_era:
+              pitchers.find(
+                (p) =>
+                  pickPitcherName(p) === winName.replace(" (추정)", "")
+              )?.era ?? null,
+            losing_pitcher_era:
+              pitchers.find(
+                (p) =>
+                  pickPitcherName(p) === loseName.replace(" (추정)", "")
+              )?.era ?? null,
             venue,
             mvp_batter: mvp,
           });
