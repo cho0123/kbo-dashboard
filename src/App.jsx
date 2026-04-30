@@ -630,10 +630,14 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   // Order requirement: background → baseball → diagonal split → contents
   drawBaseballBackground(ctx);
 
-  // secondary: bottom-right 35% (사선 분할)
+  // secondary: 5:5 비율 기반 사선 분할
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
   ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
   ctx.lineTo(w, h);
   ctx.lineTo(0, h);
   ctx.closePath();
@@ -645,8 +649,8 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
   ctx.stroke();
 }
 
@@ -916,13 +920,25 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   resetShadow(ctx);
 
   // 3) 팀 로고
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+
   const logoY = SAFE_TOP + 220;
-  const logoW = 200;
-  const logoH = 200;
-  if (homeImg) drawImageContain(ctx, homeImg, 64, logoY, logoW, logoH);
-  else drawTeamBadge(ctx, 64 + logoW / 2, logoY + logoH / 2, logoH / 2, g.home_team);
-  if (awayImg) drawImageContain(ctx, awayImg, w - 264, logoY, logoW, logoH);
-  else drawTeamBadge(ctx, w - 264 + logoW / 2, logoY + logoH / 2, logoH / 2, g.away_team);
+  const logoBoxW = 260;
+  const logoBoxH = 180;
+  drawLogoInBox(64, logoY, logoBoxW, logoBoxH, g.home_team, homeImg);
+  drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, g.away_team, awayImg);
 
   // 4) 스코어 (홈 / VS / 원정)
   const hsText = String(g?.home_score ?? "—");
@@ -932,42 +948,33 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   const homeIsWinner =
     Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
-  const homeScoreFont = homeIsWinner
-    ? `900 100px "${FONT_BODY}", system-ui, sans-serif`
-    : `700 80px "${FONT_BODY}", system-ui, sans-serif`;
-  const awayScoreFont = !homeIsWinner
-    ? `900 100px "${FONT_BODY}", system-ui, sans-serif`
-    : `700 80px "${FONT_BODY}", system-ui, sans-serif`;
-  const vsFont = `700 60px "${FONT_BODY}", system-ui, sans-serif`;
+  const winFont = `900 88px "${FONT_BODY}", system-ui, sans-serif`;
+  const loseFont = `700 72px "${FONT_BODY}", system-ui, sans-serif`;
+  const vsFont = `900 88px "${FONT_BODY}", system-ui, sans-serif`;
+  const pad = "  ";
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = homeScoreFont;
-  const wHome = ctx.measureText(hsText).width;
+  ctx.font = homeIsWinner ? winFont : loseFont;
+  const w1 = ctx.measureText(hsText + pad).width;
   ctx.font = vsFont;
-  const wVS = ctx.measureText(vsText).width;
-  ctx.font = awayScoreFont;
-  const wAway = ctx.measureText(asText).width;
-  const gap = 34;
-  const totalScoreW = wHome + gap + wVS + gap + wAway;
-  const startX = (w - totalScoreW) / 2;
+  const w2 = ctx.measureText(vsText).width;
+  ctx.font = homeIsWinner ? loseFont : winFont;
+  const w3 = ctx.measureText(pad + asText).width;
+  const startX = (w - (w1 + w2 + w3)) / 2;
 
-  ctx.font = homeScoreFont;
-  ctx.fillStyle = homeIsWinner ? "#FFB3DE" : "#FFFFFF";
   shadowTextSoft(ctx);
-  ctx.fillText(hsText, startX, scoreY);
-  resetShadow(ctx);
+  ctx.font = homeIsWinner ? winFont : loseFont;
+  ctx.fillStyle = homeIsWinner ? "#FFB3DE" : "#FFFFFF";
+  ctx.fillText(hsText + pad, startX, scoreY);
 
   ctx.font = vsFont;
   ctx.fillStyle = "#F9FF00";
-  shadowTextSoft(ctx);
-  ctx.fillText(vsText, startX + wHome + gap, scoreY - 10);
-  resetShadow(ctx);
+  ctx.fillText(vsText, startX + w1, scoreY);
 
-  ctx.font = awayScoreFont;
+  ctx.font = homeIsWinner ? loseFont : winFont;
   ctx.fillStyle = homeIsWinner ? "#FFFFFF" : "#FFB3DE";
-  shadowTextSoft(ctx);
-  ctx.fillText(asText, startX + wHome + gap + wVS + gap, scoreY);
+  ctx.fillText(pad + asText, startX + w1 + w2, scoreY);
   resetShadow(ctx);
 
   // 5) 선발투수 대결
