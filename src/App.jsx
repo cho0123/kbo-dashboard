@@ -616,11 +616,35 @@ function drawIntroSlide(ctx, w, h, date, introBgImg) {
   const text = fmtKoreanLongDate(date);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+
+  // No shadow: intro date should be a clean badge
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Badge style
+  ctx.font = `800 90px "Gmarket Sans", system-ui, sans-serif`;
+  const metrics = ctx.measureText(text);
+  const padX = 40;
+  const padY = 20;
+  const radius = 20;
+  const textW = metrics.width || 0;
+  const ascent = metrics.actualBoundingBoxAscent ?? 70;
+  const descent = metrics.actualBoundingBoxDescent ?? 20;
+  const textH = ascent + descent;
+  const boxW = textW + padX * 2;
+  const boxH = textH + padY * 2;
+  const boxX = w / 2 - boxW / 2;
+  const boxY = y - boxH / 2;
+
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 85px "Gmarket Sans", system-ui, sans-serif`;
-  shadowTextHeavy(ctx);
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+  ctx.fill();
+
+  ctx.fillStyle = "#1a1a3e";
   ctx.fillText(text, w / 2, y);
-  resetShadow(ctx);
 
   ctx.restore();
 }
