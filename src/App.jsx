@@ -624,9 +624,10 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
 
   // Layout anchors
   const centerX = w / 2;
-  const topY = 180;
+  const SHIFT_Y = 50;
+  const topY = 180 + SHIFT_Y;
   const gapTop = 20;
-  const centralY = Math.round(h * 0.64); // tuned to place divider+date around ~1480px
+  const centralY = Math.round(h * 0.64) + SHIFT_Y; // tuned to place divider+date around ~1480px
 
   // Team logos (irregular collage above the main title)
   const placements = [
@@ -653,7 +654,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
     // shrink from current rendered size
     const size = p.size * 1.8 * 0.55 * 1.05;
     ctx.save();
-    ctx.translate(p.x + size / 2, p.y + size / 2);
+    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + size / 2);
     ctx.rotate((p.angle * Math.PI) / 180);
     if (img) {
       const iw = Number(img?.naturalWidth ?? img?.width) || 1;
