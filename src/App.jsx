@@ -639,10 +639,21 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   for (const p of placements) {
     const tk = teamKeyword(p.team);
     const img = logosByTeamKey?.[tk] || null;
+    const size = p.size * 1.8;
     ctx.save();
-    ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+    ctx.translate(p.x + size / 2, p.y + size / 2);
     ctx.rotate((p.angle * Math.PI) / 180);
-    drawTeamLogoOrBadge(ctx, -p.size / 2, -p.size / 2, p.size, p.team, img);
+    if (img) {
+      const iw = Number(img?.naturalWidth ?? img?.width) || 1;
+      const ih = Number(img?.naturalHeight ?? img?.height) || 1;
+      const ratio = iw / ih;
+      const drawH = size;
+      const drawW = size * ratio;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      // fallback badge (square)
+      drawTeamLogoOrBadge(ctx, -size / 2, -size / 2, size, p.team, null);
+    }
     ctx.restore();
   }
   ctx.globalAlpha = 1;
