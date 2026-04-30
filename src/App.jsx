@@ -1073,6 +1073,126 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // 하단 인덱스 텍스트 제거
 }
 
+function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, standings) {
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  const DIVIDER_Y = 960;
+
+  const ng = g?.next_game ?? g?.nextGame ?? null;
+  const ngDate = String(ng?.game_date || date || "").slice(0, 10);
+  const homeTeam = String(ng?.home_team || g?.home_team || "—");
+  const awayTeam = String(ng?.away_team || g?.away_team || "—");
+
+  ctx.clearRect(0, 0, w, h);
+  // 기존 대각선 분할 그대로 사용하되, 홈팀(상단) / 원정팀(하단) 컬러로
+  winLoseVerticalGradient(ctx, w, h, homeTeam, awayTeam);
+
+  const hk = teamKeyword(homeTeam);
+  const ak = teamKeyword(awayTeam);
+  const homeImg = logosByTeamKey?.[hk] || null;
+  const awayImg = logosByTeamKey?.[ak] || null;
+
+  const cleanName = (s) =>
+    String(s || "—")
+      .replace(/\(추정\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 18);
+
+  // 상단: 날짜/요일
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(fmtKoreanLongDate(ngDate), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
+
+  // 상단: NEXT GAME
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `600 56px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("NEXT GAME", 64, SAFE_TOP + 160);
+  resetShadow(ctx);
+
+  // 상단: 팀 로고
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+  const logoY = SAFE_TOP + 240;
+  const logoBoxW = 300;
+  const logoBoxH = 210;
+  drawLogoInBox(64, logoY, logoBoxW, logoBoxH, homeTeam, homeImg);
+  drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, awayTeam, awayImg);
+
+  // 상단: 경기 시간
+  const timeText = String(ng?.game_time || "—").trim() || "—";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `900 120px "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(timeText, w / 2, SAFE_TOP + 520);
+  resetShadow(ctx);
+
+  // 하단 영역 (불릿)
+  const leftX = 72;
+  const listTop = DIVIDER_Y + 200;
+  const lineGap = 110;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+
+  const venueText = String(ng?.venue || "—").slice(0, 24) || "—";
+  ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`• ${venueText}`, leftX, listTop);
+
+  // 상대전적 (홈팀 기준)
+  const h2h =
+    g?.headToHead ??
+    g?.head_to_head ??
+    g?.headToHeadRecord ??
+    g?.head_to_head_record ??
+    null;
+  const h2hText = h2h
+    ? `• 상대전적  ${homeTeam} ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
+    : `• 상대전적 데이터 없음`;
+  ctx.font = `600 50px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 1);
+
+  // 예상선발
+  const hs = cleanName(ng?.home_starter ?? "미정") || "미정";
+  const as = cleanName(ng?.away_starter ?? "미정") || "미정";
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const homePart = `• 예상선발  ${hs}`;
+  const vsPart = "  vs  ";
+  const awayPart = `${as}`;
+  ctx.textAlign = "left";
+  const baseY = listTop + lineGap * 2;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(homePart, leftX, baseY);
+  const wHome = ctx.measureText(homePart).width;
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText(vsPart, leftX + wHome, baseY);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(awayPart, leftX + wHome + ctx.measureText(vsPart).width, baseY);
+
+  // 하단 인덱스 텍스트 제거
+  void standings;
+  void SAFE_BOTTOM;
+  void index;
+  void total;
+}
+
 function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   ctx.clearRect(0, 0, w, h);
   drawStandingsSolidBackground(ctx, w, h);
@@ -1346,7 +1466,10 @@ function Card8Shorts({ defaultDate }) {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
     s.push({ type: "summary" });
-    for (const g of games) s.push({ type: "game", game: g });
+    for (const g of games) {
+      s.push({ type: "game", game: g });
+      if (g?.next_game || g?.nextGame) s.push({ type: "next_game", game: g });
+    }
     s.push({ type: "standings" });
     return s;
   }, [data]);
@@ -1383,6 +1506,10 @@ function Card8Shorts({ defaultDate }) {
     } else if (slide.type === "game") {
       teamKeys.add(teamKeyword(slide.game?.home_team));
       teamKeys.add(teamKeyword(slide.game?.away_team));
+    } else if (slide.type === "next_game") {
+      const ng = slide.game?.next_game ?? slide.game?.nextGame ?? null;
+      teamKeys.add(teamKeyword(ng?.home_team ?? slide.game?.home_team));
+      teamKeys.add(teamKeyword(ng?.away_team ?? slide.game?.away_team));
     } else if (slide.type === "standings") {
       for (const r of standings) {
         teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
@@ -1410,6 +1537,18 @@ function Card8Shorts({ defaultDate }) {
         Math.max(1, games.length),
         logosByTeamKey,
         batters,
+        standings
+      );
+    else if (slide.type === "next_game")
+      drawNextGameSlide(
+        ctx,
+        w,
+        h,
+        date,
+        slide.game,
+        idx,
+        Math.max(1, games.length),
+        logosByTeamKey,
         standings
       );
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);

@@ -291,6 +291,88 @@ async function fetchGamesByDate(db, dateStr) {
   return rows;
 }
 
+function normalizeTeamKey(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const keys = [...new Set([...Object.keys(TEAM_STADIUM), ...Object.keys(TEAM_MAP)])];
+  for (const k of keys) {
+    if (!k) continue;
+    if (s.includes(k)) return k;
+    const full = TEAM_MAP?.[k];
+    if (full && s.includes(String(full))) return k;
+  }
+  // try reverse match (e.g. "LG 트윈스" -> "LG")
+  for (const [code, full] of Object.entries(TEAM_MAP)) {
+    if (full && String(full).includes(s)) return code;
+  }
+  return s;
+}
+
+async function fetchScheduleFromDate(db, startDateIso) {
+  const out = [];
+  try {
+    const snap = await db
+      .collection("schedule")
+      .where("game_date", ">=", String(startDateIso || ""))
+      .orderBy("game_date", "asc")
+      .limit(1200)
+      .get();
+    snap.forEach((d) => out.push({ id: d.id, ...docSnap(d) }));
+    return out;
+  } catch (e) {
+    console.warn("[fetchScheduleFromDate] query failed:", e?.message || e);
+  }
+  // fallback scan
+  try {
+    const snap2 = await db.collection("schedule").limit(3000).get();
+    snap2.forEach((d) => {
+      const doc = { id: d.id, ...docSnap(d) };
+      const gd = safeIsoDate(doc.game_date || "");
+      if (!gd) return;
+      if (String(gd) >= String(startDateIso || "")) out.push(doc);
+    });
+  } catch (e) {
+    console.warn("[fetchScheduleFromDate] fallback scan failed:", e?.message || e);
+  }
+  out.sort((a, b) => String(a?.game_date || "").localeCompare(String(b?.game_date || "")));
+  return out;
+}
+
+function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
+  const a = normalizeTeamKey(teamA);
+  const b = normalizeTeamKey(teamB);
+  const after = String(afterDateIso || "").slice(0, 10);
+  const scored = [];
+  for (const r of scheduleRows || []) {
+    const gd = String(r?.game_date || "").slice(0, 10);
+    if (!gd) continue;
+    if (after && gd <= after) continue;
+    const hk = normalizeTeamKey(r?.home_team || "");
+    const ak = normalizeTeamKey(r?.away_team || "");
+    const match =
+      (hk === a && ak === b) ||
+      (hk === b && ak === a);
+    if (!match) continue;
+    const tm = String(r?.game_time || "").trim();
+    const stamp = `${gd}T${tm || "00:00"}`;
+    scored.push({ r, stamp });
+  }
+  scored.sort((x, y) => String(x.stamp).localeCompare(String(y.stamp)));
+  const pick = scored[0]?.r || null;
+  if (!pick) return null;
+  const hs = pick?.home_starter ?? null;
+  const as = pick?.away_starter ?? null;
+  return {
+    game_date: String(pick?.game_date || "").slice(0, 10) || null,
+    game_time: String(pick?.game_time || "").trim() || null,
+    home_team: pick?.home_team ?? null,
+    away_team: pick?.away_team ?? null,
+    venue: pick?.venue ?? null,
+    home_starter: hs == null || String(hs).trim() === "" ? "미정" : hs,
+    away_starter: as == null || String(as).trim() === "" ? "미정" : as,
+  };
+}
+
 async function fetchLastUpdated(db) {
   const snap = await db.collection("meta").doc("lastUpdated").get();
   if (!snap.exists) return null;
@@ -1623,6 +1705,8 @@ export const handler = async (event) => {
         const base = (gameDocs || []).map(slimGameResultRow);
 
         const __h2hCache = new Map();
+        const __nextGameCache = new Map();
+        const scheduleRows = await fetchScheduleFromDate(db, dateStr);
 
         const games = [];
         for (const g of base) {
@@ -1735,6 +1819,18 @@ export const handler = async (event) => {
             __h2hCache.set(h2hKey, headToHead);
           }
 
+          const nextKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.home_team || "")}__${normalizeTeamKey(g?.away_team || "")}`;
+          let nextGame = __nextGameCache.get(nextKey);
+          if (nextGame === undefined) {
+            nextGame = pickNextGameForTeams(
+              scheduleRows,
+              g?.home_team || "",
+              g?.away_team || "",
+              dateStr
+            );
+            __nextGameCache.set(nextKey, nextGame ?? null);
+          }
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -1766,6 +1862,7 @@ export const handler = async (event) => {
             venue,
             headToHead,
             mvp_batter: mvp,
+            next_game: nextGame ?? null,
           });
         }
 
