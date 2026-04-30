@@ -612,12 +612,12 @@ function drawIntroSlide(ctx, w, h, date, introBgImg) {
     ctx.fillRect(0, 0, w, h);
   }
 
-  const y = 1600;
+  const y = 1480;
   const text = fmtKoreanLongDate(date);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 60px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.font = `800 85px "Gmarket Sans", system-ui, sans-serif`;
   shadowTextHeavy(ctx);
   ctx.fillText(text, w / 2, y);
   resetShadow(ctx);
