@@ -987,7 +987,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const homePart = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)})`;
   const awayPart = `${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
   const vsPart = "  vs  ";
-  const yStarter = SAFE_TOP + 640;
+  const yStarter = SAFE_TOP + 605;
   ctx.textAlign = "left";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   const wHomeP = ctx.measureText(homePart).width;
@@ -1034,14 +1034,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
   ctx.font = `700 50px "Gmarket Sans", system-ui, sans-serif`;
   ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 2);
-
-  // • 승리팀/패전팀 연속승패
-  ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(
-    `• 승리팀 ${winStreak || "—"} / 패전팀 ${loseStreak || "—"}`,
-    leftX,
-    listTop + lineGap * 3
-  );
 
   // 하단 인덱스 텍스트 제거
 }
