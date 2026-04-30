@@ -940,41 +940,39 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   drawLogoInBox(64, logoY, logoBoxW, logoBoxH, g.home_team, homeImg);
   drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, g.away_team, awayImg);
 
-  // 4) 스코어 (홈 / VS / 원정)
+  // 4) 스코어 (홈 - 원정)
   const hsText = String(g?.home_score ?? "—");
   const asText = String(g?.away_score ?? "—");
-  const vsText = "VS";
+  const vsText = " - ";
   const scoreY = SAFE_TOP + 480;
 
   const homeIsWinner =
     Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
-  const winFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
-  const loseFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
-  const vsFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
-  const pad = "  ";
+  const scoreFont = `1000 140px "${FONT_TITLE}", system-ui, sans-serif`;
+  const vsFont = `1000 140px "${FONT_TITLE}", system-ui, sans-serif`;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = homeIsWinner ? winFont : loseFont;
-  const w1 = ctx.measureText(hsText + pad).width;
+  ctx.font = scoreFont;
+  const w1 = ctx.measureText(hsText).width;
   ctx.font = vsFont;
   const w2 = ctx.measureText(vsText).width;
-  ctx.font = homeIsWinner ? loseFont : winFont;
-  const w3 = ctx.measureText(pad + asText).width;
+  ctx.font = scoreFont;
+  const w3 = ctx.measureText(asText).width;
   const startX = (w - (w1 + w2 + w3)) / 2;
 
   shadowTextSoft(ctx);
-  ctx.font = homeIsWinner ? winFont : loseFont;
-  ctx.fillStyle = homeIsWinner ? "#FFB3DE" : "#FFFFFF";
-  ctx.fillText(hsText + pad, startX, scoreY);
+  ctx.font = scoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFD700" : "#FFFFFF";
+  ctx.fillText(hsText, startX, scoreY);
 
   ctx.font = vsFont;
   ctx.fillStyle = "#F9FF00";
   ctx.fillText(vsText, startX + w1, scoreY);
 
-  ctx.font = homeIsWinner ? loseFont : winFont;
-  ctx.fillStyle = homeIsWinner ? "#FFFFFF" : "#FFB3DE";
-  ctx.fillText(pad + asText, startX + w1 + w2, scoreY);
+  ctx.font = scoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFFFFF" : "#FFD700";
+  ctx.fillText(asText, startX + w1 + w2, scoreY);
   resetShadow(ctx);
 
   // 5) 선발투수 대결
@@ -985,14 +983,26 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const starterLine = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = `500 38px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(starterLine, w / 2, SAFE_TOP + 620);
-
-  // 6) 연속승패
+  ctx.font = `700 46px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "#F9FF00";
-  ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${homeStreak || "—"} | ${awayStreak || "—"}`, w / 2, SAFE_TOP + 700);
+  ctx.fillText("선발", w / 2, SAFE_TOP + 610);
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const homePart = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)})`;
+  const awayPart = `${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
+  const vsPart = "  vs  ";
+  const yStarter = SAFE_TOP + 680;
+  ctx.textAlign = "left";
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const wHomeP = ctx.measureText(homePart).width;
+  const wVsP = ctx.measureText(vsPart).width;
+  const wAwayP = ctx.measureText(awayPart).width;
+  const sx = (w - (wHomeP + wVsP + wAwayP)) / 2;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(homePart, sx, yStarter);
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText(vsPart, sx + wHomeP, yStarter);
+  ctx.fillStyle = "#F9FF00";
+  ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
   // 하단 영역
   // 7) 구장
@@ -1032,6 +1042,11 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 52px "Gmarket Sans", system-ui, sans-serif`;
   ctx.fillText(`⭐ ${mvpName}${mvpStat}`, w / 2, DIVIDER_Y + 300);
+
+  // 연속승패 (하단 배치)
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`${homeStreak || "—"} | ${awayStreak || "—"}`, w / 2, DIVIDER_Y + 380);
 
   // 10) 연속승패 뱃지
   ctx.fillStyle = "#F9FF00";
