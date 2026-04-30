@@ -1113,8 +1113,9 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     };
   };
 
-  const top = pickNextInfoForTeam(awayTeam, awayNg);
-  const bot = pickNextInfoForTeam(homeTeam, homeNg);
+  // 상단: 홈팀(home_next_game), 하단: 원정팀(away_next_game)
+  const top = pickNextInfoForTeam(homeTeam, homeNg);
+  const bot = pickNextInfoForTeam(awayTeam, awayNg);
 
   const h2h =
     g?.headToHead ??
@@ -1146,9 +1147,25 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     return s.split(/[\s-]/)[0] || s;
   };
 
-  // 배경: 상단 원정팀 컬러 / 하단 홈팀 컬러 (사선 분할 유지)
+  const VENUE_FULLNAME = {
+    잠실: "잠실야구장",
+    수원: "수원 KT위즈파크",
+    광주: "광주-기아 챔피언스필드",
+    대구: "대구 삼성라이온즈파크",
+    인천: "인천 SSG랜더스필드",
+    사직: "부산 사직야구장",
+    창원: "창원 NC파크",
+    고척: "고척 스카이돔",
+    대전: "대전 한화생명이글스파크",
+  };
+  const venueFullName = (v) => {
+    const key = shortVenue(v);
+    return VENUE_FULLNAME[key] || String(v || key || "—");
+  };
+
+  // 배경: 상단 홈팀 컬러 / 하단 원정팀 컬러 (사선 분할 유지)
   ctx.clearRect(0, 0, w, h);
-  winLoseVerticalGradient(ctx, w, h, awayTeam, homeTeam);
+  winLoseVerticalGradient(ctx, w, h, homeTeam, awayTeam);
 
   // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
   ctx.textAlign = "center";
@@ -1157,6 +1174,15 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.font = `1000 155px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
+  resetShadow(ctx);
+
+  // NEXT GAME 아래 날짜/시간
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.font = `1000 78px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(`${fmtKoreanLongDate(top.dateIso)}  ${top.time}`, w / 2, DIVIDER_Y + 120);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -1184,11 +1210,11 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const PAD_X = 64;
   const RIGHT_X = w - 64 - logoBoxW;
 
-  // 상단(원정팀): SAFE_TOP + 100 근처
+  // 상단(홈팀): SAFE_TOP + 100 근처
   const topMainY = SAFE_TOP + 100;
   const topOppY = topMainY + Math.round((mainLogoH - logoBoxH) / 2);
 
-  // 하단(홈팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
+  // 하단(원정팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
   // info2(상대전적) baseline이 (h - 300) 근처가 되도록 역산
   const bottomInfo2YTarget = h - 300;
   const botMainY = Math.max(
@@ -1217,20 +1243,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillText("VS", topVsX, topVsY);
   resetShadow(ctx);
 
-  // 상단팀(원정팀) 로고 아래 정보 (좌측 메인 로고 아래)
-  const topInfoX = PAD_X;
+  // 상단팀(홈팀) 로고 아래 정보 (가운데 정렬)
   const topInfoY = topMainY + mainLogoH + 70;
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${fmtKoreanMonthDayDow(top.dateIso)}  ${shortVenue(top.venue)}`, topInfoX, topInfoY);
+  ctx.fillText(
+    `${fmtKoreanMonthDayDow(top.dateIso)}  ${venueFullName(top.venue)}`,
+    w / 2,
+    topInfoY
+  );
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const topH2h =
     h2h
-      ? `시즌 상대전적 : ${h2hLose}승 ${h2hDraw}무 ${h2hWin}패`
+      ? `시즌 상대전적 : ${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
       : `시즌 상대전적 : 데이터 없음`;
-  ctx.fillText(topH2h, topInfoX, topInfoY + 70);
+  ctx.fillText(topH2h, w / 2, topInfoY + 70);
   resetShadow(ctx);
 
   // ===== 하단: home_next_game 데이터 =====
@@ -1255,20 +1284,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.fillText("VS", botVsX, botVsY);
   resetShadow(ctx);
 
-  // 하단팀(홈팀) 로고 아래 정보 (좌측 메인 로고 아래)
-  const botInfoX = PAD_X;
+  // 하단팀(원정팀) 로고 아래 정보 (가운데 정렬, 상대전적 win/lose 반전)
   const botInfoY = botMainY + mainLogoH + 70;
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${fmtKoreanMonthDayDow(bot.dateIso)}  ${shortVenue(bot.venue)}`, botInfoX, botInfoY);
+  ctx.fillText(
+    `${fmtKoreanMonthDayDow(bot.dateIso)}  ${venueFullName(bot.venue)}`,
+    w / 2,
+    botInfoY
+  );
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const botH2h =
     h2h
-      ? `시즌 상대전적 : ${h2hWin}승 ${h2hDraw}무 ${h2hLose}패`
+      ? `시즌 상대전적 : ${h2hLose}승 ${h2hDraw}무 ${h2hWin}패`
       : `시즌 상대전적 : 데이터 없음`;
-  ctx.fillText(botH2h, botInfoX, botInfoY + 70);
+  ctx.fillText(botH2h, w / 2, botInfoY + 70);
   resetShadow(ctx);
 
   void standings;
