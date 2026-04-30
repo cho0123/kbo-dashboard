@@ -1439,6 +1439,19 @@ async function fetchBattersForGame(db, gameId) {
   return out;
 }
 
+const TEAM_STADIUM = {
+  KT: "수원KT위즈파크",
+  LG: "잠실야구장",
+  "두산": "잠실야구장",
+  SSG: "인천SSG랜더스필드",
+  NC: "창원NC파크",
+  KIA: "광주-기아챔피언스필드",
+  "삼성": "대구삼성라이온즈파크",
+  "한화": "대전한화생명이글스파크",
+  "롯데": "사직야구장",
+  "키움": "고척스카이돔",
+};
+
 function pickVenueName(g) {
   return (
     pickStr(g, ["stadium", "venue", "ballpark", "park", "place", "경기장"]) || ""
@@ -1617,11 +1630,12 @@ export const handler = async (event) => {
               }
             : null;
 
-          // venue from game doc if present
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
-          const venue = pickVenueName(rawGame);
-          console.log("venue check:", gid, venue);
-          console.log("rawGame keys:", Object.keys(rawGame));
+          const homeTeamRaw = String(g?.home_team || rawGame?.home_team || "");
+          const venueKey = Object.keys(TEAM_STADIUM).find((k) =>
+            homeTeamRaw.includes(k)
+          );
+          const venue = venueKey ? TEAM_STADIUM[venueKey] : "";
 
           games.push({
             ...g,
