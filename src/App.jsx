@@ -2159,6 +2159,8 @@ function weeklyWinPct(r) {
 function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
   drawWeeklyBase(ctx, w, h);
 
+  console.log("[weekly standings] first item:", weeklyGames?.[0]);
+
   const titleY = 170;
   ctx.save();
   ctx.textAlign = "center";
