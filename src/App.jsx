@@ -1101,8 +1101,6 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     const awayNm = String(obj?.away_team || "—");
     const isHome = teamKeyword(homeNm) === tKey;
     const opponent = isHome ? awayNm : homeNm;
-    const teamStarter = cleanName(isHome ? obj?.home_starter : obj?.away_starter) || "미정";
-    const oppStarter = cleanName(isHome ? obj?.away_starter : obj?.home_starter) || "미정";
     const venue = String(obj?.venue || "—").slice(0, 24) || "—";
     return {
       team,
@@ -1112,7 +1110,6 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
       dateIso,
       time,
       venue,
-      starterLine: `${teamStarter} vs ${oppStarter}`,
     };
   };
 
@@ -1123,13 +1120,17 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, awayTeam, homeTeam);
 
-  // 1) 좌상단: NEXT GAME (날짜 자리)
+  // 1) 상단 헤더: NEXT GAME + 날짜/시간 한 줄
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 80px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("NEXT GAME", 64, SAFE_TOP + 80);
+  ctx.fillText(
+    `NEXT GAME  ${fmtKoreanLongDate(top.dateIso)}  ${top.time}`,
+    64,
+    SAFE_TOP + 80
+  );
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -1155,22 +1156,21 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   drawLogoInBox(64, logoY, logoBoxW, logoBoxH, top.team, topTeamImg);
   drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, top.opponent, topOppImg);
 
-  // 3) 상단: 날짜 + 요일 + 시간 (away_next_game)
+  // 3) 상단: VS
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#F9FF00";
-  ctx.font = `900 90px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  const centerLine = `${fmtKoreanLongDate(top.dateIso)}  ${top.time}`;
-  ctx.fillText(centerLine, w / 2, SAFE_TOP + 520);
+  ctx.fillText("VS", w / 2, SAFE_TOP + 520);
   resetShadow(ctx);
 
-  // 4) 상단: 예상선발
+  // 4) 상단: 구장명
   ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 60px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 54px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(top.starterLine, w / 2, SAFE_TOP + 640);
+  ctx.fillText(top.venue || "—", w / 2, SAFE_TOP + 640);
   resetShadow(ctx);
 
   // ===== 하단: home_next_game 데이터 =====
@@ -1180,25 +1180,22 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   drawLogoInBox(64, botLogoY, logoBoxW, logoBoxH, bot.team, botTeamImg);
   drawLogoInBox(w - 64 - logoBoxW, botLogoY, logoBoxW, logoBoxH, bot.opponent, botOppImg);
 
-  // 하단: 날짜/시간
+  // 하단: VS
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#F9FF00";
-  ctx.font = `900 80px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${fmtKoreanLongDate(bot.dateIso)}  ${bot.time}`, w / 2, DIVIDER_Y + 520);
+  ctx.fillText("VS", w / 2, DIVIDER_Y + 520);
   resetShadow(ctx);
 
-  // 하단: 구장 + 예상선발 (왼쪽 정렬)
-  const leftX = 72;
-  const listTop = DIVIDER_Y + 640;
-  const lineGap = 110;
-  ctx.textAlign = "left";
+  // 하단: 구장명
+  ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`• ${bot.venue}`, leftX, listTop);
-  ctx.font = `800 56px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`• 예상선발  ${bot.starterLine}`, leftX, listTop + lineGap);
+  ctx.font = `800 54px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(bot.venue || "—", w / 2, DIVIDER_Y + 640);
+  resetShadow(ctx);
 
   void standings;
   void SAFE_BOTTOM;
