@@ -2738,8 +2738,8 @@ export default function App() {
     };
   }, []);
 
-  const [tab, setTab] = useState("analysis");
-  const [activeKey, setActiveKey] = useState(null);
+  const [tab, setTab] = useState("shorts");
+  const [activeKey, setActiveKey] = useState("shorts_slides");
 
   /* --- Analysis --- */
   const [mvpDate, setMvpDate] = useState(today);
@@ -3160,6 +3160,16 @@ export default function App() {
           <nav className="side-tabs" aria-label="기능 분류">
             <button
               type="button"
+              className={`side-tab ${tab === "shorts" ? "active" : ""}`}
+              onClick={() => {
+                setTab("shorts");
+                setActiveKey(null);
+              }}
+            >
+              쇼츠 (1–3)
+            </button>
+            <button
+              type="button"
               className={`side-tab ${tab === "analysis" ? "active" : ""}`}
               onClick={() => {
                 setTab("analysis");
@@ -3177,16 +3187,6 @@ export default function App() {
               }}
             >
               예측 (9–10)
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${tab === "shorts" ? "active" : ""}`}
-              onClick={() => {
-                setTab("shorts");
-                setActiveKey(null);
-              }}
-            >
-              쇼츠 (1–3)
             </button>
           </nav>
 
