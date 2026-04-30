@@ -17,6 +17,34 @@ const TEAM_MAP = {
   HH: "한화 이글스",
 };
 
+// schedule(약칭) ↔ games(풀네임) 매칭용 팀명 정규화
+const TEAM_ALIAS_TO_FULL = (() => {
+  const pairs = [
+    ["LG", "LG 트윈스"],
+    ["NC", "NC 다이노스"],
+    ["KIA", "KIA 타이거즈"],
+    ["KT", "KT 위즈"],
+    ["SSG", "SSG 랜더스"],
+    ["두산", "두산 베어스"],
+    ["롯데", "롯데 자이언츠"],
+    ["삼성", "삼성 라이온즈"],
+    ["한화", "한화 이글스"],
+    ["키움", "키움 히어로즈"],
+  ];
+
+  const map = {};
+  for (const [abbr, full] of pairs) {
+    map[abbr] = full;
+    map[full] = full;
+  }
+  // 기존 game_id 코드(2글자)도 동일 canonical(full)로 정규화
+  for (const [code, full] of Object.entries(TEAM_MAP)) {
+    map[code] = full;
+    map[full] = full;
+  }
+  return map;
+})();
+
 // Firestore 문서 샘플 로그는 함수 인스턴스당 1회만 출력
 let __didLogBoxSamples = false;
 
@@ -150,12 +178,6 @@ function pickTeamName(row) {
   const code = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
   const mapped = code ? TEAM_MAP[code] || code : "";
   const derivedTeam = mapped ? String(mapped).trim().slice(0, 36) : "";
-  console.log("TEAM_CHECK:", {
-    player: row?.player,
-    game_id: row?.game_id,
-    side: row?.side,
-    derivedTeam,
-  });
   return derivedTeam;
 }
 
@@ -294,16 +316,23 @@ async function fetchGamesByDate(db, dateStr) {
 function normalizeTeamKey(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
+  // exact match 우선
+  const direct = TEAM_ALIAS_TO_FULL[s];
+  if (direct) return direct;
+
+  // substring match (e.g. "LG 트윈스" / "LG" / "두산 베어스" / "두산")
+  for (const [alias, full] of Object.entries(TEAM_ALIAS_TO_FULL)) {
+    if (!alias) continue;
+    if (s.includes(alias)) return full;
+  }
+
+  // fallback: 기존 매핑(구장 키 등)도 시도
   const keys = [...new Set([...Object.keys(TEAM_STADIUM), ...Object.keys(TEAM_MAP)])];
   for (const k of keys) {
     if (!k) continue;
-    if (s.includes(k)) return k;
+    if (s.includes(k)) return TEAM_ALIAS_TO_FULL[k] || TEAM_MAP?.[k] || k;
     const full = TEAM_MAP?.[k];
-    if (full && s.includes(String(full))) return k;
-  }
-  // try reverse match (e.g. "LG 트윈스" -> "LG")
-  for (const [code, full] of Object.entries(TEAM_MAP)) {
-    if (full && String(full).includes(s)) return code;
+    if (full && s.includes(String(full))) return TEAM_ALIAS_TO_FULL[full] || String(full);
   }
   return s;
 }
@@ -342,25 +371,16 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
   const a = normalizeTeamKey(teamA);
   const b = normalizeTeamKey(teamB);
   const after = String(afterDateIso || "").slice(0, 10);
-  console.log("[next_game] target teams:", { teamA, teamB, a, b, after });
   const scored = [];
-  let __dbgCount = 0;
   for (const r of scheduleRows || []) {
     const gd = String(r?.game_date || "").slice(0, 10);
     if (!gd) continue;
     if (after && gd <= after) continue;
     const hk = normalizeTeamKey(r?.home_team || "");
     const ak = normalizeTeamKey(r?.away_team || "");
-    if (__dbgCount < 8) {
-      console.log("[next_game] compare:", { hk, ak, a, b, gd });
-      __dbgCount += 1;
-    }
     const match =
       (hk === a && ak === b) ||
       (hk === b && ak === a);
-    if (match) {
-      console.log("[next_game] matched:", { hk, ak, a, b, gd, game_time: r?.game_time });
-    }
     if (!match) continue;
     const tm = String(r?.game_time || "").trim();
     const stamp = `${gd}T${tm || "00:00"}`;
@@ -1716,20 +1736,11 @@ export const handler = async (event) => {
         const __h2hCache = new Map();
         const __nextGameCache = new Map();
         const scheduleRows = await fetchScheduleFromDate(db, dateStr);
-        console.log("[next_game] scheduleRows[0] teams:", {
-          home_team: scheduleRows?.[0]?.home_team,
-          away_team: scheduleRows?.[0]?.away_team,
-        });
 
         const games = [];
         for (const g of base) {
           const gid = String(g?.game_id || "").trim();
           if (!gid) continue;
-          console.log("[next_game] current game teams:", {
-            home_team: g?.home_team,
-            away_team: g?.away_team,
-            gid,
-          });
 
           // Winning/losing pitcher (same heuristic as game_results)
           const needsWin = !g?.winning_pitcher;
