@@ -342,16 +342,16 @@ function shadowTextSoft(ctx) {
 
 // 파스텔 팀 컬러 (Card8Shorts 배경용)
 const TEAM_GRAD = {
-  삼성: ["#64c8ff", "#64c8ff"],
-  LG: ["#ff7878", "#ff7878"],
-  KT: ["#90a4ae", "#90a4ae"],
-  SSG: ["#ff96b4", "#ff96b4"],
-  NC: ["#64a0ff", "#64a0ff"],
-  두산: ["#b482ff", "#b482ff"],
-  KIA: ["#ffa050", "#ffa050"],
-  롯데: ["#648cff", "#648cff"],
-  한화: ["#ffc864", "#ffc864"],
-  키움: ["#f08cb4", "#f08cb4"],
+  삼성: ["#4ab0e8", "#4ab0e8"],
+  LG: ["#e85c5c", "#e85c5c"],
+  KT: ["#728e98", "#728e98"],
+  SSG: ["#e87a98", "#e87a98"],
+  NC: ["#4a86e8", "#4a86e8"],
+  두산: ["#9866e8", "#9866e8"],
+  KIA: ["#e8843a", "#e8843a"],
+  롯데: ["#4a70e8", "#4a70e8"],
+  한화: ["#e8ac48", "#e8ac48"],
+  키움: ["#d870a0", "#d870a0"],
 };
 
 const TEAM_PASTEL_BG = {
@@ -1008,6 +1008,11 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
+  // 하단 텍스트 그림자(가독성)
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
 
   // • 구장명
   ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1069,6 +1074,12 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
   ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif`;
   ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 4);
+
+  // 하단 텍스트 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   // 하단 인덱스 텍스트 제거
 }
@@ -1244,15 +1255,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const topInfoY = topMainY + mainLogoH + 70;
   ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
+  // 하단 영역 텍스트 그림자(가독성) - 지정값
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
   ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const topH2h = top?.next_h2h
     ? `시즌 상대전적 : ${Number(top.next_h2h.win ?? 0) || 0}승 ${Number(top.next_h2h.draw ?? 0) || 0}무 ${Number(top.next_h2h.lose ?? 0) || 0}패`
     : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(topH2h, w / 2, topInfoY + 70);
-  resetShadow(ctx);
+  // 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   // ===== 하단: home_next_game 데이터 =====
   const botTeamImg = logosByTeamKey?.[bot.teamKey] || null;
@@ -1280,15 +1299,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const botInfoY = botMainY + mainLogoH + 70;
   ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
+  // 하단 영역 텍스트 그림자(가독성) - 지정값
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
   ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const botH2h = bot?.next_h2h
     ? `시즌 상대전적 : ${Number(bot.next_h2h.win ?? 0) || 0}승 ${Number(bot.next_h2h.draw ?? 0) || 0}무 ${Number(bot.next_h2h.lose ?? 0) || 0}패`
     : `시즌 상대전적 : 데이터 없음`;
   ctx.fillText(botH2h, w / 2, botInfoY + 70);
-  resetShadow(ctx);
+  // 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   void standings;
   void SAFE_BOTTOM;
