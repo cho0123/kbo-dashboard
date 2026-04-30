@@ -2022,6 +2022,21 @@ const WEEKLY_BG = "#002B5B";
 const WEEKLY_POINT = "#FFD700";
 const WEEKLY_FONT = `"Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
 
+// Weekly slides logo cache (populated in Card9WeeklySummary render step)
+const teamLogoImages = {};
+function normalizeTeamKey(teamName) {
+  return teamKeyword(teamName);
+}
+
+function drawLogoInBox(ctx, teamName, x, y, size) {
+  const img = teamLogoImages[normalizeTeamKey(teamName)];
+  if (!img) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const drawW = size * ratio;
+  const drawH = size;
+  ctx.drawImage(img, x - drawW / 2, y - drawH / 2, drawW, drawH);
+}
+
 function drawWeeklyBase(ctx, w, h) {
   ctx.fillStyle = WEEKLY_BG;
   ctx.fillRect(0, 0, w, h);
@@ -2164,8 +2179,6 @@ function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] || {};
     const teamRaw = String(r.team || "");
-    const tk = teamKeyword(teamRaw);
-    const logo = logosByTeamKey?.[tk] || null;
     const y = y0 + i * rowH;
     const isTop = i === 0;
 
@@ -2179,7 +2192,7 @@ function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
     ctx.stroke();
 
     // logo
-    if (logo) drawLogoInBox(x0 + 22, y + 18, 92, 92, teamRaw, logo);
+    drawLogoInBox(ctx, teamRaw, x0 + 22 + 92 / 2, y + 18 + 92 / 2, 92);
 
     // team name
     ctx.textAlign = "left";
@@ -2232,10 +2245,14 @@ function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
 
     if (b) {
       const teamRaw = String(b.team || "");
-      const tk = teamKeyword(teamRaw);
-      const logo = logosByTeamKey?.[tk] || null;
       const logoSize = big ? 150 : 120;
-      if (logo) drawLogoInBox(x + 120, y + (big ? 50 : 42), logoSize, logoSize, teamRaw, logo);
+      drawLogoInBox(
+        ctx,
+        teamRaw,
+        x + 120 + logoSize / 2,
+        y + (big ? 50 : 42) + logoSize / 2,
+        logoSize
+      );
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
@@ -2303,10 +2320,14 @@ function drawWeeklyPitcherSlide(ctx, w, h, weeklyTopPitchers, logosByTeamKey) {
 
     if (p) {
       const teamRaw = String(p.team || "");
-      const tk = teamKeyword(teamRaw);
-      const logo = logosByTeamKey?.[tk] || null;
       const logoSize = big ? 150 : 120;
-      if (logo) drawLogoInBox(x + 120, y + (big ? 50 : 42), logoSize, logoSize, teamRaw, logo);
+      drawLogoInBox(
+        ctx,
+        teamRaw,
+        x + 120 + logoSize / 2,
+        y + (big ? 50 : 42) + logoSize / 2,
+        logoSize
+      );
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
@@ -2378,12 +2399,8 @@ function drawWeeklyNextSlide(ctx, w, h, nextWeekHighlights, logosByTeamKey) {
     if (g) {
       const awayRaw = String(g.away_team || "");
       const homeRaw = String(g.home_team || "");
-      const atk = teamKeyword(awayRaw);
-      const htk = teamKeyword(homeRaw);
-      const aLogo = logosByTeamKey?.[atk] || null;
-      const hLogo = logosByTeamKey?.[htk] || null;
-      if (aLogo) drawLogoInBox(x + 110, y + 90, 130, 130, awayRaw, aLogo);
-      if (hLogo) drawLogoInBox(x + cardW - 110 - 130, y + 90, 130, 130, homeRaw, hLogo);
+      drawLogoInBox(ctx, awayRaw, x + 110 + 130 / 2, y + 90 + 130 / 2, 130);
+      drawLogoInBox(ctx, homeRaw, x + cardW - 110 - 130 + 130 / 2, y + 90 + 130 / 2, 130);
 
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
@@ -2488,6 +2505,10 @@ function Card9WeeklySummary() {
     for (const tk of teamKeys) {
       const img = await loadSvgLogo(tk);
       logosByTeamKey[tk] = img;
+    }
+    // Expose loaded logos to weekly slides helper (teamName → keyword key)
+    for (const [k, img] of Object.entries(logosByTeamKey)) {
+      if (img) teamLogoImages[k] = img;
     }
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
