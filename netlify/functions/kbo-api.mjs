@@ -339,6 +339,7 @@ function normalizeTeamKey(raw) {
 
 async function fetchScheduleFromDate(db, startDateIso) {
   const out = [];
+  console.log("[schedule] fetching from:", startDateIso);
   try {
     const snap = await db
       .collection("schedule")
@@ -347,8 +348,10 @@ async function fetchScheduleFromDate(db, startDateIso) {
       .limit(1200)
       .get();
     snap.forEach((d) => out.push({ id: d.id, ...docSnap(d) }));
+    console.log("[schedule] fetched:", out.length);
     return out;
   } catch (e) {
+    console.log("[schedule] query error:", e?.message);
     console.warn("[fetchScheduleFromDate] query failed:", e?.message || e);
   }
   // fallback scan
@@ -361,6 +364,7 @@ async function fetchScheduleFromDate(db, startDateIso) {
       if (String(gd) >= String(startDateIso || "")) out.push(doc);
     });
   } catch (e) {
+    console.log("[schedule] fallback error:", e?.message);
     console.warn("[fetchScheduleFromDate] fallback scan failed:", e?.message || e);
   }
   out.sort((a, b) => String(a?.game_date || "").localeCompare(String(b?.game_date || "")));
