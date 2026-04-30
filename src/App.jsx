@@ -851,81 +851,37 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
 }
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
-  // Winner-based vertical gradient background:
-  // top 70% winner (strong), bottom 30% loser (alpha 0.4)
-  const homeWin = Number(g.home_score) > Number(g.away_score);
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  const DIVIDER_Y = 960;
+
+  const hsNum = Number(g?.home_score);
+  const asNum = Number(g?.away_score);
+  const homeWin = Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
 
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
 
-  const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
-
-  // Date header (safe zone)
-  ctx.fillStyle = TEXT_MAIN;
-  // 날짜/제목: Noto Sans KR 900
-  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
-  resetShadow(ctx);
-  ctx.fillStyle = TEXT_MAIN;
-  // 서브텍스트: Noto Sans KR 500
-  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
-  resetShadow(ctx);
-
-  // Place logos below date header, within safe zone
-  const badgeY = SAFE_TOP + 210;
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
-
-  // Logo box: 1.5x bigger (280x210), preserve original ratio
-  const logoBoxW = 280;
-  const logoBoxH = 210;
-  const leftCenterX = 170;
-  const rightCenterX = w - 170;
-  const logoBoxY = badgeY;
   const homeImg = logosByTeamKey?.[hk] || null;
   const awayImg = logosByTeamKey?.[ak] || null;
 
-  if (homeImg)
-    drawImageContain(ctx, homeImg, leftCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, leftCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.home_team);
+  const cleanName = (s) =>
+    String(s || "—")
+      .replace(/\(추정\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 18);
 
-  if (awayImg)
-    drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
-
-  // Score: winner score highlighted, loser white
-  const hsNum = Number(g?.home_score);
-  const asNum = Number(g?.away_score);
-  const awayWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && asNum > hsNum;
-  const homeWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && hsNum > asNum;
-  const winIsHome = homeWinScore || (!awayWinScore && !homeWinScore);
-
-  const hsText = String(g.home_score ?? "—");
-  const asText = String(g.away_score ?? "—");
-  const sep = "  -  ";
-
-  ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  const wHs = ctx.measureText(hsText).width;
-  const wSep = ctx.measureText(sep).width;
-  const wAs = ctx.measureText(asText).width;
-  const totalW = wHs + wSep + wAs;
-  const baseX = (w - totalW) / 2;
-  const yy = Math.round((SAFE_TOP + SAFE_BOTTOM) / 2);
-
-  ctx.fillStyle = winIsHome ? "#ffeb3b" : "#ffffff";
-  ctx.fillText(hsText, baseX, yy);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(sep, baseX + wHs, yy);
-  ctx.fillStyle = winIsHome ? "#ffffff" : "#ffeb3b";
-  ctx.fillText(asText, baseX + wHs + wSep, yy);
-  resetShadow(ctx);
+  const fmtEra = (v) => {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n.toFixed(2);
+    const s = String(v ?? "").trim();
+    return s ? s : "—";
+  };
 
   const homeStreak =
     standings?.find(
@@ -940,70 +896,144 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
         String(g.away_team || "").includes(teamKeyword(s?.team))
     )?.streak || "";
 
-  ctx.font = `500 28px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#F9FF00";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  const streakTop = yy + 72;
-  ctx.fillText(`홈팀: ${homeStreak}`, w / 2, streakTop);
-  ctx.fillText(`원정팀: ${awayStreak}`, w / 2, streakTop + 34);
+  const winStreak = homeWin ? homeStreak : awayStreak;
+  const loseStreak = homeWin ? awayStreak : homeStreak;
 
-  // Winner pitcher / MVP (no background box; text only)
-  const boxX = 64;
-  const boxY = SAFE_BOTTOM - 380;
-
-  // Bottom summary (simple): ⭐ + pitcher/batter names (no stats)
-  const cleanName = (s) =>
-    String(s || "—")
-      .replace(/\(추정\)/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 18);
-
-  const pitcherName = cleanName(g.winning_pitcher);
-  const batterName = cleanName(g?.mvp_batter?.name ?? "—");
-
-  resetShadow(ctx); // no shadow
+  // 1) 날짜
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
 
-  const labelColor = "#00d4aa";
-  const valueColor = "#ffffff";
+  // 2) 서브텍스트
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 160);
+  resetShadow(ctx);
 
-  const drawCenteredLabelValue = (y, label, value, labelFont, valueFont) => {
-    const gap = "  ";
-    ctx.font = labelFont;
-    const wL = ctx.measureText(label + gap).width;
-    ctx.font = valueFont;
-    const wV = ctx.measureText(value).width;
-    const totalW = wL + wV;
-    const startX = (w - totalW) / 2;
+  // 3) 팀 로고
+  const logoY = SAFE_TOP + 220;
+  const logoW = 200;
+  const logoH = 200;
+  if (homeImg) drawImageContain(ctx, homeImg, 64, logoY, logoW, logoH);
+  else drawTeamBadge(ctx, 64 + logoW / 2, logoY + logoH / 2, logoH / 2, g.home_team);
+  if (awayImg) drawImageContain(ctx, awayImg, w - 264, logoY, logoW, logoH);
+  else drawTeamBadge(ctx, w - 264 + logoW / 2, logoY + logoH / 2, logoH / 2, g.away_team);
 
-    ctx.font = labelFont;
-    ctx.fillStyle = labelColor;
-    ctx.fillText(label + gap, startX, y);
-    ctx.font = valueFont;
-    ctx.fillStyle = valueColor;
-    ctx.fillText(value, startX + wL, y);
-  };
+  // 4) 스코어 (홈 / VS / 원정)
+  const hsText = String(g?.home_score ?? "—");
+  const asText = String(g?.away_score ?? "—");
+  const vsText = "VS";
+  const scoreY = SAFE_TOP + 480;
 
-  const emojiFont = `900 100px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  const labelFont = `900 60px "Gmarket Sans", system-ui, sans-serif`;
-  const nameFont = `900 80px "Gmarket Sans", system-ui, sans-serif`;
+  const homeIsWinner =
+    Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
+  const homeScoreFont = homeIsWinner
+    ? `900 100px "${FONT_BODY}", system-ui, sans-serif`
+    : `700 80px "${FONT_BODY}", system-ui, sans-serif`;
+  const awayScoreFont = !homeIsWinner
+    ? `900 100px "${FONT_BODY}", system-ui, sans-serif`
+    : `700 80px "${FONT_BODY}", system-ui, sans-serif`;
+  const vsFont = `700 60px "${FONT_BODY}", system-ui, sans-serif`;
 
-  const baseY = SAFE_BOTTOM - 170;
-  const lineGap = 110;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = homeScoreFont;
+  const wHome = ctx.measureText(hsText).width;
+  ctx.font = vsFont;
+  const wVS = ctx.measureText(vsText).width;
+  ctx.font = awayScoreFont;
+  const wAway = ctx.measureText(asText).width;
+  const gap = 34;
+  const totalScoreW = wHome + gap + wVS + gap + wAway;
+  const startX = (w - totalScoreW) / 2;
 
-  // ⭐ (big, centered)
-  ctx.font = emojiFont;
-  ctx.fillStyle = "#ffffff";
-  const star = "⭐";
-  const hw = ctx.measureText(star).width;
-  ctx.fillText(star, (w - hw) / 2, baseY - lineGap * 2);
+  ctx.font = homeScoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFB3DE" : "#FFFFFF";
+  shadowTextSoft(ctx);
+  ctx.fillText(hsText, startX, scoreY);
+  resetShadow(ctx);
 
-  // pitcher / batter lines (names only)
-  drawCenteredLabelValue(baseY - lineGap, "선발", pitcherName || "—", labelFont, nameFont);
-  drawCenteredLabelValue(baseY, "타자", batterName || "—", labelFont, nameFont);
+  ctx.font = vsFont;
+  ctx.fillStyle = "#F9FF00";
+  shadowTextSoft(ctx);
+  ctx.fillText(vsText, startX + wHome + gap, scoreY - 10);
+  resetShadow(ctx);
+
+  ctx.font = awayScoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFFFFF" : "#FFB3DE";
+  shadowTextSoft(ctx);
+  ctx.fillText(asText, startX + wHome + gap + wVS + gap, scoreY);
+  resetShadow(ctx);
+
+  // 5) 선발투수 대결
+  const homeStarterName = cleanName(g?.home_starter?.name ?? "");
+  const awayStarterName = cleanName(g?.away_starter?.name ?? "");
+  const homeStarterEra = g?.home_starter?.era ?? null;
+  const awayStarterEra = g?.away_starter?.era ?? null;
+  const starterLine = `홈선발 ${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs 원정선발 ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.font = `500 38px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(starterLine, w / 2, SAFE_TOP + 620);
+
+  // 6) 연속승패
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`${homeStreak || "—"} | ${awayStreak || "—"}`, w / 2, SAFE_TOP + 700);
+
+  // 하단 영역
+  // 7) 구장
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`📍 ${String(g?.venue || "—").slice(0, 24)}`, w / 2, DIVIDER_Y + 80);
+
+  // 8) 승리투수 / 패전투수
+  const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
+  const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
+  const winEra = g?.winning_pitcher_era ?? null;
+  const loseEra = g?.losing_pitcher_era ?? null;
+  const winText = `승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})`;
+  const loseText = `패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
+  const wlY = DIVIDER_Y + 180;
+
+  ctx.font = `500 40px "${FONT_BODY}", system-ui, sans-serif`;
+  const midGap = 34;
+  const wWin = ctx.measureText(winText).width;
+  const wLose = ctx.measureText(loseText).width;
+  const wlTotal = wWin + midGap + wLose;
+  const wlStartX = (w - wlTotal) / 2;
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFB3DE";
+  ctx.fillText(winText, wlStartX, wlY);
+  ctx.fillStyle = "#CCCCCC";
+  ctx.fillText(loseText, wlStartX + wWin + midGap, wlY);
+
+  // 9) MVP 타자
+  const mvpName = cleanName(g?.mvp_batter?.name ?? "—");
+  const mvpH = g?.mvp_batter?.h ?? null;
+  const mvpHr = g?.mvp_batter?.hr ?? null;
+  const mvpStat =
+    (mvpH == null && mvpHr == null) ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 52px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.fillText(`⭐ ${mvpName}${mvpStat}`, w / 2, DIVIDER_Y + 300);
+
+  // 10) 연속승패 뱃지
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `승리팀: 🔥 ${winStreak || "—"} / 패전팀: ${loseStreak || "—"}`,
+    w / 2,
+    DIVIDER_Y + 420
+  );
 
   // 하단 인덱스 텍스트 제거
 }
