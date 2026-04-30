@@ -339,7 +339,6 @@ function normalizeTeamKey(raw) {
 
 async function fetchScheduleFromDate(db, startDateIso) {
   const out = [];
-  console.log("[schedule] fetching from:", startDateIso);
   try {
     const snap = await db
       .collection("schedule")
@@ -348,10 +347,8 @@ async function fetchScheduleFromDate(db, startDateIso) {
       .limit(1200)
       .get();
     snap.forEach((d) => out.push({ id: d.id, ...docSnap(d) }));
-    console.log("[schedule] fetched:", out.length);
     return out;
   } catch (e) {
-    console.log("[schedule] query error:", e?.message);
     console.warn("[fetchScheduleFromDate] query failed:", e?.message || e);
   }
   // fallback scan
@@ -364,7 +361,6 @@ async function fetchScheduleFromDate(db, startDateIso) {
       if (String(gd) >= String(startDateIso || "")) out.push(doc);
     });
   } catch (e) {
-    console.log("[schedule] fallback error:", e?.message);
     console.warn("[fetchScheduleFromDate] fallback scan failed:", e?.message || e);
   }
   out.sort((a, b) => String(a?.game_date || "").localeCompare(String(b?.game_date || "")));
@@ -373,22 +369,7 @@ async function fetchScheduleFromDate(db, startDateIso) {
 
 function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
   const a = normalizeTeamKey(teamA);
-  const b = normalizeTeamKey(teamB);
   const after = String(afterDateIso || "").slice(0, 10);
-  console.log(
-    "[pickNext] a:",
-    a,
-    "b:",
-    b,
-    "after:",
-    after,
-    "rows:",
-    (scheduleRows || []).length
-  );
-  console.log(
-    "[pickNext] all teams:",
-    (scheduleRows || []).map((r) => r?.home_team + "vs" + r?.away_team)
-  );
   const scored = [];
   for (const r of scheduleRows || []) {
     const gd = String(r?.game_date || "").slice(0, 10);
@@ -397,11 +378,7 @@ function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
     const hk = normalizeTeamKey(r?.home_team || "");
     const ak = normalizeTeamKey(r?.away_team || "");
     const match =
-      (hk === a && ak === b) ||
-      (hk === b && ak === a);
-    if (match) {
-      console.log("[pickNext] matched:", r?.game_date, r?.home_team, r?.away_team);
-    }
+      hk === a || ak === a;
     if (!match) continue;
     const tm = String(r?.game_time || "").trim();
     const stamp = `${gd}T${tm || "00:00"}`;
