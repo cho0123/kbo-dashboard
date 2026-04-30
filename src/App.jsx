@@ -602,7 +602,7 @@ function drawBaseballBackground(ctx) {
   ctx.restore();
 }
 
-function drawIntroSlide(ctx, w, h, date) {
+function drawIntroSlide(ctx, w, h, date, logosByTeamKey) {
   ctx.save();
   // Background: KBO official deep navy
   ctx.fillStyle = "#002B5B";
@@ -616,6 +616,36 @@ function drawIntroSlide(ctx, w, h, date) {
   const topY = 180;
   const gapTop = 20;
   const centralY = Math.round(h * 0.64); // tuned to place divider+date around ~1480px
+
+  // Team logos (irregular collage above the main title)
+  const placements = [
+    { team: "KIA", x: 150, y: 400, size: 120, angle: -15 },
+    { team: "삼성", x: 400, y: 350, size: 90, angle: 10 },
+    { team: "LG", x: 650, y: 420, size: 110, angle: -8 },
+    { team: "두산", x: 200, y: 580, size: 80, angle: 12 },
+    { team: "KT", x: 500, y: 500, size: 100, angle: -5 },
+    { team: "SSG", x: 750, y: 480, size: 85, angle: 18 },
+    { team: "롯데", x: 130, y: 720, size: 95, angle: -20 },
+    { team: "한화", x: 380, y: 680, size: 105, angle: 8 },
+    { team: "NC", x: 620, y: 650, size: 88, angle: -12 },
+    { team: "키움", x: 820, y: 600, size: 92, angle: 15 },
+  ];
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.globalAlpha = 0.85;
+  for (const p of placements) {
+    const tk = teamKeyword(p.team);
+    const img = logosByTeamKey?.[tk] || null;
+    ctx.save();
+    ctx.translate(p.x + p.size / 2, p.y + p.size / 2);
+    ctx.rotate((p.angle * Math.PI) / 180);
+    drawTeamLogoOrBadge(ctx, -p.size / 2, -p.size / 2, p.size, p.team, img);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
 
   // Top: "프로야구"
   ctx.textAlign = "center";
@@ -1700,7 +1730,21 @@ function Card8Shorts({ defaultDate }) {
     // Preload local SVG logos (same-origin) for this slide
     const teamKeys = new Set();
     if (slide.type === "intro") {
-      // no team logos
+      // preload all 10 team logos for intro collage
+      for (const tk of [
+        "KIA",
+        "삼성",
+        "LG",
+        "두산",
+        "KT",
+        "SSG",
+        "롯데",
+        "한화",
+        "NC",
+        "키움",
+      ]) {
+        teamKeys.add(tk);
+      }
     } else if (slide.type === "summary") {
       const upto = Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1));
       const subset = games.slice(0, upto);
@@ -1741,7 +1785,7 @@ function Card8Shorts({ defaultDate }) {
 
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
-    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date);
+    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date, logosByTeamKey);
     else if (slide.type === "summary")
       drawSummarySlide(
         ctx,
