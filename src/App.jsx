@@ -1994,10 +1994,6 @@ function Card8Shorts({ defaultDate }) {
   );
 }
 
-function getKstIsoToday() {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-}
-
 function getWeekRangeKst(mode) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   // JS: Sunday=0 ... Saturday=6, we want Monday start
@@ -2022,277 +2018,362 @@ function getWeekRangeKst(mode) {
   return { from: mon2.toLocaleDateString("sv-SE"), to: sun2.toLocaleDateString("sv-SE") };
 }
 
-function drawWeeklyIntroSlide(ctx, w, h, from, to, logosByTeamKey) {
-  drawBackground(ctx, w, h, "#0b0f2b");
-  drawTopBrand(ctx, w);
-  drawLogoCollage(ctx, w, h, logosByTeamKey);
+const WEEKLY_BG = "#002B5B";
+const WEEKLY_POINT = "#FFD700";
+const WEEKLY_FONT = `"Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+
+function drawWeeklyBase(ctx, w, h) {
+  ctx.fillStyle = WEEKLY_BG;
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx); // watermark (existing same)
+}
+
+function weekOfMonthKst(isoDate) {
+  const s = String(isoDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return { y: 0, m: 0, w: 0 };
+  const dt = new Date(new Date(`${s}T12:00:00`).toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const y = dt.getFullYear();
+  const m = dt.getMonth() + 1;
+  const day = dt.getDate();
+  const first = new Date(dt);
+  first.setDate(1);
+  const firstDowMon0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
+  const w = Math.floor((day + firstDowMon0 - 1) / 7) + 1;
+  return { y, m, w };
+}
+
+function drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey) {
+  // Reuse drawIntroSlide layout: we draw a "neutral" intro then overlay the title/date parts
+  // Use toDate only to keep weekday parsing stable; background is overridden to WEEKLY_BG.
+  drawWeeklyBase(ctx, w, h);
+
+  // Reuse the same collage placements from drawIntroSlide by calling it, but immediately repaint bg
+  // to keep WEEKLY navy and then draw collage manually.
+  // (We duplicate the placements here to stay pixel-identical.)
+  const SHIFT_Y = 50;
+  const placements = [
+    { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
+    { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
+    { team: "LG", x: 820, y: 440, size: 155, angle: -6 },
+    { team: "두산", x: 90, y: 620, size: 140, angle: 15 },
+    { team: "KT", x: 370, y: 580, size: 150, angle: -10 },
+    { team: "SSG", x: 690, y: 600, size: 145, angle: 12 },
+    { team: "롯데", x: 160, y: 790, size: 155, angle: -8 },
+    { team: "한화", x: 440, y: 760, size: 148, angle: 6 },
+    { team: "NC", x: 740, y: 780, size: 142, angle: -14 },
+    { team: "키움", x: 900, y: 640, size: 138, angle: 10 },
+  ];
+
+  const centerX = w / 2;
+  const topY = 180 + SHIFT_Y;
+  const centralY = Math.round(h * 0.64) + SHIFT_Y;
 
   ctx.save();
+  ctx.globalAlpha = 0.85;
+  for (const p of placements) {
+    const tk = teamKeyword(p.team);
+    const img = logosByTeamKey?.[tk] || null;
+    const size = p.size * 1.8 * 0.55 * 1.05;
+    ctx.save();
+    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + size / 2);
+    ctx.rotate((p.angle * Math.PI) / 180);
+    if (img) {
+      const iw = Number(img?.naturalWidth ?? img?.width) || 1;
+      const ih = Number(img?.naturalHeight ?? img?.height) || 1;
+      const ratio = iw / ih;
+      const drawH = size;
+      const drawW = size * ratio;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      drawTeamLogoOrBadge(ctx, -size / 2, -size / 2, size, p.team, null);
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // Top title: "주간 분석"
   ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
+  ctx.textBaseline = "top";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `1000 82px "${FONT_TITLE}", system-ui, sans-serif`;
-  ctx.fillText("KBO 주간 분석", w / 2, 420);
-  ctx.font = `900 54px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#F9FF00";
-  ctx.fillText(`${from} ~ ${to}`, w / 2, 500);
+  let titleSize = 112;
+  ctx.font = `900 ${titleSize}px ${WEEKLY_FONT}`;
+  while (ctx.measureText("주간 분석").width > 960 && titleSize > 70) {
+    titleSize -= 2;
+    ctx.font = `900 ${titleSize}px ${WEEKLY_FONT}`;
+  }
+  ctx.fillText("주간 분석", centerX, topY);
+
+  // Center: keep "1분컷"
+  ctx.textBaseline = "middle";
+  ctx.font = `800 220px ${WEEKLY_FONT}`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText("1분컷", centerX, centralY);
+  resetShadow(ctx);
+
+  // Divider
+  const divY = centralY + 110 + 60;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - 300, divY);
+  ctx.lineTo(centerX + 300, divY);
+  ctx.stroke();
+
+  // Bottom: "YYYY년 MM월 W주차"
+  const { y, m, w: wk } = weekOfMonthKst(toDate || fromDate);
+  const label = y && m && wk ? `${y}년 ${m}월 ${wk}주차` : `${fromDate} ~ ${toDate}`;
+  ctx.textBaseline = "middle";
+  ctx.font = `700 92px ${WEEKLY_FONT}`;
+  ctx.fillStyle = WEEKLY_POINT;
+  ctx.fillText(label, centerX, divY + 92);
+
   ctx.restore();
 }
 
-function drawWeeklyTeamRecordsSlide(ctx, w, h, from, to, weeklyGames, standingsDiff, logosByTeamKey) {
-  drawBackground(ctx, w, h, "#0b0f2b");
-  drawTopBrand(ctx, w);
-  drawTopDatePill(ctx, w, `${from}~${to}`);
+function weeklyWinPct(r) {
+  const w = Number(r?.wins ?? 0);
+  const l = Number(r?.losses ?? 0);
+  const d = Number(r?.draws ?? 0);
+  void d;
+  const denom = w + l;
+  return denom > 0 ? w / denom : 0;
+}
 
+function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
+
+  const titleY = 170;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("주간 팀별 성적", w / 2, 220);
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 팀 성적", w / 2, titleY);
   ctx.restore();
 
-  const list = Array.isArray(weeklyGames) ? weeklyGames : [];
-  const top10 = list.slice(0, 10);
-
-  const diffMap = new Map();
-  for (const d of Array.isArray(standingsDiff) ? standingsDiff : []) {
-    if (d?.team) diffMap.set(String(d.team), d);
-  }
+  const list = (Array.isArray(weeklyGames) ? weeklyGames : [])
+    .slice()
+    .sort((a, b) => weeklyWinPct(b) - weeklyWinPct(a));
+  const rows = list.slice(0, 10);
 
   const x0 = 90;
-  const y0 = 340;
-  const rowH = 120;
-  for (let i = 0; i < top10.length; i++) {
-    const r = top10[i] || {};
+  const y0 = 320;
+  const rowH = 135;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] || {};
     const teamRaw = String(r.team || "");
     const tk = teamKeyword(teamRaw);
     const logo = logosByTeamKey?.[tk] || null;
     const y = y0 + i * rowH;
+    const isTop = i === 0;
 
     ctx.save();
-    // row bg
-    ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)";
-    ctx.strokeStyle = "rgba(255,255,255,0.10)";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = isTop ? "rgba(255,215,0,0.16)" : i % 2 === 0 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)";
+    ctx.strokeStyle = isTop ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = isTop ? 3 : 2;
     ctx.beginPath();
-    ctx.roundRect(x0, y, w - x0 * 2, rowH - 10, 18);
+    ctx.roundRect(x0, y, w - x0 * 2, rowH - 14, 22);
     ctx.fill();
     ctx.stroke();
 
-    // rank idx
+    // logo
+    if (logo) drawLogoInBox(x0 + 22, y + 18, 92, 92, teamRaw, logo);
+
+    // team name
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.font = `900 46px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#F9FF00";
-    ctx.fillText(String(i + 1), x0 + 22, y + (rowH - 10) / 2);
-
-    // logo + team
-    const lx = x0 + 90;
-    const ly = y + 18;
-    if (logo) drawLogoInBox(lx, ly, 84, 84, teamRaw, logo);
-    ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(teamShortName(teamRaw), x0 + 190, y + (rowH - 10) / 2);
+    ctx.fillStyle = isTop ? WEEKLY_POINT : "#FFFFFF";
+    ctx.font = `900 ${isTop ? 62 : 56}px ${WEEKLY_FONT}`;
+    ctx.fillText(teamShortName(teamRaw), x0 + 130, y + (rowH - 14) / 2);
 
     // W-L-D
     ctx.textAlign = "right";
-    ctx.font = `900 42px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "#FFFFFF";
-    const wl = `${r.wins ?? 0}승 ${r.losses ?? 0}패 ${r.draws ?? 0}무`;
-    ctx.fillText(wl, w - x0 - 200, y + (rowH - 10) / 2);
-
-    // rank diff
-    const dd = diffMap.get(String(r.team || "")) || null;
-    const diff = dd?.diff;
-    const diffText =
-      diff == null ? "—" : diff === 0 ? "0" : diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`;
-    ctx.font = `1000 44px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = diff > 0 ? "#00e676" : diff < 0 ? "#ff5252" : "#B0BEC5";
-    ctx.fillText(diffText, w - x0 - 40, y + (rowH - 10) / 2);
+    ctx.font = `800 ${isTop ? 54 : 48}px ${WEEKLY_FONT}`;
+    ctx.fillText(`${r.wins ?? 0}승 ${r.losses ?? 0}패 ${r.draws ?? 0}무`, w - x0 - 30, y + (rowH - 14) / 2);
 
     ctx.restore();
   }
 }
 
-function drawWeeklyTopBattersSlide(ctx, w, h, from, to, topBatters, logosByTeamKey) {
-  drawBackground(ctx, w, h, "#0b0f2b");
-  drawTopBrand(ctx, w);
-  drawTopDatePill(ctx, w, `${from}~${to}`);
+function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("주간 최다 홈런 TOP3", w / 2, 220);
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 홈런왕 Top3", w / 2, 170);
   ctx.restore();
 
-  const list = Array.isArray(topBatters) ? topBatters : [];
-  const cards = list.slice(0, 3);
-  const cardW = 900;
-  const cardH = 360;
-  const x = (w - cardW) / 2;
-  const y0 = 380;
-  const gap = 34;
+  const list = Array.isArray(weeklyTopBatters) ? weeklyTopBatters : [];
+  const b1 = list[0] || null;
+  const b2 = list[1] || null;
+  const b3 = list[2] || null;
 
-  for (let i = 0; i < 3; i++) {
-    const b = cards[i] || null;
-    const y = y0 + i * (cardH + gap);
+  const drawCard = (rank, b, x, y, cardW, cardH, big) => {
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = big ? "rgba(255,215,0,0.14)" : "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = big ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = big ? 3 : 2;
     ctx.beginPath();
-    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.roundRect(x, y, cardW, cardH, 26);
     ctx.fill();
     ctx.stroke();
 
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#F9FF00";
-    ctx.fillText(String(i + 1), x + 26, y + 26);
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 ${big ? 70 : 58}px ${WEEKLY_FONT}`;
+    ctx.fillText(String(rank), x + 26, y + 18);
 
     if (b) {
       const teamRaw = String(b.team || "");
       const tk = teamKeyword(teamRaw);
       const logo = logosByTeamKey?.[tk] || null;
-      if (logo) drawLogoInBox(x + 120, y + 40, 120, 120, teamRaw, logo);
+      const logoSize = big ? 150 : 120;
+      if (logo) drawLogoInBox(x + 120, y + (big ? 50 : 42), logoSize, logoSize, teamRaw, logo);
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `1000 54px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText(String(b.player || "—").slice(0, 12), x + 270, y + 52);
-      ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(teamShortName(teamRaw), x + 270, y + 118);
+      ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
+      ctx.fillText(String(b.player || "—").slice(0, 10), x + 290, y + (big ? 60 : 56));
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
+      ctx.fillText(teamShortName(teamRaw), x + 290, y + (big ? 140 : 118));
 
       ctx.textAlign = "right";
-      ctx.font = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
-      ctx.fillStyle = "#F9FF00";
-      ctx.fillText(`${b.hr ?? 0} HR`, x + cardW - 30, y + 50);
+      ctx.fillStyle = WEEKLY_POINT;
+      ctx.font = `1000 ${big ? 98 : 78}px ${WEEKLY_FONT}`;
+      ctx.fillText(`${b.hr ?? 0} HR`, x + cardW - 30, y + (big ? 60 : 56));
 
-      ctx.font = `900 44px "${FONT_BODY}", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(`H ${b.h ?? 0}`, x + cardW - 30, y + 160);
-      ctx.fillText(`RBI ${b.rbi ?? 0}`, x + cardW - 30, y + 220);
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      ctx.fillText(`안타 ${b.h ?? 0}`, x + cardW - 30, y + (big ? 176 : 150));
+      ctx.fillText(`타점 ${b.rbi ?? 0}`, x + cardW - 30, y + (big ? 238 : 204));
     } else {
-      ctx.fillStyle = "rgba(255,255,255,0.65)";
-      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText("데이터 없음", x + 120, y + 140);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 120);
     }
     ctx.restore();
-  }
+  };
+
+  // 1위 크게 (상단)
+  drawCard(1, b1, 90, 320, 900, 520, true);
+  // 2/3위 작게 (하단 2개)
+  drawCard(2, b2, 90, 880, 900, 420, false);
+  drawCard(3, b3, 90, 1340, 900, 420, false);
 }
 
-function drawWeeklyTopPitchersSlide(ctx, w, h, from, to, topPitchers, logosByTeamKey) {
-  drawBackground(ctx, w, h, "#0b0f2b");
-  drawTopBrand(ctx, w);
-  drawTopDatePill(ctx, w, `${from}~${to}`);
+function drawWeeklyPitcherSlide(ctx, w, h, weeklyTopPitchers, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("주간 최고 투수 TOP3", w / 2, 220);
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 최고 투수 Top3", w / 2, 170);
   ctx.restore();
 
-  const list = Array.isArray(topPitchers) ? topPitchers : [];
-  const cards = list.slice(0, 3);
-  const cardW = 900;
-  const cardH = 360;
-  const x = (w - cardW) / 2;
-  const y0 = 380;
-  const gap = 34;
+  const list = Array.isArray(weeklyTopPitchers) ? weeklyTopPitchers : [];
+  const p1 = list[0] || null;
+  const p2 = list[1] || null;
+  const p3 = list[2] || null;
 
-  for (let i = 0; i < 3; i++) {
-    const p = cards[i] || null;
-    const y = y0 + i * (cardH + gap);
+  const drawCard = (rank, p, x, y, cardW, cardH, big) => {
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = big ? "rgba(255,215,0,0.14)" : "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = big ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = big ? 3 : 2;
     ctx.beginPath();
-    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.roundRect(x, y, cardW, cardH, 26);
     ctx.fill();
     ctx.stroke();
 
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#F9FF00";
-    ctx.fillText(String(i + 1), x + 26, y + 26);
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 ${big ? 70 : 58}px ${WEEKLY_FONT}`;
+    ctx.fillText(String(rank), x + 26, y + 18);
 
     if (p) {
       const teamRaw = String(p.team || "");
       const tk = teamKeyword(teamRaw);
       const logo = logosByTeamKey?.[tk] || null;
-      if (logo) drawLogoInBox(x + 120, y + 40, 120, 120, teamRaw, logo);
+      const logoSize = big ? 150 : 120;
+      if (logo) drawLogoInBox(x + 120, y + (big ? 50 : 42), logoSize, logoSize, teamRaw, logo);
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `1000 54px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText(String(p.player || "—").slice(0, 12), x + 270, y + 52);
-      ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(teamShortName(teamRaw), x + 270, y + 118);
+      ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
+      ctx.fillText(String(p.player || "—").slice(0, 10), x + 290, y + (big ? 60 : 56));
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
+      ctx.fillText(teamShortName(teamRaw), x + 290, y + (big ? 140 : 118));
 
       ctx.textAlign = "right";
-      ctx.font = `1000 68px "${FONT_TITLE}", system-ui, sans-serif`;
-      ctx.fillStyle = "#F9FF00";
-      ctx.fillText(`${Number(p.ip ?? 0).toFixed(1)} IP`, x + cardW - 30, y + 50);
+      ctx.fillStyle = WEEKLY_POINT;
+      ctx.font = `1000 ${big ? 92 : 74}px ${WEEKLY_FONT}`;
+      ctx.fillText(`${Number(p.ip ?? 0).toFixed(1)} IP`, x + cardW - 30, y + (big ? 62 : 56));
 
-      ctx.font = `900 44px "${FONT_BODY}", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
       const era = p.era == null ? "—" : Number(p.era).toFixed(2);
-      ctx.fillText(`ERA ${era}`, x + cardW - 30, y + 160);
-      ctx.fillText(`W ${p.wins ?? 0}`, x + cardW - 30, y + 220);
+      ctx.fillText(`ERA ${era}`, x + cardW - 30, y + (big ? 176 : 150));
+      ctx.fillText(`승 ${p.wins ?? 0}`, x + cardW - 30, y + (big ? 238 : 204));
     } else {
-      ctx.fillStyle = "rgba(255,255,255,0.65)";
-      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText("데이터 없음", x + 120, y + 140);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 120);
     }
     ctx.restore();
-  }
+  };
+
+  drawCard(1, p1, 90, 320, 900, 520, true);
+  drawCard(2, p2, 90, 880, 900, 420, false);
+  drawCard(3, p3, 90, 1340, 900, 420, false);
 }
 
-function drawWeeklyNextWeekSlide(ctx, w, h, from, to, highlights, logosByTeamKey) {
-  drawBackground(ctx, w, h, "#0b0f2b");
-  drawTopBrand(ctx, w);
-  drawTopDatePill(ctx, w, `${from}~${to}`);
+function drawWeeklyNextSlide(ctx, w, h, nextWeekHighlights, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.font = `1000 64px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("다음주 주목 경기", w / 2, 220);
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("다음주 주목 경기", w / 2, 170);
   ctx.restore();
 
-  const list = Array.isArray(highlights) ? highlights : [];
+  const list = Array.isArray(nextWeekHighlights) ? nextWeekHighlights : [];
   const cardW = 900;
-  const cardH = 360;
+  const cardH = 430;
   const x = (w - cardW) / 2;
-  const y0 = 420;
+  const y0 = 320;
   const gap = 40;
 
   for (let i = 0; i < 3; i++) {
     const g = list[i] || null;
     const y = y0 + i * (cardH + gap);
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(x, y, cardW, cardH, 24);
+    ctx.roundRect(x, y, cardW, cardH, 26);
     ctx.fill();
     ctx.stroke();
 
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#F9FF00";
-    ctx.fillText(String(i + 1), x + 26, y + 26);
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 58px ${WEEKLY_FONT}`;
+    ctx.fillText(String(i + 1), x + 26, y + 18);
 
     if (g) {
       const awayRaw = String(g.away_team || "");
@@ -2301,26 +2382,30 @@ function drawWeeklyNextWeekSlide(ctx, w, h, from, to, highlights, logosByTeamKey
       const htk = teamKeyword(homeRaw);
       const aLogo = logosByTeamKey?.[atk] || null;
       const hLogo = logosByTeamKey?.[htk] || null;
-      if (aLogo) drawLogoInBox(x + 120, y + 70, 120, 120, awayRaw, aLogo);
-      if (hLogo) drawLogoInBox(x + cardW - 120 - 30, y + 70, 120, 120, homeRaw, hLogo);
+      if (aLogo) drawLogoInBox(x + 110, y + 90, 130, 130, awayRaw, aLogo);
+      if (hLogo) drawLogoInBox(x + cardW - 110 - 130, y + 90, 130, 130, homeRaw, hLogo);
 
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.font = `1000 56px "${FONT_TITLE}", system-ui, sans-serif`;
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillText(`${teamShortName(awayRaw)}  VS  ${teamShortName(homeRaw)}`, x + cardW / 2, y + 84);
+      ctx.font = `1000 60px ${WEEKLY_FONT}`;
+      ctx.fillText(`${teamShortName(awayRaw)}  VS  ${teamShortName(homeRaw)}`, x + cardW / 2, y + 98);
 
-      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      ctx.fillText(`${String(g.game_date || "").slice(0, 10)} ${String(g.game_time || "").trim()}`, x + cardW / 2, y + 160);
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `900 46px ${WEEKLY_FONT}`;
+      ctx.fillText(
+        `${String(g.game_date || "").slice(0, 10)} ${String(g.game_time || "").trim()}`,
+        x + cardW / 2,
+        y + 182
+      );
 
-      ctx.font = `800 40px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
-      ctx.fillText(String(g.venue || "").slice(0, 22), x + cardW / 2, y + 220);
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = `800 40px ${WEEKLY_FONT}`;
+      ctx.fillText(String(g.venue || "").slice(0, 22), x + cardW / 2, y + 248);
     } else {
-      ctx.fillStyle = "rgba(255,255,255,0.65)";
-      ctx.font = `900 46px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText("데이터 없음", x + 120, y + 140);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 44px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 160);
     }
     ctx.restore();
   }
@@ -2365,7 +2450,6 @@ function Card9WeeklySummary() {
     const weeklyGames = Array.isArray(data?.weekly_games) ? data.weekly_games : [];
     const topBatters = Array.isArray(data?.weekly_top_batters) ? data.weekly_top_batters : [];
     const topPitchers = Array.isArray(data?.weekly_top_pitchers) ? data.weekly_top_pitchers : [];
-    const standingsDiff = Array.isArray(data?.weekly_standings_diff) ? data.weekly_standings_diff : [];
     const highlights = Array.isArray(data?.next_week_highlights) ? data.next_week_highlights : [];
 
     const teamKeys = new Set();
@@ -2395,13 +2479,10 @@ function Card9WeeklySummary() {
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "intro") drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey);
-    else if (slide.type === "weekly_games")
-      drawWeeklyTeamRecordsSlide(ctx, w, h, fromDate, toDate, weeklyGames, standingsDiff, logosByTeamKey);
-    else if (slide.type === "weekly_top_batters")
-      drawWeeklyTopBattersSlide(ctx, w, h, fromDate, toDate, topBatters, logosByTeamKey);
-    else if (slide.type === "weekly_top_pitchers")
-      drawWeeklyTopPitchersSlide(ctx, w, h, fromDate, toDate, topPitchers, logosByTeamKey);
-    else drawWeeklyNextWeekSlide(ctx, w, h, fromDate, toDate, highlights, logosByTeamKey);
+    else if (slide.type === "weekly_games") drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey);
+    else if (slide.type === "weekly_top_batters") drawWeeklyHRSlide(ctx, w, h, topBatters, logosByTeamKey);
+    else if (slide.type === "weekly_top_pitchers") drawWeeklyPitcherSlide(ctx, w, h, topPitchers, logosByTeamKey);
+    else drawWeeklyNextSlide(ctx, w, h, highlights, logosByTeamKey);
   };
 
   const onFetch = async () => {
