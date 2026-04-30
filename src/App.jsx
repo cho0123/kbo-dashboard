@@ -850,7 +850,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
   // Winner-based vertical gradient background:
   // top 70% winner (strong), bottom 30% loser (alpha 0.4)
   const homeWin = Number(g.home_score) > Number(g.away_score);
@@ -926,6 +926,27 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = winIsHome ? "#ffffff" : "#ffeb3b";
   ctx.fillText(asText, baseX + wHs + wSep, yy);
   resetShadow(ctx);
+
+  const homeStreak =
+    standings?.find(
+      (s) =>
+        String(s?.team || "").includes(teamKeyword(g.home_team)) ||
+        String(g.home_team || "").includes(teamKeyword(s?.team))
+    )?.streak || "";
+  const awayStreak =
+    standings?.find(
+      (s) =>
+        String(s?.team || "").includes(teamKeyword(g.away_team)) ||
+        String(g.away_team || "").includes(teamKeyword(s?.team))
+    )?.streak || "";
+
+  ctx.font = `500 28px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#F9FF00";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  const streakTop = yy + 72;
+  ctx.fillText(`홈팀: ${homeStreak}`, w / 2, streakTop);
+  ctx.fillText(`원정팀: ${awayStreak}`, w / 2, streakTop + 34);
 
   // Winner pitcher / MVP (no background box; text only)
   const boxX = 64;
@@ -1319,7 +1340,8 @@ function Card8Shorts({ defaultDate }) {
         idx,
         Math.max(1, games.length),
         logosByTeamKey,
-        batters
+        batters,
+        standings
       );
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
