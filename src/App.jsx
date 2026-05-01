@@ -1529,6 +1529,19 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
+  // 연장 경기 표시 (안전 조건)
+  const n = Number(g?.total_innings);
+  if (Number.isFinite(n) && n > 9) {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`; // same size as vs 텍스트
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = "#F5F0E8";
+    ctx.fillText(`연장 ${n}회`, w / 2, yStarter + 62);
+    ctx.restore();
+  }
+
   // 하단 영역
   const leftX = 72;
   const listTop = DIVIDER_Y + 180;
