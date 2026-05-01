@@ -1727,7 +1727,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFD700";
-  ctx.font = `1000 78px "${FONT_BODY}", system-ui, sans-serif`;
+  // Match drawGameSlide top date font exactly
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
