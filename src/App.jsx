@@ -828,16 +828,28 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   const awayKey = teamKeyword(firstGame?.away_team || "");
   const remaining = baseTeams.filter((t) => t !== homeKey && t !== awayKey);
 
-  const topTeams = [homeKey, ...remaining].filter(Boolean).slice(0, 5);
-  const bottomTeams = [awayKey, ...remaining.slice(5)].filter(Boolean).slice(0, 5);
-  while (topTeams.length < 5) topTeams.push(baseTeams[topTeams.length] || "KIA");
-  while (bottomTeams.length < 5) bottomTeams.push(baseTeams[bottomTeams.length] || "삼성");
+  // 10 logos in a circle (evenly spaced). Home/away are opposite slots.
+  const N = 10;
+  const logoSize = 100;
+  const cx = w / 2;
+  const cy = Math.round(h * (1 / 3) * 0.96); // slightly above the exact 1/3
+  const radius = Math.min(
+    220,
+    w / 2 - logoSize / 2 - 40,
+    cy - logoSize / 2 - 40
+  );
 
-  const logoSize = 150;
-  const padX = 70;
-  const gapX = (w - padX * 2 - logoSize * 5) / 4;
-  const row1Y = 240;
-  const row2Y = row1Y + logoSize + 45;
+  const slots = new Array(N).fill(null);
+  const safeHome = homeKey || remaining[0] || baseTeams[0];
+  const safeAway = awayKey || remaining[1] || baseTeams[1];
+  slots[0] = safeHome; // angle 0 (right)
+  slots[5] = safeAway; // opposite (left)
+  let ri = 0;
+  for (let i = 0; i < N; i++) {
+    if (slots[i]) continue;
+    slots[i] = remaining[ri] || baseTeams[i] || "KIA";
+    ri += 1;
+  }
 
   const drawTeamLogo = (teamKey, x, y) => {
     const img = logosByTeamKey?.[teamKey] || null;
@@ -845,13 +857,11 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
     else drawTeamBadge(ctx, x + logoSize / 2, y + logoSize / 2, logoSize / 2, teamKey);
   };
 
-  for (let i = 0; i < 5; i++) {
-    const x = padX + i * (logoSize + gapX);
-    drawTeamLogo(teamKeyword(topTeams[i]), x, row1Y);
-  }
-  for (let i = 0; i < 5; i++) {
-    const x = padX + i * (logoSize + gapX);
-    drawTeamLogo(teamKeyword(bottomTeams[i]), x, row2Y);
+  for (let i = 0; i < N; i++) {
+    const theta = (Math.PI * 2 * i) / N;
+    const x = cx + radius * Math.cos(theta) - logoSize / 2;
+    const y = cy + radius * Math.sin(theta) - logoSize / 2;
+    drawTeamLogo(teamKeyword(slots[i]), x, y);
   }
 
   // Middle: title
@@ -874,7 +884,7 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowBlur = 12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const oneMinY = titleY + 220;
+  const oneMinY = titleY + 220 + 100;
   ctx.fillText("1분컷", w / 2, oneMinY);
 
   // Divider + date (same style as drawIntroSlide)
