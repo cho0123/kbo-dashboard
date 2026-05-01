@@ -973,6 +973,10 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   ctx.clearRect(0, 0, w, h);
   // Background: home(top) / away(bottom) diagonal split + baseball watermark
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
+  // diagTeamGradient draws baseball before the diagonal split fill,
+  // which can visually hide most of the baseball. Re-draw once more
+  // after the split to match the intended watermark appearance.
+  drawBaseballBackground(ctx);
 
   // --- Top text (y: 150~300) ---
   const dateText = fmtKoreanLongDate(date);
