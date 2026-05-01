@@ -755,7 +755,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
   // Top: title (single line)
   // Move the title below the logo collage.
-  const topY = Math.round(maxLogoBottom + 40);
+  const topY = Math.round(maxLogoBottom + 40) + 70;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   // No shadow (explicitly disable)
@@ -765,7 +765,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
   const titleText = String(introTitle || "프로야구 경기 결과").trim() || "프로야구 경기 결과";
-  let titleSize = 100;
+  let titleSize = 105;
   ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   while (ctx.measureText(titleText).width > 960 && titleSize > 60) {
     titleSize -= 2;
