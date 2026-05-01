@@ -2159,8 +2159,6 @@ function weeklyWinPct(r) {
 function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
   drawWeeklyBase(ctx, w, h);
 
-  console.log("[weekly standings] first item:", weeklyGames?.[0]);
-
   const titleY = 170;
   ctx.save();
   ctx.textAlign = "center";
@@ -2211,6 +2209,25 @@ function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
 
     ctx.restore();
   }
+}
+
+/** weekly_top_batters row → "3HR  12H  8RBI  5R  .312" */
+function formatWeeklyTopBatterStatLine(b) {
+  if (!b || typeof b !== "object") return "";
+  const hr = Number(b.hr ?? 0) || 0;
+  const h = Number(b.h ?? 0) || 0;
+  const rbi = Number(b.rbi ?? 0) || 0;
+  const runs = Number(b.runs ?? b.r ?? b.run ?? b.R ?? 0) || 0;
+  const avgRaw = b.avg ?? b.AVG ?? b.batting_avg;
+  let avgPart = "—";
+  if (avgRaw != null && String(avgRaw).trim() !== "") {
+    const av = Number(avgRaw);
+    if (Number.isFinite(av)) {
+      const s = av.toFixed(3);
+      avgPart = av < 1 ? `.${s.slice(2)}` : s;
+    }
+  }
+  return `${hr}HR  ${h}H  ${rbi}RBI  ${runs}R  ${avgPart}`;
 }
 
 function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
@@ -2264,15 +2281,10 @@ function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
       ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
       ctx.fillText(teamRaw || "—", x + 290, y + (big ? 140 : 118));
 
-      ctx.textAlign = "right";
-      ctx.fillStyle = WEEKLY_POINT;
-      ctx.font = `1000 ${big ? 98 : 78}px ${WEEKLY_FONT}`;
-      ctx.fillText(`${b.hr ?? 0} HR`, x + cardW - 30, y + (big ? 60 : 56));
-
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
-      ctx.fillText(`안타 ${b.h ?? 0}`, x + cardW - 30, y + (big ? 176 : 150));
-      ctx.fillText(`타점 ${b.rbi ?? 0}`, x + cardW - 30, y + (big ? 238 : 204));
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `800 ${big ? 44 : 36}px ${WEEKLY_FONT}`;
+      ctx.fillText(formatWeeklyTopBatterStatLine(b), x + 290, y + (big ? 210 : 182));
     } else {
       ctx.fillStyle = "rgba(255,255,255,0.7)";
       ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
@@ -2477,12 +2489,6 @@ function Card9WeeklySummary() {
     const highlights = Array.isArray(weeklyData?.next_week_highlights)
       ? weeklyData.next_week_highlights
       : [];
-
-    console.log(
-      "[weekly slides] data:",
-      weeklyData?.weekly_games?.length,
-      weeklyData?.weekly_top_batters?.length
-    );
 
     const teamKeys = new Set();
     // preload common 10 team logos for intro

@@ -45,9 +45,6 @@ const TEAM_ALIAS_TO_FULL = (() => {
   return map;
 })();
 
-// Firestore 문서 샘플 로그는 함수 인스턴스당 1회만 출력
-let __didLogBoxSamples = false;
-
 function initFirebase() {
   const raw =
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
@@ -441,19 +438,7 @@ async function fetchBoxForGames(db, gameIds) {
         snap.forEach((d) => {
           if (!seen.has(d.id)) {
             seen.add(d.id);
-            const row = { id: d.id, ...docSnap(d) };
-            rows.push(row);
-            if (collName === "batters") {
-              const doc = row;
-              console.log("BATTER_RBI_CHECK:", {
-                player: doc.player,
-                game_id: doc.game_id ?? doc.gameId,
-                hr: doc.hr,
-                rbi: doc.rbi,
-                h: doc.h,
-                ab: doc.ab,
-              });
-            }
+            rows.push({ id: d.id, ...docSnap(d) });
           }
         });
       }
@@ -463,17 +448,6 @@ async function fetchBoxForGames(db, gameIds) {
   for (const gid of gameIds) {
     await mergeCollection("batters", batters, seenB, gid);
     await mergeCollection("pitchers", pitchers, seenP, gid);
-  }
-
-  // Firestore 실제 필드명 확인용 샘플 로그 (배포 후 Netlify Functions logs에서 확인)
-  if (!__didLogBoxSamples) {
-    __didLogBoxSamples = true;
-    // 투수 문서 첫 번째 샘플
-    console.log("PITCHER_KEYS:", Object.keys(pitchers[0] || {}));
-    console.log("PITCHER_SAMPLE:", JSON.stringify(pitchers[0]));
-    // 타자 문서 첫 번째 샘플
-    console.log("BATTER_KEYS:", Object.keys(batters[0] || {}));
-    console.log("BATTER_SAMPLE:", JSON.stringify(batters[0]));
   }
 
   return { batters, pitchers };
@@ -628,7 +602,6 @@ function normalizeBatterRowForUi(row) {
 }
 
 let __pitcherEraCheckLogged = 0;
-let __batterRbiCheckLogged2 = 0;
 
 function mergeBattersByPlayer(rows) {
   const list = Array.isArray(rows) ? rows : [];
@@ -1716,15 +1689,36 @@ function buildWeeklyTopBatters(batterRows, topN = 3) {
     const team = pickTeamName(r);
     const key = `${player}||${team || ""}`;
     if (!byPlayer.has(key)) {
-      byPlayer.set(key, { player, team: team || null, hr: 0, h: 0, rbi: 0 });
+      byPlayer.set(key, {
+        player,
+        team: team || null,
+        hr: 0,
+        h: 0,
+        rbi: 0,
+        runs: 0,
+        ab: 0,
+      });
     }
     const acc = byPlayer.get(key);
     acc.hr += pickNum(r, ["hr", "HR", "home_run", "홈런"]);
     acc.h += pickNum(r, ["h", "H", "hits", "hit", "안타"]);
     acc.rbi += pickNum(r, ["rbi", "RBI", "bi", "타점"]);
+    acc.runs += pickNum(r, ["runs", "r", "R", "run", "득점", "rs"]);
+    acc.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "타수"]);
   }
 
-  const out = [...byPlayer.values()];
+  const out = [...byPlayer.values()].map((x) => {
+    const avg = x.ab > 0 ? x.h / x.ab : null;
+    return {
+      player: x.player,
+      team: x.team,
+      hr: x.hr,
+      h: x.h,
+      rbi: x.rbi,
+      runs: x.runs,
+      avg: avg != null && Number.isFinite(avg) ? avg : null,
+    };
+  });
   out.sort((a, b) => {
     if (b.hr !== a.hr) return b.hr - a.hr;
     if (b.rbi !== a.rbi) return b.rbi - a.rbi;
@@ -2391,17 +2385,6 @@ export const handler = async (event) => {
           .get();
         const batters = battersSnap.docs.map((d) => docSnap(d));
         console.log("BOXSCORE batters count:", batters.length, "gameId:", gameId);
-        for (const b of batters) {
-          if (__batterRbiCheckLogged2 >= 60) break;
-          __batterRbiCheckLogged2 += 1;
-          console.log("BATTER_RBI_CHECK2:", {
-            player: b?.player ?? b?.name ?? null,
-            rbi: b?.rbi ?? b?.RBI ?? b?.bi ?? null,
-            h: b?.h ?? b?.H ?? null,
-            ab: b?.ab ?? b?.AB ?? null,
-            game_id: b?.game_id ?? b?.gameId ?? gameId,
-          });
-        }
 
         const pitchersSnap = await db
           .collection("pitchers")
