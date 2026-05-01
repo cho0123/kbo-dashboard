@@ -698,14 +698,10 @@ function drawSlideBase(ctx, w, h, title, homeTeam = "", awayTeam = "") {
   }
 }
 
-function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
-  // Summary slide: 고정 야구장 그린 + 골드 악센트(텍스트만)
-  ctx.clearRect(0, 0, w, h);
-
+function shortsGrassFieldBackground(ctx, w, h, SAFE_TOP) {
   ctx.fillStyle = "#4CAF50";
   ctx.fillRect(0, 0, w, h);
 
-  // Grass texture: diagonal mow lines
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.10)";
   ctx.lineWidth = 2;
@@ -725,10 +721,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   }
   ctx.restore();
 
-  const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
-
-  // Infield diamond pattern line
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.22)";
   ctx.lineWidth = 6;
@@ -743,12 +735,148 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey) {
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
+}
+
+/** ISO (YYYY-MM-DD) 기준 KST 내일 날짜 */
+function isoSeoulTomorrowIso() {
+  const s = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+  const [y, m, d] = s.split("-").map((x) => parseInt(x, 10));
+  const t = new Date(Date.UTC(y, m - 1, d));
+  t.setUTCDate(t.getUTCDate() + 1);
+  return t.toISOString().slice(0, 10);
+}
+
+function wrapTextLines(ctx, text, maxW, font, maxLines) {
+  ctx.font = font;
+  const raw = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return [];
+  const words = raw.split(" ");
+  const lines = [];
+  let cur = words[0] || "";
+  for (let i = 1; i < words.length; i++) {
+    const next = `${cur} ${words[i]}`;
+    if (ctx.measureText(next).width <= maxW) cur = next;
+    else {
+      lines.push(cur);
+      cur = words[i];
+      if (lines.length >= maxLines - 1) break;
+    }
+  }
+  if (lines.length < maxLines && cur) lines.push(cur);
+  if (lines.length > maxLines) return lines.slice(0, maxLines);
+  return lines;
+}
+
+function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  ctx.clearRect(0, 0, w, h);
+  shortsGrassFieldBackground(ctx, w, h, SAFE_TOP);
+  drawBaseballBackground(ctx);
+
+  ctx.fillStyle = TEXT_MAIN;
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
+  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("경기별 예고 · 예상선발 · 상대전적", 64, SAFE_TOP + 80 + 68);
+  resetShadow(ctx);
+
+  const hk = teamKeyword(g.home_team);
+  const ak = teamKeyword(g.away_team);
+  const badgeY = SAFE_TOP + 210;
+  const logoBoxW = 280;
+  const logoBoxH = 210;
+  const leftCenterX = 170;
+  const rightCenterX = w - 170;
+  const logoBoxY = badgeY;
+
+  const homeImg = logosByTeamKey?.[hk] || null;
+  const awayImg = logosByTeamKey?.[ak] || null;
+  if (homeImg)
+    drawImageContain(ctx, homeImg, leftCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
+  else drawTeamBadge(ctx, leftCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.home_team);
+
+  if (awayImg)
+    drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
+  else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
+
+  const vsText = "VS";
+  ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillStyle = "#F9FF00";
+  const vw = ctx.measureText(vsText).width;
+  ctx.fillText(vsText, (w - vw) / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2));
+  resetShadow(ctx);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  const venue = String(g.venue || "").trim();
+  const gtime = String(g.game_time || "").trim();
+  if (venue || gtime) {
+    ctx.font = `600 42px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    const sub =
+      venue && gtime ? `${venue} · ${gtime}` : venue || gtime;
+    ctx.fillText(sub, w / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2) + 120);
+  }
+
+  const asp = String(g.away_starter || "").trim() || "—";
+  const hsp = String(g.home_starter || "").trim() || "—";
+  const labelFont = `900 56px "${FONT_TITLE}", system-ui, sans-serif`;
+  const nameFont = `900 74px "${FONT_TITLE}", system-ui, sans-serif`;
+  const bottomY = SAFE_BOTTOM - 200;
+  const drawLbl = (y, lbl, nm) => {
+    ctx.font = labelFont;
+    ctx.fillStyle = "#00d4aa";
+    const gap = "  ";
+    ctx.font = labelFont;
+    const wL = ctx.measureText(lbl + gap).width;
+    ctx.font = nameFont;
+    const wN = ctx.measureText(nm).width;
+    const startX = (w - (wL + wN)) / 2;
+    ctx.font = labelFont;
+    ctx.fillStyle = "#00d4aa";
+    ctx.textAlign = "left";
+    ctx.fillText(lbl + gap, startX, y);
+    ctx.font = nameFont;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(nm, startX + wL, y);
+  };
+  ctx.textAlign = "left";
+  drawLbl(bottomY - 95, "원정 예상선발", asp.slice(0, 16));
+  drawLbl(bottomY, "홈 예상선발", hsp.slice(0, 16));
+
+  const mt = String(g.matchup_text || "").trim();
+  if (mt) {
+    const lines = wrapTextLines(ctx, mt, w - 128, `600 44px "${FONT_BODY}", sans-serif`, 5);
+    ctx.textAlign = "left";
+    ctx.font = `600 44px "${FONT_BODY}", sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    let ly = bottomY + 72;
+    for (const line of lines) {
+      ctx.fillText(line, 64, ly);
+      ly += 52;
+    }
+  }
+}
+
+function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "result") {
+  // Summary slide: 고정 야구장 그린 + 골드 악센트(텍스트만)
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  ctx.clearRect(0, 0, w, h);
+  shortsGrassFieldBackground(ctx, w, h, SAFE_TOP);
 
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  // Title: "⚾ KBO 2026.04.28 (화)" — 날짜는 골드 고정
-  const titleLeft = "⚾ KBO ";
+  // Title: "⚾ KBO …" 또는 내일 예고 타이틀 — 날짜는 골드 고정
+  const titleLeft = titleMode === "tomorrow" ? "⚾ 내일 경기 예고 " : "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
   const titleBaseline = SAFE_TOP + 80;
   ctx.font = `900 78px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1376,7 +1504,7 @@ function Card8Shorts({ defaultDate }) {
 
   return (
     <div className="section soft">
-      <div className="section-title">8. 쇼츠 슬라이드 생성</div>
+      <div className="section-title">1. 쇼츠-일간-경기결과</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
@@ -1475,6 +1603,211 @@ function Card8Shorts({ defaultDate }) {
   );
 }
 
+function CardTomorrowPreviewShorts({ previewDateIso }) {
+  const date = previewDateIso;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  const slides = useMemo(() => {
+    const games = Array.isArray(data?.games) ? data.games : [];
+    const s = [];
+    s.push({ type: "summary" });
+    for (const g of games) s.push({ type: "preview_game", game: g });
+    s.push({ type: "standings" });
+    return s;
+  }, [data]);
+
+  const renderSlideToCanvas = async (idx, canvas) => {
+    if (!canvas) return;
+    await ensureCanvasFonts();
+    const w = 1080;
+    const h = 1920;
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = "360px";
+    canvas.style.height = "640px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const games = Array.isArray(data?.games) ? data.games : [];
+    const standings = Array.isArray(data?.standings) ? data.standings : [];
+    const slide = slides[idx];
+    if (!slide) return;
+    const teamKeys = new Set();
+    if (slide.type === "summary") {
+      for (const gg of games) {
+        teamKeys.add(teamKeyword(gg?.home_team));
+        teamKeys.add(teamKeyword(gg?.away_team));
+      }
+    } else if (slide.type === "preview_game") {
+      teamKeys.add(teamKeyword(slide.game?.home_team));
+      teamKeys.add(teamKeyword(slide.game?.away_team));
+    } else if (slide.type === "standings") {
+      for (const r of standings) {
+        teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
+      }
+    }
+    const logosByTeamKey = {};
+    for (const tk of teamKeys) {
+      logosByTeamKey[tk] = await loadSvgLogo(tk);
+    }
+
+    __baseballDecorImg = await loadPngImage("/baseball.png");
+
+    if (slide.type === "summary")
+      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, "tomorrow");
+    else if (slide.type === "preview_game")
+      drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey);
+    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
+  };
+
+  const onGenerate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({ action: "tomorrow_preview", date });
+      setData({ ...res });
+      setSlideIdx(0);
+    } catch (e) {
+      setError(e?.message || String(e));
+      setData(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadPng = async (idx) => {
+    const c = document.createElement("canvas");
+    await renderSlideToCanvas(idx, c);
+    const blob = await canvasToBlob(c);
+    if (!blob) return;
+    downloadBlob(blob, `shorts_tomorrow_${date}_${String(idx + 1).padStart(2, "0")}.png`);
+  };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < slides.length; i++) {
+      const c = document.createElement("canvas");
+      await renderSlideToCanvas(i, c);
+      const blob = await canvasToBlob(c);
+      if (!blob) continue;
+      zip.file(`shorts_tomorrow_${date}_${String(i + 1).padStart(2, "0")}.png`, blob);
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob(out, `shorts_tomorrow_${date}.zip`);
+  };
+
+  const dateKs = fmtKoreanLongDate(date);
+
+  return (
+    <div className="section soft">
+      <div className="section-title">2. 쇼츠-내일경기-예고</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <div className="muted" style={{ fontWeight: 800 }}>
+          내일 경기일:{" "}
+          <span style={{ color: "var(--text)", fontFamily: "ui-monospace, monospace" }}>{date}</span>{" "}
+          ({dateKs})
+        </div>
+        <button type="button" className="primary" onClick={() => onGenerate()} disabled={busy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary primary-fill" onClick={downloadZip} disabled={!data || busy}>
+          전체 ZIP 다운로드
+        </button>
+      </div>
+
+      {error ? <pre className="result-error-light">{error}</pre> : null}
+
+      {data ? (
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
+          <div style={{ flexShrink: 0 }}>
+            <ShortsCanvas
+              slideIdx={slideIdx}
+              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+            />
+          </div>
+          <div>
+            <div className="muted" style={{ fontWeight: 900 }}>
+              슬라이드 ({slideIdx + 1}/{slides.length})
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+                disabled={slideIdx >= slides.length - 1}
+              >
+                다음
+              </button>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+                현재 슬라이드 PNG 다운로드
+              </button>
+            </div>
+            <div className="muted" style={{ marginTop: 10 }}>
+              - 슬라이드1: 인트로(내일 경기 예고)
+              <br />
+              - 슬라이드2~N: 경기별 예고(상대전적·예상선발)
+              <br />- 마지막: KBO 순위
+            </div>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                width: "100%",
+              }}
+            >
+              <button
+                type="button"
+                className="shorts-verify-link shorts-verify-link--naver"
+                onClick={() =>
+                  window.open(
+                    `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                🔍 네이버 일정에서 검증
+              </button>
+              <button
+                type="button"
+                className="shorts-verify-link shorts-verify-link--naver"
+                onClick={() =>
+                  window.open(
+                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
+                    "_blank",
+                    "noopener,noreferrer"
+                  )
+                }
+              >
+                📊 네이버 팀순위
+              </button>
+              <button
+                type="button"
+                className="shorts-verify-link shorts-verify-link--kbo"
+                onClick={() =>
+                  window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
+                }
+              >
+                ⚾ KBO 공식 홈페이지
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ShortsCanvas({ slideIdx, renderSlide }) {
   const [ref, setRef] = useState(null);
   useEffect(() => {
@@ -1537,6 +1870,7 @@ function SummaryCards({ batterRows }) {
 
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
+  const shortsTomorrowIso = useMemo(() => isoSeoulTomorrowIso(), []);
   const { busy, runWith } = useAnalyzer();
 
   const [lastMeta, setLastMeta] = useState({ data: null, error: null });
@@ -2005,7 +2339,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              쇼츠 (8–10)
+              쇼츠 (1–4)
             </button>
           </nav>
 
@@ -2469,7 +2803,7 @@ export default function App() {
           {tab === "shorts" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">8. 쇼츠 슬라이드 (PNG/ZIP)</div>
+                <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -2520,14 +2854,28 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">9. 주간 최고 투수 (쇼츠)</div>
+                <div className="side-group-title">2. 쇼츠-내일경기-예고</div>
+                <label>내일 경기일 (KST 자동)</label>
+                <input type="text" readOnly value={`${shortsTomorrowIso} (${fmtKoreanLongDate(shortsTomorrowIso)})`} />
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  disabled={busy === "shorts_slides_open"}
+                  onClick={() => setActiveKey("shorts_tomorrow_preview")}
+                >
+                  내일 경기 예고 슬라이드 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">3. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_pitcher_week_9")}
+                  disabled={pending("shorts_pitcher_week_3")}
                   onClick={() => {
                     setActiveKey("shorts_pitcher_week");
-                    runWith("shorts_pitcher_week", {}, "9", setWkOut);
+                    runWith("shorts_pitcher_week", {}, "3", setWkOut);
                   }}
                 >
                   생성
@@ -2535,14 +2883,14 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">10. 최악 매칭업 (쇼츠)</div>
+                <div className="side-group-title">4. 최악 매칭업 (쇼츠)</div>
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_worst_matchup_10")}
+                  disabled={pending("shorts_worst_matchup_4")}
                   onClick={() => {
                     setActiveKey("shorts_worst_matchup");
-                    runWith("shorts_worst_matchup", {}, "10", setWorstOut);
+                    runWith("shorts_worst_matchup", {}, "4", setWorstOut);
                   }}
                 >
                   생성
@@ -3302,6 +3650,8 @@ export default function App() {
                       error={hlOut.error}
                       pending={pending("shorts_highlight_8")}
                     />
+                  ) : activeKey === "shorts_tomorrow_preview" ? (
+                    <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} />
                   ) : activeKey === "shorts_pitcher_week" ? (
@@ -3309,14 +3659,14 @@ export default function App() {
                       title={null}
                       text={wkOut.text}
                       error={wkOut.error}
-                      pending={pending("shorts_pitcher_week_9")}
+                      pending={pending("shorts_pitcher_week_3")}
                     />
                   ) : activeKey === "shorts_worst_matchup" ? (
                     <ResultBlock
                       title={null}
                       text={worstOut.text}
                       error={worstOut.error}
-                      pending={pending("shorts_worst_matchup_10")}
+                      pending={pending("shorts_worst_matchup_4")}
                     />
                   ) : (
                     <div className="muted">← 좌측에서 실행하세요</div>

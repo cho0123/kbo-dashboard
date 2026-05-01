@@ -91,6 +91,39 @@ function isoSeoulToday() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
+function isoSeoulTomorrow() {
+  const s = isoSeoulToday();
+  const parts = s.split("-").map((x) => parseInt(String(x), 10));
+  const t = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  t.setUTCDate(t.getUTCDate() + 1);
+  return t.toISOString().slice(0, 10);
+}
+
+async function fetchScheduleRowsForDate(db, dateStr) {
+  const rows = [];
+  for (const field of ["game_date", "gameDate"]) {
+    try {
+      const snap = await db.collection("schedule").where(field, "==", dateStr).get();
+      snap.docs.forEach((d) => rows.push(docSnap(d)));
+      if (rows.length) break;
+    } catch (e) {
+      console.warn(`[fetchScheduleRowsForDate] ${field}:`, e?.message || e);
+    }
+  }
+  if (rows.length) return rows;
+  try {
+    const snap = await db.collection("schedule").limit(3000).get();
+    for (const d of snap.docs) {
+      const r = docSnap(d);
+      const gd = String(r?.game_date ?? r?.gameDate ?? "").slice(0, 10);
+      if (gd === dateStr) rows.push(r);
+    }
+  } catch (e) {
+    console.warn("[fetchScheduleRowsForDate] scan:", e?.message || e);
+  }
+  return rows;
+}
+
 function pickStr(obj, keys) {
   for (const k of keys) {
     const v = obj?.[k];
@@ -1610,6 +1643,59 @@ export const handler = async (event) => {
             losing_pitcher: loseName,
             venue,
             mvp_batter: mvp,
+          });
+        }
+
+        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            date: dateStr,
+            games,
+            standings,
+            standingsYear,
+          }),
+        };
+      }
+      case "tomorrow_preview": {
+        const dateStr = payload.date || isoSeoulTomorrow();
+        const rows = await fetchScheduleRowsForDate(db, dateStr);
+        const byId = new Map();
+        for (const r of rows) {
+          const gid = String(r?.game_id ?? r?.gameId ?? "").trim();
+          if (gid) byId.set(gid, { ...r, game_id: gid });
+        }
+        const sorted = [...byId.values()].sort((a, b) =>
+          String(a.game_id).localeCompare(String(b.game_id))
+        );
+
+        const games = [];
+        for (const r of sorted) {
+          const gid = String(r.game_id || "").trim();
+          const away_team = pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) || "—";
+          const home_team = pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) || "—";
+          const venue = pickStr(r, ["venue", "stadium", "S_NM"]) || null;
+          const game_time = pickStr(r, ["game_time", "gameTime", "G_TM", "time"]) || null;
+          const away_raw = r?.away_starter ?? r?.awayStarter ?? null;
+          const home_raw = r?.home_starter ?? r?.homeStarter ?? null;
+          const away_starter =
+            away_raw == null ? null : String(away_raw).replace(/\s+/g, " ").trim() || null;
+          const home_starter =
+            home_raw == null ? null : String(home_raw).replace(/\s+/g, " ").trim() || null;
+          games.push({
+            game_id: gid,
+            away_team,
+            home_team,
+            venue,
+            game_time,
+            away_starter,
+            home_starter,
+            home_score: null,
+            away_score: null,
+            matchup_text: "",
           });
         }
 
