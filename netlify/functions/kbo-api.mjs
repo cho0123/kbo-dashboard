@@ -45,6 +45,19 @@ const TEAM_ALIAS_TO_FULL = (() => {
   return map;
 })();
 
+// 구장명(약칭) → 풀네임
+const VENUE_MAP = {
+  "잠실": "잠실야구장",
+  "수원": "수원 KT위즈파크",
+  "광주": "광주-기아 챔피언스필드",
+  "대구": "대구 삼성라이온즈파크",
+  "인천": "인천 SSG랜더스필드",
+  "사직": "부산 사직야구장",
+  "창원": "창원 NC파크",
+  "고척": "고척 스카이돔",
+  "대전": "대전 한화생명이글스파크",
+};
+
 /** 일간 쇼츠 경기결과 슬라이드: 경기 순 로테이션 (10팀 순환) */
 const TEAM_ROTATION = [
   "KIA",
@@ -2438,7 +2451,13 @@ export const handler = async (event) => {
           const game_id = String(r?.game_id ?? r?.gameId ?? "").trim() || null;
           const game_date = String(safeIsoDate(r?.game_date || "") || dateStr).slice(0, 10);
           const game_time = pickStr(r, ["game_time", "gameTime", "time", "G_TM"]) || null;
-          const venue = pickStr(r, ["venue", "stadium", "S_NM"]) || null;
+          const venueRaw = pickStr(r, ["venue", "stadium", "S_NM"]) || "";
+          const venue =
+            venueRaw && typeof venueRaw === "string"
+              ? VENUE_MAP[venueRaw.trim()] ||
+                Object.entries(VENUE_MAP).find(([k]) => venueRaw.includes(k))?.[1] ||
+                venueRaw.trim()
+              : null;
 
           const home_team = pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) || null;
           const away_team = pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) || null;
@@ -2455,8 +2474,8 @@ export const handler = async (event) => {
 
           const head_to_head = await fetchHeadToHeadRecord(
             db,
-            home_team || "",
-            away_team || "",
+            normalizeTeamKey(home_team || ""),
+            normalizeTeamKey(away_team || ""),
             standingsYear || 2026
           );
 

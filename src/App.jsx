@@ -978,14 +978,22 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   const dateText = fmtKoreanLongDate(date);
   const timeText = String(g?.game_time || g?.time || "").trim();
   const venueText = String(g?.venue || "").trim();
-  const topLine = `${dateText}${timeText ? `  ${timeText}` : ""}${venueText ? `  ${venueText}` : ""}`;
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  // 1st line: date/time
+  const topLine1 = `${dateText}${timeText ? `  ${timeText}` : ""}`;
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 65px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(topLine, w / 2, 230);
+  ctx.fillText(topLine1, w / 2, 220);
+  resetShadow(ctx);
+
+  // 2nd line: venue (60px below)
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `800 50px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(venueText || "—", w / 2, 220 + 60);
   resetShadow(ctx);
 
   // --- Logos + VS (y: 350~700) ---
