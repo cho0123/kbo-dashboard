@@ -982,10 +982,10 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.save();
   ctx.globalAlpha = 0.18;
   ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "left";
+  ctx.textAlign = "start";
   ctx.textBaseline = "alphabetic";
   ctx.font = `italic 1000 78px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("GAME PREVIEW", 600, 1040);
+  ctx.fillText("GAME PREVIEW", 60, 1040);
   ctx.restore();
 
   // --- Top text (y: 150~300) ---
