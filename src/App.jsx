@@ -1724,14 +1724,14 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   resetShadow(ctx);
 
   // NEXT GAME 아래 날짜/시간
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#FFF8E7";
+  ctx.fillStyle = "#FFE87C";
   ctx.font = `900 75px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
-  ctx.fillText(`${fmtKoreanLongDate(dateIso)}  ${timeText}`, 64, DIVIDER_Y + 120);
+  ctx.fillText(`${fmtKoreanLongDate(dateIso)}  ${timeText}`, w / 2, DIVIDER_Y + 120);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
