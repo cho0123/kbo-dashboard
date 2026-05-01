@@ -1245,22 +1245,29 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.shadowOffsetY = 1;
 
   // Page-wise progressive disclosure (1..5)
-  const spFont = `900 50px "${FONT_BODY}", system-ui, sans-serif`;
   const baseFont = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
 
   // 1) 예상선발
   if (pageIndex >= 1) {
-    ctx.font = spFont;
     const spLine = `- ${spText}`;
 
     const padX = 18;
     const padY = 14;
     const r = 18;
+    const maxFontSize = 50;
+    const minFontSize = 46; // 다른 항목과 동일, 이보다 작아지지 않게
+    const maxTextW = w - 64 - x0; // keep right safe margin similar to other blocks
+    let spSize = maxFontSize;
+    ctx.font = `900 ${spSize}px "${FONT_BODY}", system-ui, sans-serif`;
+    while (spSize > minFontSize && ctx.measureText(spLine).width > maxTextW) {
+      spSize -= 1;
+      ctx.font = `900 ${spSize}px "${FONT_BODY}", system-ui, sans-serif`;
+    }
     const tw = ctx.measureText(spLine).width;
     const boxX = x0 - padX;
-    const boxY = y0 - 46 + 6 - padY; // approx baseline-to-top for 50px
+    const boxY = y0 - spSize + 6 - padY; // approx baseline-to-top for spSize
     const boxW = tw + padX * 2;
-    const boxH = 50 + padY * 2;
+    const boxH = spSize + padY * 2;
 
     ctx.save();
     ctx.shadowColor = "transparent";
@@ -1269,9 +1276,9 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
     ctx.shadowOffsetY = 0;
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, r);
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
@@ -1281,7 +1288,9 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
     ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 1;
     ctx.shadowOffsetY = 1;
+    ctx.fillStyle = "#FFE87C";
     ctx.fillText(spLine, x0, y0);
+    ctx.fillStyle = "#ffffff";
   }
 
   // 2) 상대전적
