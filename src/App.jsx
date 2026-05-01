@@ -794,6 +794,71 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.restore();
 }
 
+function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
+  ctx.save();
+  // Background: day-of-week color (same as intro)
+  const DAY_COLORS = {
+    0: "#C0392B", // Sun
+    1: "#1A5276", // Mon
+    2: "#1A5276", // Tue
+    3: "#1E8449", // Wed
+    4: "#D35400", // Thu
+    5: "#6C3483", // Fri
+    6: "#B7950B", // Sat
+  };
+  const iso = String(date || "").slice(0, 10);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
+  ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
+  ctx.fillRect(0, 0, w, h);
+
+  // Baseball watermark
+  drawBaseballBackground(ctx);
+
+  const baseTeams = ["KIA", "삼성", "LG", "두산", "KT", "SSG", "롯데", "한화", "NC", "키움"];
+  const homeKey = teamKeyword(firstGame?.home_team || "");
+  const awayKey = teamKeyword(firstGame?.away_team || "");
+  const remaining = baseTeams.filter((t) => t !== homeKey && t !== awayKey);
+
+  const topTeams = [homeKey, ...remaining].filter(Boolean).slice(0, 5);
+  const bottomTeams = [awayKey, ...remaining.slice(5)].filter(Boolean).slice(0, 5);
+  while (topTeams.length < 5) topTeams.push(baseTeams[topTeams.length] || "KIA");
+  while (bottomTeams.length < 5) bottomTeams.push(baseTeams[bottomTeams.length] || "삼성");
+
+  const logoSize = 150;
+  const padX = 70;
+  const gapX = (w - padX * 2 - logoSize * 5) / 4;
+  const row1Y = 240;
+  const row2Y = row1Y + logoSize + 45;
+
+  const drawTeamLogo = (teamKey, x, y) => {
+    const img = logosByTeamKey?.[teamKey] || null;
+    if (img) drawImageContain(ctx, img, x, y, logoSize, logoSize);
+    else drawTeamBadge(ctx, x + logoSize / 2, y + logoSize / 2, logoSize / 2, teamKey);
+  };
+
+  for (let i = 0; i < 5; i++) {
+    const x = padX + i * (logoSize + gapX);
+    drawTeamLogo(teamKeyword(topTeams[i]), x, row1Y);
+  }
+  for (let i = 0; i < 5; i++) {
+    const x = padX + i * (logoSize + gapX);
+    drawTeamLogo(teamKeyword(bottomTeams[i]), x, row2Y);
+  }
+
+  // Title centered vertically (~50%)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  const titleText = "내일 경기 미리보기";
+  ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(titleText, w / 2, Math.round(h * 0.52));
+  ctx.restore();
+}
+
 function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   if (img) {
     ctx.drawImage(img, x, y, size, size);
@@ -2360,7 +2425,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
     if (slide.type === "intro")
-      drawIntroSlide(ctx, w, h, date, logosByTeamKey, "내일 경기 예고");
+      drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, games?.[0] || null);
     else if (slide.type === "preview_game")
       drawTomorrowPreviewGameSlide(
         ctx,
