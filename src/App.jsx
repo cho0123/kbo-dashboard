@@ -1276,7 +1276,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
     ctx.shadowOffsetY = 0;
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, r);
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.6)";
     ctx.lineWidth = 2;
