@@ -978,14 +978,14 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   // after the split to match the intended watermark appearance.
   drawBaseballBackground(ctx);
 
-  // Decorative title (above diagonal split line, left)
+  // Decorative title (below diagonal split line, left-ish)
   ctx.save();
-  ctx.globalAlpha = 0.2;
+  ctx.globalAlpha = 0.18;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.font = `italic 1000 130px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("GAME PREVIEW", 70, 745);
+  ctx.font = `italic 1000 78px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("GAME PREVIEW", 600, 1040);
   ctx.restore();
 
   // --- Top text (y: 150~300) ---
