@@ -1066,10 +1066,10 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
   const draws = Number.isFinite(Number(head?.draws)) ? Number(head.draws) : null;
-  const h2hText =
+  const h2hLine =
     homeWins == null || awayWins == null || draws == null
-      ? "시즌 상대전적: —"
-      : `시즌 상대전적: ${homeTeam || "홈팀"}(홈) ${homeWins}승 ${draws}무 ${awayWins}패`;
+      ? "—"
+      : `${homeTeam || "홈팀"}(홈팀) : ${homeWins}승 ${draws}무 ${awayWins}패`;
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
@@ -1083,19 +1083,25 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   };
   const homeLast5 = Array.isArray(g?.home_last5) ? g.home_last5.filter(Boolean).slice(0, 5) : [];
   const awayLast5 = Array.isArray(g?.away_last5) ? g.away_last5.filter(Boolean).slice(0, 5) : [];
+  // Display order: past -> recent (5 games ago -> 1 game ago)
+  const homeLast5Disp = [...homeLast5].reverse();
+  const awayLast5Disp = [...awayLast5].reverse();
   const homeRecText = `${homeTeam || "홈팀"}(홈) ${fmtWdl(g?.home_record)}`;
   const awayRecText = `${awayTeam || "원정팀"}(원정) ${fmtWdl(g?.away_record)}`;
-  const homeLast5Text = `${homeTeam || "홈팀"} : ${homeLast5.length ? homeLast5.join("") : "—"}`;
-  const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5.length ? awayLast5.join("") : "—"}`;
+  const homeLast5Text = `${homeTeam || "홈팀"} : ${homeLast5Disp.length ? homeLast5Disp.join("") : "—"}`;
+  const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5Disp.length ? awayLast5Disp.join("") : "—"}`;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  // Match rank font size (45px)
+  ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
   const lineGap = 96;
   let y0 = 1248;
-  ctx.fillText(`• ${h2hText}`, x0, y0);
+  ctx.fillText(`• 시즌 상대전적`, x0, y0);
+  y0 += lineGap;
+  ctx.fillText(`- ${h2hLine}`, x0 + 40, y0);
   y0 += lineGap;
   ctx.fillText(`• ${spText}`, x0, y0);
   y0 += lineGap;
