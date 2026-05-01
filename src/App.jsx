@@ -1579,8 +1579,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  ctx.font = `1000 77px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.38)";
+  ctx.font = `1000 132px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
   resetShadow(ctx);
