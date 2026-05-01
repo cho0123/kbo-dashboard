@@ -1406,21 +1406,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
-  // Extra innings indicator (below starter vs line, centered)
-  const totalInningsRaw = g?.total_innings ?? g?.totalInnings ?? null;
-  const totalInningsNum = Number(totalInningsRaw);
-  if (Number.isFinite(totalInningsNum) && totalInningsNum >= 10) {
-    ctx.save();
-    ctx.globalAlpha = 0.7;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`; // same size as starter 'vs'
-    ctx.fillStyle = "#F5F0E8";
-    const yExtra = yStarter + 62;
-    ctx.fillText(`연장 ${Math.trunc(totalInningsNum)}이닝`, w / 2, yExtra);
-    ctx.restore();
-  }
-
   // 하단 영역
   const leftX = 72;
   const listTop = DIVIDER_Y + 180;
@@ -1594,8 +1579,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "rgba(255,255,255,0.18)";
-  ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.font = `1000 77px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
   resetShadow(ctx);
