@@ -17,8 +17,50 @@ const TEAM_MAP = {
   HH: "한화 이글스",
 };
 
-// Firestore 문서 샘플 로그는 함수 인스턴스당 1회만 출력
-let __didLogBoxSamples = false;
+// schedule(약칭) ↔ games(풀네임) 매칭용 팀명 정규화
+const TEAM_ALIAS_TO_FULL = (() => {
+  const pairs = [
+    ["LG", "LG 트윈스"],
+    ["NC", "NC 다이노스"],
+    ["KIA", "KIA 타이거즈"],
+    ["KT", "KT 위즈"],
+    ["SSG", "SSG 랜더스"],
+    ["두산", "두산 베어스"],
+    ["롯데", "롯데 자이언츠"],
+    ["삼성", "삼성 라이온즈"],
+    ["한화", "한화 이글스"],
+    ["키움", "키움 히어로즈"],
+  ];
+
+  const map = {};
+  for (const [abbr, full] of pairs) {
+    map[abbr] = full;
+    map[full] = full;
+  }
+  // 기존 game_id 코드(2글자)도 동일 canonical(full)로 정규화
+  for (const [code, full] of Object.entries(TEAM_MAP)) {
+    map[code] = full;
+    map[full] = full;
+  }
+  return map;
+})();
+
+/** 일간 쇼츠 경기결과 슬라이드: 경기 순 로테이션 (10팀 순환) */
+const TEAM_ROTATION = [
+  "KIA",
+  "삼성",
+  "LG",
+  "두산",
+  "KT",
+  "SSG",
+  "롯데",
+  "한화",
+  "NC",
+  "키움",
+];
+
+/** 0=일…6=토. 월·화 동일 슬롯(0); 일요일은 별도(6) */
+const DAY_INDEX = { 0: 6, 1: 0, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4 };
 
 function initFirebase() {
   const raw =
@@ -183,12 +225,6 @@ function pickTeamName(row) {
   const code = teamCodeFromGameIdAndSide(row?.game_id, row?.side);
   const mapped = code ? TEAM_MAP[code] || code : "";
   const derivedTeam = mapped ? String(mapped).trim().slice(0, 36) : "";
-  console.log("TEAM_CHECK:", {
-    player: row?.player,
-    game_id: row?.game_id,
-    side: row?.side,
-    derivedTeam,
-  });
   return derivedTeam;
 }
 
@@ -324,6 +360,93 @@ async function fetchGamesByDate(db, dateStr) {
   return rows;
 }
 
+function normalizeTeamKey(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  // exact match 우선
+  const direct = TEAM_ALIAS_TO_FULL[s];
+  if (direct) return direct;
+
+  // substring match (e.g. "LG 트윈스" / "LG" / "두산 베어스" / "두산")
+  for (const [alias, full] of Object.entries(TEAM_ALIAS_TO_FULL)) {
+    if (!alias) continue;
+    if (s.includes(alias)) return full;
+  }
+
+  // fallback: 기존 매핑(구장 키 등)도 시도
+  const keys = [...new Set([...Object.keys(TEAM_STADIUM), ...Object.keys(TEAM_MAP)])];
+  for (const k of keys) {
+    if (!k) continue;
+    if (s.includes(k)) return TEAM_ALIAS_TO_FULL[k] || TEAM_MAP?.[k] || k;
+    const full = TEAM_MAP?.[k];
+    if (full && s.includes(String(full))) return TEAM_ALIAS_TO_FULL[full] || String(full);
+  }
+  return s;
+}
+
+async function fetchScheduleFromDate(db, startDateIso) {
+  const out = [];
+  try {
+    const snap = await db
+      .collection("schedule")
+      .where("game_date", ">=", String(startDateIso || ""))
+      .orderBy("game_date", "asc")
+      .limit(1200)
+      .get();
+    snap.forEach((d) => out.push({ id: d.id, ...docSnap(d) }));
+    return out;
+  } catch (e) {
+    console.warn("[fetchScheduleFromDate] query failed:", e?.message || e);
+  }
+  // fallback scan
+  try {
+    const snap2 = await db.collection("schedule").limit(3000).get();
+    snap2.forEach((d) => {
+      const doc = { id: d.id, ...docSnap(d) };
+      const gd = safeIsoDate(doc.game_date || "");
+      if (!gd) return;
+      if (String(gd) >= String(startDateIso || "")) out.push(doc);
+    });
+  } catch (e) {
+    console.warn("[fetchScheduleFromDate] fallback scan failed:", e?.message || e);
+  }
+  out.sort((a, b) => String(a?.game_date || "").localeCompare(String(b?.game_date || "")));
+  return out;
+}
+
+function pickNextGameForTeams(scheduleRows, teamA, teamB, afterDateIso) {
+  const a = normalizeTeamKey(teamA);
+  const after = String(afterDateIso || "").slice(0, 10);
+  const scored = [];
+  for (const r of scheduleRows || []) {
+    const gd = String(r?.game_date || "").slice(0, 10);
+    if (!gd) continue;
+    if (after && gd <= after) continue;
+    const hk = normalizeTeamKey(r?.home_team || "");
+    const ak = normalizeTeamKey(r?.away_team || "");
+    const match =
+      hk === a || ak === a;
+    if (!match) continue;
+    const tm = String(r?.game_time || "").trim();
+    const stamp = `${gd}T${tm || "00:00"}`;
+    scored.push({ r, stamp });
+  }
+  scored.sort((x, y) => String(x.stamp).localeCompare(String(y.stamp)));
+  const pick = scored[0]?.r || null;
+  if (!pick) return null;
+  const hs = pick?.home_starter ?? null;
+  const as = pick?.away_starter ?? null;
+  return {
+    game_date: String(pick?.game_date || "").slice(0, 10) || null,
+    game_time: String(pick?.game_time || "").trim() || null,
+    home_team: pick?.home_team ?? null,
+    away_team: pick?.away_team ?? null,
+    venue: pick?.venue ?? null,
+    home_starter: hs == null || String(hs).trim() === "" ? "미정" : hs,
+    away_starter: as == null || String(as).trim() === "" ? "미정" : as,
+  };
+}
+
 async function fetchLastUpdated(db) {
   const snap = await db.collection("meta").doc("lastUpdated").get();
   if (!snap.exists) return null;
@@ -365,19 +488,7 @@ async function fetchBoxForGames(db, gameIds) {
         snap.forEach((d) => {
           if (!seen.has(d.id)) {
             seen.add(d.id);
-            const row = { id: d.id, ...docSnap(d) };
-            rows.push(row);
-            if (collName === "batters") {
-              const doc = row;
-              console.log("BATTER_RBI_CHECK:", {
-                player: doc.player,
-                game_id: doc.game_id ?? doc.gameId,
-                hr: doc.hr,
-                rbi: doc.rbi,
-                h: doc.h,
-                ab: doc.ab,
-              });
-            }
+            rows.push({ id: d.id, ...docSnap(d) });
           }
         });
       }
@@ -387,17 +498,6 @@ async function fetchBoxForGames(db, gameIds) {
   for (const gid of gameIds) {
     await mergeCollection("batters", batters, seenB, gid);
     await mergeCollection("pitchers", pitchers, seenP, gid);
-  }
-
-  // Firestore 실제 필드명 확인용 샘플 로그 (배포 후 Netlify Functions logs에서 확인)
-  if (!__didLogBoxSamples) {
-    __didLogBoxSamples = true;
-    // 투수 문서 첫 번째 샘플
-    console.log("PITCHER_KEYS:", Object.keys(pitchers[0] || {}));
-    console.log("PITCHER_SAMPLE:", JSON.stringify(pitchers[0]));
-    // 타자 문서 첫 번째 샘플
-    console.log("BATTER_KEYS:", Object.keys(batters[0] || {}));
-    console.log("BATTER_SAMPLE:", JSON.stringify(batters[0]));
   }
 
   return { batters, pitchers };
@@ -552,7 +652,6 @@ function normalizeBatterRowForUi(row) {
 }
 
 let __pitcherEraCheckLogged = 0;
-let __batterRbiCheckLogged2 = 0;
 
 function mergeBattersByPlayer(rows) {
   const list = Array.isArray(rows) ? rows : [];
@@ -708,6 +807,67 @@ function normalizeGameId(x) {
 function safeIsoDate(x) {
   const s = String(x || "").slice(0, 15);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+function seoulWeekdayAndDayOfYearForShortsRotation(dateStr) {
+  const safe = safeIsoDate(dateStr);
+  if (!safe) return { dayOfWeek: 0, dayOfYear: 1 };
+  const anchor = new Date(`${safe}T12:00:00+09:00`);
+  const wdParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "long",
+  }).formatToParts(anchor);
+  const wdName = wdParts.find((p) => p.type === "weekday")?.value || "Sunday";
+  const DAY_LONG_TO_0SUN = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+  };
+  const dayOfWeek = DAY_LONG_TO_0SUN[wdName] ?? 0;
+  const [y, m, da] = safe.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, da);
+  const yearStart = Date.UTC(y, 0, 0);
+  const dayOfYear = Math.round((t - yearStart) / 86400000);
+  return { dayOfWeek, dayOfYear };
+}
+
+function targetTeamForShortsRotationDate(dateStr) {
+  const safe = safeIsoDate(dateStr);
+  if (!safe) return TEAM_ROTATION[0];
+  const { dayOfWeek, dayOfYear } = seoulWeekdayAndDayOfYearForShortsRotation(safe);
+  const daySlot = DAY_INDEX[dayOfWeek] ?? 0;
+  const weekOfYear = Math.floor(dayOfYear / 7);
+  const teamIdx = (weekOfYear + daySlot) % 10;
+  return TEAM_ROTATION[teamIdx];
+}
+
+function gameInvolvesShortsRotationTeam(game, rotationToken) {
+  const tok = String(rotationToken || "").trim();
+  if (!tok) return false;
+  const targetFull = normalizeTeamKey(tok);
+  if (!targetFull) return false;
+  const h = normalizeTeamKey(game?.home_team || "");
+  const a = normalizeTeamKey(game?.away_team || "");
+  return h === targetFull || a === targetFull;
+}
+
+/** 로테이션 팀이 나오는 경기를 앞으로; 나머지는 기존 순서. 해당 팀 경기 없으면 원본 그대로 */
+function sortGamesForDailyShortsRotation(games, dateStr) {
+  const list = Array.isArray(games) ? games : [];
+  if (!list.length) return list;
+  const target = targetTeamForShortsRotationDate(dateStr);
+  const front = [];
+  const back = [];
+  for (const g of list) {
+    if (gameInvolvesShortsRotationTeam(g, target)) front.push(g);
+    else back.push(g);
+  }
+  if (!front.length) return list;
+  return [...front, ...back];
 }
 
 async function queryPlayerByRange(db, collection, player, start, end, max = 1800) {
@@ -1232,6 +1392,70 @@ async function fetchGamesDateRange(db, fromStr, toStr) {
   return rows;
 }
 
+async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
+  const y = Number(season) || 2026;
+  const from = `${y}-01-01`;
+  const to = `${y}-12-31`;
+  console.log("[h2h] teams:", teamA, "vs", teamB, "season:", y);
+
+  const keyOf = (nameRaw) => {
+    const s = String(nameRaw || "").trim();
+    if (!s) return "";
+    const keys = Object.keys(TEAM_STADIUM);
+    const hit = keys.find((k) => s.includes(k));
+    if (hit) return hit;
+    // fallback: TEAM_MAP values (e.g. "KT 위즈") → keys ("KT")
+    const hit2 = keys.find((k) => (TEAM_MAP?.[k] || "") && s.includes(TEAM_MAP[k]));
+    return hit2 || s;
+  };
+
+  const aKey = keyOf(teamA);
+  const bKey = keyOf(teamB);
+  if (!aKey || !bKey) return { win: 0, draw: 0, lose: 0 };
+
+  const rows = await fetchGamesDateRange(db, from, to);
+  console.log("[h2h] games fetched:", Array.isArray(rows) ? rows.length : 0);
+  const out = { win: 0, draw: 0, lose: 0 };
+  let matched = 0;
+
+  for (const g of rows || []) {
+    const gd = String(g?.game_date || g?.gameDate || "");
+    if (!gd.startsWith(`${y}-`)) continue;
+
+    const hKey = keyOf(g?.home_team);
+    const awKey = keyOf(g?.away_team);
+    const isMatch =
+      (hKey === aKey && awKey === bKey) || (hKey === bKey && awKey === aKey);
+    if (!isMatch) continue;
+    matched += 1;
+
+    const hsRaw = g?.home_score;
+    const asRaw = g?.away_score;
+    if (hsRaw == null || asRaw == null) continue;
+    if (typeof hsRaw === "string" && hsRaw.trim() === "") continue;
+    if (typeof asRaw === "string" && asRaw.trim() === "") continue;
+
+    const hs = Number(hsRaw);
+    const as = Number(asRaw);
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+
+    if (hs === as) {
+      out.draw += 1;
+      continue;
+    }
+
+    const teamAIsHome = hKey === aKey;
+    const teamAScore = teamAIsHome ? hs : as;
+    const teamBScore = teamAIsHome ? as : hs;
+    if (teamAScore > teamBScore) out.win += 1;
+    else out.lose += 1;
+  }
+
+  console.log("[h2h] matched games:", matched);
+  console.log("[h2h] result:", out);
+  return out;
+}
+
 function filterAndSlimTeamWeekGames(rows, teamKw) {
   const kw = (teamKw || "").trim();
   const filtered = rows.filter(
@@ -1472,6 +1696,19 @@ async function fetchBattersForGame(db, gameId) {
   return out;
 }
 
+const TEAM_STADIUM = {
+  KT: "수원KT위즈파크",
+  LG: "잠실야구장",
+  "두산": "잠실야구장",
+  SSG: "인천SSG랜더스필드",
+  NC: "창원NC파크",
+  KIA: "광주-기아챔피언스필드",
+  "삼성": "대구삼성라이온즈파크",
+  "한화": "대전한화생명이글스파크",
+  "롯데": "사직야구장",
+  "키움": "고척스카이돔",
+};
+
 function pickVenueName(g) {
   return (
     pickStr(g, ["stadium", "venue", "ballpark", "park", "place", "경기장"]) || ""
@@ -1494,6 +1731,285 @@ async function fetchStandings2026Document(db) {
     console.warn("[fetchStandings2026Document]", e?.message || e);
     return { standings: [], year: 2026 };
   }
+}
+
+function winPct(w, l) {
+  const ww = Number(w) || 0;
+  const ll = Number(l) || 0;
+  const denom = ww + ll;
+  return denom > 0 ? ww / denom : 0;
+}
+
+function sumInningsToNumber(ipRaw) {
+  return inningsToNumber(ipRaw);
+}
+
+function buildWeeklyTeamRecords(games) {
+  const rows = Array.isArray(games) ? games : [];
+  const byTeam = new Map();
+  const ensure = (teamName) => {
+    const team = normalizeTeamKey(teamName || "");
+    if (!team) return null;
+    if (!byTeam.has(team)) byTeam.set(team, { team, wins: 0, losses: 0, draws: 0 });
+    return byTeam.get(team);
+  };
+
+  for (const g0 of rows) {
+    const g = g0 && typeof g0 === "object" ? g0 : {};
+    const home = normalizeTeamKey(g.home_team || g.home || g.homeTeam || "");
+    const away = normalizeTeamKey(g.away_team || g.away || g.awayTeam || "");
+    if (!home || !away) continue;
+    const hs = Number(g.home_score);
+    const as = Number(g.away_score);
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+    const homeRec = ensure(home);
+    const awayRec = ensure(away);
+    if (!homeRec || !awayRec) continue;
+
+    if (hs === as) {
+      homeRec.draws += 1;
+      awayRec.draws += 1;
+    } else if (hs > as) {
+      homeRec.wins += 1;
+      awayRec.losses += 1;
+    } else {
+      awayRec.wins += 1;
+      homeRec.losses += 1;
+    }
+  }
+
+  const out = [...byTeam.values()];
+  out.sort((a, b) => {
+    const ap = winPct(a.wins, a.losses);
+    const bp = winPct(b.wins, b.losses);
+    if (bp !== ap) return bp - ap;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return String(a.team).localeCompare(String(b.team), "ko");
+  });
+  return out;
+}
+
+function buildWeeklyTopBatters(batterRows, topN = 3) {
+  const rows = Array.isArray(batterRows) ? batterRows : [];
+  const byPlayer = new Map();
+
+  for (const r0 of rows) {
+    const r = r0 && typeof r0 === "object" ? r0 : {};
+    const player = pickPlayerName(r);
+    if (!player || player === "—") continue;
+    const team = pickTeamName(r);
+    const key = `${player}||${team || ""}`;
+    if (!byPlayer.has(key)) {
+      byPlayer.set(key, {
+        player,
+        team: team || null,
+        hr: 0,
+        h: 0,
+        rbi: 0,
+        runs: 0,
+        ab: 0,
+      });
+    }
+    const acc = byPlayer.get(key);
+    acc.hr += pickNum(r, ["hr", "HR", "home_run", "홈런"]);
+    acc.h += pickNum(r, ["h", "H", "hits", "hit", "안타"]);
+    acc.rbi += pickNum(r, ["rbi", "RBI", "bi", "타점"]);
+    acc.runs += pickNum(r, ["runs", "r", "R", "run", "득점", "rs"]);
+    acc.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  }
+
+  const out = [...byPlayer.values()].map((x) => {
+    const avg = x.ab > 0 ? x.h / x.ab : null;
+    return {
+      player: x.player,
+      team: x.team,
+      hr: x.hr,
+      h: x.h,
+      rbi: x.rbi,
+      runs: x.runs,
+      avg: avg != null && Number.isFinite(avg) ? avg : null,
+    };
+  });
+  out.sort((a, b) => {
+    if (b.hr !== a.hr) return b.hr - a.hr;
+    if (b.rbi !== a.rbi) return b.rbi - a.rbi;
+    if (b.h !== a.h) return b.h - a.h;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+  return out.slice(0, Math.max(0, Number(topN) || 3));
+}
+
+function buildWeeklyTopPitchers(pitcherRows, topN = 3) {
+  const rows = Array.isArray(pitcherRows) ? pitcherRows : [];
+  const byPlayer = new Map();
+
+  for (const r0 of rows) {
+    const r = r0 && typeof r0 === "object" ? r0 : {};
+    const player = pickPitcherName(r) || pickPlayerName(r);
+    if (!player || player === "—") continue;
+    const team = pickTeamName(r);
+    const key = `${player}||${team || ""}`;
+    if (!byPlayer.has(key)) {
+      byPlayer.set(key, {
+        player,
+        team: team || null,
+        ip: 0,
+        _er: 0,
+        _hasEr: false,
+        wins: 0,
+      });
+    }
+    const acc = byPlayer.get(key);
+    const ipn = sumInningsToNumber(r?.ip ?? r?.IP ?? r?.inn ?? r?.innings ?? 0);
+    if (ipn > 0) acc.ip += ipn;
+
+    const er = pickAny(r, ["er", "ER", "earned_runs", "earnedRuns"]);
+    const erNum = er == null ? null : Number(er);
+    if (erNum != null && Number.isFinite(erNum) && erNum >= 0) {
+      acc._er += erNum;
+      acc._hasEr = true;
+    } else {
+      const era = pickAny(r, ["era", "ERA", "평균자책점", "평균자책"]);
+      const eraNum = era == null ? null : Number(era);
+      if (Number.isFinite(eraNum) && eraNum >= 0 && ipn > 0) {
+        acc._er += (eraNum * ipn) / 9;
+        acc._hasEr = true;
+      }
+    }
+
+    const result = String(r?.result || "").trim();
+    if (result === "승") acc.wins += 1;
+  }
+
+  const list = [...byPlayer.values()]
+    .map((x) => {
+      const era = x.ip > 0 && x._hasEr ? (x._er * 9) / x.ip : null;
+      return {
+        player: x.player,
+        team: x.team,
+        ip: x.ip,
+        era,
+        wins: x.wins,
+      };
+    })
+    // 2이닝 이상만
+    .filter((x) => Number(x.ip) >= 2);
+
+  list.sort((a, b) => {
+    if (b.ip !== a.ip) return b.ip - a.ip;
+    const ae = a.era == null ? Infinity : Number(a.era);
+    const be = b.era == null ? Infinity : Number(b.era);
+    if (ae !== be) return ae - be;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+
+  return list.slice(0, Math.max(0, Number(topN) || 3)).map((x) => ({
+    ...x,
+    ip: Number.isFinite(x.ip) ? Number(x.ip.toFixed(2)) : x.ip,
+    era: x.era == null ? null : Number(x.era.toFixed(2)),
+  }));
+}
+
+async function fetchClosestStandingsHistoryDoc(db, targetDateIso) {
+  const target = safeIsoDate(targetDateIso);
+  if (!target) return null;
+  // Prefer query by 'date' field (uploaded by new uploader). Fallback: scan.
+  try {
+    const snap = await db
+      .collection("standings_history")
+      .where("date", "<=", target)
+      .orderBy("date", "desc")
+      .limit(1)
+      .get();
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      return { id: d.id, ...docSnap(d) };
+    }
+  } catch (e) {
+    console.warn("[standings_history] date query failed:", e?.message || e);
+  }
+
+  try {
+    const snap2 = await db.collection("standings_history").limit(800).get();
+    const docs = [];
+    snap2.forEach((d) => docs.push({ id: d.id, ...docSnap(d) }));
+    let best = null;
+    for (const doc of docs) {
+      const d0 = safeIsoDate(doc?.date || "") || safeIsoDate(String(doc?.id || "").slice(0, 10));
+      if (!d0) continue;
+      if (d0 > target) continue;
+      if (!best || d0 > best._date) best = { ...doc, _date: d0 };
+    }
+    return best ? { ...best, date: best._date } : null;
+  } catch (e2) {
+    console.warn("[standings_history] scan failed:", e2?.message || e2);
+    return null;
+  }
+}
+
+function buildStandingsDiff(prevDoc, curDoc) {
+  const prevRows = Array.isArray(prevDoc?.standings) ? prevDoc.standings : [];
+  const curRows = Array.isArray(curDoc?.standings) ? curDoc.standings : [];
+  const prevRank = new Map();
+  for (const r of prevRows) {
+    const team = normalizeTeamKey(r?.team || r?.TEAM || "");
+    const rank = Number(r?.rank ?? r?.RANK);
+    if (!team || !Number.isFinite(rank)) continue;
+    prevRank.set(team, rank);
+  }
+  const out = [];
+  for (const r of curRows) {
+    const team = normalizeTeamKey(r?.team || r?.TEAM || "");
+    const rank = Number(r?.rank ?? r?.RANK);
+    if (!team || !Number.isFinite(rank)) continue;
+    const pr = prevRank.has(team) ? prevRank.get(team) : null;
+    out.push({
+      team,
+      current_rank: rank,
+      prev_rank: pr,
+      diff: pr == null ? null : pr - rank,
+    });
+  }
+  out.sort((a, b) => (a.current_rank ?? 999) - (b.current_rank ?? 999));
+  return out;
+}
+
+function pickNextWeekHighlights(scheduleRows, topTeams, afterDateIso, topN = 3) {
+  const after = safeIsoDate(afterDateIso);
+  const topSet = new Set((topTeams || []).map((t) => normalizeTeamKey(t)).filter(Boolean));
+  const rows = Array.isArray(scheduleRows) ? scheduleRows : [];
+  const candidates = [];
+  for (const r of rows) {
+    const gd = safeIsoDate(r?.game_date || "");
+    if (!gd) continue;
+    if (after && gd <= after) continue;
+    const home = normalizeTeamKey(r?.home_team || "");
+    const away = normalizeTeamKey(r?.away_team || "");
+    if (!home || !away) continue;
+    if (!topSet.has(home) && !topSet.has(away)) continue;
+    const tm = String(r?.game_time || "").trim() || "00:00";
+    const stamp = `${gd}T${tm}`;
+    candidates.push({
+      game_date: gd,
+      game_time: tm,
+      home_team: r?.home_team ?? null,
+      away_team: r?.away_team ?? null,
+      venue: r?.venue ?? null,
+      stamp,
+    });
+  }
+  candidates.sort((a, b) => String(a.stamp).localeCompare(String(b.stamp)));
+  const out = [];
+  const seen = new Set();
+  for (const c of candidates) {
+    const key = `${c.game_date}:${c.home_team}__${c.away_team}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+    if (out.length >= (Number(topN) || 3)) break;
+  }
+  return out;
 }
 
 export const handler = async (event) => {
@@ -1539,6 +2055,10 @@ export const handler = async (event) => {
 
     switch (action) {
       case "trigger_crawl": {
+        const dateInput = safeIsoDate(payload.date || "");
+        const dispatchBody = dateInput
+          ? { ref: "main", inputs: { date: dateInput } }
+          : { ref: "main" };
         const response = await fetch(
           "https://api.github.com/repos/cho0123/kbo-project/actions/workflows/crawl.yml/dispatches",
           {
@@ -1548,7 +2068,7 @@ export const handler = async (event) => {
               Accept: "application/vnd.github+json",
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ ref: "main" }),
+            body: JSON.stringify(dispatchBody),
           }
         );
         if (response.status === 204) {
@@ -1558,7 +2078,10 @@ export const handler = async (event) => {
             body: JSON.stringify({
               ok: true,
               success: true,
-              message: "크롤링 시작됐어요!",
+              date: dateInput || null,
+              message: dateInput
+                ? `${dateInput} 크롤링 시작됐어요!`
+                : "크롤링 시작됐어요!",
             }),
           };
         } else {
@@ -1568,6 +2091,7 @@ export const handler = async (event) => {
             body: JSON.stringify({
               ok: true,
               success: false,
+              date: dateInput || null,
               message: "크롤링 실행 실패",
             }),
           };
@@ -1577,6 +2101,10 @@ export const handler = async (event) => {
         const dateStr = payload.date || isoSeoulToday();
         const gameDocs = await fetchGamesByDate(db, dateStr);
         const base = (gameDocs || []).map(slimGameResultRow);
+
+        const __h2hCache = new Map();
+        const __nextGameCache = new Map();
+        const scheduleRows = await fetchScheduleFromDate(db, dateStr);
 
         const games = [];
         for (const g of base) {
@@ -1590,6 +2118,16 @@ export const handler = async (event) => {
           let loseName = g.losing_pitcher || "";
 
           const pitchers = await fetchPitchersForGame(db, gid);
+          const homeStarter =
+            pitchers.find(
+              (p) => normalizeSide(p?.side) === "home" && p?.is_starter === true
+            ) ||
+            pitchers.find((p) => normalizeSide(p?.side) === "home");
+          const awayStarter =
+            pitchers.find(
+              (p) => normalizeSide(p?.side) === "away" && p?.is_starter === true
+            ) ||
+            pitchers.find((p) => normalizeSide(p?.side) === "away");
           const homeScore = Number(g?.home_score);
           const awayScore = Number(g?.away_score);
           const hasScores =
@@ -1607,19 +2145,45 @@ export const handler = async (event) => {
             const homeWin = homeScore > awayScore;
             const winSide = homeWin ? "home" : "away";
             const loseSide = homeWin ? "away" : "home";
-            const win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
-            const lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
-            if (needsWin) winName = (pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "";
-            if (needsLose) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
+            const winByResult = (pitchers || []).find(
+              (p) => String(p?.result || "").trim() === "승"
+            );
+            const loseByResult = (pitchers || []).find(
+              (p) => String(p?.result || "").trim() === "패"
+            );
+
+            if (needsWin && winByResult) {
+              winName = pickPitcherName(winByResult) || "";
+            }
+            if (needsLose && loseByResult) {
+              loseName = pickPitcherName(loseByResult) || "";
+            }
+
+            if ((needsWin && !winName) || (needsLose && !loseName)) {
+              const win = pickTopInningsPitcher(winSide === "home" ? homePitchers : awayPitchers);
+              const lose = pickTopInningsPitcher(loseSide === "home" ? homePitchers : awayPitchers);
+              if (needsWin && !winName) winName = (pickPitcherName(win) || "") ? `${pickPitcherName(win)} (추정)` : "";
+              if (needsLose && !loseName) loseName = (pickPitcherName(lose) || "") ? `${pickPitcherName(lose)} (추정)` : "";
+            }
           }
 
-          // MVP batter: most hits in this game
+          // MVP batter: winner team only, HR first then hits
           const batters = await fetchBattersForGame(db, gid);
+          const homeWin = (g.home_score ?? 0) > (g.away_score ?? 0);
+          const winTeam = homeWin ? g.home_team : g.away_team;
+
+          const winBatters = (batters || []).filter((b) => {
+            const bt = pickTeamName(b);
+            return bt && winTeam && (bt.includes(winTeam) || winTeam.includes(bt));
+          });
           let best = null;
+          let bestHr = -1;
           let bestH = -1;
-          for (const b of batters || []) {
+          for (const b of winBatters) {
+            const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
             const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-            if (h > bestH) {
+            if (hr > bestHr || (hr === bestHr && h > bestH)) {
+              bestHr = hr;
               bestH = h;
               best = b;
             }
@@ -1629,22 +2193,126 @@ export const handler = async (event) => {
                 name: pickPlayerName(best),
                 team: pickTeamName(best),
                 h: bestH,
+                hr: bestHr,
                 ab: pickNum(best, ["ab", "AB", "at_bats", "타수"]),
               }
             : null;
 
-          // venue from game doc if present
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
-          const venue = pickVenueName(rawGame);
+          const homeTeamRaw = String(g?.home_team || rawGame?.home_team || "");
+          const venueKey = Object.keys(TEAM_STADIUM).find((k) =>
+            homeTeamRaw.includes(k)
+          );
+          const venue = venueKey ? TEAM_STADIUM[venueKey] : "";
+
+          const h2hKey = `2026:${String(g?.home_team || "")}__${String(g?.away_team || "")}`;
+          let headToHead = __h2hCache.get(h2hKey);
+          if (!headToHead) {
+            headToHead = await fetchHeadToHeadRecord(
+              db,
+              g?.home_team || "",
+              g?.away_team || "",
+              2026
+            );
+            __h2hCache.set(h2hKey, headToHead);
+          }
+
+          const homeKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.home_team || "")}`;
+          const awayKey = `${String(dateStr || "").slice(0, 10)}:${normalizeTeamKey(g?.away_team || "")}`;
+
+          let homeNextGame = __nextGameCache.get(homeKey);
+          if (homeNextGame === undefined) {
+            homeNextGame = pickNextGameForTeams(
+              scheduleRows,
+              g?.home_team || "",
+              "",
+              dateStr
+            );
+            __nextGameCache.set(homeKey, homeNextGame ?? null);
+          }
+
+          let awayNextGame = __nextGameCache.get(awayKey);
+          if (awayNextGame === undefined) {
+            awayNextGame = pickNextGameForTeams(
+              scheduleRows,
+              g?.away_team || "",
+              "",
+              dateStr
+            );
+            __nextGameCache.set(awayKey, awayNextGame ?? null);
+          }
+
+          const attachNextH2H = async (teamName, nextGameObj) => {
+            if (!nextGameObj) return null;
+            const teamKey = normalizeTeamKey(teamName || "");
+            const nh = String(nextGameObj?.home_team || "");
+            const na = String(nextGameObj?.away_team || "");
+            const nhKey = normalizeTeamKey(nh);
+            const naKey = normalizeTeamKey(na);
+            const opponent =
+              teamKey && nhKey === teamKey
+                ? na
+                : teamKey && naKey === teamKey
+                  ? nh
+                  : nh || na || "";
+            if (!teamName || !opponent) return { ...nextGameObj, next_h2h: null };
+            const key = `next_h2h:2026:${teamKey}__${normalizeTeamKey(opponent)}`;
+            let rec = __h2hCache.get(key);
+            if (!rec) {
+              rec = await fetchHeadToHeadRecord(db, teamName, opponent, 2026);
+              __h2hCache.set(key, rec);
+            }
+            return { ...nextGameObj, next_h2h: rec };
+          };
+
+          const homeNextGameWithH2h = await attachNextH2H(
+            g?.home_team || "",
+            homeNextGame
+          );
+          const awayNextGameWithH2h = await attachNextH2H(
+            g?.away_team || "",
+            awayNextGame
+          );
 
           games.push({
             ...g,
             winning_pitcher: winName,
             losing_pitcher: loseName,
+            home_starter: homeStarter
+              ? {
+                  name: pickPitcherName(homeStarter),
+                  era: homeStarter?.era ?? null,
+                  ip: homeStarter?.ip ?? null,
+                }
+              : null,
+            away_starter: awayStarter
+              ? {
+                  name: pickPitcherName(awayStarter),
+                  era: awayStarter?.era ?? null,
+                  ip: awayStarter?.ip ?? null,
+                }
+              : null,
+            winning_pitcher_era:
+              pitchers.find(
+                (p) =>
+                  pickPitcherName(p) === winName.replace(" (추정)", "")
+              )?.era ?? null,
+            losing_pitcher_era:
+              pitchers.find(
+                (p) =>
+                  pickPitcherName(p) === loseName.replace(" (추정)", "")
+              )?.era ?? null,
             venue,
+            headToHead,
             mvp_batter: mvp,
+            home_next_game: homeNextGameWithH2h ?? null,
+            away_next_game: awayNextGameWithH2h ?? null,
+            // Backward-compat: keep next_game but align with home team next game
+            next_game: homeNextGameWithH2h ?? null,
           });
         }
+
+        const gamesOrdered = sortGamesForDailyShortsRotation(games, dateStr);
 
         const { standings, year: standingsYear } = await fetchStandings2026Document(db);
         return {
@@ -1654,9 +2322,75 @@ export const handler = async (event) => {
             ok: true,
             action,
             date: dateStr,
-            games,
+            games: gamesOrdered,
             standings,
             standingsYear,
+          }),
+        };
+      }
+      case "weekly_summary": {
+        const from = safeIsoDate(payload.from_date || payload.fromDate || "");
+        const to = safeIsoDate(payload.to_date || payload.toDate || "");
+        if (!from || !to) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "Missing from_date or to_date (YYYY-MM-DD)" }),
+          };
+        }
+        if (to < from) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "to_date must be >= from_date" }),
+          };
+        }
+
+        const games = await fetchGamesDateRange(db, from, to);
+        const weekly_games = buildWeeklyTeamRecords(games);
+
+        const gameIds = (games || [])
+          .map((g) => String(g?.game_id || g?.gameId || "").trim())
+          .filter(Boolean);
+        const uniqueGameIds = [...new Set(gameIds)];
+        const box = await fetchBoxForGames(db, uniqueGameIds);
+
+        const weekly_top_batters = buildWeeklyTopBatters(box.batters, 3);
+        const weekly_top_pitchers = buildWeeklyTopPitchers(box.pitchers, 3);
+
+        console.log("[weekly] from:", from, "to:", to);
+        console.log("[weekly] games:", weekly_games?.length);
+        console.log("[weekly] batters:", weekly_top_batters?.length);
+        console.log("[weekly] pitchers:", weekly_top_pitchers?.length);
+
+        const [prevStand, curStand] = await Promise.all([
+          fetchClosestStandingsHistoryDoc(db, from),
+          fetchClosestStandingsHistoryDoc(db, to),
+        ]);
+        const weekly_standings_diff = buildStandingsDiff(prevStand, curStand);
+
+        const top5Teams = weekly_games.slice(0, 5).map((r) => r.team);
+        const scheduleRows = await fetchScheduleFromDate(db, to);
+        const next_week_highlights = pickNextWeekHighlights(scheduleRows, top5Teams, to, 3);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            from_date: from,
+            to_date: to,
+            weekly_games,
+            weekly_top_batters,
+            weekly_top_pitchers,
+            weekly_standings_diff,
+            next_week_highlights,
+            debug: {
+              games_found: Array.isArray(games) ? games.length : 0,
+              standings_prev_doc: prevStand ? String(prevStand.id || "") : null,
+              standings_cur_doc: curStand ? String(curStand.id || "") : null,
+            },
           }),
         };
       }
@@ -1817,17 +2551,6 @@ export const handler = async (event) => {
           .get();
         const batters = battersSnap.docs.map((d) => docSnap(d));
         console.log("BOXSCORE batters count:", batters.length, "gameId:", gameId);
-        for (const b of batters) {
-          if (__batterRbiCheckLogged2 >= 60) break;
-          __batterRbiCheckLogged2 += 1;
-          console.log("BATTER_RBI_CHECK2:", {
-            player: b?.player ?? b?.name ?? null,
-            rbi: b?.rbi ?? b?.RBI ?? b?.bi ?? null,
-            h: b?.h ?? b?.H ?? null,
-            ab: b?.ab ?? b?.AB ?? null,
-            game_id: b?.game_id ?? b?.gameId ?? gameId,
-          });
-        }
 
         const pitchersSnap = await db
           .collection("pitchers")

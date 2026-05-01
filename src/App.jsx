@@ -342,16 +342,16 @@ function shadowTextSoft(ctx) {
 
 // 파스텔 팀 컬러 (Card8Shorts 배경용)
 const TEAM_GRAD = {
-  삼성: ["#64c8ff", "#64c8ff"],
-  LG: ["#ff7878", "#ff7878"],
-  KT: ["#90a4ae", "#90a4ae"],
-  SSG: ["#ff96b4", "#ff96b4"],
-  NC: ["#64a0ff", "#64a0ff"],
-  두산: ["#b482ff", "#b482ff"],
-  KIA: ["#ffa050", "#ffa050"],
-  롯데: ["#648cff", "#648cff"],
-  한화: ["#ffc864", "#ffc864"],
-  키움: ["#f08cb4", "#f08cb4"],
+  삼성: ["#4ab0e8", "#4ab0e8"],
+  LG: ["#e85c5c", "#e85c5c"],
+  KT: ["#728e98", "#728e98"],
+  SSG: ["#e87a98", "#e87a98"],
+  NC: ["#4a86e8", "#4a86e8"],
+  두산: ["#9866e8", "#9866e8"],
+  KIA: ["#e8843a", "#e8843a"],
+  롯데: ["#4a70e8", "#4a70e8"],
+  한화: ["#e8ac48", "#e8ac48"],
+  키움: ["#d870a0", "#d870a0"],
 };
 
 const TEAM_PASTEL_BG = {
@@ -387,6 +387,77 @@ function teamKeyword(teamName) {
   }
   // fall back to first token (LG 트윈스 -> LG)
   return t.split(/\s+/)[0] || "";
+}
+
+/** 일간 쇼츠 경기결과: 경기 순 로테이션 (kbo-api shorts_slides_data와 동일) */
+const TEAM_ROTATION = [
+  "KIA",
+  "삼성",
+  "LG",
+  "두산",
+  "KT",
+  "SSG",
+  "롯데",
+  "한화",
+  "NC",
+  "키움",
+];
+
+const DAY_INDEX = { 0: 6, 1: 0, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4 };
+
+function shortsRotationIsoDate(d) {
+  const s = String(d || "").trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+function seoulWeekdayAndDayOfYearForShortsRotation(dateStr) {
+  const safe = shortsRotationIsoDate(dateStr);
+  if (!safe) return { dayOfWeek: 0, dayOfYear: 1 };
+  const anchor = new Date(`${safe}T12:00:00+09:00`);
+  const wdParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "long",
+  }).formatToParts(anchor);
+  const wdName = wdParts.find((p) => p.type === "weekday")?.value || "Sunday";
+  const map = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  const dayOfWeek = map[wdName] ?? 0;
+  const [y, m, da] = safe.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, da);
+  const yearStart = Date.UTC(y, 0, 0);
+  const dayOfYear = Math.round((t - yearStart) / 86400000);
+  return { dayOfWeek, dayOfYear };
+}
+
+function targetTeamForShortsRotationDate(dateStr) {
+  const safe = shortsRotationIsoDate(dateStr);
+  if (!safe) return TEAM_ROTATION[0];
+  const { dayOfWeek, dayOfYear } = seoulWeekdayAndDayOfYearForShortsRotation(safe);
+  const daySlot = DAY_INDEX[dayOfWeek] ?? 0;
+  const weekOfYear = Math.floor(dayOfYear / 7);
+  const teamIdx = (weekOfYear + daySlot) % 10;
+  return TEAM_ROTATION[teamIdx];
+}
+
+function gameInvolvesShortsRotationTeam(game, rotationToken) {
+  const kw = String(rotationToken || "").trim();
+  if (!kw) return false;
+  const h = teamKeyword(game?.home_team || "");
+  const a = teamKeyword(game?.away_team || "");
+  return h === kw || a === kw;
+}
+
+function sortGamesForDailyShortsRotation(games, dateStr) {
+  const list = Array.isArray(games) ? games : [];
+  if (!list.length) return list;
+  const target = targetTeamForShortsRotationDate(dateStr);
+  const front = [];
+  const back = [];
+  for (const g of list) {
+    if (gameInvolvesShortsRotationTeam(g, target)) front.push(g);
+    else back.push(g);
+  }
+  if (!front.length) return list;
+  return [...front, ...back];
 }
 
 function teamGrad(teamName) {
@@ -602,6 +673,127 @@ function drawBaseballBackground(ctx) {
   ctx.restore();
 }
 
+function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야구 경기 결과") {
+  ctx.save();
+  // Background: day-of-week color
+  const DAY_COLORS = {
+    0: "#C0392B", // Sun
+    1: "#1A5276", // Mon
+    2: "#1A5276", // Tue
+    3: "#1E8449", // Wed
+    4: "#D35400", // Thu
+    5: "#6C3483", // Fri
+    6: "#B7950B", // Sat
+  };
+  const iso = String(date || "").slice(0, 10);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
+  ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
+  ctx.fillRect(0, 0, w, h);
+
+  // Baseball (same position/size/opacity as other slides)
+  drawBaseballBackground(ctx);
+
+  // Layout anchors
+  const centerX = w / 2;
+  const SHIFT_Y = 50;
+  const topY = 180 + SHIFT_Y;
+  const gapTop = 20;
+  const centralY = Math.round(h * 0.64) + SHIFT_Y; // tuned to place divider+date around ~1480px
+
+  // Team logos (irregular collage above the main title)
+  const placements = [
+    { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
+    { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
+    { team: "LG", x: 820, y: 440, size: 155, angle: -6 },
+    { team: "두산", x: 90, y: 620, size: 140, angle: 15 },
+    { team: "KT", x: 370, y: 580, size: 150, angle: -10 },
+    { team: "SSG", x: 690, y: 600, size: 145, angle: 12 },
+    { team: "롯데", x: 160, y: 790, size: 155, angle: -8 },
+    { team: "한화", x: 440, y: 760, size: 148, angle: 6 },
+    { team: "NC", x: 740, y: 780, size: 142, angle: -14 },
+    { team: "키움", x: 900, y: 640, size: 138, angle: 10 },
+  ];
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.globalAlpha = 0.85;
+  for (const p of placements) {
+    const tk = teamKeyword(p.team);
+    const img = logosByTeamKey?.[tk] || null;
+    // shrink from current rendered size
+    const size = p.size * 1.8 * 0.55 * 1.05;
+    ctx.save();
+    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + size / 2);
+    ctx.rotate((p.angle * Math.PI) / 180);
+    if (img) {
+      const iw = Number(img?.naturalWidth ?? img?.width) || 1;
+      const ih = Number(img?.naturalHeight ?? img?.height) || 1;
+      const ratio = iw / ih;
+      const drawH = size;
+      const drawW = size * ratio;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      // fallback badge (square)
+      drawTeamLogoOrBadge(ctx, -size / 2, -size / 2, size, p.team, null);
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // Top: title (single line)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  // No shadow (explicitly disable)
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = "#FFFFFF";
+  const titleText = String(introTitle || "프로야구 경기 결과").trim() || "프로야구 경기 결과";
+  let titleSize = 100;
+  ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  while (ctx.measureText(titleText).width > 960 && titleSize > 60) {
+    titleSize -= 2;
+    ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.fillText(titleText, centerX, topY);
+
+  // Center: "1분컷"
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText("1분컷", centerX, centralY);
+
+  // Divider (white line) - 60px below "1분컷"
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  const divY = centralY + 110 + 60; // 220px font → approx half-height 110
+  const divW = 600;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - divW / 2, divY);
+  ctx.lineTo(centerX + divW / 2, divY);
+  ctx.stroke();
+
+  // Bottom: date (80px below divider)
+  const dateY = divY + 80;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtKoreanLongDate(date), centerX, dateY);
+
+  ctx.restore();
+}
+
 function drawTeamLogoOrBadge(ctx, x, y, size, teamName, img) {
   if (img) {
     ctx.drawImage(img, x, y, size, size);
@@ -630,23 +822,27 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   // Order requirement: background → baseball → diagonal split → contents
   drawBaseballBackground(ctx);
 
-  // secondary: bottom-right 35% (사선 분할)
+  // secondary: 5:5 비율 기반 사선 분할
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
   ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
   ctx.lineTo(w, h);
   ctx.lineTo(0, h);
   ctx.closePath();
-  // loser: same hue, lighter via opacity
-  ctx.fillStyle = hexToRgba(s, 0.6);
+  // secondary: full opacity (same treatment as primary)
+  ctx.fillStyle = s;
   ctx.fill();
 
   // boundary line (white 5px)
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(0, h * 0.45);
-  ctx.lineTo(w, h * 0.75);
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
   ctx.stroke();
 }
 
@@ -820,8 +1016,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   if (venue || gtime) {
     ctx.font = `600 42px "${FONT_BODY}", sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.9)";
-    const sub =
-      venue && gtime ? `${venue} · ${gtime}` : venue || gtime;
+    const sub = venue && gtime ? `${venue} · ${gtime}` : venue || gtime;
     ctx.fillText(sub, w / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2) + 120);
   }
 
@@ -831,8 +1026,6 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   const nameFont = `900 74px "${FONT_TITLE}", system-ui, sans-serif`;
   const bottomY = SAFE_BOTTOM - 200;
   const drawLbl = (y, lbl, nm) => {
-    ctx.font = labelFont;
-    ctx.fillStyle = "#00d4aa";
     const gap = "  ";
     ctx.font = labelFont;
     const wL = ctx.measureText(lbl + gap).width;
@@ -875,7 +1068,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // decor (behind contents)
   drawBaseballBackground(ctx);
 
-  // Title: "⚾ KBO …" 또는 내일 예고 타이틀 — 날짜는 골드 고정
+  // Title: 결과 요약 또는 내일 예고 타이틀 — 날짜는 골드 고정
   const titleLeft = titleMode === "tomorrow" ? "⚾ 내일 경기 예고 " : "⚾ KBO ";
   const titleRight = fmtKoreanDotDate(date);
   const titleBaseline = SAFE_TOP + 80;
@@ -978,88 +1171,25 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
-  // Winner-based vertical gradient background:
-  // top 70% winner (strong), bottom 30% loser (alpha 0.4)
-  const homeWin = Number(g.home_score) > Number(g.away_score);
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  const DIVIDER_Y = 960;
+
+  const hsNum = Number(g?.home_score);
+  const asNum = Number(g?.away_score);
+  const homeWin = Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
 
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
 
-  const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
-
-  // Date header (safe zone)
-  ctx.fillStyle = TEXT_MAIN;
-  // 날짜/제목: Noto Sans KR 900
-  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
-  resetShadow(ctx);
-  ctx.fillStyle = TEXT_MAIN;
-  // 서브텍스트: Noto Sans KR 500
-  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 80 + 68);
-  resetShadow(ctx);
-
-  // Place logos below date header, within safe zone
-  const badgeY = SAFE_TOP + 210;
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
-
-  // Logo box: 1.5x bigger (280x210), preserve original ratio
-  const logoBoxW = 280;
-  const logoBoxH = 210;
-  const leftCenterX = 170;
-  const rightCenterX = w - 170;
-  const logoBoxY = badgeY;
   const homeImg = logosByTeamKey?.[hk] || null;
   const awayImg = logosByTeamKey?.[ak] || null;
 
-  if (homeImg)
-    drawImageContain(ctx, homeImg, leftCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, leftCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.home_team);
-
-  if (awayImg)
-    drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
-
-  // Score: winner score highlighted, loser white
-  const hsNum = Number(g?.home_score);
-  const asNum = Number(g?.away_score);
-  const awayWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && asNum > hsNum;
-  const homeWinScore = Number.isFinite(asNum) && Number.isFinite(hsNum) && hsNum > asNum;
-  const winIsHome = homeWinScore || (!awayWinScore && !homeWinScore);
-
-  const hsText = String(g.home_score ?? "—");
-  const asText = String(g.away_score ?? "—");
-  const sep = "  -  ";
-
-  ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  const wHs = ctx.measureText(hsText).width;
-  const wSep = ctx.measureText(sep).width;
-  const wAs = ctx.measureText(asText).width;
-  const totalW = wHs + wSep + wAs;
-  const baseX = (w - totalW) / 2;
-  const yy = Math.round((SAFE_TOP + SAFE_BOTTOM) / 2);
-
-  ctx.fillStyle = winIsHome ? "#ffeb3b" : "#ffffff";
-  ctx.fillText(hsText, baseX, yy);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(sep, baseX + wHs, yy);
-  ctx.fillStyle = winIsHome ? "#ffffff" : "#ffeb3b";
-  ctx.fillText(asText, baseX + wHs + wSep, yy);
-  resetShadow(ctx);
-
-  // Winner pitcher / MVP (no background box; text only)
-  const boxX = 64;
-  const boxY = SAFE_BOTTOM - 380;
-
-  // Bottom summary (simple): ⭐ + pitcher/batter names (no stats)
   const cleanName = (s) =>
     String(s || "—")
       .replace(/\(추정\)/g, "")
@@ -1067,60 +1197,447 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey) {
       .trim()
       .slice(0, 18);
 
-  const pitcherName = cleanName(g.winning_pitcher);
-  const mvpBatter = g?.mvp_batter;
-  const mvpTeam = String(mvpBatter?.team || "");
-  const winTeamStr = String((homeWin ? g.home_team : g.away_team) || "");
-  const isMvpWinner =
-    mvpTeam &&
-    winTeamStr &&
-    (mvpTeam.includes(teamKeyword(winTeamStr)) ||
-      winTeamStr.includes(teamKeyword(mvpTeam)));
-  const batterName = isMvpWinner ? cleanName(mvpBatter?.name) : "—";
-
-  resetShadow(ctx); // no shadow
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-
-  const labelColor = "#00d4aa";
-  const valueColor = "#ffffff";
-
-  const drawCenteredLabelValue = (y, label, value, labelFont, valueFont) => {
-    const gap = "  ";
-    ctx.font = labelFont;
-    const wL = ctx.measureText(label + gap).width;
-    ctx.font = valueFont;
-    const wV = ctx.measureText(value).width;
-    const totalW = wL + wV;
-    const startX = (w - totalW) / 2;
-
-    ctx.font = labelFont;
-    ctx.fillStyle = labelColor;
-    ctx.fillText(label + gap, startX, y);
-    ctx.font = valueFont;
-    ctx.fillStyle = valueColor;
-    ctx.fillText(value, startX + wL, y);
+  const fmtEra = (v) => {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n.toFixed(2);
+    const s = String(v ?? "").trim();
+    return s ? s : "—";
   };
 
-  const emojiFont = `900 100px "${FONT_TITLE}", system-ui, sans-serif`; // Black Han Sans
-  const labelFont = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
-  const nameFont = `900 80px "${FONT_TITLE}", system-ui, sans-serif`;
+  const homeStreak =
+    standings?.find(
+      (s) =>
+        String(s?.team || "").includes(teamKeyword(g.home_team)) ||
+        String(g.home_team || "").includes(teamKeyword(s?.team))
+    )?.streak || "";
+  const awayStreak =
+    standings?.find(
+      (s) =>
+        String(s?.team || "").includes(teamKeyword(g.away_team)) ||
+        String(g.away_team || "").includes(teamKeyword(s?.team))
+    )?.streak || "";
 
-  const baseY = SAFE_BOTTOM - 170;
-  const lineGap = 110;
+  const winStreak = homeWin ? homeStreak : awayStreak;
+  const loseStreak = homeWin ? awayStreak : homeStreak;
 
-  // ⭐ (big, centered)
-  ctx.font = emojiFont;
-  ctx.fillStyle = "#ffffff";
-  const star = "⭐";
-  const hw = ctx.measureText(star).width;
-  ctx.fillText(star, (w - hw) / 2, baseY - lineGap * 2);
+  // 1) 날짜
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  resetShadow(ctx);
 
-  // pitcher / batter lines (names only)
-  drawCenteredLabelValue(baseY - lineGap, "선발", pitcherName || "—", labelFont, nameFont);
-  drawCenteredLabelValue(baseY, "타자", batterName || "—", labelFont, nameFont);
+  // 2) 서브텍스트
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 160);
+  resetShadow(ctx);
+
+  // 3) 팀 로고
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+
+  const logoY = SAFE_TOP + 220;
+  const logoBoxW = 260;
+  const logoBoxH = 180;
+  drawLogoInBox(64, logoY, logoBoxW, logoBoxH, g.home_team, homeImg);
+  drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, g.away_team, awayImg);
+
+  // 4) 스코어 (홈 - 원정)
+  const hsText = String(g?.home_score ?? "—");
+  const asText = String(g?.away_score ?? "—");
+  const vsText = " - ";
+  const scoreY = SAFE_TOP + 480;
+
+  const homeIsWinner =
+    Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
+  const scoreFont = `1000 145px "${FONT_TITLE}", system-ui, sans-serif`;
+  const vsFont = `1000 145px "${FONT_TITLE}", system-ui, sans-serif`;
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = scoreFont;
+  const w1 = ctx.measureText(hsText).width;
+  ctx.font = vsFont;
+  const w2 = ctx.measureText(vsText).width;
+  ctx.font = scoreFont;
+  const w3 = ctx.measureText(asText).width;
+  const startX = (w - (w1 + w2 + w3)) / 2;
+
+  shadowTextSoft(ctx);
+  ctx.font = scoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFD700" : "#FFFFFF";
+  ctx.fillText(hsText, startX, scoreY);
+
+  ctx.font = vsFont;
+  ctx.fillStyle = "#F9FF00";
+  ctx.fillText(vsText, startX + w1, scoreY);
+
+  ctx.font = scoreFont;
+  ctx.fillStyle = homeIsWinner ? "#FFFFFF" : "#FFD700";
+  ctx.fillText(asText, startX + w1 + w2, scoreY);
+  resetShadow(ctx);
+
+  // 5) 선발투수 대결
+  const homeStarterName = cleanName(g?.home_starter?.name ?? "");
+  const awayStarterName = cleanName(g?.away_starter?.name ?? "");
+  const homeStarterEra = g?.home_starter?.era ?? null;
+  const awayStarterEra = g?.away_starter?.era ?? null;
+  const starterLine = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)}) vs ${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
+
+  ctx.textAlign = "center";
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const homePart = `${homeStarterName || "—"}(${fmtEra(homeStarterEra)})`;
+  const awayPart = `${awayStarterName || "—"}(${fmtEra(awayStarterEra)})`;
+  const vsPart = "  vs  ";
+  const yStarter = SAFE_TOP + 605;
+  ctx.textAlign = "left";
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const wHomeP = ctx.measureText(homePart).width;
+  const wVsP = ctx.measureText(vsPart).width;
+  const wAwayP = ctx.measureText(awayPart).width;
+  const sx = (w - (wHomeP + wVsP + wAwayP)) / 2;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(homePart, sx, yStarter);
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText(vsPart, sx + wHomeP, yStarter);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
+
+  // 하단 영역
+  const leftX = 72;
+  const listTop = DIVIDER_Y + 180;
+  const lineGap = 107;
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+  // 하단 텍스트 그림자(가독성)
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // • 구장명
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
+  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
+  ctx.fillText(`• ${venueText}`, leftX, listTop);
+
+  // • 순위 (standings 기반)
+  const homeTeamName = String(g?.home_team || "—");
+  const awayTeamName = String(g?.away_team || "—");
+  const homeKey = teamKeyword(homeTeamName);
+  const awayKey = teamKeyword(awayTeamName);
+  const rows = Array.isArray(standings) ? standings : [];
+  const pickRowTeamRaw = (r) =>
+    r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? "";
+  const homeRow =
+    rows.find((r) => teamKeyword(pickRowTeamRaw(r)) === homeKey) || null;
+  const awayRow =
+    rows.find((r) => teamKeyword(pickRowTeamRaw(r)) === awayKey) || null;
+  const pickRank = (r) => r?.rank ?? r?.RANK ?? r?.순위 ?? null;
+  const homeRank = pickRank(homeRow);
+  const awayRank = pickRank(awayRow);
+  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `• 순위  ${homeTeamName} ${homeRank ?? "—"}위  |  ${awayTeamName} ${awayRank ?? "—"}위`,
+    leftX,
+    listTop + lineGap * 1
+  );
+
+  // • 상대전적 (홈팀기준)
+  const h2h =
+    g?.headToHead ??
+    g?.head_to_head ??
+    g?.headToHeadRecord ??
+    g?.head_to_head_record ??
+    null;
+  const h2hText = h2h
+    ? `• 상대전적  ${homeTeamName} ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
+    : `• 상대전적 데이터 없음`;
+  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 2);
+
+  // • 승/패 투수
+  const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
+  const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
+  const winEra = g?.winning_pitcher_era ?? null;
+  const loseEra = g?.losing_pitcher_era ?? null;
+  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`,
+    leftX,
+    listTop + lineGap * 3
+  );
+
+  // • ⭐ MVP
+  const mvpName = cleanName(g?.mvp_batter?.name ?? "—");
+  const mvpH = g?.mvp_batter?.h ?? null;
+  const mvpHr = g?.mvp_batter?.hr ?? null;
+  const mvpStat =
+    mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
+  ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 4);
+
+  // 하단 텍스트 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
 
   // 하단 인덱스 텍스트 제거
+}
+
+function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, standings) {
+  const SAFE_TOP = 200;
+  const SAFE_BOTTOM = 1720;
+  const DIVIDER_Y = 960;
+
+  const homeTeam = String(g?.home_team || "—");
+  const awayTeam = String(g?.away_team || "—");
+
+  const homeNg = g?.home_next_game ?? g?.next_game ?? g?.nextGame ?? null;
+  const awayNg = g?.away_next_game ?? null;
+
+  const cleanName = (s) =>
+    String(s || "—")
+      .replace(/\(추정\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 18);
+
+  const pickNextInfoForTeam = (teamName, ng) => {
+    const team = String(teamName || "—");
+    const tKey = teamKeyword(team);
+    const obj = ng && typeof ng === "object" ? ng : null;
+    const dateIso = String(obj?.game_date || date || "").slice(0, 10);
+    const time = String(obj?.game_time || "—").trim() || "—";
+    const homeNm = String(obj?.home_team || "—");
+    const awayNm = String(obj?.away_team || "—");
+    const isHome = teamKeyword(homeNm) === tKey;
+    const opponent = isHome ? awayNm : homeNm;
+    const venue = String(obj?.venue || "—").slice(0, 24) || "—";
+    return {
+      team,
+      teamKey: tKey,
+      opponent,
+      oppKey: teamKeyword(opponent),
+      dateIso,
+      time,
+      venue,
+      next_h2h: obj?.next_h2h ?? null,
+    };
+  };
+
+  // 승/패 팀 판별 (drawGameSlide와 동일 방식)
+  const hsNum = Number(g?.home_score);
+  const asNum = Number(g?.away_score);
+  const homeWin =
+    Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
+  const winTeam = homeWin ? homeTeam : awayTeam;
+  const loseTeam = homeWin ? awayTeam : homeTeam;
+
+  const pickNgForTeam = (teamName) => {
+    const k = teamKeyword(teamName);
+    if (k && k === teamKeyword(homeTeam)) return homeNg;
+    if (k && k === teamKeyword(awayTeam)) return awayNg;
+    return null;
+  };
+
+  // next_game 슬라이드: 반드시 반대로 교차 (상단=패전팀, 하단=승리팀)
+  const top = pickNextInfoForTeam(loseTeam, pickNgForTeam(loseTeam));
+  const bot = pickNextInfoForTeam(winTeam, pickNgForTeam(winTeam));
+
+  const shortVenue = (v) => {
+    const s = String(v || "").trim();
+    if (!s) return "—";
+    // "광주-기아 챔피언스 필드" -> "광주", "잠실" -> "잠실"
+    return s.split(/[\s-]/)[0] || s;
+  };
+
+  const VENUE_FULLNAME = {
+    잠실: "잠실야구장",
+    수원: "수원 KT위즈파크",
+    광주: "광주-기아 챔피언스필드",
+    대구: "대구 삼성라이온즈파크",
+    인천: "인천 SSG랜더스필드",
+    사직: "부산 사직야구장",
+    창원: "창원 NC파크",
+    고척: "고척 스카이돔",
+    대전: "대전 한화생명이글스파크",
+  };
+  const venueFullName = (v) => {
+    const key = shortVenue(v);
+    return VENUE_FULLNAME[key] || String(v || key || "—");
+  };
+
+  // 배경: next_game는 승패팀 색상 교차 (상단=패전팀, 하단=승리팀)
+  ctx.clearRect(0, 0, w, h);
+  winLoseVerticalGradient(ctx, w, h, loseTeam, winTeam);
+
+  // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = `1000 155px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
+  resetShadow(ctx);
+
+  // NEXT GAME 아래 날짜/시간
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `1000 78px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
+  const timeText = top.time && top.time !== "—" ? top.time : bot.time;
+  ctx.fillText(`${fmtKoreanLongDate(dateIso)}  ${timeText}`, w / 2, DIVIDER_Y + 120);
+  resetShadow(ctx);
+
+  // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
+  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
+    if (!img) {
+      const r = Math.min(boxW, boxH) / 2;
+      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
+      return;
+    }
+    const iw = Number(img.width) || boxW;
+    const ih = Number(img.height) || boxH;
+    const scale = Math.min(boxW / iw, boxH / ih);
+    const dw = iw * scale;
+    const dh = ih * scale;
+    ctx.drawImage(img, x + (boxW - dw) / 2, y + (boxH - dh) / 2, dw, dh);
+  };
+
+  // 팀 배치: 상단팀은 더 위로, 하단팀은 더 아래로
+  const logoBoxW = 260;
+  const logoBoxH = 180;
+  const MAIN_LOGO_SCALE = 1.3 * 1.3; // 기존 대비 +30%
+  const mainLogoW = Math.round(logoBoxW * MAIN_LOGO_SCALE);
+  const mainLogoH = Math.round(logoBoxH * MAIN_LOGO_SCALE);
+  const oppLogoW = Math.round(mainLogoW / 2);
+  const oppLogoH = Math.round(mainLogoH / 2);
+
+  const PAD_X = 64;
+  const RIGHT_X = w - 64 - oppLogoW;
+
+  // 상단(홈팀): SAFE_TOP + 100 근처
+  const topMainY = SAFE_TOP + 100;
+  const topOppY = topMainY + Math.round((mainLogoH - oppLogoH) / 2);
+
+  // 하단(원정팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
+  // info2(상대전적) baseline이 (h - 300) 근처가 되도록 역산
+  const bottomInfo2YTarget = h - 300;
+  const botMainY = Math.max(
+    DIVIDER_Y + 120,
+    bottomInfo2YTarget - (mainLogoH + 70 + 70)
+  );
+  const botOppY = botMainY + Math.round((mainLogoH - oppLogoH) / 2);
+  const topTeamImg = logosByTeamKey?.[top.teamKey] || null;
+  const topOppImg = logosByTeamKey?.[top.oppKey] || null;
+  drawLogoInBox(PAD_X, topMainY, mainLogoW, mainLogoH, top.team, topTeamImg);
+  drawLogoInBox(RIGHT_X, topOppY, oppLogoW, oppLogoH, top.opponent, topOppImg);
+
+  // 3) 상단: VS (두 로고 정중앙)
+  const topLeftCx = PAD_X + mainLogoW / 2;
+  const topLeftCy = topMainY + mainLogoH / 2;
+  const topRightCx = RIGHT_X + oppLogoW / 2;
+  const topRightCy = topOppY + oppLogoH / 2;
+  const topVsX = (topLeftCx + topRightCx) / 2;
+  const topVsY = (topLeftCy + topRightCy) / 2;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", topVsX, topVsY);
+  resetShadow(ctx);
+
+  // 상단팀(홈팀) 로고 아래 정보 (가운데 정렬)
+  const topInfoY = topMainY + mainLogoH + 70;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#FFFFFF";
+  // 하단 영역 텍스트 그림자(가독성) - 지정값
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY);
+  ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const topH2h = top?.next_h2h
+    ? `시즌 상대전적 : ${Number(top.next_h2h.win ?? 0) || 0}승 ${Number(top.next_h2h.draw ?? 0) || 0}무 ${Number(top.next_h2h.lose ?? 0) || 0}패`
+    : `시즌 상대전적 : 데이터 없음`;
+  ctx.fillText(topH2h, w / 2, topInfoY + 70);
+  // 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // ===== 하단: home_next_game 데이터 =====
+  const botTeamImg = logosByTeamKey?.[bot.teamKey] || null;
+  const botOppImg = logosByTeamKey?.[bot.oppKey] || null;
+  drawLogoInBox(PAD_X, botMainY, mainLogoW, mainLogoH, bot.team, botTeamImg);
+  drawLogoInBox(RIGHT_X, botOppY, oppLogoW, oppLogoH, bot.opponent, botOppImg);
+
+  // 하단: VS (두 로고 정중앙)
+  const botLeftCx = PAD_X + mainLogoW / 2;
+  const botLeftCy = botMainY + mainLogoH / 2;
+  const botRightCx = RIGHT_X + oppLogoW / 2;
+  const botRightCy = botOppY + oppLogoH / 2;
+  const botVsX = (botLeftCx + botRightCx) / 2;
+  const botVsY = (botLeftCy + botRightCy) / 2;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#F9FF00";
+  ctx.font = `1000 110px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", botVsX, botVsY);
+  resetShadow(ctx);
+
+  // 하단팀(원정팀) 로고 아래 정보 (가운데 정렬, 상대전적 win/lose 반전)
+  const botInfoY = botMainY + mainLogoH + 70;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#FFFFFF";
+  // 하단 영역 텍스트 그림자(가독성) - 지정값
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY);
+  ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const botH2h = bot?.next_h2h
+    ? `시즌 상대전적 : ${Number(bot.next_h2h.win ?? 0) || 0}승 ${Number(bot.next_h2h.draw ?? 0) || 0}무 ${Number(bot.next_h2h.lose ?? 0) || 0}패`
+    : `시즌 상대전적 : 데이터 없음`;
+  ctx.fillText(botH2h, w / 2, botInfoY + 70);
+  // 그림자 초기화
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  void standings;
+  void SAFE_BOTTOM;
+  void index;
+  void total;
 }
 
 function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
@@ -1395,8 +1912,17 @@ function Card8Shorts({ defaultDate }) {
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
-    s.push({ type: "summary" });
-    for (const g of games) s.push({ type: "game", game: g });
+    s.push({ type: "intro" });
+    // Summary slides: 누적 표시 (1경기 → 2경기 → ... → 전체)
+    const n = Math.max(1, games.length);
+    for (let upto = 1; upto <= n; upto++) {
+      s.push({ type: "summary", upto });
+    }
+    for (const g of games) {
+      s.push({ type: "game", game: g });
+      if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame)
+        s.push({ type: "next_game", game: g });
+    }
     s.push({ type: "standings" });
     return s;
   }, [data]);
@@ -1415,19 +1941,58 @@ function Card8Shorts({ defaultDate }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const games = Array.isArray(data?.games) ? data.games : [];
-    const standings = Array.isArray(data?.standings) ? data.standings : [];
+    const standings = Array.isArray(data?.standings)
+      ? data.standings
+      : Array.isArray(data?.standing_rows)
+        ? data.standing_rows
+        : [];
+    const batters = Array.isArray(data?.batters) ? data.batters : [];
     const slide = slides[idx];
     if (!slide) return;
     // Preload local SVG logos (same-origin) for this slide
     const teamKeys = new Set();
-    if (slide.type === "summary") {
-      for (const gg of games) {
+    if (slide.type === "intro") {
+      // preload all 10 team logos for intro collage
+      for (const tk of [
+        "KIA",
+        "삼성",
+        "LG",
+        "두산",
+        "KT",
+        "SSG",
+        "롯데",
+        "한화",
+        "NC",
+        "키움",
+      ]) {
+        teamKeys.add(tk);
+      }
+    } else if (slide.type === "summary") {
+      const upto = Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1));
+      const subset = games.slice(0, upto);
+      for (const gg of subset) {
         teamKeys.add(teamKeyword(gg?.home_team));
         teamKeys.add(teamKeyword(gg?.away_team));
       }
     } else if (slide.type === "game") {
       teamKeys.add(teamKeyword(slide.game?.home_team));
       teamKeys.add(teamKeyword(slide.game?.away_team));
+    } else if (slide.type === "next_game") {
+      const homeTeam = String(slide.game?.home_team ?? "");
+      const awayTeam = String(slide.game?.away_team ?? "");
+      teamKeys.add(teamKeyword(homeTeam));
+      teamKeys.add(teamKeyword(awayTeam));
+
+      const homeNg =
+        slide.game?.home_next_game ?? slide.game?.next_game ?? slide.game?.nextGame ?? null;
+      const awayNg = slide.game?.away_next_game ?? null;
+      const addNgTeams = (ng) => {
+        if (!ng || typeof ng !== "object") return;
+        teamKeys.add(teamKeyword(ng?.home_team ?? ""));
+        teamKeys.add(teamKeyword(ng?.away_team ?? ""));
+      };
+      addNgTeams(homeNg);
+      addNgTeams(awayNg);
     } else if (slide.type === "standings") {
       for (const r of standings) {
         teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
@@ -1442,8 +2007,16 @@ function Card8Shorts({ defaultDate }) {
 
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
-    if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey);
+    if (slide.type === "intro") drawIntroSlide(ctx, w, h, date, logosByTeamKey);
+    else if (slide.type === "summary")
+      drawSummarySlide(
+        ctx,
+        w,
+        h,
+        date,
+        games.slice(0, Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1))),
+        logosByTeamKey
+      );
     else if (slide.type === "game")
       drawGameSlide(
         ctx,
@@ -1453,7 +2026,21 @@ function Card8Shorts({ defaultDate }) {
         slide.game,
         idx,
         Math.max(1, games.length),
-        logosByTeamKey
+        logosByTeamKey,
+        batters,
+        standings
+      );
+    else if (slide.type === "next_game")
+      drawNextGameSlide(
+        ctx,
+        w,
+        h,
+        date,
+        slide.game,
+        idx,
+        Math.max(1, games.length),
+        logosByTeamKey,
+        standings
       );
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
@@ -1468,6 +2055,7 @@ function Card8Shorts({ defaultDate }) {
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
       setData({
         ...res,
+        games: sortGamesForDailyShortsRotation(res?.games, d),
       });
       setSlideIdx(0);
     } catch (e) {
@@ -1613,7 +2201,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
-    s.push({ type: "summary" });
+    s.push({ type: "intro" });
     for (const g of games) s.push({ type: "preview_game", game: g });
     s.push({ type: "standings" });
     return s;
@@ -1633,15 +2221,29 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const games = Array.isArray(data?.games) ? data.games : [];
-    const standings = Array.isArray(data?.standings) ? data.standings : [];
+    const standings = Array.isArray(data?.standings)
+      ? data.standings
+      : Array.isArray(data?.standing_rows)
+        ? data.standing_rows
+        : [];
     const slide = slides[idx];
     if (!slide) return;
+
     const teamKeys = new Set();
-    if (slide.type === "summary") {
-      for (const gg of games) {
-        teamKeys.add(teamKeyword(gg?.home_team));
-        teamKeys.add(teamKeyword(gg?.away_team));
-      }
+    if (slide.type === "intro") {
+      for (const tk of [
+        "KIA",
+        "삼성",
+        "LG",
+        "두산",
+        "KT",
+        "SSG",
+        "롯데",
+        "한화",
+        "NC",
+        "키움",
+      ])
+        teamKeys.add(tk);
     } else if (slide.type === "preview_game") {
       teamKeys.add(teamKeyword(slide.game?.home_team));
       teamKeys.add(teamKeyword(slide.game?.away_team));
@@ -1650,26 +2252,31 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
       }
     }
+
     const logosByTeamKey = {};
     for (const tk of teamKeys) {
-      logosByTeamKey[tk] = await loadSvgLogo(tk);
+      const img = await loadSvgLogo(tk);
+      logosByTeamKey[tk] = img;
     }
 
     __baseballDecorImg = await loadPngImage("/baseball.png");
 
-    if (slide.type === "summary")
-      drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, "tomorrow");
+    if (slide.type === "intro")
+      drawIntroSlide(ctx, w, h, date, logosByTeamKey, "내일 경기 예고");
     else if (slide.type === "preview_game")
       drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey);
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
 
-  const onGenerate = async () => {
+  const onLoad = async () => {
     setBusy(true);
     setError(null);
     try {
       const res = await postKbo({ action: "tomorrow_preview", date });
-      setData({ ...res });
+      setData({
+        ...res,
+        games: sortGamesForDailyShortsRotation(res?.games, date),
+      });
       setSlideIdx(0);
     } catch (e) {
       setError(e?.message || String(e));
@@ -1700,23 +2307,685 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     downloadBlob(out, `shorts_tomorrow_${date}.zip`);
   };
 
-  const dateKs = fmtKoreanLongDate(date);
-
   return (
     <div className="section soft">
       <div className="section-title">2. 쇼츠-내일경기-예고</div>
-      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 내일 일정 기준(KST 자동 계산)</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-        <div className="muted" style={{ fontWeight: 800 }}>
-          내일 경기일:{" "}
-          <span style={{ color: "var(--text)", fontFamily: "ui-monospace, monospace" }}>{date}</span>{" "}
-          ({dateKs})
+        <div className="muted" style={{ fontWeight: 900 }}>
+          내일 일자: <span style={{ color: "#1a237e" }}>{fmtKoreanLongDate(date)}</span>
         </div>
-        <button type="button" className="primary" onClick={() => onGenerate()} disabled={busy}>
+        <button type="button" className="primary" onClick={onLoad} disabled={busy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
         <button type="button" className="primary primary-fill" onClick={downloadZip} disabled={!data || busy}>
+          ZIP 다운로드
+        </button>
+      </div>
+
+      {error ? <pre className="result-error-light">{error}</pre> : null}
+
+      {data ? (
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
+          <div style={{ flexShrink: 0 }}>
+            <ShortsCanvas slideIdx={slideIdx} renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)} />
+          </div>
+          <div>
+            <div className="muted" style={{ fontWeight: 900 }}>
+              슬라이드 ({slideIdx + 1}/{slides.length})
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+                disabled={slideIdx >= slides.length - 1}
+              >
+                다음
+              </button>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+                현재 PNG 다운로드
+              </button>
+            </div>
+            <div className="muted" style={{ marginTop: 10 }}>
+              - 슬라이드1: 인트로
+              <br />
+              - 슬라이드2~N: 경기별 예고 (상대전적 · 예상선발)
+              <br />- 마지막: KBO 순위
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getWeekRangeKst(mode) {
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  // JS: Sunday=0 ... Saturday=6, we want Monday start
+  const day = now.getDay();
+  const daysSinceMon = (day + 6) % 7;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - daysSinceMon);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+
+  const fromThis = mon.toLocaleDateString("sv-SE");
+  const toThis = sun.toLocaleDateString("sv-SE");
+
+  if (mode === "this") {
+    return { from: fromThis, to: toThis };
+  }
+  // last week
+  const mon2 = new Date(mon);
+  mon2.setDate(mon.getDate() - 7);
+  const sun2 = new Date(sun);
+  sun2.setDate(sun.getDate() - 7);
+  return { from: mon2.toLocaleDateString("sv-SE"), to: sun2.toLocaleDateString("sv-SE") };
+}
+
+const WEEKLY_BG = "#002B5B";
+const WEEKLY_POINT = "#FFD700";
+const WEEKLY_FONT = `"Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+
+// Weekly slides logo cache (populated in Card9WeeklySummary render step)
+const teamLogoImages = {};
+function normalizeTeamKey(teamName) {
+  return teamKeyword(teamName);
+}
+
+function drawLogoInBox(ctx, teamName, x, y, size) {
+  const img = teamLogoImages[normalizeTeamKey(teamName)];
+  if (!img) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const drawW = size * ratio;
+  const drawH = size;
+  ctx.drawImage(img, x - drawW / 2, y - drawH / 2, drawW, drawH);
+}
+
+function drawWeeklyBase(ctx, w, h) {
+  ctx.fillStyle = WEEKLY_BG;
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx); // watermark (existing same)
+}
+
+function weekOfMonthKst(isoDate) {
+  const s = String(isoDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return { y: 0, m: 0, w: 0 };
+  const dt = new Date(new Date(`${s}T12:00:00`).toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const y = dt.getFullYear();
+  const m = dt.getMonth() + 1;
+  const day = dt.getDate();
+  const first = new Date(dt);
+  first.setDate(1);
+  const firstDowMon0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
+  const w = Math.floor((day + firstDowMon0 - 1) / 7) + 1;
+  return { y, m, w };
+}
+
+function drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey) {
+  // Reuse drawIntroSlide layout: we draw a "neutral" intro then overlay the title/date parts
+  // Use toDate only to keep weekday parsing stable; background is overridden to WEEKLY_BG.
+  drawWeeklyBase(ctx, w, h);
+
+  // Reuse the same collage placements from drawIntroSlide by calling it, but immediately repaint bg
+  // to keep WEEKLY navy and then draw collage manually.
+  // (We duplicate the placements here to stay pixel-identical.)
+  const SHIFT_Y = 50;
+  const placements = [
+    { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
+    { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
+    { team: "LG", x: 820, y: 440, size: 155, angle: -6 },
+    { team: "두산", x: 90, y: 620, size: 140, angle: 15 },
+    { team: "KT", x: 370, y: 580, size: 150, angle: -10 },
+    { team: "SSG", x: 690, y: 600, size: 145, angle: 12 },
+    { team: "롯데", x: 160, y: 790, size: 155, angle: -8 },
+    { team: "한화", x: 440, y: 760, size: 148, angle: 6 },
+    { team: "NC", x: 740, y: 780, size: 142, angle: -14 },
+    { team: "키움", x: 900, y: 640, size: 138, angle: 10 },
+  ];
+
+  const centerX = w / 2;
+  const topY = 180 + SHIFT_Y;
+  const centralY = Math.round(h * 0.64) + SHIFT_Y;
+
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  for (const p of placements) {
+    const tk = teamKeyword(p.team);
+    const img = logosByTeamKey?.[tk] || null;
+    const size = p.size * 1.8 * 0.55 * 1.05;
+    ctx.save();
+    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + size / 2);
+    ctx.rotate((p.angle * Math.PI) / 180);
+    if (img) {
+      const iw = Number(img?.naturalWidth ?? img?.width) || 1;
+      const ih = Number(img?.naturalHeight ?? img?.height) || 1;
+      const ratio = iw / ih;
+      const drawH = size;
+      const drawW = size * ratio;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      drawTeamLogoOrBadge(ctx, -size / 2, -size / 2, size, p.team, null);
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // Top title: "주간 분석"
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#FFFFFF";
+  let titleSize = 112;
+  ctx.font = `900 ${titleSize}px ${WEEKLY_FONT}`;
+  while (ctx.measureText("주간 분석").width > 960 && titleSize > 70) {
+    titleSize -= 2;
+    ctx.font = `900 ${titleSize}px ${WEEKLY_FONT}`;
+  }
+  ctx.fillText("주간 분석", centerX, topY);
+
+  // Center: keep "1분컷"
+  ctx.textBaseline = "middle";
+  ctx.font = `800 220px ${WEEKLY_FONT}`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText("1분컷", centerX, centralY);
+  resetShadow(ctx);
+
+  // Divider
+  const divY = centralY + 110 + 60;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - 300, divY);
+  ctx.lineTo(centerX + 300, divY);
+  ctx.stroke();
+
+  // Bottom: "YYYY년 MM월 W주차"
+  const { y, m, w: wk } = weekOfMonthKst(toDate || fromDate);
+  const label = y && m && wk ? `${y}년 ${m}월 ${wk}주차` : `${fromDate} ~ ${toDate}`;
+  ctx.textBaseline = "middle";
+  ctx.font = `700 92px ${WEEKLY_FONT}`;
+  ctx.fillStyle = WEEKLY_POINT;
+  ctx.fillText(label, centerX, divY + 92);
+
+  ctx.restore();
+}
+
+function weeklyWinPct(r) {
+  const w = Number(r?.wins ?? 0);
+  const l = Number(r?.losses ?? 0);
+  const d = Number(r?.draws ?? 0);
+  void d;
+  const denom = w + l;
+  return denom > 0 ? w / denom : 0;
+}
+
+function drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
+
+  const titleY = 170;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 팀 성적", w / 2, titleY);
+  ctx.restore();
+
+  const list = (Array.isArray(weeklyGames) ? weeklyGames : [])
+    .slice()
+    .sort((a, b) => weeklyWinPct(b) - weeklyWinPct(a));
+  const rows = list.slice(0, 10);
+
+  const x0 = 90;
+  const y0 = 320;
+  const rowH = 135;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i] || {};
+    const teamRaw = String(r.team || "");
+    const y = y0 + i * rowH;
+    const isTop = i === 0;
+
+    ctx.save();
+    ctx.fillStyle = isTop ? "rgba(255,215,0,0.16)" : i % 2 === 0 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.05)";
+    ctx.strokeStyle = isTop ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = isTop ? 3 : 2;
+    ctx.beginPath();
+    ctx.roundRect(x0, y, w - x0 * 2, rowH - 14, 22);
+    ctx.fill();
+    ctx.stroke();
+
+    // logo
+    drawLogoInBox(ctx, teamRaw, x0 + 22 + 92 / 2, y + 18 + 92 / 2, 92);
+
+    // team name
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = isTop ? WEEKLY_POINT : "#FFFFFF";
+    ctx.font = `900 ${isTop ? 62 : 56}px ${WEEKLY_FONT}`;
+    ctx.fillText(teamRaw || "—", x0 + 130, y + (rowH - 14) / 2);
+
+    // W-L-D
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `800 ${isTop ? 54 : 48}px ${WEEKLY_FONT}`;
+    ctx.fillText(`${r.wins ?? 0}승 ${r.losses ?? 0}패 ${r.draws ?? 0}무`, w - x0 - 30, y + (rowH - 14) / 2);
+
+    ctx.restore();
+  }
+}
+
+/** weekly_top_batters row → "3HR  12H  8RBI  5R  .312" */
+function formatWeeklyTopBatterStatLine(b) {
+  if (!b || typeof b !== "object") return "";
+  const hr = Number(b.hr ?? 0) || 0;
+  const h = Number(b.h ?? 0) || 0;
+  const rbi = Number(b.rbi ?? 0) || 0;
+  const runs = Number(b.runs ?? b.r ?? b.run ?? b.R ?? 0) || 0;
+  const avgRaw = b.avg ?? b.AVG ?? b.batting_avg;
+  let avgPart = "—";
+  if (avgRaw != null && String(avgRaw).trim() !== "") {
+    const av = Number(avgRaw);
+    if (Number.isFinite(av)) {
+      const s = av.toFixed(3);
+      avgPart = av < 1 ? `.${s.slice(2)}` : s;
+    }
+  }
+  return `${hr}HR  ${h}H  ${rbi}RBI  ${runs}R  ${avgPart}`;
+}
+
+function drawWeeklyHRSlide(ctx, w, h, weeklyTopBatters, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 홈런왕 Top3", w / 2, 170);
+  ctx.restore();
+
+  const list = Array.isArray(weeklyTopBatters) ? weeklyTopBatters : [];
+  const b1 = list[0] || null;
+  const b2 = list[1] || null;
+  const b3 = list[2] || null;
+
+  const drawCard = (rank, b, x, y, cardW, cardH, big) => {
+    ctx.save();
+    ctx.fillStyle = big ? "rgba(255,215,0,0.14)" : "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = big ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = big ? 3 : 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 26);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 ${big ? 70 : 58}px ${WEEKLY_FONT}`;
+    ctx.fillText(String(rank), x + 26, y + 18);
+
+    if (b) {
+      const teamRaw = String(b.team || "");
+      const logoSize = big ? 150 : 120;
+      drawLogoInBox(
+        ctx,
+        teamRaw,
+        x + 120 + logoSize / 2,
+        y + (big ? 50 : 42) + logoSize / 2,
+        logoSize
+      );
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
+      ctx.fillText(String(b.player || "—").slice(0, 10), x + 290, y + (big ? 60 : 56));
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
+      ctx.fillText(teamRaw || "—", x + 290, y + (big ? 140 : 118));
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `800 ${big ? 44 : 36}px ${WEEKLY_FONT}`;
+      ctx.fillText(formatWeeklyTopBatterStatLine(b), x + 290, y + (big ? 210 : 182));
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 120);
+    }
+    ctx.restore();
+  };
+
+  // 1위 크게 (상단)
+  drawCard(1, b1, 90, 320, 900, 520, true);
+  // 2/3위 작게 (하단 2개)
+  drawCard(2, b2, 90, 880, 900, 420, false);
+  drawCard(3, b3, 90, 1340, 900, 420, false);
+}
+
+function drawWeeklyPitcherSlide(ctx, w, h, weeklyTopPitchers, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("이번주 최고 투수 Top3", w / 2, 170);
+  ctx.restore();
+
+  const list = Array.isArray(weeklyTopPitchers) ? weeklyTopPitchers : [];
+  const p1 = list[0] || null;
+  const p2 = list[1] || null;
+  const p3 = list[2] || null;
+
+  const drawCard = (rank, p, x, y, cardW, cardH, big) => {
+    ctx.save();
+    ctx.fillStyle = big ? "rgba(255,215,0,0.14)" : "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = big ? "rgba(255,215,0,0.45)" : "rgba(255,255,255,0.14)";
+    ctx.lineWidth = big ? 3 : 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 26);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 ${big ? 70 : 58}px ${WEEKLY_FONT}`;
+    ctx.fillText(String(rank), x + 26, y + 18);
+
+    if (p) {
+      const teamRaw = String(p.team || "");
+      const logoSize = big ? 150 : 120;
+      drawLogoInBox(
+        ctx,
+        teamRaw,
+        x + 120 + logoSize / 2,
+        y + (big ? 50 : 42) + logoSize / 2,
+        logoSize
+      );
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `1000 ${big ? 70 : 54}px ${WEEKLY_FONT}`;
+      ctx.fillText(String(p.player || "—").slice(0, 10), x + 290, y + (big ? 60 : 56));
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `800 ${big ? 50 : 42}px ${WEEKLY_FONT}`;
+      ctx.fillText(teamRaw || "—", x + 290, y + (big ? 140 : 118));
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = WEEKLY_POINT;
+      ctx.font = `1000 ${big ? 92 : 74}px ${WEEKLY_FONT}`;
+      ctx.fillText(`${Number(p.ip ?? 0).toFixed(1)} IP`, x + cardW - 30, y + (big ? 62 : 56));
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      const era = p.era == null ? "—" : Number(p.era).toFixed(2);
+      ctx.fillText(`ERA ${era}`, x + cardW - 30, y + (big ? 176 : 150));
+      ctx.fillText(`승 ${p.wins ?? 0}`, x + cardW - 30, y + (big ? 238 : 204));
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 ${big ? 54 : 44}px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 120);
+    }
+    ctx.restore();
+  };
+
+  drawCard(1, p1, 90, 320, 900, 520, true);
+  drawCard(2, p2, 90, 880, 900, 420, false);
+  drawCard(3, p3, 90, 1340, 900, 420, false);
+}
+
+function drawWeeklyNextSlide(ctx, w, h, nextWeekHighlights, logosByTeamKey) {
+  drawWeeklyBase(ctx, w, h);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 86px ${WEEKLY_FONT}`;
+  ctx.fillText("다음주 주목 경기", w / 2, 170);
+  ctx.restore();
+
+  const list = Array.isArray(nextWeekHighlights) ? nextWeekHighlights : [];
+  const cardW = 900;
+  const cardH = 430;
+  const x = (w - cardW) / 2;
+  const y0 = 320;
+  const gap = 40;
+
+  for (let i = 0; i < 3; i++) {
+    const g = list[i] || null;
+    const y = y0 + i * (cardH + gap);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, cardW, cardH, 26);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = WEEKLY_POINT;
+    ctx.font = `1000 58px ${WEEKLY_FONT}`;
+    ctx.fillText(String(i + 1), x + 26, y + 18);
+
+    if (g) {
+      const awayRaw = String(g.away_team || "");
+      const homeRaw = String(g.home_team || "");
+      drawLogoInBox(ctx, awayRaw, x + 110 + 130 / 2, y + 90 + 130 / 2, 130);
+      drawLogoInBox(ctx, homeRaw, x + cardW - 110 - 130 + 130 / 2, y + 90 + 130 / 2, 130);
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `1000 60px ${WEEKLY_FONT}`;
+      ctx.fillText(`${teamShortName(awayRaw)}  VS  ${teamShortName(homeRaw)}`, x + cardW / 2, y + 98);
+
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.font = `900 46px ${WEEKLY_FONT}`;
+      ctx.fillText(
+        `${String(g.game_date || "").slice(0, 10)} ${String(g.game_time || "").trim()}`,
+        x + cardW / 2,
+        y + 182
+      );
+
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = `800 40px ${WEEKLY_FONT}`;
+      ctx.fillText(String(g.venue || "").slice(0, 22), x + cardW / 2, y + 248);
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `900 44px ${WEEKLY_FONT}`;
+      ctx.fillText("데이터 없음", x + 140, y + 160);
+    }
+    ctx.restore();
+  }
+}
+
+function Card9WeeklySummary() {
+  const last = useMemo(() => getWeekRangeKst("last"), []);
+  const [fromDate, setFromDate] = useState(last.from);
+  const [toDate, setToDate] = useState(last.to);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+  const weeklyData = data;
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  const slides = useMemo(
+    () => [
+      { type: "intro" },
+      { type: "weekly_games" },
+      { type: "weekly_top_batters" },
+      { type: "weekly_top_pitchers" },
+      { type: "next_week_highlights" },
+    ],
+    []
+  );
+
+  const renderSlideToCanvas = async (idx, canvas) => {
+    if (!canvas) return;
+    await ensureCanvasFonts();
+    const w = 1080;
+    const h = 1920;
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = "360px";
+    canvas.style.height = "640px";
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const slide = slides[idx];
+    if (!slide) return;
+
+    const weeklyGames = Array.isArray(weeklyData?.weekly_games) ? weeklyData.weekly_games : [];
+    const topBatters = Array.isArray(weeklyData?.weekly_top_batters)
+      ? weeklyData.weekly_top_batters
+      : [];
+    const topPitchers = Array.isArray(weeklyData?.weekly_top_pitchers)
+      ? weeklyData.weekly_top_pitchers
+      : [];
+    const highlights = Array.isArray(weeklyData?.next_week_highlights)
+      ? weeklyData.next_week_highlights
+      : [];
+
+    const teamKeys = new Set();
+    // preload common 10 team logos for intro
+    if (slide.type === "intro") {
+      for (const tk of ["KIA", "삼성", "LG", "두산", "KT", "SSG", "롯데", "한화", "NC", "키움"]) {
+        teamKeys.add(tk);
+      }
+    } else if (slide.type === "weekly_games") {
+      for (const r of weeklyGames.slice(0, 10)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "weekly_top_batters") {
+      for (const r of topBatters.slice(0, 3)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "weekly_top_pitchers") {
+      for (const r of topPitchers.slice(0, 3)) teamKeys.add(teamKeyword(r?.team || ""));
+    } else if (slide.type === "next_week_highlights") {
+      for (const g of highlights.slice(0, 3)) {
+        teamKeys.add(teamKeyword(g?.home_team || ""));
+        teamKeys.add(teamKeyword(g?.away_team || ""));
+      }
+    }
+
+    const logosByTeamKey = {};
+    for (const tk of teamKeys) {
+      const img = await loadSvgLogo(tk);
+      logosByTeamKey[tk] = img;
+    }
+    // Expose loaded logos to weekly slides helper (teamName → keyword key)
+    for (const [k, img] of Object.entries(logosByTeamKey)) {
+      if (img) teamLogoImages[k] = img;
+    }
+    __baseballDecorImg = await loadPngImage("/baseball.png");
+
+    if (slide.type === "intro") drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey);
+    else if (slide.type === "weekly_games") drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey);
+    else if (slide.type === "weekly_top_batters") drawWeeklyHRSlide(ctx, w, h, topBatters, logosByTeamKey);
+    else if (slide.type === "weekly_top_pitchers") drawWeeklyPitcherSlide(ctx, w, h, topPitchers, logosByTeamKey);
+    else drawWeeklyNextSlide(ctx, w, h, highlights, logosByTeamKey);
+  };
+
+  const onFetch = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({
+        action: "weekly_summary",
+        from_date: fromDate,
+        to_date: toDate,
+      });
+      setData(res);
+      setSlideIdx(0);
+    } catch (e) {
+      setError(e?.message || String(e));
+      setData(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadPng = async (idx) => {
+    const c = document.createElement("canvas");
+    await renderSlideToCanvas(idx, c);
+    const blob = await canvasToBlob(c);
+    if (!blob) return;
+    downloadBlob(
+      blob,
+      `weekly_${fromDate}_${toDate}_${String(idx + 1).padStart(2, "0")}.png`
+    );
+  };
+
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    for (let i = 0; i < slides.length; i++) {
+      const c = document.createElement("canvas");
+      await renderSlideToCanvas(i, c);
+      const blob = await canvasToBlob(c);
+      if (!blob) continue;
+      zip.file(
+        `weekly_${fromDate}_${toDate}_${String(i + 1).padStart(2, "0")}.png`,
+        blob
+      );
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    downloadBlob(out, `weekly_${fromDate}_${toDate}.zip`);
+  };
+
+  return (
+    <div className="section soft">
+      <div className="section-title">3. 쇼츠-주간-분석(월요일)</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted" style={{ fontWeight: 900 }}>시작</span>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted" style={{ fontWeight: 900 }}>종료</span>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const r = getWeekRangeKst("this");
+            setFromDate(r.from);
+            setToDate(r.to);
+          }}
+          disabled={busy}
+        >
+          이번주
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const r = getWeekRangeKst("last");
+            setFromDate(r.from);
+            setToDate(r.to);
+          }}
+          disabled={busy}
+        >
+          지난주
+        </button>
+
+        <button type="button" className="primary primary-fill" onClick={onFetch} disabled={busy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary" onClick={downloadZip} disabled={!data || busy}>
           전체 ZIP 다운로드
         </button>
       </div>
@@ -1751,55 +3020,11 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
               </button>
             </div>
             <div className="muted" style={{ marginTop: 10 }}>
-              - 슬라이드1: 인트로(내일 경기 예고)
-              <br />
-              - 슬라이드2~N: 경기별 예고(상대전적·예상선발)
-              <br />- 마지막: KBO 순위
-            </div>
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                width: "100%",
-              }}
-            >
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--naver"
-                onClick={() =>
-                  window.open(
-                    `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                🔍 네이버 일정에서 검증
-              </button>
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--naver"
-                onClick={() =>
-                  window.open(
-                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                📊 네이버 팀순위
-              </button>
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--kbo"
-                onClick={() =>
-                  window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
-                }
-              >
-                ⚾ KBO 공식 홈페이지
-              </button>
+              - 슬라이드1: 인트로<br />
+              - 슬라이드2: 주간 팀별 순위/성적<br />
+              - 슬라이드3: 주간 최다 홈런 Top3<br />
+              - 슬라이드4: 주간 최고 투수 Top3<br />
+              - 슬라이드5: 다음주 주목 경기
             </div>
           </div>
         </div>
@@ -1870,7 +3095,6 @@ function SummaryCards({ batterRows }) {
 
 export default function App() {
   const today = useMemo(() => seoulToday(), []);
-  const shortsTomorrowIso = useMemo(() => isoSeoulTomorrowIso(), []);
   const { busy, runWith } = useAnalyzer();
 
   const [lastMeta, setLastMeta] = useState({ data: null, error: null });
@@ -1891,8 +3115,8 @@ export default function App() {
     };
   }, []);
 
-  const [tab, setTab] = useState("analysis");
-  const [activeKey, setActiveKey] = useState(null);
+  const [tab, setTab] = useState("shorts");
+  const [activeKey, setActiveKey] = useState("shorts_slides");
 
   /* --- Analysis --- */
   const [mvpDate, setMvpDate] = useState(today);
@@ -2145,6 +3369,7 @@ export default function App() {
 
   /* Shorts */
   const [shDate, setShDate] = useState(today);
+  const shortsTomorrowIso = useMemo(() => isoSeoulTomorrowIso(), []);
   const [hlOut, setHlOut] = useState({
     text: "",
     summary: null,
@@ -2267,7 +3492,7 @@ export default function App() {
             type="button"
             onClick={async () => {
               try {
-                const r = await postKbo({ action: "trigger_crawl" });
+                const r = await postKbo({ action: "trigger_crawl", date: mvpDate });
                 if (r?.success) alert("✅ 크롤링 시작됐어요!");
                 else alert("❌ 실패했어요");
               } catch {
@@ -2313,13 +3538,23 @@ export default function App() {
           <nav className="side-tabs" aria-label="기능 분류">
             <button
               type="button"
+              className={`side-tab ${tab === "shorts" ? "active" : ""}`}
+              onClick={() => {
+                setTab("shorts");
+                setActiveKey(null);
+              }}
+            >
+              쇼츠 (1–4)
+            </button>
+            <button
+              type="button"
               className={`side-tab ${tab === "analysis" ? "active" : ""}`}
               onClick={() => {
                 setTab("analysis");
                 setActiveKey(null);
               }}
             >
-              분석 (1–5)
+              분석 (4–8)
             </button>
             <button
               type="button"
@@ -2329,24 +3564,14 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              예측 (6–7)
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${tab === "shorts" ? "active" : ""}`}
-              onClick={() => {
-                setTab("shorts");
-                setActiveKey(null);
-              }}
-            >
-              쇼츠 (1–4)
+              예측 (9–10)
             </button>
           </nav>
 
           {tab === "analysis" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">1. 경기 결과 조회</div>
+                <div className="side-group-title">4. 경기 결과 조회</div>
                 <label>날짜</label>
                 <input
                   type="date"
@@ -2380,7 +3605,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">2. 팀별 주간 트렌드</div>
+                <div className="side-group-title">5. 팀별 주간 트렌드</div>
                 <label>팀</label>
                 <select
                   value={teamKw}
@@ -2417,7 +3642,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">3. 투수 vs 타자</div>
+                <div className="side-group-title">6. 투수 vs 타자</div>
                 <div className="grid-2">
                   <div>
                     <label>투수팀</label>
@@ -2515,7 +3740,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 기간별 선수 성적</div>
+                <div className="side-group-title">7. 기간별 선수 성적</div>
                 <div className="grid-2">
                   <div>
                     <label>팀</label>
@@ -2582,7 +3807,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">5. 선발 투수 비교</div>
+                <div className="side-group-title">8. 선발 투수 비교</div>
                 <div className="grid-2">
                   <div>
                     <label>투수 A 팀</label>
@@ -2666,7 +3891,7 @@ export default function App() {
           {tab === "predict" && (
             <div className="side-section">
               <div className="side-group">
-                <div className="side-group-title">6. 선발 vs 상대 타선</div>
+                <div className="side-group-title">9. 선발 vs 상대 타선</div>
                 <div className="grid-2">
                   <div>
                     <label>투수팀</label>
@@ -2736,7 +3961,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">7. 최근 5경기 폼 예측</div>
+                <div className="side-group-title">10. 최근 5경기 폼 예측</div>
                 <div className="grid-2">
                   <div>
                     <label>팀 A</label>
@@ -2855,15 +4080,18 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">2. 쇼츠-내일경기-예고</div>
-                <label>내일 경기일 (KST 자동)</label>
-                <input type="text" readOnly value={`${shortsTomorrowIso} (${fmtKoreanLongDate(shortsTomorrowIso)})`} />
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  {fmtKoreanLongDate(shortsTomorrowIso)}
+                </div>
                 <button
                   type="button"
                   className="primary primary-fill"
-                  disabled={busy === "shorts_slides_open"}
-                  onClick={() => setActiveKey("shorts_tomorrow_preview")}
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts_tomorrow_preview");
+                  }}
                 >
-                  내일 경기 예고 슬라이드 열기
+                  패널 열기
                 </button>
               </div>
 
@@ -2872,25 +4100,23 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_pitcher_week_3")}
                   onClick={() => {
-                    setActiveKey("shorts_pitcher_week");
-                    runWith("shorts_pitcher_week", {}, "3", setWkOut);
+                    setActiveKey("shorts_weekly_summary");
                   }}
                 >
-                  생성
+                  열기
                 </button>
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 최악 매칭업 (쇼츠)</div>
+                <div className="side-group-title">4. 최악 매칭업</div>
                 <button
                   type="button"
                   className="primary"
-                  disabled={pending("shorts_worst_matchup_4")}
+                  disabled={pending("shorts_worst_matchup_10")}
                   onClick={() => {
                     setActiveKey("shorts_worst_matchup");
-                    runWith("shorts_worst_matchup", {}, "4", setWorstOut);
+                    runWith("shorts_worst_matchup", {}, "10", setWorstOut);
                   }}
                 >
                   생성
@@ -3650,23 +4876,25 @@ export default function App() {
                       error={hlOut.error}
                       pending={pending("shorts_highlight_8")}
                     />
-                  ) : activeKey === "shorts_tomorrow_preview" ? (
-                    <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} />
+                  ) : activeKey === "shorts_tomorrow_preview" ? (
+                    <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
+                  ) : activeKey === "shorts_weekly_summary" ? (
+                    <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
                     <ResultBlock
                       title={null}
                       text={wkOut.text}
                       error={wkOut.error}
-                      pending={pending("shorts_pitcher_week_3")}
+                      pending={pending("shorts_pitcher_week_9")}
                     />
                   ) : activeKey === "shorts_worst_matchup" ? (
                     <ResultBlock
                       title={null}
                       text={worstOut.text}
                       error={worstOut.error}
-                      pending={pending("shorts_worst_matchup_4")}
+                      pending={pending("shorts_worst_matchup_10")}
                     />
                   ) : (
                     <div className="muted">← 좌측에서 실행하세요</div>
