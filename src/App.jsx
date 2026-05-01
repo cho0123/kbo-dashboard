@@ -2431,7 +2431,7 @@ function Card8Shorts({ defaultDate }) {
 }
 
 function CardTomorrowPreviewShorts({ previewDateIso }) {
-  const date = previewDateIso;
+  const [date, setDate] = useState(previewDateIso);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -2564,9 +2564,20 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 내일 일정 기준(KST 자동 계산)</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-        <div className="muted" style={{ fontWeight: 900 }}>
-          내일 일자: <span style={{ color: "#1a237e" }}>{fmtKoreanLongDate(date)}</span>
-        </div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const todayStr = new Date().toLocaleDateString("sv-SE", {
+              timeZone: "Asia/Seoul",
+            });
+            setDate(todayStr);
+          }}
+          disabled={busy}
+        >
+          오늘
+        </button>
         <button type="button" className="primary" onClick={onLoad} disabled={busy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
@@ -4295,9 +4306,6 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">2. 쇼츠-내일경기-예고</div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                  {fmtKoreanLongDate(shortsTomorrowIso)}
-                </div>
                 <button
                   type="button"
                   className="primary primary-fill"
