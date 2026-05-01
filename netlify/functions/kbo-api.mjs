@@ -1673,13 +1673,6 @@ function slimGameResultRow(g) {
     "패전투수",
   ]);
 
-  console.log("INNINGS CHECK:", {
-    game_id: g?.game_id,
-    total_innings: g?.total_innings,
-    totalInnings: g?.totalInnings,
-    maxInning: g?.maxInning,
-  });
-
   return {
     game_id: gid,
     game_date: g.game_date ?? null,
