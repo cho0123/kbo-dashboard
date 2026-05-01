@@ -966,96 +966,112 @@ function wrapTextLines(ctx, text, maxW, font, maxLines) {
 }
 
 function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
-  const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
+  // 1080x1920 layout
+  const homeTeam = String(g?.home_team || "").trim();
+  const awayTeam = String(g?.away_team || "").trim();
+
   ctx.clearRect(0, 0, w, h);
-  shortsGrassFieldBackground(ctx, w, h, SAFE_TOP);
-  drawBaseballBackground(ctx);
+  // Background: home(top) / away(bottom) diagonal split + baseball watermark
+  diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
 
-  ctx.fillStyle = TEXT_MAIN;
-  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
-  resetShadow(ctx);
-  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("경기별 예고 · 예상선발 · 상대전적", 64, SAFE_TOP + 80 + 68);
-  resetShadow(ctx);
-
-  const hk = teamKeyword(g.home_team);
-  const ak = teamKeyword(g.away_team);
-  const badgeY = SAFE_TOP + 210;
-  const logoBoxW = 280;
-  const logoBoxH = 210;
-  const leftCenterX = 170;
-  const rightCenterX = w - 170;
-  const logoBoxY = badgeY;
-
-  const homeImg = logosByTeamKey?.[hk] || null;
-  const awayImg = logosByTeamKey?.[ak] || null;
-  if (homeImg)
-    drawImageContain(ctx, homeImg, leftCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, leftCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.home_team);
-
-  if (awayImg)
-    drawImageContain(ctx, awayImg, rightCenterX - logoBoxW / 2, logoBoxY, logoBoxW, logoBoxH);
-  else drawTeamBadge(ctx, rightCenterX, logoBoxY + logoBoxH / 2, logoBoxH / 2, g.away_team);
-
-  const vsText = "VS";
-  ctx.font = `1000 200px "${FONT_TITLE}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillStyle = "#F9FF00";
-  const vw = ctx.measureText(vsText).width;
-  ctx.fillText(vsText, (w - vw) / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2));
-  resetShadow(ctx);
+  // --- Top text (y: 150~300) ---
+  const dateText = fmtKoreanLongDate(date);
+  const timeText = String(g?.game_time || g?.time || "").trim();
+  const venueText = String(g?.venue || "").trim();
+  const topLine = `${dateText}${timeText ? `  ${timeText}` : ""}${venueText ? `  ${venueText}` : ""}`;
 
   ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  const venue = String(g.venue || "").trim();
-  const gtime = String(g.game_time || "").trim();
-  if (venue || gtime) {
-    ctx.font = `600 42px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    const sub = venue && gtime ? `${venue} · ${gtime}` : venue || gtime;
-    ctx.fillText(sub, w / 2, Math.round((SAFE_TOP + SAFE_BOTTOM) / 2) + 120);
-  }
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(topLine, w / 2, 230);
+  resetShadow(ctx);
 
-  const asp = String(g.away_starter || "").trim() || "—";
-  const hsp = String(g.home_starter || "").trim() || "—";
-  const labelFont = `900 56px "${FONT_TITLE}", system-ui, sans-serif`;
-  const nameFont = `900 74px "${FONT_TITLE}", system-ui, sans-serif`;
-  const bottomY = SAFE_BOTTOM - 200;
-  const drawLbl = (y, lbl, nm) => {
-    const gap = "  ";
-    ctx.font = labelFont;
-    const wL = ctx.measureText(lbl + gap).width;
-    ctx.font = nameFont;
-    const wN = ctx.measureText(nm).width;
-    const startX = (w - (wL + wN)) / 2;
-    ctx.font = labelFont;
-    ctx.fillStyle = "#00d4aa";
-    ctx.textAlign = "left";
-    ctx.fillText(lbl + gap, startX, y);
-    ctx.font = nameFont;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(nm, startX + wL, y);
+  // --- Logos + VS (y: 350~700) ---
+  const logoSize = 220;
+  const logoY = 430;
+  const awayX = 270;
+  const homeX = 810;
+
+  const hk = teamKeyword(homeTeam);
+  const ak = teamKeyword(awayTeam);
+  const homeImg = logosByTeamKey?.[hk] || null;
+  const awayImg = logosByTeamKey?.[ak] || null;
+
+  const drawLogo = (img, x, y, teamName) => {
+    if (img) drawImageContain(ctx, img, x - logoSize / 2, y - logoSize / 2, logoSize, logoSize);
+    else drawTeamBadge(ctx, x, y, logoSize / 2, teamName);
   };
-  ctx.textAlign = "left";
-  drawLbl(bottomY - 95, "원정 예상선발", asp.slice(0, 16));
-  drawLbl(bottomY, "홈 예상선발", hsp.slice(0, 16));
 
-  const mt = String(g.matchup_text || "").trim();
-  if (mt) {
-    const lines = wrapTextLines(ctx, mt, w - 128, `600 44px "${FONT_BODY}", sans-serif`, 5);
-    ctx.textAlign = "left";
-    ctx.font = `600 44px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    let ly = bottomY + 72;
-    for (const line of lines) {
-      ctx.fillText(line, 64, ly);
-      ly += 52;
-    }
-  }
+  drawLogo(awayImg, awayX, logoY, awayTeam);
+  drawLogo(homeImg, homeX, logoY, homeTeam);
+
+  // VS
+  ctx.font = `1000 90px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", w / 2, logoY + 8);
+  resetShadow(ctx);
+
+  // Team names under logo
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillText(awayTeam || "—", awayX, 610);
+  ctx.fillText(homeTeam || "—", homeX, 610);
+
+  // Ranks under team names
+  const fmtRank = (r) => {
+    if (!r || typeof r !== "object") return "—";
+    const rank = r?.rank;
+    const wins = r?.wins;
+    const losses = r?.losses;
+    const draws = r?.draws;
+    if (!Number.isFinite(Number(rank))) return "—";
+    const wv = Number.isFinite(Number(wins)) ? Number(wins) : null;
+    const lv = Number.isFinite(Number(losses)) ? Number(losses) : null;
+    const dv = Number.isFinite(Number(draws)) ? Number(draws) : null;
+    if (wv == null || lv == null || dv == null) return `${Number(rank)}위`;
+    return `${Number(rank)}위 (${wv}승 ${lv}패 ${dv}무)`;
+  };
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtRank(g?.away_rank), awayX, 670);
+  ctx.fillText(fmtRank(g?.home_rank), homeX, 670);
+
+  // --- Divider (y: 750) ---
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(70, 750);
+  ctx.lineTo(w - 70, 750);
+  ctx.stroke();
+  ctx.restore();
+
+  // --- Bottom bullets (y: 800~) ---
+  const head = g?.head_to_head || null;
+  const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
+  const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
+  const draws = Number.isFinite(Number(head?.draws)) ? Number(head.draws) : null;
+  const h2hText =
+    homeWins == null || awayWins == null || draws == null
+      ? "시즌 상대전적: —"
+      : `시즌 상대전적: ${homeTeam || "홈팀"} ${homeWins}승 ${draws}무 ${awayWins}패`;
+
+  const asp = String(g?.away_starter || "").trim() || "미정";
+  const hsp = String(g?.home_starter || "").trim() || "미정";
+  const spText = `예상선발: ${asp} vs ${hsp}`;
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
+  const x0 = 80;
+  let y0 = 880;
+  ctx.fillText(`• ${h2hText}`, x0, y0);
+  y0 += 80;
+  ctx.fillText(`• ${spText}`, x0, y0);
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "result") {
