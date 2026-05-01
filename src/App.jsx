@@ -961,6 +961,16 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
   const titleText = "오늘 경기 미리보기";
+  // Sub-label above the title
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.font = `800 64px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  ctx.fillText("KBO", w / 2, titleY - 86);
+  ctx.restore();
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(titleText, w / 2, titleY);
 
