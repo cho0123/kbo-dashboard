@@ -989,13 +989,6 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   ctx.fillText(topLine1, w / 2, 220);
   resetShadow(ctx);
 
-  // 2nd line: venue (60px below)
-  ctx.fillStyle = "#FFD700";
-  ctx.font = `800 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(venueText || "—", w / 2, 220 + 60);
-  resetShadow(ctx);
-
   // --- Logos + VS (y: 350~700) ---
   const logoSize = 220;
   const logoY = 430;
@@ -1057,7 +1050,18 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   ctx.stroke();
   ctx.restore();
 
-  // --- Bottom bullets (y: 800~) ---
+  // Venue below divider (right aligned)
+  ctx.save();
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(venueText || "—", w - 80, 750 + 50);
+  resetShadow(ctx);
+  ctx.restore();
+
+  // --- Bottom bullets (y: 60% of 1920 = 1152) ---
   const head = g?.head_to_head || null;
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
@@ -1076,7 +1080,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
-  let y0 = 880;
+  let y0 = 1152;
   ctx.fillText(`• ${h2hText}`, x0, y0);
   y0 += 80;
   ctx.fillText(`• ${spText}`, x0, y0);
