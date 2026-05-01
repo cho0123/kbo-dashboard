@@ -1377,6 +1377,21 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
+  // Extra innings indicator (below starter vs line, centered)
+  const totalInningsRaw = g?.total_innings ?? g?.totalInnings ?? null;
+  const totalInningsNum = Number(totalInningsRaw);
+  if (Number.isFinite(totalInningsNum) && totalInningsNum >= 10) {
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`; // same size as starter 'vs'
+    ctx.fillStyle = "#F5F0E8";
+    const yExtra = yStarter + 62;
+    ctx.fillText(`연장 ${Math.trunc(totalInningsNum)}이닝`, w / 2, yExtra);
+    ctx.restore();
+  }
+
   // 하단 영역
   const leftX = 72;
   const listTop = DIVIDER_Y + 180;
