@@ -798,13 +798,22 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.save();
   // Background: day-of-week color (same as intro)
   const DAY_COLORS = {
-    0: "#C0392B", // Sun
-    1: "#1A5276", // Mon
-    2: "#1A5276", // Tue
-    3: "#1E8449", // Wed
-    4: "#D35400", // Thu
-    5: "#6C3483", // Fri
-    6: "#B7950B", // Sat
+    0: "#7D3C98", // Sun
+    1: "#117A65", // Mon
+    2: "#117A65", // Tue
+    3: "#1A5276", // Wed
+    4: "#B7950B", // Thu
+    5: "#C0392B", // Fri
+    6: "#1E8449", // Sat
+  };
+  const ONE_MIN_COLOR = {
+    0: "#3C981E", // Sun -> complement
+    1: "#7A1C23", // Mon -> complement
+    2: "#7A1C23", // Tue -> complement
+    3: "#76411A", // Wed -> complement
+    4: "#0B29B7", // Thu -> complement
+    5: "#2BC0AE", // Fri -> complement
+    6: "#841E53", // Sat -> complement
   };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
@@ -853,13 +862,13 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowBlur = 14;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const titleText = "내일 경기 미리보기";
+  const titleText = "오늘 경기 미리보기";
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const titleY = Math.round(h * 0.52);
+  const titleY = Math.round(h * 0.52) - 100;
   ctx.fillText(titleText, w / 2, titleY);
 
   // Below: "1분컷" (same style as drawIntroSlide)
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
