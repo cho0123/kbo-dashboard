@@ -1229,6 +1229,21 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5Disp.length ? awayLast5Disp.join("") : "—"}`;
   const last5Line = `${homeLast5Text}  |  ${awayLast5Text}`;
 
+  // Starter highlight box: auto background based on away team color (TEAM_GRAD second color)
+  const avgRgbFromHex = (hex) => {
+    const h = String(hex || "").trim().replace("#", "");
+    if (h.length !== 6) return null;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (![r, g, b].every((n) => Number.isFinite(n))) return null;
+    return (r + g + b) / 3;
+  };
+  const awayHex2 = teamGrad(awayTeam)?.[1] || "";
+  const awayAvg = avgRgbFromHex(awayHex2);
+  const isAwayBgBright = typeof awayAvg === "number" ? awayAvg >= 128 : false;
+  const starterBoxBg = isAwayBgBright ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.15)";
+
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
@@ -1276,7 +1291,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
     ctx.shadowOffsetY = 0;
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, r);
-    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fillStyle = starterBoxBg;
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.6)";
     ctx.lineWidth = 2;
