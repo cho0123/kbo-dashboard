@@ -2446,6 +2446,79 @@ export const handler = async (event) => {
           String(a?.game_id || "").localeCompare(String(b?.game_id || ""))
         );
 
+        // 2026 season games for derived stats (home/away record, last5 flow)
+        const seasonYear = Number(standingsYear) || 2026;
+        const seasonFrom = `${seasonYear}-01-01`;
+        const seasonTo = `${seasonYear}-12-31`;
+        const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
+
+        const pickGameTeam = (g, side /* "home" | "away" */) => {
+          if (!g || typeof g !== "object") return "";
+          const raw =
+            side === "home"
+              ? g.home_team ?? g.home ?? g.homeTeam ?? ""
+              : g.away_team ?? g.away ?? g.awayTeam ?? "";
+          return normalizeTeamKey(raw || "");
+        };
+        const pickGameDate = (g) => safeIsoDate(g?.game_date || g?.gameDate || "");
+        const pickScore = (v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+        const ensureRec = () => ({ win: 0, draw: 0, lose: 0 });
+
+        const homeOnlyRecordByTeam = new Map(); // team(full) -> {win,draw,lose} when team is home
+        const awayOnlyRecordByTeam = new Map(); // team(full) -> {win,draw,lose} when team is away
+        const allGamesByTeam = new Map(); // team(full) -> [{date, result}]
+
+        for (const g of seasonGames || []) {
+          const gd = pickGameDate(g);
+          if (!gd) continue;
+          const hTeam = pickGameTeam(g, "home");
+          const aTeam = pickGameTeam(g, "away");
+          if (!hTeam || !aTeam) continue;
+
+          const hs = pickScore(g?.home_score);
+          const as = pickScore(g?.away_score);
+          if (hs == null || as == null) continue;
+
+          // home-only record for home team
+          const hr = homeOnlyRecordByTeam.get(hTeam) || ensureRec();
+          if (hs === as) hr.draw += 1;
+          else if (hs > as) hr.win += 1;
+          else hr.lose += 1;
+          homeOnlyRecordByTeam.set(hTeam, hr);
+
+          // away-only record for away team
+          const ar = awayOnlyRecordByTeam.get(aTeam) || ensureRec();
+          if (hs === as) ar.draw += 1;
+          else if (as > hs) ar.win += 1;
+          else ar.lose += 1;
+          awayOnlyRecordByTeam.set(aTeam, ar);
+
+          // last5 flow for both teams (team perspective)
+          const pushResult = (team, isHome) => {
+            const list = allGamesByTeam.get(team) || [];
+            let r = "";
+            if (hs === as) r = "무";
+            else if (isHome) r = hs > as ? "승" : "패";
+            else r = as > hs ? "승" : "패";
+            list.push({ gd, r });
+            allGamesByTeam.set(team, list);
+          };
+          pushResult(hTeam, true);
+          pushResult(aTeam, false);
+        }
+
+        const last5ByTeam = new Map();
+        for (const [team, list] of allGamesByTeam.entries()) {
+          const sortedDesc = [...list].sort((x, y) => String(y.gd).localeCompare(String(x.gd)));
+          last5ByTeam.set(
+            team,
+            sortedDesc.slice(0, 5).map((x) => x.r)
+          );
+        }
+
         const games = [];
         for (const r of rows) {
           const game_id = String(r?.game_id ?? r?.gameId ?? "").trim() || null;
@@ -2471,6 +2544,13 @@ export const handler = async (event) => {
 
           const home_rank = toRankObj(findRankRow(home_team));
           const away_rank = toRankObj(findRankRow(away_team));
+
+          const homeKey = normalizeTeamKey(home_team || "");
+          const awayKey = normalizeTeamKey(away_team || "");
+          const home_record = homeOnlyRecordByTeam.get(homeKey) || { win: 0, draw: 0, lose: 0 };
+          const away_record = awayOnlyRecordByTeam.get(awayKey) || { win: 0, draw: 0, lose: 0 };
+          const home_last5 = last5ByTeam.get(homeKey) || [];
+          const away_last5 = last5ByTeam.get(awayKey) || [];
 
           const h2h = await fetchHeadToHeadRecord(
             db,
@@ -2498,6 +2578,10 @@ export const handler = async (event) => {
             home_rank,
             away_rank,
             head_to_head,
+            home_record,
+            away_record,
+            home_last5,
+            away_last5,
           });
         }
 

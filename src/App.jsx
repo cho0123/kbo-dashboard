@@ -1069,11 +1069,23 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   const h2hText =
     homeWins == null || awayWins == null || draws == null
       ? "시즌 상대전적: —"
-      : `시즌 상대전적: ${homeTeam || "홈팀"} ${homeWins}승 ${draws}무 ${awayWins}패`;
+      : `시즌 상대전적: ${homeTeam || "홈팀"}(홈) ${homeWins}승 ${draws}무 ${awayWins}패`;
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
   const spText = `예상선발: ${asp} vs ${hsp}`;
+
+  const fmtWdl = (rec) => {
+    const wv = Number.isFinite(Number(rec?.win)) ? Number(rec.win) : 0;
+    const dv = Number.isFinite(Number(rec?.draw)) ? Number(rec.draw) : 0;
+    const lv = Number.isFinite(Number(rec?.lose)) ? Number(rec.lose) : 0;
+    return `${wv}승 ${dv}무 ${lv}패`;
+  };
+  const homeRecText = `홈 성적: ${fmtWdl(g?.home_record)}`;
+  const awayRecText = `원정 성적: ${fmtWdl(g?.away_record)}`;
+  const homeLast5 = Array.isArray(g?.home_last5) ? g.home_last5.filter(Boolean).slice(0, 5) : [];
+  const awayLast5 = Array.isArray(g?.away_last5) ? g.away_last5.filter(Boolean).slice(0, 5) : [];
+  const last5Text = `최근 5경기: ${(homeLast5.length ? homeLast5.join("") : "—")} / ${(awayLast5.length ? awayLast5.join("") : "—")}`;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -1084,6 +1096,12 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   ctx.fillText(`• ${h2hText}`, x0, y0);
   y0 += 80;
   ctx.fillText(`• ${spText}`, x0, y0);
+  y0 += 80;
+  ctx.fillText(`• ${homeRecText}`, x0, y0);
+  y0 += 80;
+  ctx.fillText(`• ${awayRecText}`, x0, y0);
+  y0 += 80;
+  ctx.fillText(`• ${last5Text}`, x0, y0);
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "result") {
