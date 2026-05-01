@@ -845,7 +845,7 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
     drawTeamLogo(teamKeyword(bottomTeams[i]), x, row2Y);
   }
 
-  // Title centered vertically (~50%)
+  // Middle: title
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
@@ -855,7 +855,38 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowOffsetY = 6;
   const titleText = "내일 경기 미리보기";
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(titleText, w / 2, Math.round(h * 0.52));
+  const titleY = Math.round(h * 0.52);
+  ctx.fillText(titleText, w / 2, titleY);
+
+  // Below: "1분컷" (same style as drawIntroSlide)
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  const oneMinY = titleY + 220;
+  ctx.fillText("1분컷", w / 2, oneMinY);
+
+  // Divider + date (same style as drawIntroSlide)
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  const divY = oneMinY + 110 + 60;
+  const divW = 600;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - divW / 2, divY);
+  ctx.lineTo(w / 2 + divW / 2, divY);
+  ctx.stroke();
+
+  const dateY = divY + 80;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
   ctx.restore();
 }
 
