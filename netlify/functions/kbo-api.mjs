@@ -2452,6 +2452,15 @@ export const handler = async (event) => {
         const seasonTo = `${seasonYear}-12-31`;
         const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
 
+        // Build per-team game list (all opponents) for last5
+        const gamesByTeam = new Map(); // team(full) -> [{ gd, isHome, hs, as }]
+        const pushTeamGame = (team, item) => {
+          if (!team) return;
+          const list = gamesByTeam.get(team) || [];
+          list.push(item);
+          gamesByTeam.set(team, list);
+        };
+
         const pickGameTeam = (g, side /* "home" | "away" */) => {
           if (!g || typeof g !== "object") return "";
           const raw =
@@ -2469,7 +2478,6 @@ export const handler = async (event) => {
 
         const homeOnlyRecordByTeam = new Map(); // team(full) -> {win,draw,lose} when team is home
         const awayOnlyRecordByTeam = new Map(); // team(full) -> {win,draw,lose} when team is away
-        const allGamesByTeam = new Map(); // team(full) -> [{date, result}]
 
         for (const g of seasonGames || []) {
           const gd = pickGameDate(g);
@@ -2481,6 +2489,9 @@ export const handler = async (event) => {
           const hs = pickScore(g?.home_score);
           const as = pickScore(g?.away_score);
           if (hs == null || as == null) continue;
+
+          pushTeamGame(hTeam, { gd, isHome: true, hs, as });
+          pushTeamGame(aTeam, { gd, isHome: false, hs, as });
 
           // home-only record for home team
           const hr = homeOnlyRecordByTeam.get(hTeam) || ensureRec();
@@ -2495,28 +2506,26 @@ export const handler = async (event) => {
           else if (as > hs) ar.win += 1;
           else ar.lose += 1;
           awayOnlyRecordByTeam.set(aTeam, ar);
-
-          // last5 flow for both teams (team perspective)
-          const pushResult = (team, isHome) => {
-            const list = allGamesByTeam.get(team) || [];
-            let r = "";
-            if (hs === as) r = "무";
-            else if (isHome) r = hs > as ? "승" : "패";
-            else r = as > hs ? "승" : "패";
-            list.push({ gd, r });
-            allGamesByTeam.set(team, list);
-          };
-          pushResult(hTeam, true);
-          pushResult(aTeam, false);
         }
 
         const last5ByTeam = new Map();
-        for (const [team, list] of allGamesByTeam.entries()) {
+        for (const [team, list] of gamesByTeam.entries()) {
           const sortedDesc = [...list].sort((x, y) => String(y.gd).localeCompare(String(x.gd)));
-          last5ByTeam.set(
-            team,
-            sortedDesc.slice(0, 5).map((x) => x.r)
-          );
+          const out = [];
+          for (const it of sortedDesc.slice(0, 5)) {
+            const r =
+              it.hs === it.as
+                ? "무"
+                : it.isHome
+                  ? it.hs > it.as
+                    ? "승"
+                    : "패"
+                  : it.as > it.hs
+                    ? "승"
+                    : "패";
+            out.push(r);
+          }
+          last5ByTeam.set(team, out);
         }
 
         const games = [];

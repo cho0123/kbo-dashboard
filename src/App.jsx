@@ -1061,7 +1061,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   resetShadow(ctx);
   ctx.restore();
 
-  // --- Bottom bullets (y: 60% of 1920 = 1152) ---
+  // --- Bottom bullets (y: 65% of 1920 = 1248) ---
   const head = g?.head_to_head || null;
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
@@ -1081,27 +1081,33 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
     const lv = Number.isFinite(Number(rec?.lose)) ? Number(rec.lose) : 0;
     return `${wv}승 ${dv}무 ${lv}패`;
   };
-  const homeRecText = `홈 성적: ${fmtWdl(g?.home_record)}`;
-  const awayRecText = `원정 성적: ${fmtWdl(g?.away_record)}`;
   const homeLast5 = Array.isArray(g?.home_last5) ? g.home_last5.filter(Boolean).slice(0, 5) : [];
   const awayLast5 = Array.isArray(g?.away_last5) ? g.away_last5.filter(Boolean).slice(0, 5) : [];
-  const last5Text = `최근 5경기: ${(homeLast5.length ? homeLast5.join("") : "—")} / ${(awayLast5.length ? awayLast5.join("") : "—")}`;
+  const homeRecText = `${homeTeam || "홈팀"}(홈) ${fmtWdl(g?.home_record)}`;
+  const awayRecText = `${awayTeam || "원정팀"}(원정) ${fmtWdl(g?.away_record)}`;
+  const homeLast5Text = `${homeTeam || "홈팀"} : ${homeLast5.length ? homeLast5.join("") : "—"}`;
+  const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5.length ? awayLast5.join("") : "—"}`;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
-  let y0 = 1152;
+  const lineGap = 96;
+  let y0 = 1248;
   ctx.fillText(`• ${h2hText}`, x0, y0);
-  y0 += 80;
+  y0 += lineGap;
   ctx.fillText(`• ${spText}`, x0, y0);
-  y0 += 80;
+  y0 += lineGap;
   ctx.fillText(`• ${homeRecText}`, x0, y0);
-  y0 += 80;
+  y0 += lineGap;
   ctx.fillText(`• ${awayRecText}`, x0, y0);
-  y0 += 80;
-  ctx.fillText(`• ${last5Text}`, x0, y0);
+  y0 += lineGap;
+  ctx.fillText(`• 최근 5경기`, x0, y0);
+  y0 += lineGap;
+  ctx.fillText(`- ${homeLast5Text}`, x0 + 40, y0);
+  y0 += lineGap;
+  ctx.fillText(`- ${awayLast5Text}`, x0 + 40, y0);
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "result") {
