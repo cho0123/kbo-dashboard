@@ -1727,7 +1727,7 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFD700";
-  ctx.font = `1000 78px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `1000 78px "Inter", "Pretendard", "SUIT", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   shadowTextSoft(ctx);
   const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
