@@ -685,6 +685,15 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     5: "#6C3483", // Fri
     6: "#B7950B", // Sat
   };
+  const ONE_MIN_COLOR = {
+    0: "#F4FF00", // Sun
+    1: "#FF9500", // Mon
+    2: "#FF9500", // Tue
+    3: "#FF4ECD", // Wed
+    4: "#00E5FF", // Thu
+    5: "#00FF94", // Fri
+    6: "#4B00FF", // Sat
+  };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
   ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
@@ -762,7 +771,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
   // Center: "1분컷"
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
@@ -798,22 +807,22 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.save();
   // Background: day-of-week color (same as intro)
   const DAY_COLORS = {
-    0: "#7D3C98", // Sun
-    1: "#117A65", // Mon
-    2: "#117A65", // Tue
-    3: "#1A5276", // Wed
-    4: "#B7950B", // Thu
-    5: "#C0392B", // Fri
-    6: "#1E8449", // Sat
+    0: "#1A6B8A", // Sun
+    1: "#7D6608", // Mon
+    2: "#7D6608", // Tue
+    3: "#784212", // Wed
+    4: "#1D6A4A", // Thu
+    5: "#922B21", // Fri
+    6: "#4A235A", // Sat
   };
   const ONE_MIN_COLOR = {
-    0: "#3C981E", // Sun -> complement
-    1: "#7A1C23", // Mon -> complement
-    2: "#7A1C23", // Tue -> complement
-    3: "#76411A", // Wed -> complement
-    4: "#0B29B7", // Thu -> complement
-    5: "#2BC0AE", // Fri -> complement
-    6: "#841E53", // Sat -> complement
+    0: "#FF6B00", // Sun
+    1: "#00C8FF", // Mon
+    2: "#00C8FF", // Tue
+    3: "#00FFD0", // Wed
+    4: "#FF3B6B", // Thu
+    5: "#00FFB0", // Fri
+    6: "#AAFF00", // Sat
   };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
