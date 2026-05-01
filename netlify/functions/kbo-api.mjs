@@ -1630,6 +1630,15 @@ function slimGameResultRow(g) {
     away_score: safeNum(g.away_score),
     winning_pitcher: winningPitcher || "",
     losing_pitcher: losingPitcher || "",
+    // Extra innings support (kbo-project crawler stores total_innings from ScoreBoardScroll.maxInning)
+    total_innings:
+      Number.isFinite(Number(g?.total_innings))
+        ? Number(g.total_innings)
+        : Number.isFinite(Number(g?.totalInnings))
+          ? Number(g.totalInnings)
+          : Number.isFinite(Number(g?.maxInning))
+            ? Number(g.maxInning)
+            : null,
   };
 }
 
