@@ -965,7 +965,7 @@ function wrapTextLines(ctx, text, maxW, font, maxLines) {
   return lines;
 }
 
-function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
+function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIndex = 5) {
   // 1080x1920 layout
   const homeTeam = String(g?.home_team || "").trim();
   const awayTeam = String(g?.away_team || "").trim();
@@ -1065,7 +1065,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   resetShadow(ctx);
   ctx.restore();
 
-  // --- Bottom bullets (y: 65% of 1920 = 1248) ---
+  // --- Bottom text block (y: 65% of 1920 = 1248) ---
   const head = g?.head_to_head || null;
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
@@ -1104,17 +1104,36 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
   const x0 = 80;
   const lineGap = 96;
   let y0 = 1248;
+
+  // Bottom text shadow: same as drawGameSlide bottom block
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // Page-wise progressive disclosure (1..5)
   ctx.fillText(`- ${h2hText}`, x0, y0);
-  y0 += lineGap;
-  ctx.fillText(`- ${spText}`, x0, y0);
-  y0 += lineGap;
-  ctx.fillText(`- ${homeRecText}`, x0, y0);
-  y0 += lineGap;
-  ctx.fillText(`- ${awayRecText}`, x0, y0);
-  y0 += lineGap;
-  ctx.fillText(`- 최근 5경기 결과`, x0, y0);
-  y0 += lineGap;
-  ctx.fillText(`  ${last5Line}`, x0, y0);
+  if (pageIndex >= 2) {
+    y0 += lineGap;
+    ctx.fillText(`- ${spText}`, x0, y0);
+  }
+  if (pageIndex >= 3) {
+    y0 += lineGap;
+    ctx.fillText(`- ${homeRecText}`, x0, y0);
+  }
+  if (pageIndex >= 4) {
+    y0 += lineGap;
+    ctx.fillText(`- ${awayRecText}`, x0, y0);
+  }
+  if (pageIndex >= 5) {
+    y0 += lineGap;
+    ctx.fillText(`- 최근 5경기 결과`, x0, y0);
+    y0 += lineGap;
+    ctx.fillText(`  ${last5Line}`, x0, y0);
+  }
+
+  // reset shadow for other drawing
+  resetShadow(ctx);
 }
 
 function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "result") {
@@ -2276,7 +2295,11 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     const games = Array.isArray(data?.games) ? data.games : [];
     const s = [];
     s.push({ type: "intro" });
-    for (const g of games) s.push({ type: "preview_game", game: g });
+    for (const g of games) {
+      for (let page = 1; page <= 5; page++) {
+        s.push({ type: "preview_game", game: g, page });
+      }
+    }
     s.push({ type: "standings" });
     return s;
   }, [data]);
@@ -2338,7 +2361,15 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     if (slide.type === "intro")
       drawIntroSlide(ctx, w, h, date, logosByTeamKey, "내일 경기 예고");
     else if (slide.type === "preview_game")
-      drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey);
+      drawTomorrowPreviewGameSlide(
+        ctx,
+        w,
+        h,
+        date,
+        slide.game,
+        logosByTeamKey,
+        Number(slide.page) || 1
+      );
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
 
