@@ -1119,7 +1119,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
   const lineGap = 96;
-  let y0 = 1248;
+  let y0 = 1198;
 
   // Bottom text shadow: same as drawGameSlide bottom block
   ctx.shadowColor = "rgba(0,0,0,0.6)";
