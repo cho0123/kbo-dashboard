@@ -1017,7 +1017,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey) {
 
   // Team names under logo
   ctx.fillStyle = "#ffffff";
-  ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(awayTeam || "—", awayX, 610);
   ctx.fillText(homeTeam || "—", homeX, 610);
 

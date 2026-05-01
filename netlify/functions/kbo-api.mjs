@@ -2472,12 +2472,19 @@ export const handler = async (event) => {
           const home_rank = toRankObj(findRankRow(home_team));
           const away_rank = toRankObj(findRankRow(away_team));
 
-          const head_to_head = await fetchHeadToHeadRecord(
+          const h2h = await fetchHeadToHeadRecord(
             db,
             normalizeTeamKey(home_team || ""),
             normalizeTeamKey(away_team || ""),
             standingsYear || 2026
           );
+          // fetchHeadToHeadRecord는 teamA(=home) 기준 { win, draw, lose }를 반환
+          // 슬라이드(drawTomorrowPreviewGameSlide)는 { home_wins, away_wins, draws }를 기대
+          const head_to_head = {
+            home_wins: Number(h2h?.win) || 0,
+            away_wins: Number(h2h?.lose) || 0,
+            draws: Number(h2h?.draw) || 0,
+          };
 
           games.push({
             game_id,
