@@ -1245,23 +1245,69 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.shadowOffsetY = 1;
 
   // Page-wise progressive disclosure (1..5)
-  ctx.fillText(`- ${h2hText}`, x0, y0);
+  const spFont = `900 50px "${FONT_BODY}", system-ui, sans-serif`;
+  const baseFont = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
+
+  // 1) 예상선발
+  if (pageIndex >= 1) {
+    ctx.font = spFont;
+    const spLine = `- ${spText}`;
+
+    const padX = 18;
+    const padY = 14;
+    const r = 18;
+    const tw = ctx.measureText(spLine).width;
+    const boxX = x0 - padX;
+    const boxY = y0 - 46 + 6 - padY; // approx baseline-to-top for 50px
+    const boxW = tw + padX * 2;
+    const boxH = 50 + padY * 2;
+
+    ctx.save();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, r);
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // restore bottom shadow for text readability
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(spLine, x0, y0);
+  }
+
+  // 2) 상대전적
   if (pageIndex >= 2) {
     y0 += lineGap;
-    ctx.fillText(`- ${spText}`, x0, y0);
+    ctx.font = baseFont;
+    ctx.fillText(`- ${h2hText}`, x0, y0);
   }
+
+  // 3) 홈 성적
   if (pageIndex >= 3) {
     y0 += lineGap;
+    ctx.font = baseFont;
     ctx.fillText(`- ${homeRecText}`, x0, y0);
   }
   if (pageIndex >= 4) {
     y0 += lineGap;
+    ctx.font = baseFont;
     ctx.fillText(`- ${awayRecText}`, x0, y0);
   }
   if (pageIndex >= 5) {
     y0 += lineGap;
+    ctx.font = baseFont;
     ctx.fillText(`- 최근 5경기 결과`, x0, y0);
     y0 += lineGap;
+    ctx.font = baseFont;
     ctx.fillText(`  ${last5Line}`, x0, y0);
   }
 
