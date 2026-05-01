@@ -702,107 +702,92 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   // Baseball (same position/size/opacity as other slides)
   drawBaseballBackground(ctx);
 
-  // Layout anchors
-  const centerX = w / 2;
-  const SHIFT_Y = 50;
-  const gapTop = 20;
-  const centralY = Math.round(h * 0.64) + SHIFT_Y; // tuned to place divider+date around ~1480px
-
-  // Team logos (irregular collage above the main title)
-  const LOGO_SHIFT_Y = -240;
-  const placements = [
-    { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
-    { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
-    { team: "LG", x: 820, y: 440, size: 155, angle: -6 },
-    { team: "두산", x: 90, y: 620, size: 140, angle: 15 },
-    { team: "KT", x: 370, y: 580, size: 150, angle: -10 },
-    { team: "SSG", x: 690, y: 600, size: 145, angle: 12 },
-    { team: "롯데", x: 160, y: 790, size: 155, angle: -8 },
-    { team: "한화", x: 440, y: 760, size: 148, angle: 6 },
-    { team: "NC", x: 740, y: 780, size: 142, angle: -14 },
-    { team: "키움", x: 900, y: 640, size: 138, angle: 10 },
-  ];
-
+  // Big decorative "KBO" (background layer) — same style/position as 2번 인트로
+  ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  ctx.globalAlpha = 0.85;
-  let maxLogoBottom = 0;
-  for (const p of placements) {
-    const tk = teamKeyword(p.team);
-    const img = logosByTeamKey?.[tk] || null;
-    // shrink from current rendered size
-    const size = p.size * 1.8 * 0.55 * 1.05;
-    maxLogoBottom = Math.max(maxLogoBottom, p.y + SHIFT_Y + LOGO_SHIFT_Y + size);
-    ctx.save();
-    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + LOGO_SHIFT_Y + size / 2);
-    ctx.rotate((p.angle * Math.PI) / 180);
-    if (img) {
-      const iw = Number(img?.naturalWidth ?? img?.width) || 1;
-      const ih = Number(img?.naturalHeight ?? img?.height) || 1;
-      const ratio = iw / ih;
-      const drawH = size;
-      const drawW = size * ratio;
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-    } else {
-      // fallback badge (square)
-      drawTeamLogoOrBadge(ctx, -size / 2, -size / 2, size, p.team, null);
-    }
-    ctx.restore();
-  }
-  ctx.globalAlpha = 1;
-
-  // Top: title (single line)
-  // Move the title below the logo collage.
-  const topY = Math.round(maxLogoBottom + 40) + 70 + 70;
   ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  // No shadow (explicitly disable)
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  const kboText = "KBO";
+  let kboSize = 520;
+  ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  while (ctx.measureText(kboText).width > w * 0.96 && kboSize > 380) {
+    kboSize -= 10;
+    ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  }
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
+  ctx.restore();
+
+  // Text block layout — same as 2번 인트로
+  const BLOCK_SHIFT_Y = 100;
+  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
+
+  // Small label: "프로야구" + divider
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  const titleText = String(introTitle || "프로야구 경기 결과").trim() || "프로야구 경기 결과";
-  let titleSize = 105;
-  ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  while (ctx.measureText(titleText).width > 960 && titleSize > 60) {
-    titleSize -= 2;
-    ctx.font = `800 ${titleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  }
-  ctx.fillText(titleText, centerX, topY);
+  ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const proY = titleY - 140;
+  ctx.fillText("프로야구", w / 2, proY);
 
-  // Center: "1분컷"
+  const proDivY = proY + 52;
+  const proDivW = 420;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - proDivW / 2, proDivY);
+  ctx.lineTo(w / 2 + proDivW / 2, proDivY);
+  ctx.stroke();
+  ctx.restore();
+
+  // Middle: title
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("오늘 경기 써머리", w / 2, titleY);
+
+  // Below: "1분컷" (요일별 보색 유지)
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  ctx.fillText("1분컷", centerX, centralY);
+  const oneMinY = titleY + 220 + 100;
+  ctx.fillText("1분컷", w / 2, oneMinY);
 
-  // Divider (white line) - 60px below "1분컷"
+  // Divider + date
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const divY = centralY + 110 + 60; // 220px font → approx half-height 110
+  const divY = oneMinY + 110 + 60;
   const divW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(centerX - divW / 2, divY);
-  ctx.lineTo(centerX + divW / 2, divY);
+  ctx.moveTo(w / 2 - divW / 2, divY);
+  ctx.lineTo(w / 2 + divW / 2, divY);
   ctx.stroke();
 
-  // Bottom: date (80px below divider)
   const dateY = divY + 80;
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtKoreanLongDate(date), centerX, dateY);
+  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
 
   ctx.restore();
 }
