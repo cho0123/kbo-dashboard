@@ -709,7 +709,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   const centralY = Math.round(h * 0.64) + SHIFT_Y; // tuned to place divider+date around ~1480px
 
   // Team logos (irregular collage above the main title)
-  const LOGO_SHIFT_Y = -260;
+  const LOGO_SHIFT_Y = -240;
   const placements = [
     { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
     { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
@@ -755,7 +755,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
   // Top: title (single line)
   // Move the title below the logo collage.
-  const topY = Math.round(maxLogoBottom + 40) + 70;
+  const topY = Math.round(maxLogoBottom + 40) + 70 + 70;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   // No shadow (explicitly disable)
