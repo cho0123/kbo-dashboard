@@ -800,18 +800,18 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
     1: "#7D6608", // Mon
     2: "#7D6608", // Tue
     3: "#784212", // Wed
-    4: "#1D6A4A", // Thu
-    5: "#922B21", // Fri
-    6: "#4A235A", // Sat
+    4: "#7B241C", // Thu
+    5: "#0E4D3A", // Fri
+    6: "#1A4A7A", // Sat
   };
   const ONE_MIN_COLOR = {
     0: "#FF6B00", // Sun
     1: "#00C8FF", // Mon
     2: "#00C8FF", // Tue
     3: "#00FFD0", // Wed
-    4: "#FF3B6B", // Thu
-    5: "#00FFB0", // Fri
-    6: "#AAFF00", // Sat
+    4: "#00E5FF", // Thu
+    5: "#FFD700", // Fri
+    6: "#FF6B00", // Sat
   };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
