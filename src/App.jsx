@@ -832,7 +832,6 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   // Baseball watermark
   drawBaseballBackground(ctx);
 
-  const titleY = Math.round(h * 0.52) - 100;
   // Big decorative "KBO" (background layer)
   ctx.save();
   ctx.shadowColor = "transparent";
@@ -852,6 +851,33 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
   ctx.restore();
 
+  // Text block (4~6) shifted down by 100px
+  const BLOCK_SHIFT_Y = 100;
+  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
+
+  // Small label: "프로야구" + divider just below it
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const proY = titleY - 140;
+  ctx.fillText("프로야구", w / 2, proY);
+
+  const proDivY = proY + 52;
+  const proDivW = 420;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - proDivW / 2, proDivY);
+  ctx.lineTo(w / 2 + proDivW / 2, proDivY);
+  ctx.stroke();
+  ctx.restore();
+
   // Middle: title
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -860,7 +886,7 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowBlur = 14;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const titleText = "오늘 경기 미리보기";
+  const titleText = "오늘경기 미리보기";
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(titleText, w / 2, titleY);
 
