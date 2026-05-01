@@ -978,6 +978,16 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   // after the split to match the intended watermark appearance.
   drawBaseballBackground(ctx);
 
+  // Decorative title (above diagonal split line, left)
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `italic 1000 130px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("GAME PREVIEW", 70, 745);
+  ctx.restore();
+
   // --- Top text (y: 150~300) ---
   const dateText = fmtKoreanLongDate(date);
   const timeText = String(g?.game_time || g?.time || "").trim();
