@@ -837,40 +837,119 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   const awayKey = teamKeyword(firstGame?.away_team || "");
   const remaining = baseTeams.filter((t) => t !== homeKey && t !== awayKey);
 
-  // 10 logos in a circle (evenly spaced). Home/away are opposite slots.
+  // 10 logos scattered (deterministic random by date). Keep inside top half
+  // and avoid overlapping the text block area (title/1분컷/날짜).
   const N = 10;
-  const logoSize = 100;
-  const cx = w / 2;
-  const cy = Math.round(h * (1 / 3) * 0.96); // slightly above the exact 1/3
-  const radius = Math.min(
-    220,
-    w / 2 - logoSize / 2 - 40,
-    cy - logoSize / 2 - 40
-  );
+  const teams = [
+    homeKey || null,
+    awayKey || null,
+    ...remaining,
+  ]
+    .filter(Boolean)
+    .slice(0, N);
+  while (teams.length < N) teams.push(baseTeams[teams.length] || "KIA");
 
-  const slots = new Array(N).fill(null);
-  const safeHome = homeKey || remaining[0] || baseTeams[0];
-  const safeAway = awayKey || remaining[1] || baseTeams[1];
-  slots[0] = safeHome; // angle 0 (right)
-  slots[5] = safeAway; // opposite (left)
-  let ri = 0;
-  for (let i = 0; i < N; i++) {
-    if (slots[i]) continue;
-    slots[i] = remaining[ri] || baseTeams[i] || "KIA";
-    ri += 1;
-  }
+  const isoSeed = String(date || "").slice(0, 10);
+  const seedNum = Array.from(isoSeed).reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 2166136261);
+  const mulberry32 = (a) => () => {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rand = mulberry32(seedNum);
+  const randBetween = (min, max) => min + (max - min) * rand();
 
-  const drawTeamLogo = (teamKey, x, y) => {
+  const titleY = Math.round(h * 0.52) - 100;
+  const scatterTop = 160;
+  const scatterBottom = Math.min(Math.round(h * 0.5), titleY - 70);
+  const marginX = 70;
+  const pad = 18;
+
+  const drawTeamLogo = (teamKey, x, y, size, angleDeg) => {
     const img = logosByTeamKey?.[teamKey] || null;
-    if (img) drawImageContain(ctx, img, x, y, logoSize, logoSize);
-    else drawTeamBadge(ctx, x + logoSize / 2, y + logoSize / 2, logoSize / 2, teamKey);
+    ctx.save();
+    ctx.translate(x + size / 2, y + size / 2);
+    ctx.rotate((angleDeg * Math.PI) / 180);
+    if (img) drawImageContain(ctx, img, -size / 2, -size / 2, size, size);
+    else drawTeamBadge(ctx, 0, 0, size / 2, teamKey);
+    ctx.restore();
   };
 
-  for (let i = 0; i < N; i++) {
-    const theta = (Math.PI * 2 * i) / N;
-    const x = cx + radius * Math.cos(theta) - logoSize / 2;
-    const y = cy + radius * Math.sin(theta) - logoSize / 2;
-    drawTeamLogo(teamKeyword(slots[i]), x, y);
+  // Place with retries; if too tight, slightly shrink until it fits.
+  let baseSize = 300; // 3x of the previous 100
+  const placed = [];
+  const tryPlaceAll = () => {
+    placed.length = 0;
+    for (let i = 0; i < N; i++) {
+      const scale = randBetween(0.9, 1.1);
+      const size = baseSize * scale;
+      const angle = randBetween(-10, 10);
+      const maxX = w - marginX - size;
+      const maxY = scatterBottom - size;
+      if (maxX <= marginX || maxY <= scatterTop) return false;
+
+      let ok = false;
+      for (let attempt = 0; attempt < 800; attempt++) {
+        const x = randBetween(marginX, maxX);
+        const y = randBetween(scatterTop, maxY);
+        const box = { x: x - pad, y: y - pad, w: size + pad * 2, h: size + pad * 2, team: teams[i], size, angle };
+        let collides = false;
+        for (const p of placed) {
+          if (
+            box.x < p.x + p.w &&
+            box.x + box.w > p.x &&
+            box.y < p.y + p.h &&
+            box.y + box.h > p.y
+          ) {
+            collides = true;
+            break;
+          }
+        }
+        if (!collides) {
+          placed.push(box);
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) return false;
+    }
+    return true;
+  };
+
+  let placedOk = false;
+  for (let iter = 0; iter < 10; iter++) {
+    if (tryPlaceAll()) {
+      placedOk = true;
+      break;
+    }
+    baseSize *= 0.95;
+  }
+
+  if (!placedOk) {
+    // Fallback: draw in a loose grid without overlap
+    const size = Math.max(220, Math.min(baseSize, 280));
+    const cols = 3;
+    const rows = 4;
+    let idx = 0;
+    const gx0 = marginX;
+    const gy0 = scatterTop;
+    const gx1 = w - marginX;
+    const gy1 = scatterBottom;
+    const gapX = (gx1 - gx0 - cols * size) / Math.max(1, cols - 1);
+    const gapY = (gy1 - gy0 - rows * size) / Math.max(1, rows - 1);
+    for (let r = 0; r < rows && idx < N; r++) {
+      for (let c = 0; c < cols && idx < N; c++) {
+        const x = gx0 + c * (size + gapX);
+        const y = gy0 + r * (size + gapY);
+        drawTeamLogo(teamKeyword(teams[idx]), x, y, size, randBetween(-8, 8));
+        idx += 1;
+      }
+    }
+  } else {
+    for (const p of placed) {
+      drawTeamLogo(teamKeyword(p.team), p.x + pad, p.y + pad, p.size, p.angle);
+    }
   }
 
   // Middle: title
@@ -883,7 +962,6 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowOffsetY = 6;
   const titleText = "오늘 경기 미리보기";
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const titleY = Math.round(h * 0.52) - 100;
   ctx.fillText(titleText, w / 2, titleY);
 
   // Below: "1분컷" (same style as drawIntroSlide)
