@@ -1596,6 +1596,57 @@ async function fetchPitcherRecent(db, name, maxGames = 12) {
   return lines;
 }
 
+function normalizePitcherNameForMatch(nameRaw) {
+  return String(nameRaw || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function safeEraNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+async function fetchLatestSeasonEraByPitcherName(db, seasonYear, pitcherNameRaw, cacheMap) {
+  const name = normalizePitcherNameForMatch(pitcherNameRaw);
+  if (!name) return null;
+  const key = `${seasonYear}:${name}`;
+  if (cacheMap?.has(key)) return cacheMap.get(key);
+
+  let rows = [];
+  try {
+    const snap = await db.collection("pitchers").where("player", "==", name).limit(220).get();
+    snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
+  } catch (e) {
+    console.warn("[fetchLatestSeasonEraByPitcherName] query failed:", e?.message || e);
+    cacheMap?.set(key, null);
+    return null;
+  }
+
+  // sort: latest game_date first (fallback to id)
+  const sortKey = (r) => {
+    const gd = safeIsoDate(r?.game_date || r?.gameDate || "");
+    const gid = String(r?.game_id || r?.gameId || r?.id || "");
+    return `${gd || ""}__${gid}`;
+  };
+  rows.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
+
+  // pick first non-null era, prefer same season year if year field exists
+  const y = Number(seasonYear) || 2026;
+  const pickFrom = (arr) => {
+    for (const r of arr) {
+      const era = safeEraNumber(r?.era ?? r?.ERA ?? null);
+      if (era != null) return era;
+    }
+    return null;
+  };
+  const sameYear = rows.filter((r) => Number(r?.year) === y);
+  const eraPicked = pickFrom(sameYear.length ? sameYear : rows);
+
+  cacheMap?.set(key, eraPicked);
+  return eraPicked;
+}
+
 function slimGameResultRow(g) {
   if (!g || typeof g !== "object") return {};
   const home = pickStr(g, ["home_team", "home", "homeTeam"]);
@@ -2537,6 +2588,8 @@ export const handler = async (event) => {
           last5ByTeam.set(team, out);
         }
 
+        const __starterEraCache = new Map();
+
         const games = [];
         for (const r of rows) {
           const game_id = String(r?.game_id ?? r?.gameId ?? "").trim() || null;
@@ -2559,6 +2612,25 @@ export const handler = async (event) => {
             hs == null || String(hs).trim() === "" ? null : String(hs).replace(/\s+/g, " ").trim();
           const away_starter =
             as == null || String(as).trim() === "" ? null : String(as).replace(/\s+/g, " ").trim();
+
+          const home_starter_era =
+            home_starter == null
+              ? null
+              : await fetchLatestSeasonEraByPitcherName(
+                  db,
+                  seasonYear,
+                  home_starter,
+                  __starterEraCache
+                );
+          const away_starter_era =
+            away_starter == null
+              ? null
+              : await fetchLatestSeasonEraByPitcherName(
+                  db,
+                  seasonYear,
+                  away_starter,
+                  __starterEraCache
+                );
 
           const home_rank = toRankObj(findRankRow(home_team));
           const away_rank = toRankObj(findRankRow(away_team));
@@ -2593,6 +2665,8 @@ export const handler = async (event) => {
             away_team,
             home_starter,
             away_starter,
+            home_starter_era,
+            away_starter_era,
             home_rank,
             away_rank,
             head_to_head,

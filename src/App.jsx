@@ -1087,7 +1087,13 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
-  const spText = `예상선발 : ${asp} vs ${hsp}`;
+  const aEraNum = Number(g?.away_starter_era);
+  const hEraNum = Number(g?.home_starter_era);
+  const aEra = Number.isFinite(aEraNum) ? aEraNum.toFixed(2) : null;
+  const hEra = Number.isFinite(hEraNum) ? hEraNum.toFixed(2) : null;
+  const aspText = aEra ? `${asp}(${aEra})` : asp;
+  const hspText = hEra ? `${hsp}(${hEra})` : hsp;
+  const spText = `예상선발 : ${aspText} vs ${hspText}`;
 
   const fmtWdl = (rec) => {
     const wv = Number.isFinite(Number(rec?.win)) ? Number(rec.win) : 0;
