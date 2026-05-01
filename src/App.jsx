@@ -1251,9 +1251,9 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   if (pageIndex >= 1) {
     const spLine = `- ${spText}`;
 
-    const padX = 18;
-    const padY = 14;
-    const r = 18;
+    const padX = 36; // 2x horizontal padding vs previous 18
+    const padY = Math.round(14 * 1.5); // 1.5x vertical padding (was 14)
+    const r = 26; // rounder corners (was 18)
     const maxFontSize = 50;
     const minFontSize = 46; // 다른 항목과 동일, 이보다 작아지지 않게
     const maxTextW = w - 64 - x0; // keep right safe margin similar to other blocks
@@ -1276,7 +1276,7 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
     ctx.shadowOffsetY = 0;
     ctx.beginPath();
     ctx.roundRect(boxX, boxY, boxW, boxH, r);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.6)";
     ctx.lineWidth = 2;
