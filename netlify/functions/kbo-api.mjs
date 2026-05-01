@@ -45,6 +45,23 @@ const TEAM_ALIAS_TO_FULL = (() => {
   return map;
 })();
 
+/** 일간 쇼츠 경기결과 슬라이드: 경기 순 로테이션 (10팀 순환) */
+const TEAM_ROTATION = [
+  "KIA",
+  "삼성",
+  "LG",
+  "두산",
+  "KT",
+  "SSG",
+  "롯데",
+  "한화",
+  "NC",
+  "키움",
+];
+
+/** 0=일…6=토. 월·화 동일 슬롯(0); 일요일은 별도(6) */
+const DAY_INDEX = { 0: 6, 1: 0, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4 };
+
 function initFirebase() {
   const raw =
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
@@ -757,6 +774,67 @@ function normalizeGameId(x) {
 function safeIsoDate(x) {
   const s = String(x || "").slice(0, 15);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+function seoulWeekdayAndDayOfYearForShortsRotation(dateStr) {
+  const safe = safeIsoDate(dateStr);
+  if (!safe) return { dayOfWeek: 0, dayOfYear: 1 };
+  const anchor = new Date(`${safe}T12:00:00+09:00`);
+  const wdParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "long",
+  }).formatToParts(anchor);
+  const wdName = wdParts.find((p) => p.type === "weekday")?.value || "Sunday";
+  const DAY_LONG_TO_0SUN = {
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+  };
+  const dayOfWeek = DAY_LONG_TO_0SUN[wdName] ?? 0;
+  const [y, m, da] = safe.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, da);
+  const yearStart = Date.UTC(y, 0, 0);
+  const dayOfYear = Math.round((t - yearStart) / 86400000);
+  return { dayOfWeek, dayOfYear };
+}
+
+function targetTeamForShortsRotationDate(dateStr) {
+  const safe = safeIsoDate(dateStr);
+  if (!safe) return TEAM_ROTATION[0];
+  const { dayOfWeek, dayOfYear } = seoulWeekdayAndDayOfYearForShortsRotation(safe);
+  const daySlot = DAY_INDEX[dayOfWeek] ?? 0;
+  const weekOfYear = Math.floor(dayOfYear / 7);
+  const teamIdx = (weekOfYear + daySlot) % 10;
+  return TEAM_ROTATION[teamIdx];
+}
+
+function gameInvolvesShortsRotationTeam(game, rotationToken) {
+  const tok = String(rotationToken || "").trim();
+  if (!tok) return false;
+  const targetFull = normalizeTeamKey(tok);
+  if (!targetFull) return false;
+  const h = normalizeTeamKey(game?.home_team || "");
+  const a = normalizeTeamKey(game?.away_team || "");
+  return h === targetFull || a === targetFull;
+}
+
+/** 로테이션 팀이 나오는 경기를 앞으로; 나머지는 기존 순서. 해당 팀 경기 없으면 원본 그대로 */
+function sortGamesForDailyShortsRotation(games, dateStr) {
+  const list = Array.isArray(games) ? games : [];
+  if (!list.length) return list;
+  const target = targetTeamForShortsRotationDate(dateStr);
+  const front = [];
+  const back = [];
+  for (const g of list) {
+    if (gameInvolvesShortsRotationTeam(g, target)) front.push(g);
+    else back.push(g);
+  }
+  if (!front.length) return list;
+  return [...front, ...back];
 }
 
 async function queryPlayerByRange(db, collection, player, start, end, max = 1800) {
@@ -2201,6 +2279,8 @@ export const handler = async (event) => {
           });
         }
 
+        const gamesOrdered = sortGamesForDailyShortsRotation(games, dateStr);
+
         const { standings, year: standingsYear } = await fetchStandings2026Document(db);
         return {
           statusCode: 200,
@@ -2209,7 +2289,7 @@ export const handler = async (event) => {
             ok: true,
             action,
             date: dateStr,
-            games,
+            games: gamesOrdered,
             standings,
             standingsYear,
           }),

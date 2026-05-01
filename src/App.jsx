@@ -389,6 +389,77 @@ function teamKeyword(teamName) {
   return t.split(/\s+/)[0] || "";
 }
 
+/** 일간 쇼츠 경기결과: 경기 순 로테이션 (kbo-api shorts_slides_data와 동일) */
+const TEAM_ROTATION = [
+  "KIA",
+  "삼성",
+  "LG",
+  "두산",
+  "KT",
+  "SSG",
+  "롯데",
+  "한화",
+  "NC",
+  "키움",
+];
+
+const DAY_INDEX = { 0: 6, 1: 0, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4 };
+
+function shortsRotationIsoDate(d) {
+  const s = String(d || "").trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
+
+function seoulWeekdayAndDayOfYearForShortsRotation(dateStr) {
+  const safe = shortsRotationIsoDate(dateStr);
+  if (!safe) return { dayOfWeek: 0, dayOfYear: 1 };
+  const anchor = new Date(`${safe}T12:00:00+09:00`);
+  const wdParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    weekday: "long",
+  }).formatToParts(anchor);
+  const wdName = wdParts.find((p) => p.type === "weekday")?.value || "Sunday";
+  const map = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  const dayOfWeek = map[wdName] ?? 0;
+  const [y, m, da] = safe.split("-").map(Number);
+  const t = Date.UTC(y, m - 1, da);
+  const yearStart = Date.UTC(y, 0, 0);
+  const dayOfYear = Math.round((t - yearStart) / 86400000);
+  return { dayOfWeek, dayOfYear };
+}
+
+function targetTeamForShortsRotationDate(dateStr) {
+  const safe = shortsRotationIsoDate(dateStr);
+  if (!safe) return TEAM_ROTATION[0];
+  const { dayOfWeek, dayOfYear } = seoulWeekdayAndDayOfYearForShortsRotation(safe);
+  const daySlot = DAY_INDEX[dayOfWeek] ?? 0;
+  const weekOfYear = Math.floor(dayOfYear / 7);
+  const teamIdx = (weekOfYear + daySlot) % 10;
+  return TEAM_ROTATION[teamIdx];
+}
+
+function gameInvolvesShortsRotationTeam(game, rotationToken) {
+  const kw = String(rotationToken || "").trim();
+  if (!kw) return false;
+  const h = teamKeyword(game?.home_team || "");
+  const a = teamKeyword(game?.away_team || "");
+  return h === kw || a === kw;
+}
+
+function sortGamesForDailyShortsRotation(games, dateStr) {
+  const list = Array.isArray(games) ? games : [];
+  if (!list.length) return list;
+  const target = targetTeamForShortsRotationDate(dateStr);
+  const front = [];
+  const back = [];
+  for (const g of list) {
+    if (gameInvolvesShortsRotationTeam(g, target)) front.push(g);
+    else back.push(g);
+  }
+  if (!front.length) return list;
+  return [...front, ...back];
+}
+
 function teamGrad(teamName) {
   return TEAM_GRAD[teamKeyword(teamName)] || ["#0c0f14", "#131922"];
 }
@@ -1859,6 +1930,7 @@ function Card8Shorts({ defaultDate }) {
       console.log("standings[0] (fetched):", JSON.stringify(res?.standings?.[0]));
       setData({
         ...res,
+        games: sortGamesForDailyShortsRotation(res?.games, d),
       });
       setSlideIdx(0);
     } catch (e) {
