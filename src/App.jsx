@@ -1233,9 +1233,9 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
   // Match rank font size (45px)
-  ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
-  const lineGap = 96;
+  const lineGap = 95;
   let y0 = 1198;
 
   // Bottom text shadow: same as drawGameSlide bottom block
