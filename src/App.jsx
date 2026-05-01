@@ -705,11 +705,11 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   // Layout anchors
   const centerX = w / 2;
   const SHIFT_Y = 50;
-  const topY = 180 + SHIFT_Y;
   const gapTop = 20;
   const centralY = Math.round(h * 0.64) + SHIFT_Y; // tuned to place divider+date around ~1480px
 
   // Team logos (irregular collage above the main title)
+  const LOGO_SHIFT_Y = -260;
   const placements = [
     { team: "KIA", x: 120, y: 430, size: 160, angle: -12 },
     { team: "삼성", x: 480, y: 400, size: 145, angle: 8 },
@@ -728,13 +728,15 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.globalAlpha = 0.85;
+  let maxLogoBottom = 0;
   for (const p of placements) {
     const tk = teamKeyword(p.team);
     const img = logosByTeamKey?.[tk] || null;
     // shrink from current rendered size
     const size = p.size * 1.8 * 0.55 * 1.05;
+    maxLogoBottom = Math.max(maxLogoBottom, p.y + SHIFT_Y + LOGO_SHIFT_Y + size);
     ctx.save();
-    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + size / 2);
+    ctx.translate(p.x + size / 2, p.y + SHIFT_Y + LOGO_SHIFT_Y + size / 2);
     ctx.rotate((p.angle * Math.PI) / 180);
     if (img) {
       const iw = Number(img?.naturalWidth ?? img?.width) || 1;
@@ -752,6 +754,8 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.globalAlpha = 1;
 
   // Top: title (single line)
+  // Move the title below the logo collage.
+  const topY = Math.round(maxLogoBottom + 40);
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   // No shadow (explicitly disable)
