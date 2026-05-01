@@ -2323,6 +2323,19 @@ function Card8Shorts({ defaultDate }) {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const todayStr = new Date().toLocaleDateString("sv-SE", {
+              timeZone: "Asia/Seoul",
+            });
+            setDate(todayStr);
+          }}
+          disabled={busy}
+        >
+          오늘
+        </button>
         <button type="button" className="primary" onClick={() => onGenerate()} disabled={busy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
@@ -4267,53 +4280,17 @@ export default function App() {
             <div className="side-section">
               <div className="side-group">
                 <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
-                <label>날짜</label>
-                <input
-                  type="date"
-                  value={shDate}
-                  onChange={(e) => setShDate(e.target.value)}
-                />
-                <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy === "shorts_slides_open"}
-                    onClick={() => {
-                      const todayStr = new Date().toLocaleDateString("sv-SE", {
-                        timeZone: "Asia/Seoul",
-                      });
-                      setShDate(todayStr);
-                      setActiveKey("shorts_slides");
-                    }}
-                  >
-                    오늘
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy === "shorts_slides_open"}
-                    onClick={() => {
-                      const t = new Date(
-                        new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" })
-                      );
-                      t.setDate(t.getDate() - 1);
-                      setShDate(t.toLocaleDateString("sv-SE"));
-                      setActiveKey("shorts_slides");
-                    }}
-                  >
-                    어제
-                  </button>
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    disabled={busy === "shorts_slides_open"}
-                    onClick={() => {
-                      setActiveKey("shorts_slides");
-                    }}
-                  >
-                    슬라이드 생성 열기
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  disabled={busy === "shorts_slides_open"}
+                  onClick={() => {
+                    setActiveKey("shorts_slides");
+                  }}
+                >
+                  패널 열기
+                </button>
               </div>
 
               <div className="side-group">
