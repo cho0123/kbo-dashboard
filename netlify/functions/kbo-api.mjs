@@ -165,7 +165,6 @@ async function fetchScheduleRowsForDate(db, dateStr) {
   }
   return rows;
 }
-
 function pickStr(obj, keys) {
   for (const k of keys) {
     const v = obj?.[k];
@@ -2395,45 +2394,87 @@ export const handler = async (event) => {
         };
       }
       case "tomorrow_preview": {
-        const dateStr = payload.date || isoSeoulTomorrow();
-        const rows = await fetchScheduleRowsForDate(db, dateStr);
+        const dateStr = safeIsoDate(payload.date || "") || isoSeoulTomorrow();
+
+        // standings 전체 + 팀별 순위/승/패/무 매핑
+        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
+        const findRankRow = (teamName) => {
+          const key = normalizeTeamKey(teamName || "");
+          if (!key) return null;
+          return (
+            (standings || []).find((r) => {
+              const tn = pickStr(r, ["team", "TEAM_NM", "team_name", "name", "club", "TEAM"]);
+              return normalizeTeamKey(tn) === key;
+            }) || null
+          );
+        };
+        const toRankObj = (row) => {
+          if (!row) return null;
+          const rank = pickNum(row, ["rank", "RANK", "순위"]);
+          const wins = pickNum(row, ["wins", "W", "win", "승", "WINS"]);
+          const losses = pickNum(row, ["losses", "L", "loss", "패", "LOSSES"]);
+          const draws = pickNum(row, ["draws", "D", "draw", "무", "DRAWS"]);
+          return {
+            rank: Number.isFinite(rank) && rank > 0 ? rank : null,
+            wins: Number.isFinite(wins) ? wins : null,
+            losses: Number.isFinite(losses) ? losses : null,
+            draws: Number.isFinite(draws) ? draws : null,
+          };
+        };
+
+        // schedule에서 내일 경기만
+        const rawRows = await fetchScheduleRowsForDate(db, dateStr);
         const byId = new Map();
-        for (const r of rows) {
+        for (const r of rawRows || []) {
           const gid = String(r?.game_id ?? r?.gameId ?? "").trim();
           if (gid) byId.set(gid, { ...r, game_id: gid });
         }
-        const sorted = [...byId.values()].sort((a, b) =>
-          String(a.game_id).localeCompare(String(b.game_id))
+        const rows = [...byId.values()].sort((a, b) =>
+          String(a?.game_id || "").localeCompare(String(b?.game_id || ""))
         );
 
         const games = [];
-        for (const r of sorted) {
-          const gid = String(r.game_id || "").trim();
-          const away_team = pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) || "—";
-          const home_team = pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) || "—";
+        for (const r of rows) {
+          const game_id = String(r?.game_id ?? r?.gameId ?? "").trim() || null;
+          const game_date = String(safeIsoDate(r?.game_date || "") || dateStr).slice(0, 10);
+          const game_time = pickStr(r, ["game_time", "gameTime", "time", "G_TM"]) || null;
           const venue = pickStr(r, ["venue", "stadium", "S_NM"]) || null;
-          const game_time = pickStr(r, ["game_time", "gameTime", "G_TM", "time"]) || null;
-          const away_raw = r?.away_starter ?? r?.awayStarter ?? null;
-          const home_raw = r?.home_starter ?? r?.homeStarter ?? null;
-          const away_starter =
-            away_raw == null ? null : String(away_raw).replace(/\s+/g, " ").trim() || null;
+
+          const home_team = pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) || null;
+          const away_team = pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) || null;
+
+          const hs = r?.home_starter ?? r?.homeStarter ?? null;
+          const as = r?.away_starter ?? r?.awayStarter ?? null;
           const home_starter =
-            home_raw == null ? null : String(home_raw).replace(/\s+/g, " ").trim() || null;
+            hs == null || String(hs).trim() === "" ? null : String(hs).replace(/\s+/g, " ").trim();
+          const away_starter =
+            as == null || String(as).trim() === "" ? null : String(as).replace(/\s+/g, " ").trim();
+
+          const home_rank = toRankObj(findRankRow(home_team));
+          const away_rank = toRankObj(findRankRow(away_team));
+
+          const head_to_head = await fetchHeadToHeadRecord(
+            db,
+            home_team || "",
+            away_team || "",
+            standingsYear || 2026
+          );
+
           games.push({
-            game_id: gid,
-            away_team,
-            home_team,
-            venue,
+            game_id,
+            game_date,
             game_time,
-            away_starter,
+            venue,
+            home_team,
+            away_team,
             home_starter,
-            home_score: null,
-            away_score: null,
-            matchup_text: "",
+            away_starter,
+            home_rank,
+            away_rank,
+            head_to_head,
           });
         }
 
-        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -2443,7 +2484,6 @@ export const handler = async (event) => {
             date: dateStr,
             games,
             standings,
-            standingsYear,
           }),
         };
       }
