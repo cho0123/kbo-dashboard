@@ -798,7 +798,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const dateY = Math.round(h * 0.38) + 70;
+  const dateY = Math.round(h * 0.38) + 70 + 50;
   const dateStr = fmtKoreanLongDate(date);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -811,7 +811,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
-  const proY = Math.round(h * 0.52);
+  const proY = Math.round(h * 0.52) + 50;
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("프로야구", w / 2, proY);
