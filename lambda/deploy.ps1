@@ -49,7 +49,7 @@ try {
     aws lambda update-function-configuration `
         --function-name $FunctionName `
         --timeout 900 `
-        --memory-size 1024 `
+        --memory-size 3008 `
         --layers $FfmpegLayerArn `
         --environment "Variables={S3_BUCKET=$S3Bucket}" `
         --region $Region
