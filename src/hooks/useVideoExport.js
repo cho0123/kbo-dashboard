@@ -151,9 +151,19 @@ export function useVideoExport() {
       }
 
       const presetType = String(preset?.shorts_type || "shorts1");
-      const durations = slides.map((s) =>
+      const transitionRaw = Number(preset?.transition);
+      const Tf =
+        Number.isFinite(transitionRaw) && transitionRaw > 0 ? transitionRaw : 0;
+      const baseDurations = slides.map((s) =>
         resolveDuration(s.key, preset, presetType)
       );
+      /** xfade 겹침 보정: 마지막 제외 각 슬라이드에 Tf 더함 → 최종 영상 길이 ≈ 프리셋 duration 합계 */
+      const durations =
+        baseDurations.length <= 1
+          ? baseDurations
+          : baseDurations.map((d, i) =>
+              i < baseDurations.length - 1 ? d + Tf : d
+            );
 
       try {
         setStatus("encoding");

@@ -161,9 +161,9 @@ export default function VideoPresetsPanel() {
 
   const slideRows = slideFieldDefs(shortsType);
 
+  /* 인코더에 넘길 때 마지막 제외 슬라이드 duration에 transition을 더하므로 최종 길이 ≈ 슬라이드 표시 합계 */
   const estimatedVideoSec = useMemo(() => {
     const keys = slideRows.map((r) => r.key);
-    const n = keys.length;
     let sumD = 0;
     for (const k of keys) {
       const v = Number(slides[k]);
@@ -171,11 +171,8 @@ export default function VideoPresetsPanel() {
       const frames = slideFrameCountForKey(shortsType, k);
       sumD += d * frames;
     }
-    const Tf = Number(transition);
-    const t = Number.isFinite(Tf) ? Math.max(0, Tf) : 0;
-    if (n <= 1) return sumD;
-    return Math.max(0, sumD - n * t);
-  }, [slideRows, slides, transition, shortsType]);
+    return Math.max(0, sumD);
+  }, [slideRows, slides, shortsType]);
 
   const estimatedHumanApprox = useMemo(() => {
     const est = estimatedVideoSec;
