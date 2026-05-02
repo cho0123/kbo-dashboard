@@ -548,17 +548,6 @@ function fmtKoreanLongDate(iso) {
   return `${y}년 ${mo}월 ${d}일 (${wk})`;
 }
 
-/** 쇼츠1 인트로: 년도 없이 "N월 N일 (요)" */
-function fmtKoreanIntroDateNoYear(iso) {
-  const s = String(iso || "").slice(0, 10);
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return s || "—";
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  const wk = new Date(s).toLocaleDateString("ko-KR", { weekday: "short" });
-  return `${mo}월 ${d}일 (${wk})`;
-}
-
 function fmtKoreanDotDate(iso) {
   const s = String(iso || "").slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -795,126 +784,76 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.22));
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
   ctx.restore();
 
-  // 텍스트: flex column + justify-center 와 동일(상·하 동일 여백), marginBottom 은 요소 사이 고정 px
-  const ONE_MIN_LINE_PX = 185;
-  const DATE_MAX_PX = ONE_MIN_LINE_PX - 14;
-  const maxTextW = w * 0.88;
-  const gSans = (weight, sizePx) =>
-    `${weight} ${sizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  // Text block layout — same as 2번 인트로
+  const BLOCK_SHIFT_Y = 100;
+  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
 
-  /** 인트로 날짜 줄 글자색 (요일별) */
-  const DATE_LINE_COLORS = {
-    0: "#FFB3AE", // Sun
-    1: "#7FC8F8", // Mon
-    2: "#7FC8F8", // Tue
-    3: "#ADFFD6", // Wed
-    4: "#B3F4FF", // Thu
-    5: "#CCFFCC", // Fri
-    6: "#E8D5FF", // Sat
-  };
-
-  function fitFontPx(text, startPx, minPx, weight) {
-    let px = startPx;
-    ctx.font = gSans(weight, px);
-    while (ctx.measureText(text).width > maxTextW && px > minPx) {
-      px -= 2;
-      ctx.font = gSans(weight, px);
-    }
-    return px;
-  }
-
-  const proLabel = "프로야구";
-  const titleText = "오늘 경기 써머리";
-  const dateStr = fmtKoreanIntroDateNoYear(date);
-  const oneMinText = "1분컷";
-
-  const proPx = fitFontPx(proLabel, 68, 44, 700);
-  const titlePx = fitFontPx(titleText, 128, 72, 900);
-  const datePx = fitFontPx(dateStr, DATE_MAX_PX, 64, 900);
-  const oneMinPx = fitFontPx(oneMinText, ONE_MIN_LINE_PX, 100, 800);
-
-  const MB_PRO_TITLE = 8;
-  const MB_TITLE_DATE = 40;
-  const MB_DATE_ONEMIN = 20;
-
-  const stackH =
-    proPx +
-    MB_PRO_TITLE +
-    titlePx +
-    MB_TITLE_DATE +
-    datePx +
-    MB_DATE_ONEMIN +
-    oneMinPx;
-  const blockTop = (h - stackH) / 2;
-
-  const proY = blockTop + proPx / 2;
-  const titleY = proY + proPx / 2 + MB_PRO_TITLE + titlePx / 2;
-  const dateY = titleY + titlePx / 2 + MB_TITLE_DATE + datePx / 2;
-  const oneMinY = dateY + datePx / 2 + MB_DATE_ONEMIN + oneMinPx / 2;
-
-  console.log("프로야구 y:", proY);
-  console.log("오늘 경기 써머리 y:", titleY);
-  console.log("날짜 y:", dateY);
-  console.log("1분컷 y:", oneMinY);
-
+  // Small label: "프로야구" + divider
+  ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = gSans(700, proPx);
-  ctx.fillText(proLabel, w / 2, proY);
+  ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const proY = titleY - 140;
+  ctx.fillText("프로야구", w / 2, proY);
 
+  const proDivY = proY + 52;
+  const proDivW = 420;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - proDivW / 2, proDivY);
+  ctx.lineTo(w / 2 + proDivW / 2, proDivY);
+  ctx.stroke();
+  ctx.restore();
+
+  // Middle: title
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 14;
+  ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = gSans(900, titlePx);
-  ctx.fillText(titleText, w / 2, titleY);
+  ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("오늘 경기 써머리", w / 2, titleY);
 
-  ctx.shadowColor = "rgba(0,0,0,0.22)";
-  ctx.shadowBlur = 10;
-  ctx.fillStyle = DATE_LINE_COLORS[day] ?? "#FFFFFF";
-  ctx.font = gSans(900, datePx);
-  ctx.fillText(dateStr, w / 2, dateY);
-
+  // Below: "1분컷" (요일별 보색 유지)
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
-  ctx.font = gSans(800, oneMinPx);
-  ctx.fillText(oneMinText, w / 2, oneMinY);
+  const oneMinY = titleY + 220 + 100;
+  ctx.fillText("1분컷", w / 2, oneMinY);
 
-  ctx.save();
+  // Divider + date
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  ctx.globalAlpha = 0.4;
+  const divY = oneMinY + 110 + 60;
+  const divW = 600;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - divW / 2, divY);
+  ctx.lineTo(w / 2 + divW / 2, divY);
+  ctx.stroke();
+
+  const dateY = divY + 80;
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  const dividerW = 200;
-  const dividerH = 2;
-  const yDividerProTitle = proY + proPx / 2 + MB_PRO_TITLE / 2;
-  ctx.fillRect(
-    w / 2 - dividerW / 2,
-    yDividerProTitle - dividerH / 2,
-    dividerW,
-    dividerH
-  );
-  const yDividerDateOneMin = dateY + datePx / 2 + MB_DATE_ONEMIN / 2;
-  ctx.fillRect(
-    w / 2 - dividerW / 2,
-    yDividerDateOneMin - dividerH / 2,
-    dividerW,
-    dividerH
-  );
-  ctx.restore();
+  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
 
   ctx.restore();
 }
