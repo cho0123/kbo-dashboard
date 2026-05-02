@@ -534,6 +534,50 @@ function fmtKoreanDotDate(iso) {
   return `${m[1]}.${m[2]}.${m[3]} (${wk})`;
 }
 
+/** NEXT GAME 슬라이드: 년도 없음, "N월 N일(요일) AM/PM h:mm", 24h → 12h */
+function fmtNextGameSlideDateTime(iso, timeRaw) {
+  const s = String(iso || "").slice(0, 10);
+  const dm = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const wk = dm
+    ? new Date(s).toLocaleDateString("ko-KR", { weekday: "short" })
+    : "";
+  const datePart = dm
+    ? `${Number(dm[2])}월 ${Number(dm[3])}일(${wk})`
+    : "";
+
+  const t = String(timeRaw ?? "").trim();
+  const tm = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!tm || !datePart) {
+    if (datePart && (!t || t === "—")) return datePart;
+    return datePart ? `${datePart} ${t || "—"}`.trim() : t || "—";
+  }
+
+  let hour = Number(tm[1]);
+  const minute = Number(tm[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return datePart ? `${datePart} ${t}` : t;
+  }
+
+  const minStr = String(minute).padStart(2, "0");
+  let period;
+  let h12;
+  if (hour === 0) {
+    period = "AM";
+    h12 = 12;
+  } else if (hour < 12) {
+    period = "AM";
+    h12 = hour;
+  } else if (hour === 12) {
+    period = "PM";
+    h12 = 12;
+  } else {
+    period = "PM";
+    h12 = hour - 12;
+  }
+
+  return `${datePart} ${period} ${h12}:${minStr}`;
+}
+
 function fmtStandingsWinRateDot(v) {
   if (v == null || v === "") return "—";
   const n = Number(v);
@@ -1769,11 +1813,12 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, loseTeam, winTeam);
 
-  // 중앙 타이틀: NEXT GAME (VS 폰트 기반, 더 크게, 반투명)
+  // 중앙 타이틀: NEXT GAME (Arial Black, 약 80% 크기, 반투명)
+  const NEXT_GAME_TITLE_PX = Math.round(132 * 0.8);
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.font = `1000 132px "Gmarket Sans", "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `900 ${NEXT_GAME_TITLE_PX}px "Arial Black", Arial, Helvetica, sans-serif`;
   shadowTextSoft(ctx);
   ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
   resetShadow(ctx);
@@ -1786,7 +1831,7 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   shadowTextSoft(ctx);
   const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
-  ctx.fillText(`${fmtKoreanLongDate(dateIso)}  ${timeText}`, w / 2, DIVIDER_Y + 120);
+  ctx.fillText(fmtNextGameSlideDateTime(dateIso, timeText), w / 2, DIVIDER_Y + 120);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
