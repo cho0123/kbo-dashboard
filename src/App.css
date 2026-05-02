@@ -1477,3 +1477,43 @@ button.danger-outline {
   font-family: inherit;
   font-weight: 600;
 }
+
+.video-export-overlay {
+  z-index: 1100;
+}
+
+.video-export-modal {
+  max-width: 480px;
+}
+
+.video-export-progress-wrap {
+  margin: 14px 0;
+}
+
+.video-export-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.video-export-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #6395ff);
+  transition: width 0.12s ease;
+}
+
+.video-export-message {
+  min-height: 1.5em;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.video-export-error {
+  margin-top: 10px;
+  white-space: pre-wrap;
+}
+
+.video-export-actions {
+  margin-top: 10px;
+}

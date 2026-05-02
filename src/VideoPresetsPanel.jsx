@@ -1,137 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { postKbo } from "./api.js";
+import {
+  defaultSlidesForType,
+  mergeSlides,
+  slideFieldDefs,
+} from "./videoPresetDefaults.js";
 
 const SHORTS_TYPES = [
   { id: "shorts1", label: "쇼츠1" },
   { id: "shorts2", label: "쇼츠2" },
   { id: "shorts3", label: "쇼츠3" },
 ];
-
-export function defaultSlidesForType(shortsType) {
-  switch (shortsType) {
-    case "shorts1":
-      return { intro: 3, summary: 2.5, game_detail: 2, standings: 3.5 };
-    case "shorts2":
-      return {
-        intro: 4,
-        game_preview_p1: 1.5,
-        game_preview_p2: 1.5,
-        game_preview_p3: 1.5,
-        game_preview_p4: 1.5,
-        game_preview_p5: 2,
-        standings: 4,
-      };
-    case "shorts3":
-    default:
-      return { intro: 3, summary: 2.5, game_detail: 2, standings: 3.5 };
-  }
-}
-
-function slideFieldDefs(shortsType) {
-  if (shortsType === "shorts2") {
-    return [
-      { key: "intro", label: "인트로" },
-      { key: "game_preview_p1", label: "경기 예고 P1" },
-      { key: "game_preview_p2", label: "경기 예고 P2" },
-      { key: "game_preview_p3", label: "경기 예고 P3" },
-      { key: "game_preview_p4", label: "경기 예고 P4" },
-      { key: "game_preview_p5", label: "경기 예고 P5" },
-      { key: "standings", label: "순위" },
-    ];
-  }
-  return [
-    { key: "intro", label: "인트로" },
-    { key: "summary", label: "결과 요약" },
-    { key: "game_detail", label: "경기 상세" },
-    { key: "standings", label: "순위" },
-  ];
-}
-
-function mergeSlides(shortsType, existing) {
-  const base = defaultSlidesForType(shortsType);
-  const ex = existing && typeof existing === "object" ? existing : {};
-  const out = { ...base };
-  for (const k of Object.keys(out)) {
-    const n = Number(ex[k]);
-    if (Number.isFinite(n)) out[k] = n;
-  }
-  for (const k of Object.keys(ex)) {
-    const n = Number(ex[k]);
-    if (!(k in out) && Number.isFinite(n)) out[k] = n;
-  }
-  return out;
-}
-
-export function ShortsPresetPicker({ shortsType }) {
-  const [list, setList] = useState([]);
-  const [sel, setSel] = useState("");
-  const [err, setErr] = useState(null);
-
-  const load = useCallback(async () => {
-    setErr(null);
-    try {
-      const res = await postKbo({
-        action: "video_presets_list",
-        shorts_type: shortsType,
-      });
-      setList(Array.isArray(res?.presets) ? res.presets : []);
-    } catch (e) {
-      setList([]);
-      setErr(e?.message || String(e));
-    }
-  }, [shortsType]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const label =
-    shortsType === "shorts1"
-      ? "쇼츠1"
-      : shortsType === "shorts2"
-        ? "쇼츠2"
-        : shortsType;
-
-  return (
-    <div
-      className="shorts-preset-picker"
-      style={{
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginTop: 10,
-      }}
-    >
-      <span className="muted" style={{ fontWeight: 700 }}>
-        프리셋 선택 ({label})
-      </span>
-      <select
-        value={sel}
-        onChange={(e) => setSel(e.target.value)}
-        style={{ minWidth: 200 }}
-      >
-        <option value="">— 선택 —</option>
-        {list.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name || p.id}
-          </option>
-        ))}
-      </select>
-      <button type="button" className="primary" disabled title="추후 연결 예정">
-        영상 생성
-      </button>
-      <button type="button" className="ghost" onClick={() => load()} title="목록 새로고침">
-        ↻
-      </button>
-      {err ? (
-        <span className="muted" style={{ fontSize: 12 }}>
-          {err}
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 export default function VideoPresetsPanel() {
   const [presets, setPresets] = useState([]);

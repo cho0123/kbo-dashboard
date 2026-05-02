@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
-import VideoPresetsPanel, { ShortsPresetPicker } from "./VideoPresetsPanel.jsx";
+import VideoPresetsPanel from "./VideoPresetsPanel.jsx";
+import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -2255,12 +2256,36 @@ function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
   }
 }
 
+function slideExportKeyShorts1(slide) {
+  if (!slide?.type) return "intro";
+  if (slide.type === "intro") return "intro";
+  if (slide.type === "summary") return "summary";
+  if (slide.type === "game") return "game_detail";
+  if (slide.type === "next_game") return "game_detail";
+  if (slide.type === "standings") return "standings";
+  return "intro";
+}
+
+function slideExportKeyShorts2(slide) {
+  if (!slide?.type) return "intro";
+  if (slide.type === "intro") return "intro";
+  if (slide.type === "preview_game") {
+    const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
+    return `game_preview_p${p}`;
+  }
+  if (slide.type === "standings") return "standings";
+  return "intro";
+}
+
 function Card8Shorts({ defaultDate }) {
   const [date, setDate] = useState(defaultDate);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [slideIdx, setSlideIdx] = useState(0);
+  const captureWrapRef = useRef(null);
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const [capturedSlides, setCapturedSlides] = useState([]);
 
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
@@ -2411,6 +2436,7 @@ function Card8Shorts({ defaultDate }) {
         games: sortGamesForDailyShortsRotation(res?.games, d),
       });
       setSlideIdx(0);
+      setCapturedSlides([]);
     } catch (e) {
       setError(e?.message || String(e));
       setData(null);
@@ -2443,12 +2469,72 @@ function Card8Shorts({ defaultDate }) {
     downloadBlob(out, `shorts_${date}.zip`);
   };
 
+  const captureAllSlides = async () => {
+    if (!data || !slides.length) return;
+    setCaptureBusy(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const out = [];
+      for (let i = 0; i < slides.length; i++) {
+        setSlideIdx(i);
+        await new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r))
+        );
+        const el = captureWrapRef.current;
+        if (!el) throw new Error("캡처 대상이 없습니다.");
+        const c = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          width: 1080,
+          height: 1920,
+        });
+        const blob = await new Promise((resolve, reject) => {
+          c.toBlob(
+            (b) =>
+              b ? resolve(b) : reject(new Error("PNG 변환 실패")),
+            "image/png"
+          );
+        });
+        out.push({ key: slideExportKeyShorts1(slides[i]), blob });
+      }
+      setCapturedSlides(out);
+    } catch (e) {
+      window.alert(e?.message || String(e));
+    } finally {
+      setCaptureBusy(false);
+    }
+  };
+
   return (
     <div className="section soft">
       <div className="section-title">1. 쇼츠-일간-경기결과</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
-      <ShortsPresetPicker shortsType="shorts1" />
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          className="primary"
+          onClick={captureAllSlides}
+          disabled={!data || busy || captureBusy}
+        >
+          {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
+        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlides.length === 0
+            ? "미캡처"
+            : `✅ ${capturedSlides.length}장 캡처됨`}
+        </span>
+      </div>
+
+      <ShortsPresetPicker shortsType="shorts1" slides={capturedSlides} />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -2479,6 +2565,7 @@ function Card8Shorts({ defaultDate }) {
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
           <div style={{ flexShrink: 0 }}>
             <ShortsCanvas
+              ref={captureWrapRef}
               slideIdx={slideIdx}
               renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
             />
@@ -2488,17 +2575,17 @@ function Card8Shorts({ defaultDate }) {
               슬라이드 ({slideIdx + 1}/{slides.length})
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0 || captureBusy}>
                 이전
               </button>
               <button
                 type="button"
                 onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
-                disabled={slideIdx >= slides.length - 1}
+                disabled={slideIdx >= slides.length - 1 || captureBusy}
               >
                 다음
               </button>
-              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy || captureBusy}>
                 현재 슬라이드 PNG 다운로드
               </button>
             </div>
@@ -2565,6 +2652,9 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [slideIdx, setSlideIdx] = useState(0);
+  const captureWrapRefT = useRef(null);
+  const [captureBusyT, setCaptureBusyT] = useState(false);
+  const [capturedSlidesT, setCapturedSlidesT] = useState([]);
 
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
@@ -2658,6 +2748,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         games: sortGamesForDailyShortsRotation(res?.games, date),
       });
       setSlideIdx(0);
+      setCapturedSlidesT([]);
     } catch (e) {
       setError(e?.message || String(e));
       setData(null);
@@ -2687,12 +2778,72 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     downloadBlob(out, `shorts_tomorrow_${date}.zip`);
   };
 
+  const captureAllSlidesTomorrow = async () => {
+    if (!data || !slides.length) return;
+    setCaptureBusyT(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const out = [];
+      for (let i = 0; i < slides.length; i++) {
+        setSlideIdx(i);
+        await new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r))
+        );
+        const el = captureWrapRefT.current;
+        if (!el) throw new Error("캡처 대상이 없습니다.");
+        const c = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          width: 1080,
+          height: 1920,
+        });
+        const blob = await new Promise((resolve, reject) => {
+          c.toBlob(
+            (b) =>
+              b ? resolve(b) : reject(new Error("PNG 변환 실패")),
+            "image/png"
+          );
+        });
+        out.push({ key: slideExportKeyShorts2(slides[i]), blob });
+      }
+      setCapturedSlidesT(out);
+    } catch (e) {
+      window.alert(e?.message || String(e));
+    } finally {
+      setCaptureBusyT(false);
+    }
+  };
+
   return (
     <div className="section soft">
       <div className="section-title">2. 쇼츠-내일경기-예고</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 내일 일정 기준(KST 자동 계산)</div>
 
-      <ShortsPresetPicker shortsType="shorts2" />
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          className="primary"
+          onClick={captureAllSlidesTomorrow}
+          disabled={!data || busy || captureBusyT}
+        >
+          {captureBusyT ? "캡처 중…" : "슬라이드 캡처"}
+        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlidesT.length === 0
+            ? "미캡처"
+            : `✅ ${capturedSlidesT.length}장 캡처됨`}
+        </span>
+      </div>
+
+      <ShortsPresetPicker shortsType="shorts2" slides={capturedSlidesT} />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -2722,24 +2873,28 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
       {data ? (
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
           <div style={{ flexShrink: 0 }}>
-            <ShortsCanvas slideIdx={slideIdx} renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)} />
+            <ShortsCanvas
+              ref={captureWrapRefT}
+              slideIdx={slideIdx}
+              renderSlide={(canvas) => renderSlideToCanvas(slideIdx, canvas)}
+            />
           </div>
           <div>
             <div className="muted" style={{ fontWeight: 900 }}>
               슬라이드 ({slideIdx + 1}/{slides.length})
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0 || captureBusyT}>
                 이전
               </button>
               <button
                 type="button"
                 onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
-                disabled={slideIdx >= slides.length - 1}
+                disabled={slideIdx >= slides.length - 1 || captureBusyT}
               >
                 다음
               </button>
-              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy}>
+              <button type="button" onClick={() => downloadPng(slideIdx)} disabled={busy || captureBusyT}>
                 현재 PNG 다운로드
               </button>
             </div>
@@ -3426,20 +3581,23 @@ function Card9WeeklySummary() {
   );
 }
 
-function ShortsCanvas({ slideIdx, renderSlide }) {
-  const [ref, setRef] = useState(null);
+const ShortsCanvas = forwardRef(function ShortsCanvas(
+  { slideIdx, renderSlide },
+  ref
+) {
+  const canvasRef = useRef(null);
   useEffect(() => {
-    renderSlide(ref);
-  }, [slideIdx, ref, renderSlide]);
+    renderSlide(canvasRef.current);
+  }, [slideIdx, renderSlide]);
   return (
-    <div>
+    <div ref={ref} className="shorts-capture-wrap">
       <canvas
-        ref={setRef}
+        ref={canvasRef}
         style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)" }}
       />
     </div>
   );
-}
+});
 
 /** API score "NC 5 : 8 삼성" → 표시용 "NC 5 vs 8 삼성" */
 function mvpGameHeadline(g) {
