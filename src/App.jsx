@@ -798,19 +798,23 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillText(kboText, w / 2, Math.round(h * 0.22));
   ctx.restore();
 
-  // Text block: 프로야구+써머리는 기준에서 100px 아래, 이하 간격은 px 고정
-  const INTRO_TOP_SHIFT_PX = 100;
-  const GAP_PRO_TO_TITLE_PX = 150;
-  const GAP_TITLE_TO_DATE_PX = 100;
-  const GAP_DATE_TO_DIVIDER_PX = 50;
-  const GAP_DIVIDER_TO_ONEMIN_PX = 50;
-  const blockStart = Math.round(h * 0.34) + INTRO_TOP_SHIFT_PX;
+  // 텍스트: flex column + justify-center 와 동일(상·하 동일 여백), marginBottom 은 요소 사이 고정 px
   const ONE_MIN_LINE_PX = 185;
-  /** 날짜는 1분컷보다 약간 작게 시작, 넘침 시 추가 축소 */
   const DATE_MAX_PX = ONE_MIN_LINE_PX - 14;
   const maxTextW = w * 0.88;
   const gSans = (weight, sizePx) =>
     `${weight} ${sizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+
+  /** 인트로 날짜 줄 글자색 (요일별) */
+  const DATE_LINE_COLORS = {
+    0: "#FFB3AE", // Sun
+    1: "#7FC8F8", // Mon
+    2: "#7FC8F8", // Tue
+    3: "#ADFFD6", // Wed
+    4: "#B3F4FF", // Thu
+    5: "#CCFFCC", // Fri
+    6: "#E8D5FF", // Sat
+  };
 
   function fitFontPx(text, startPx, minPx, weight) {
     let px = startPx;
@@ -822,74 +826,64 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     return px;
   }
 
-  // Small label: "프로야구" + divider
-  ctx.save();
+  const proLabel = "프로야구";
+  const titleText = "오늘 경기 써머리";
+  const dateStr = fmtKoreanIntroDateNoYear(date);
+  const oneMinText = "1분컷";
+
+  const proPx = fitFontPx(proLabel, 68, 44, 700);
+  const titlePx = fitFontPx(titleText, 128, 72, 900);
+  const datePx = fitFontPx(dateStr, DATE_MAX_PX, 64, 900);
+  const oneMinPx = fitFontPx(oneMinText, ONE_MIN_LINE_PX, 100, 800);
+
+  const MB_PRO_TITLE = 8;
+  const MB_TITLE_DATE = 40;
+  const MB_DATE_ONEMIN = 20;
+
+  const stackH =
+    proPx +
+    MB_PRO_TITLE +
+    titlePx +
+    MB_TITLE_DATE +
+    datePx +
+    MB_DATE_ONEMIN +
+    oneMinPx;
+  const blockTop = (h - stackH) / 2;
+
+  const proY = blockTop + proPx / 2;
+  const titleY = proY + proPx / 2 + MB_PRO_TITLE + titlePx / 2;
+  const dateY = titleY + titlePx / 2 + MB_TITLE_DATE + datePx / 2;
+  const oneMinY = dateY + datePx / 2 + MB_DATE_ONEMIN + oneMinPx / 2;
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  const proLabel = "프로야구";
-  fitFontPx(proLabel, 68, 44, 700);
-  const proY = blockStart;
+  ctx.font = gSans(700, proPx);
   ctx.fillText(proLabel, w / 2, proY);
 
-  const proDivY = proY + 52;
-  const proDivW = Math.min(420, maxTextW);
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - proDivW / 2, proDivY);
-  ctx.lineTo(w / 2 + proDivW / 2, proDivY);
-  ctx.stroke();
-  ctx.restore();
-
-  // "오늘 경기 써머리" — 기본 128px, 넘치면 축소
-  const titleY = blockStart + GAP_PRO_TO_TITLE_PX;
-  const titleText = "오늘 경기 써머리";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 14;
-  ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  fitFontPx(titleText, 128, 72, 900);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = gSans(900, titlePx);
   ctx.fillText(titleText, w / 2, titleY);
 
-  // 날짜 (년도 없음, 1분컷보다 약간 작게 + 가로 맞춤)
-  const dateStr = fmtKoreanIntroDateNoYear(date);
-  const dateY = titleY + GAP_TITLE_TO_DATE_PX;
-  ctx.shadowColor = "rgba(0,0,0,0.32)";
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = "#FFFFFF";
-  fitFontPx(dateStr, DATE_MAX_PX, 64, 900);
+  ctx.shadowColor = "rgba(0,0,0,0.22)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = DATE_LINE_COLORS[day] ?? "#FFFFFF";
+  ctx.font = gSans(900, datePx);
   ctx.fillText(dateStr, w / 2, dateY);
 
-  // 구분선 → "1분컷"
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  const divY = dateY + GAP_DATE_TO_DIVIDER_PX;
-  const divW = Math.min(600, maxTextW);
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - divW / 2, divY);
-  ctx.lineTo(w / 2 + divW / 2, divY);
-  ctx.stroke();
-
-  const oneMinY = divY + GAP_DIVIDER_TO_ONEMIN_PX;
-  const oneMinText = "1분컷";
-  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
-  ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  fitFontPx(oneMinText, ONE_MIN_LINE_PX, 100, 800);
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.font = gSans(800, oneMinPx);
   ctx.fillText(oneMinText, w / 2, oneMinY);
 
   ctx.restore();
