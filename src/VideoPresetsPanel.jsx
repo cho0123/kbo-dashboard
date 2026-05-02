@@ -259,13 +259,20 @@ export default function VideoPresetsPanel() {
       ) : null}
 
       {formOpen ? (
-        <div className="preset-modal-overlay" role="presentation" onClick={closeForm}>
+        <div
+          className="preset-modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeForm();
+          }}
+        >
           <div
             className="preset-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="preset-form-title"
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <h2 id="preset-form-title" className="preset-modal-title">
               {editingId ? "프리셋 편집" : "새 프리셋"}
@@ -384,8 +391,12 @@ export default function VideoPresetsPanel() {
               <input
                 type="number"
                 min={0}
-                step={0.1}
+                step={1}
+                inputMode="numeric"
                 value={music_start_time}
+                style={{ minWidth: 140, width: "100%", maxWidth: 280 }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   setMusicStartTime(Math.max(0, Number(e.target.value) || 0))
                 }
