@@ -785,12 +785,20 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.27));
   ctx.restore();
 
-  // Text block layout — same as 2번 인트로
-  const BLOCK_SHIFT_Y = 100;
-  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
+  // 텍스트 블록: 요소 간 간격은 기존과 동일. 날짜가 유튜브 쇼츠 하단 UI에 가리지 않도록
+  // 슬라이드 하단 ~18%를 여백으로 두고 date 중심 y를 역산한다.
+  const INTRO_BOTTOM_MARGIN_FRAC = 0.18;
+  const DATE_LINE_PX = 90;
+  const dateLowerExtent = Math.round(DATE_LINE_PX * 0.52);
+  const maxDateCenterY = Math.round(
+    h * (1 - INTRO_BOTTOM_MARGIN_FRAC) - dateLowerExtent
+  );
+  /** titleY → dateY 간격 (프로야구·써머리·1분컷·구분선·날짜 — 기존 레이아웃 유지) */
+  const INTRO_TITLE_TO_DATE_DY = 570;
+  const titleY = maxDateCenterY - INTRO_TITLE_TO_DATE_DY;
 
   // Small label: "프로야구" + divider
   ctx.save();
