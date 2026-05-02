@@ -1456,9 +1456,9 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
       logosByTeamKey?.[ak] || null
     );
 
-    // Score: make VS bigger and yellow
-    const scoreFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
-    const vsFont = `1000 88px "${FONT_TITLE}", system-ui, sans-serif`;
+    // Score: make VS bigger and yellow (Bebas Neue: single weight, use 400)
+    const scoreFont = `400 72px "Bebas Neue", system-ui, sans-serif`;
+    const vsFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
