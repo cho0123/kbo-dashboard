@@ -13,6 +13,56 @@ const s3 = new S3Client({ region });
 const VIDEO_VF =
   "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
 
+/** PNG→세그먼트 인코딩 시 RGBA→yuv420p (concat 단계에서는 디코드만 하도록 사전 변환) */
+const SEGMENT_VF = `${VIDEO_VF},format=yuv420p,fps=30`;
+
+/** `df -B1 /tmp`로 /tmp 사용 가능 바이트 (Lambda ephemeral storage) */
+function getAvailTmpBytes() {
+  const r = spawnSync("df", ["-B1", "/tmp"], { encoding: "utf8" });
+  if (r.status !== 0 || !r.stdout) return null;
+  const lines = r.stdout
+    .trim()
+    .split("\n")
+    .filter((l) => l.length);
+  if (lines.length < 2) return null;
+  const parts = lines[1].trim().split(/\s+/);
+  if (parts.length < 4) return null;
+  const avail = Number(parts[3]);
+  return Number.isFinite(avail) ? avail : null;
+}
+
+/** 2단계 인코딩: 세그먼트 mp4 + 최종 concat + PNG 병행 시 /tmp 부족 방지 */
+function assertTmpSpaceForTwoPass(slideCount) {
+  const avail = getAvailTmpBytes();
+  if (avail == null) {
+    throw new Error(
+      "/tmp 여유 공간을 확인할 수 없습니다 (df /tmp 실패). Lambda ephemeral storage를 확인하세요."
+    );
+  }
+  const reserveOutput = 128 * 1024 * 1024;
+  const perSlideBytes = 6 * 1024 * 1024;
+  const needed =
+    BigInt(reserveOutput) + BigInt(Math.max(0, slideCount)) * BigInt(perSlideBytes);
+  if (BigInt(avail) < needed) {
+    const avMiB = (avail / (1024 * 1024)).toFixed(1);
+    const ndMiB = (Number(needed) / (1024 * 1024)).toFixed(1);
+    throw new Error(
+      `/tmp 여유 공간 부족: 사용 가능 약 ${avMiB} MiB, 예상 필요 약 ${ndMiB} MiB (슬라이드 ${slideCount}장·2단계 인코딩). Lambda 함수 설정에서 /tmp(512MB~10GB) 용량을 늘리세요.`
+    );
+  }
+  console.log(
+    `[/tmp] 여유 약 ${(avail / (1024 * 1024)).toFixed(1)} MiB (추정 필요 ≥ ${(Number(needed) / (1024 * 1024)).toFixed(1)} MiB)`
+  );
+}
+
+function buildVideoSegmentConcatList(n) {
+  let s = "ffconcat version 1.0\n";
+  for (let i = 0; i < n; i++) {
+    s += `file 'seg_${i}.mp4'\n`;
+  }
+  return s;
+}
+
 function ffmpegBin() {
   const candidates = ["/opt/bin/ffmpeg", "/opt/ffmpeg/ffmpeg"];
   for (const p of candidates) {
@@ -46,18 +96,6 @@ function buildXfadeGraph(n, durations, transitionRaw) {
     cur = out;
   }
   return parts.join(";");
-}
-
-function buildConcatListContent(durations) {
-  let s = "ffconcat version 1.0\n";
-  for (let i = 0; i < durations.length; i++) {
-    s += `file 'slide_${i}.png'\n`;
-    s += `duration ${durations[i]}\n`;
-  }
-  const last = durations.length - 1;
-  s += `file 'slide_${last}.png'\n`;
-  s += "duration 0\n";
-  return s;
 }
 
 /** 출력 영상 길이(초) — xfade/concat/단일 슬라이드와 동일 로직 */
@@ -342,31 +380,62 @@ export const handler = async (event) => {
       args.push("-y", "output.mp4");
       runFfmpeg(args, workDir, "xfade");
     } else {
-      const listTxt = buildConcatListContent(durations.slice(0, n));
-      writeFileSync(join(workDir, "list.txt"), listTxt, "utf8");
-      const args = [
+      assertTmpSpaceForTwoPass(n);
+
+      const durs = durations.slice(0, n);
+      for (let i = 0; i < n; i++) {
+        runFfmpeg(
+          [
+            "-y",
+            "-loop",
+            "1",
+            "-framerate",
+            "30",
+            "-t",
+            String(durs[i]),
+            "-i",
+            `slide_${i}.png`,
+            "-vf",
+            SEGMENT_VF,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-an",
+            `seg_${i}.mp4`,
+          ],
+          workDir,
+          `segment_${i}`
+        );
+        const pngPath = join(workDir, `slide_${i}.png`);
+        if (existsSync(pngPath)) unlinkSync(pngPath);
+      }
+
+      writeFileSync(
+        join(workDir, "list_seg.txt"),
+        buildVideoSegmentConcatList(n),
+        "utf8"
+      );
+
+      const concatArgs = [
         "-y",
         "-f",
         "concat",
         "-safe",
         "0",
         "-i",
-        "list.txt",
-        "-vf",
-        VIDEO_VF,
+        "list_seg.txt",
         "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
+        "copy",
       ];
       if (hasMusic) {
-        args.push(
+        concatArgs.push(
           "-ss",
           String(musicOpts.startTime),
           "-i",
@@ -388,10 +457,10 @@ export const handler = async (event) => {
           "-shortest"
         );
       } else {
-        args.push("-an");
+        concatArgs.push("-an");
       }
-      args.push("output.mp4");
-      runFfmpeg(args, workDir, "concat");
+      concatArgs.push("output.mp4");
+      runFfmpeg(concatArgs, workDir, "concat-segments");
     }
 
     await putStatus(bucket, jobId, { state: "processing", progress: 85 });
@@ -418,13 +487,15 @@ export const handler = async (event) => {
   } finally {
     try {
       if (existsSync(workDir)) {
-        for (const f of ["output.mp4", "list.txt", "music.mp3"]) {
+        for (const f of ["output.mp4", "list_seg.txt", "music.mp3"]) {
           const p = join(workDir, f);
           if (existsSync(p)) unlinkSync(p);
         }
-        for (let i = 0; i < 40; i++) {
-          const p = join(workDir, `slide_${i}.png`);
-          if (existsSync(p)) unlinkSync(p);
+        for (let i = 0; i < 200; i++) {
+          const seg = join(workDir, `seg_${i}.mp4`);
+          if (existsSync(seg)) unlinkSync(seg);
+          const png = join(workDir, `slide_${i}.png`);
+          if (existsSync(png)) unlinkSync(png);
         }
       }
     } catch {
