@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
+import VideoPresetsPanel, { ShortsPresetPicker } from "./VideoPresetsPanel.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -2447,6 +2448,8 @@ function Card8Shorts({ defaultDate }) {
       <div className="section-title">1. 쇼츠-일간-경기결과</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
+      <ShortsPresetPicker shortsType="shorts1" />
+
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <button
@@ -2688,6 +2691,8 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
     <div className="section soft">
       <div className="section-title">2. 쇼츠-내일경기-예고</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 내일 일정 기준(KST 자동 계산)</div>
+
+      <ShortsPresetPicker shortsType="shorts2" />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -4471,6 +4476,20 @@ export default function App() {
                   생성
                 </button>
               </div>
+
+              <div className="side-group">
+                <div className="side-group-title">⚙️ 영상 설정</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("video_presets");
+                  }}
+                >
+                  프리셋 열기
+                </button>
+              </div>
             </div>
           )}
 
@@ -5225,6 +5244,8 @@ export default function App() {
                       error={hlOut.error}
                       pending={pending("shorts_highlight_8")}
                     />
+                  ) : activeKey === "video_presets" ? (
+                    <VideoPresetsPanel />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (

@@ -1,0 +1,421 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { postKbo } from "./api.js";
+
+const SHORTS_TYPES = [
+  { id: "shorts1", label: "쇼츠1" },
+  { id: "shorts2", label: "쇼츠2" },
+  { id: "shorts3", label: "쇼츠3" },
+];
+
+export function defaultSlidesForType(shortsType) {
+  switch (shortsType) {
+    case "shorts1":
+      return { intro: 3, summary: 2.5, game_detail: 2, standings: 3.5 };
+    case "shorts2":
+      return {
+        intro: 4,
+        game_preview_p1: 1.5,
+        game_preview_p2: 1.5,
+        game_preview_p3: 1.5,
+        game_preview_p4: 1.5,
+        game_preview_p5: 2,
+        standings: 4,
+      };
+    case "shorts3":
+    default:
+      return { intro: 3, summary: 2.5, game_detail: 2, standings: 3.5 };
+  }
+}
+
+function slideFieldDefs(shortsType) {
+  if (shortsType === "shorts2") {
+    return [
+      { key: "intro", label: "인트로" },
+      { key: "game_preview_p1", label: "경기 예고 P1" },
+      { key: "game_preview_p2", label: "경기 예고 P2" },
+      { key: "game_preview_p3", label: "경기 예고 P3" },
+      { key: "game_preview_p4", label: "경기 예고 P4" },
+      { key: "game_preview_p5", label: "경기 예고 P5" },
+      { key: "standings", label: "순위" },
+    ];
+  }
+  return [
+    { key: "intro", label: "인트로" },
+    { key: "summary", label: "결과 요약" },
+    { key: "game_detail", label: "경기 상세" },
+    { key: "standings", label: "순위" },
+  ];
+}
+
+function mergeSlides(shortsType, existing) {
+  const base = defaultSlidesForType(shortsType);
+  const ex = existing && typeof existing === "object" ? existing : {};
+  const out = { ...base };
+  for (const k of Object.keys(out)) {
+    const n = Number(ex[k]);
+    if (Number.isFinite(n)) out[k] = n;
+  }
+  for (const k of Object.keys(ex)) {
+    const n = Number(ex[k]);
+    if (!(k in out) && Number.isFinite(n)) out[k] = n;
+  }
+  return out;
+}
+
+export function ShortsPresetPicker({ shortsType }) {
+  const [list, setList] = useState([]);
+  const [sel, setSel] = useState("");
+  const [err, setErr] = useState(null);
+
+  const load = useCallback(async () => {
+    setErr(null);
+    try {
+      const res = await postKbo({
+        action: "video_presets_list",
+        shorts_type: shortsType,
+      });
+      setList(Array.isArray(res?.presets) ? res.presets : []);
+    } catch (e) {
+      setList([]);
+      setErr(e?.message || String(e));
+    }
+  }, [shortsType]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const label =
+    shortsType === "shorts1"
+      ? "쇼츠1"
+      : shortsType === "shorts2"
+        ? "쇼츠2"
+        : shortsType;
+
+  return (
+    <div
+      className="shorts-preset-picker"
+      style={{
+        display: "flex",
+        gap: 10,
+        alignItems: "center",
+        flexWrap: "wrap",
+        marginTop: 10,
+      }}
+    >
+      <span className="muted" style={{ fontWeight: 700 }}>
+        프리셋 선택 ({label})
+      </span>
+      <select
+        value={sel}
+        onChange={(e) => setSel(e.target.value)}
+        style={{ minWidth: 200 }}
+      >
+        <option value="">— 선택 —</option>
+        {list.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name || p.id}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="primary" disabled title="추후 연결 예정">
+        영상 생성
+      </button>
+      <button type="button" className="ghost" onClick={() => load()} title="목록 새로고침">
+        ↻
+      </button>
+      {err ? (
+        <span className="muted" style={{ fontSize: 12 }}>
+          {err}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export default function VideoPresetsPanel() {
+  const [presets, setPresets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState(null);
+  const [filterTab, setFilterTab] = useState("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [name, setName] = useState("");
+  const [shortsType, setShortsType] = useState("shorts1");
+  const [slides, setSlides] = useState(() => defaultSlidesForType("shorts1"));
+  const [transition, setTransition] = useState(0.2);
+  const [music, setMusic] = useState("");
+  const [saveErr, setSaveErr] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    setListError(null);
+    try {
+      const res = await postKbo({ action: "video_presets_list" });
+      setPresets(Array.isArray(res?.presets) ? res.presets : []);
+    } catch (e) {
+      setListError(e?.message || String(e));
+      setPresets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadList();
+  }, [loadList]);
+
+  const filtered = useMemo(() => {
+    if (filterTab === "all") return presets;
+    return presets.filter((p) => p.shorts_type === filterTab);
+  }, [presets, filterTab]);
+
+  const openNew = () => {
+    setEditingId(null);
+    setName("");
+    setShortsType("shorts1");
+    setSlides(defaultSlidesForType("shorts1"));
+    setTransition(0.2);
+    setMusic("");
+    setSaveErr(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (p) => {
+    setEditingId(p.id);
+    setName(p.name || "");
+    const st = p.shorts_type || "shorts1";
+    setShortsType(st);
+    setSlides(mergeSlides(st, p.slides));
+    setTransition(Number.isFinite(Number(p.transition)) ? Number(p.transition) : 0.2);
+    setMusic(p.music != null ? String(p.music) : "");
+    setSaveErr(null);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSaveErr(null);
+  };
+
+  const onShortsTypeChange = (next) => {
+    setShortsType(next);
+    setSlides((prev) => mergeSlides(next, prev));
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await postKbo({
+        action: "video_presets_save",
+        id: editingId || undefined,
+        name,
+        shorts_type: shortsType,
+        slides,
+        transition,
+        music: music.trim() || null,
+      });
+      await loadList();
+      closeForm();
+    } catch (e) {
+      setSaveErr(e?.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!editingId) return;
+    if (!window.confirm("이 프리셋을 삭제할까요?")) return;
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await postKbo({ action: "video_presets_delete", id: editingId });
+      await loadList();
+      closeForm();
+    } catch (e) {
+      setSaveErr(e?.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const slideRows = slideFieldDefs(shortsType);
+
+  return (
+    <div className="result-page video-presets-page">
+      <div className="result-hero-title">⚙️ 영상 프리셋 설정</div>
+      <p className="muted" style={{ marginTop: 6 }}>
+        Firestore <code>video_presets</code>에 저장됩니다. 음악은 메모만 저장합니다.
+      </p>
+
+      <div className="preset-filter-tabs" role="tablist">
+        {["all", "shorts1", "shorts2", "shorts3"].map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={filterTab === key}
+            className={`preset-tab ${filterTab === key ? "active" : ""}`}
+            onClick={() => setFilterTab(key)}
+          >
+            {key === "all"
+              ? "전체"
+              : key === "shorts1"
+                ? "쇼츠1"
+                : key === "shorts2"
+                  ? "쇼츠2"
+                  : "쇼츠3"}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" className="primary primary-fill" onClick={openNew}>
+          새 프리셋 추가
+        </button>
+        <button type="button" className="ghost" onClick={() => loadList()} disabled={loading}>
+          목록 새로고침
+        </button>
+      </div>
+
+      {listError ? <pre className="result-error-light">{listError}</pre> : null}
+      {loading ? <div className="muted" style={{ marginTop: 12 }}>불러오는 중…</div> : null}
+
+      <div className="preset-card-grid">
+        {filtered.map((p) => (
+          <div
+            key={p.id}
+            className="preset-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => openEdit(p)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openEdit(p);
+              }
+            }}
+          >
+            <div className="preset-card-title">{p.name || "(이름 없음)"}</div>
+            <div className="preset-card-badge">{p.shorts_type}</div>
+            <div className="preset-card-meta muted">
+              전환 {Number.isFinite(Number(p.transition)) ? p.transition : "—"}초
+              {p.music ? ` · 🎵 ${String(p.music).slice(0, 40)}` : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {!loading && filtered.length === 0 ? (
+        <div className="muted" style={{ marginTop: 16 }}>
+          표시할 프리셋이 없습니다. 필터를 바꾸거나 새로 추가하세요.
+        </div>
+      ) : null}
+
+      {formOpen ? (
+        <div className="preset-modal-overlay" role="presentation" onClick={closeForm}>
+          <div
+            className="preset-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preset-form-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="preset-form-title" className="preset-modal-title">
+              {editingId ? "프리셋 편집" : "새 프리셋"}
+            </h2>
+
+            <label className="preset-field">
+              <span>프리셋 이름</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: 쇼츠1 - BGM_A"
+              />
+            </label>
+
+            <label className="preset-field">
+              <span>쇼츠 타입</span>
+              <select value={shortsType} onChange={(e) => onShortsTypeChange(e.target.value)}>
+                {SHORTS_TYPES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="preset-slide-grid">
+              {slideRows.map(({ key, label }) => (
+                <label key={key} className="preset-field preset-slide-field">
+                  <span>
+                    {label} <small className="muted">(초)</small>
+                  </span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={slides[key] ?? ""}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setSlides((s) => ({
+                        ...s,
+                        [key]: Number.isFinite(v) ? v : 0,
+                      }));
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <label className="preset-field">
+              <span>
+                전환 효과 <small className="muted">(초)</small>
+              </span>
+              <input
+                type="number"
+                step="0.05"
+                min="0"
+                value={transition}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setTransition(Number.isFinite(v) ? v : 0);
+                }}
+              />
+            </label>
+
+            <label className="preset-field">
+              <span>음악 (메모)</span>
+              <input
+                type="text"
+                value={music}
+                onChange={(e) => setMusic(e.target.value)}
+                placeholder="파일 연결 예정 — 메모만 저장"
+              />
+            </label>
+
+            {saveErr ? <pre className="result-error-light">{saveErr}</pre> : null}
+
+            <div className="preset-modal-actions">
+              <button type="button" className="primary primary-fill" disabled={saving} onClick={onSave}>
+                {saving ? "저장 중…" : "저장"}
+              </button>
+              <button type="button" className="ghost" disabled={saving} onClick={closeForm}>
+                취소
+              </button>
+              {editingId ? (
+                <button type="button" className="danger-outline" disabled={saving} onClick={onDelete}>
+                  삭제
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

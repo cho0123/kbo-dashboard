@@ -2702,6 +2702,109 @@ export const handler = async (event) => {
           }),
         };
       }
+      case "video_presets_list": {
+        const filterType = payload.shorts_type;
+        let snap;
+        try {
+          if (filterType && String(filterType) !== "all") {
+            snap = await db
+              .collection("video_presets")
+              .where("shorts_type", "==", String(filterType))
+              .get();
+          } else {
+            snap = await db.collection("video_presets").limit(500).get();
+          }
+        } catch (e) {
+          console.warn("[video_presets_list]", e?.message || e);
+          snap = { docs: [], empty: true };
+        }
+        const presets = (snap.docs || []).map((d) => ({ id: d.id, ...docSnap(d) }));
+        presets.sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || ""), "ko")
+        );
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            presets,
+          }),
+        };
+      }
+      case "video_presets_save": {
+        const id = payload.id ? String(payload.id) : "";
+        const name = String(payload.name || "").trim();
+        const shorts_type = String(payload.shorts_type || "");
+        if (!name) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "이름이 필요합니다." }),
+          };
+        }
+        if (!["shorts1", "shorts2", "shorts3"].includes(shorts_type)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "shorts_type이 올바르지 않습니다.",
+            }),
+          };
+        }
+        const slidesRaw =
+          payload.slides && typeof payload.slides === "object" ? payload.slides : {};
+        const slides = {};
+        for (const [k, v] of Object.entries(slidesRaw)) {
+          const n = Number(v);
+          if (Number.isFinite(n)) slides[k] = n;
+        }
+        const transition = Number(payload.transition);
+        const music =
+          payload.music == null || payload.music === ""
+            ? null
+            : String(payload.music);
+        const data = {
+          name,
+          shorts_type,
+          slides,
+          transition: Number.isFinite(transition) ? transition : 0,
+          music,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (id) {
+          await db.collection("video_presets").doc(id).set(data, { merge: true });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, action, id }),
+          };
+        }
+        data.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        const ref = await db.collection("video_presets").add(data);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, action, id: ref.id }),
+        };
+      }
+      case "video_presets_delete": {
+        const delId = String(payload.id || "").trim();
+        if (!delId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "id가 필요합니다." }),
+          };
+        }
+        await db.collection("video_presets").doc(delId).delete();
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, action, id: delId }),
+        };
+      }
       case "game_results": {
         const dateStr = payload.date || isoSeoulToday();
         const gameDocs = await fetchGamesByDate(db, dateStr);
