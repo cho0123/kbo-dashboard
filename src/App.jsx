@@ -792,7 +792,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // 날짜 pill (KBO 바로 아래, h*0.38 ≈ 730@1920)
+  // 날짜 — 브러시 스트로크 하이라이트 + 포인트컬러 텍스트 (h*0.38 ≈ 730@1920)
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -800,25 +800,36 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 0;
   const dateY = Math.round(h * 0.38) + 70;
   const dateStr = fmtKoreanLongDate(date);
+  const accent = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const tw = ctx.measureText(dateStr).width;
-  const pillPadX = 36;
-  const pillH = 132;
-  const pillRx = 28;
-  const pillW = tw + pillPadX * 2;
   const cx = w / 2;
-  const pillLeft = cx - pillW / 2;
-  const pillTop = dateY - pillH / 2;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-  ctx.beginPath();
-  ctx.roundRect(pillLeft, pillTop, pillW, pillH, pillRx);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#FFFFFFCC";
+  const padX = 30;
+  const leftX = cx - tw / 2 - padX;
+  const rightX = cx + tw / 2 + padX;
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const brushStrokes = [
+    { lw: 34, dy: -5, dx1: -7, dx2: 9, alpha: 0.22 },
+    { lw: 38, dy: 4, dx1: 8, dx2: -10, alpha: 0.17 },
+    { lw: 30, dy: 1, dx1: -5, dx2: 6, alpha: 0.25 },
+    { lw: 40, dy: -6, dx1: 6, dx2: -8, alpha: 0.15 },
+  ];
+  for (const b of brushStrokes) {
+    ctx.globalAlpha = b.alpha;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = b.lw;
+    ctx.beginPath();
+    ctx.moveTo(leftX + b.dx1, dateY + b.dy);
+    ctx.lineTo(rightX + b.dx2, dateY + b.dy);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = accent + "80";
   ctx.fillText(dateStr, cx, dateY);
   ctx.restore();
 
