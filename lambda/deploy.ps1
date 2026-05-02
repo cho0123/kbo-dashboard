@@ -31,25 +31,10 @@ if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::Open(
-    $zipPath,
-    [System.IO.Compression.ZipArchiveMode]::Create
-)
-try {
-    foreach ($name in $Entries) {
-        $full = Join-Path $LambdaDir $name
-        $null = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-            $zip,
-            $full,
-            $name,
-            [System.IO.Compression.CompressionLevel]::Optimal
-        )
-    }
+$toZip = foreach ($name in $Entries) {
+    Join-Path $LambdaDir $name
 }
-finally {
-    $zip.Dispose()
-}
+Compress-Archive -LiteralPath $toZip -DestinationPath $zipPath -CompressionLevel Optimal -Force
 
 $zipFileUri = 'fileb://' + ($zipPath -replace '\\', '/')
 Write-Host "Deployment package: $zipPath" -ForegroundColor Cyan
