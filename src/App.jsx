@@ -792,16 +792,35 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // 날짜 (KBO 바로 아래, h*0.38 ≈ 730@1920)
+  // 날짜 pill (KBO 바로 아래, h*0.38 ≈ 730@1920)
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   const dateY = Math.round(h * 0.38) + 70;
-  ctx.fillStyle = "#FFFFFF";
+  const dateStr = fmtKoreanLongDate(date);
+  const accent = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
+  const tw = ctx.measureText(dateStr).width;
+  const pillPadX = 36;
+  const pillH = 132;
+  const pillRx = 28;
+  const pillW = tw + pillPadX * 2;
+  const cx = w / 2;
+  const pillLeft = cx - pillW / 2;
+  const pillTop = dateY - pillH / 2;
+  ctx.fillStyle = accent + "80";
+  ctx.beginPath();
+  ctx.roundRect(pillLeft, pillTop, pillW, pillH, pillRx);
+  ctx.fill();
+  ctx.strokeStyle = accent + "CC";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(dateStr, cx, dateY);
   ctx.restore();
 
   // 프로야구 (h*0.52 ≈ 998@1920)
@@ -823,7 +842,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.stroke();
   ctx.restore();
 
-  // 오늘 경기결과 (프로야구 + 140px)
+  // 오늘 경기 결과 (프로야구 + 140px)
   const titleY = proY + 140;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -833,7 +852,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("오늘 경기결과", w / 2, titleY);
+  ctx.fillText("오늘 경기 결과", w / 2, titleY);
 
   // 1분컷 (써머리 + 280px), 날짜·1분컷 사이 구분선 없음
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
