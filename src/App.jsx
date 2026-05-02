@@ -800,7 +800,6 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 0;
   const dateY = Math.round(h * 0.38) + 70;
   const dateStr = fmtKoreanLongDate(date);
-  const accent = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
@@ -812,14 +811,14 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   const cx = w / 2;
   const pillLeft = cx - pillW / 2;
   const pillTop = dateY - pillH / 2;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.40)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
   ctx.beginPath();
   ctx.roundRect(pillLeft, pillTop, pillW, pillH, pillRx);
   ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = accent;
+  ctx.fillStyle = "#FFFFFFCC";
   ctx.fillText(dateStr, cx, dateY);
   ctx.restore();
 
