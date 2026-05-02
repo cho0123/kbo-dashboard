@@ -7,7 +7,7 @@ import {
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const region = process.env.AWS_REGION || "ap-northeast-2";
+const region = process.env.KBO_AWS_REGION || "ap-northeast-2";
 const bucket = process.env.S3_VIDEO_BUCKET || "kbo-video-export";
 const fnName = process.env.LAMBDA_VIDEO_ENCODER || "kbo-video-encoder";
 
