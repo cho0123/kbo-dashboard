@@ -1,6 +1,12 @@
 /** Firestore video_presets 및 FFmpeg 폴백용 기본 슬라이드 초(쇼츠 타입별) */
 
-export const SLIDE_KEYS_SHORTS1 = ["intro", "summary", "game_detail", "standings"];
+export const SLIDE_KEYS_SHORTS1 = [
+  "intro",
+  "summary",
+  "game_detail",
+  "outro",
+  "standings",
+];
 export const SLIDE_KEYS_SHORTS3 = ["intro", "summary", "game_detail", "standings"];
 export const SLIDE_KEYS_SHORTS2 = [
   "intro",
@@ -16,6 +22,7 @@ export const DEFAULT_DURATION_SHORTS1 = {
   intro: 3.0,
   summary: 2.5,
   game_detail: 2.0,
+  outro: 2.0,
   standings: 3.5,
 };
 
@@ -29,7 +36,13 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-export const DEFAULT_DURATION_SHORTS3 = { ...DEFAULT_DURATION_SHORTS1 };
+/** 쇼츠3은 outro 슬라이드 없음 */
+export const DEFAULT_DURATION_SHORTS3 = {
+  intro: 3.0,
+  summary: 2.5,
+  game_detail: 2.0,
+  standings: 3.5,
+};
 
 export function defaultSlidesForType(shortsType) {
   switch (shortsType) {
@@ -52,6 +65,15 @@ export function slideFieldDefs(shortsType) {
       { key: "game_preview_p3", label: "경기 예고 P3" },
       { key: "game_preview_p4", label: "경기 예고 P4" },
       { key: "game_preview_p5", label: "경기 예고 P5" },
+      { key: "standings", label: "순위" },
+    ];
+  }
+  if (shortsType === "shorts1") {
+    return [
+      { key: "intro", label: "인트로" },
+      { key: "summary", label: "결과 요약" },
+      { key: "game_detail", label: "경기 상세" },
+      { key: "outro", label: "결과 요약 - 끝" },
       { key: "standings", label: "순위" },
     ];
   }

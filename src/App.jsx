@@ -858,6 +858,43 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.restore();
 }
 
+/** 쇼츠1: 순위 직전 "결과 요약 - 끝" 슬라이드 */
+function drawOutroSlide(ctx, w, h, date) {
+  ctx.save();
+  const DAY_COLORS = {
+    0: "#C0392B",
+    1: "#1A5276",
+    2: "#1A5276",
+    3: "#1E8449",
+    4: "#D35400",
+    5: "#6C3483",
+    6: "#B7950B",
+  };
+  const iso = String(date || "").slice(0, 10);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T12:00:00`).getDay()
+    : 0;
+  ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const text = "결과 요약 - 끝";
+  let size = 120;
+  ctx.font = `900 ${size}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  while (ctx.measureText(text).width > w * 0.85 && size > 56) {
+    size -= 4;
+    ctx.font = `900 ${size}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(text, w / 2, h / 2);
+  ctx.restore();
+}
+
 function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
   ctx.save();
   // Background: day-of-week color (same as intro)
@@ -2282,6 +2319,7 @@ function slideExportKeyShorts1(slide) {
   if (slide.type === "summary") return "summary";
   if (slide.type === "game") return "game_detail";
   if (slide.type === "next_game") return "game_detail";
+  if (slide.type === "outro") return "outro";
   if (slide.type === "standings") return "standings";
   return "intro";
 }
@@ -2321,6 +2359,7 @@ function Card8Shorts({ defaultDate }) {
       if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame)
         s.push({ type: "next_game", game: g });
     }
+    s.push({ type: "outro" });
     s.push({ type: "standings" });
     return s;
   }, [data]);
@@ -2395,6 +2434,8 @@ function Card8Shorts({ defaultDate }) {
       for (const r of standings) {
         teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
       }
+    } else if (slide.type === "outro") {
+      /* 로고 미사용 */
     }
     const logosByTeamKey = {};
     for (const tk of teamKeys) {
@@ -2440,6 +2481,7 @@ function Card8Shorts({ defaultDate }) {
         logosByTeamKey,
         standings
       );
+    else if (slide.type === "outro") drawOutroSlide(ctx, w, h, date);
     else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
 
