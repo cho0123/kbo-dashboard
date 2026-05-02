@@ -66,7 +66,8 @@ function computeVideoDurationSec(n, durations, transitionRaw) {
   const durs = durations.map((x) => Number(x) || 0);
   if (n < 1) return 0;
   if (n === 1) return Math.max(0.05, durs[0] || 0);
-  const useXfade = n > 1 && Tf > 0.001;
+  /** 20장 이상은 concat demuxer만 사용(크로스페이드 없음) → 길이는 구간 합 */
+  const useXfade = n > 1 && n < 20 && Tf > 0.001;
   if (useXfade) {
     let acc = durs[0];
     for (let i = 1; i < n; i++) {
@@ -230,7 +231,9 @@ export const handler = async (event) => {
 
     const outLocal = join(workDir, "output.mp4");
     const Tf = Number(transition);
-    const useXfade = n > 1 && Number.isFinite(Tf) && Tf > 0.001;
+    /** 슬라이드 20장 이상이면 xfade 대신 concat demuxer(필터 그래프 부담 감소) */
+    const useXfade =
+      n > 1 && n < 20 && Number.isFinite(Tf) && Tf > 0.001;
 
     if (n === 1) {
       const args = [
