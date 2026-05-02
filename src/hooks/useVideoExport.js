@@ -91,8 +91,30 @@ export function useVideoExport() {
     setMessage("취소 중…");
   }, []);
 
+  function clampMusicOptions(raw) {
+    const o = raw && typeof raw === "object" ? raw : {};
+    const volume = Number(o.volume);
+    const startTime = Number(o.startTime);
+    const fadeOutDuration = Number(o.fadeOutDuration);
+    return {
+      volume: Number.isFinite(volume)
+        ? Math.min(1, Math.max(0, volume))
+        : 0.8,
+      startTime: Number.isFinite(startTime) ? Math.max(0, startTime) : 0,
+      fadeOutDuration: Number.isFinite(fadeOutDuration)
+        ? Math.min(5, Math.max(0, fadeOutDuration))
+        : 2,
+    };
+  }
+
   const exportVideo = useCallback(
-    async (slides, preset, musicFile, shortsType = "shorts1") => {
+    async (
+      slides,
+      preset,
+      musicFile,
+      shortsType = "shorts1",
+      musicOptionsInput
+    ) => {
       cancelledRef.current = false;
       revokeUrl();
       setError(null);
@@ -137,6 +159,9 @@ export function useVideoExport() {
         const transition = Number(preset?.transition);
         const hasMusic = musicFile instanceof File;
         const slideCount = slides.length;
+        const musicOptions = hasMusic
+          ? clampMusicOptions(musicOptionsInput)
+          : clampMusicOptions({});
 
         setMessage("업로드 URL 발급…");
         const prepareRes = await fetch("/api/video-encode", {
@@ -204,6 +229,7 @@ export function useVideoExport() {
             durations,
             transition: Number.isFinite(transition) ? transition : 0,
             hasMusic,
+            ...(hasMusic ? { musicOptions } : {}),
           }),
         });
 

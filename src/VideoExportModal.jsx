@@ -10,6 +10,9 @@ export default function VideoExportModal({
   exportSession,
 }) {
   const [musicFile, setMusicFile] = useState(null);
+  const [musicVolume, setMusicVolume] = useState(0.8);
+  const [musicStartTime, setMusicStartTime] = useState(0);
+  const [musicFadeOut, setMusicFadeOut] = useState(2);
   const lastSessionRef = useRef(-1);
   const {
     status,
@@ -27,6 +30,9 @@ export default function VideoExportModal({
     if (!isOpen) {
       lastSessionRef.current = -1;
       setMusicFile(null);
+      setMusicVolume(0.8);
+      setMusicStartTime(0);
+      setMusicFadeOut(2);
       revokeDownloadUrl();
       return;
     }
@@ -42,7 +48,9 @@ export default function VideoExportModal({
             transition: 0.2,
             music: null,
           };
-    exportVideo(slides, mergedPreset, null).catch(() => {});
+    exportVideo(slides, mergedPreset, null, shortsType || "shorts1").catch(
+      () => {}
+    );
   }, [
     isOpen,
     slides,
@@ -73,7 +81,11 @@ export default function VideoExportModal({
             transition: 0.2,
             music: null,
           };
-    exportVideo(slides, mergedPreset, musicFile).catch(() => {});
+    exportVideo(slides, mergedPreset, musicFile, shortsType || "shorts1", {
+      volume: musicVolume,
+      startTime: Number(musicStartTime) || 0,
+      fadeOutDuration: musicFadeOut,
+    }).catch(() => {});
   };
 
   const title =
@@ -106,6 +118,54 @@ export default function VideoExportModal({
             onChange={(e) => setMusicFile(e.target.files?.[0] ?? null)}
           />
         </label>
+
+        <label className="preset-field">
+          <span>
+            음악 볼륨 ({musicVolume.toFixed(2)})
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={musicVolume}
+            onChange={(e) =>
+              setMusicVolume(Number(e.target.value))
+            }
+          />
+        </label>
+
+        <label className="preset-field">
+          <span>음악 시작 위치 (초, 원본 파일 기준)</span>
+          <input
+            type="number"
+            min={0}
+            step={0.1}
+            value={musicStartTime}
+            onChange={(e) =>
+              setMusicStartTime(
+                Math.max(0, Number(e.target.value) || 0)
+              )
+            }
+          />
+        </label>
+
+        <label className="preset-field">
+          <span>
+            끝 페이드아웃 길이 ({musicFadeOut.toFixed(1)}초, 0~5)
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={5}
+            step={0.1}
+            value={musicFadeOut}
+            onChange={(e) =>
+              setMusicFadeOut(Number(e.target.value))
+            }
+          />
+        </label>
+
         <button
           type="button"
           className="ghost"

@@ -249,11 +249,27 @@ export const handler = async (event) => {
           });
         }
 
+        let musicOptions = null;
+        if (hasMusic) {
+          const mo = body.musicOptions && typeof body.musicOptions === "object" ? body.musicOptions : {};
+          const volume = Number(mo.volume);
+          const startTime = Number(mo.startTime);
+          const fadeOutDuration = Number(mo.fadeOutDuration);
+          musicOptions = {
+            volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0.8,
+            startTime: Number.isFinite(startTime) ? Math.max(0, startTime) : 0,
+            fadeOutDuration: Number.isFinite(fadeOutDuration)
+              ? Math.min(5, Math.max(0, fadeOutDuration))
+              : 2,
+          };
+        }
+
         const meta = {
           durations,
           transition,
           slideCount,
           hasMusic,
+          ...(musicOptions ? { musicOptions } : {}),
         };
 
         await s3.send(

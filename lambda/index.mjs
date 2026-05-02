@@ -60,6 +60,57 @@ function buildConcatListContent(durations) {
   return s;
 }
 
+/** 출력 영상 길이(초) — xfade/concat/단일 슬라이드와 동일 로직 */
+function computeVideoDurationSec(n, durations, transitionRaw) {
+  const Tf = Math.max(0, Number(transitionRaw) || 0);
+  const durs = durations.map((x) => Number(x) || 0);
+  if (n < 1) return 0;
+  if (n === 1) return Math.max(0.05, durs[0] || 0);
+  const useXfade = n > 1 && Tf > 0.001;
+  if (useXfade) {
+    let acc = durs[0];
+    for (let i = 1; i < n; i++) {
+      const tf = Math.min(
+        Tf,
+        Math.max(0.04, acc - 0.02),
+        Math.max(0.04, durs[i] - 0.02)
+      );
+      acc = acc + durs[i] - tf;
+    }
+    return acc;
+  }
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += durs[i];
+  return sum;
+}
+
+function normalizeMusicOptions(meta) {
+  const mo = meta.musicOptions && typeof meta.musicOptions === "object" ? meta.musicOptions : {};
+  const volume = Number(mo.volume);
+  const startTime = Number(mo.startTime);
+  const fadeOutDuration = Number(mo.fadeOutDuration);
+  return {
+    volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0.8,
+    startTime: Number.isFinite(startTime) ? Math.max(0, startTime) : 0,
+    fadeOutDuration: Number.isFinite(fadeOutDuration)
+      ? Math.min(5, Math.max(0, fadeOutDuration))
+      : 2,
+  };
+}
+
+/** FFmpeg -af 체인: volume + 끝 페이드아웃 (st = 영상끝 - fade 길이) */
+function buildMusicAf(videoDurSec, opts) {
+  const vol = opts.volume;
+  const fdRaw = opts.fadeOutDuration;
+  const fd = Math.min(fdRaw, videoDurSec);
+  const st = Math.max(0, videoDurSec - fd);
+  const parts = [`volume=${vol}`];
+  if (fd > 0.001) {
+    parts.push(`afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}`);
+  }
+  return parts.join(",");
+}
+
 async function streamToBuffer(body) {
   const chunks = [];
   for await (const chunk of body) {
@@ -148,6 +199,10 @@ export const handler = async (event) => {
     const n = Math.min(slideCount, durations.length);
     if (n < 1) throw new Error("slideCount 없음");
 
+    const musicOpts = normalizeMusicOptions(meta);
+    const videoDurSec = computeVideoDurationSec(n, durations, transition);
+    const afChain = hasMusic ? buildMusicAf(videoDurSec, musicOpts) : "";
+
     for (let i = 0; i < n; i++) {
       await getObjectFile(
         bucket,
@@ -194,12 +249,16 @@ export const handler = async (event) => {
       ];
       if (hasMusic) {
         args.push(
+          "-ss",
+          String(musicOpts.startTime),
           "-i",
           "music.mp3",
           "-map",
           "0:v",
           "-map",
           "1:a",
+          "-af",
+          afChain,
           "-c:a",
           "aac",
           "-b:a",
@@ -225,9 +284,14 @@ export const handler = async (event) => {
           `slide_${i}.png`
         );
       }
-      if (hasMusic) args.push("-i", "music.mp3");
-      args.push("-filter_complex", buildXfadeGraph(n, durations, Tf));
-      const mi = n;
+      if (hasMusic) {
+        args.push("-ss", String(musicOpts.startTime), "-i", "music.mp3");
+      }
+      const xfadeGraph = buildXfadeGraph(n, durations, Tf);
+      const fc = hasMusic
+        ? `${xfadeGraph};[${n}:a]${afChain}[aout]`
+        : xfadeGraph;
+      args.push("-filter_complex", fc);
       args.push(
         "-map",
         "[vout]",
@@ -245,7 +309,7 @@ export const handler = async (event) => {
       if (hasMusic) {
         args.push(
           "-map",
-          `${mi}:a`,
+          "[aout]",
           "-c:a",
           "aac",
           "-b:a",
@@ -283,12 +347,16 @@ export const handler = async (event) => {
       ];
       if (hasMusic) {
         args.push(
+          "-ss",
+          String(musicOpts.startTime),
           "-i",
           "music.mp3",
           "-map",
           "0:v",
           "-map",
           "1:a",
+          "-af",
+          afChain,
           "-c:a",
           "aac",
           "-b:a",
