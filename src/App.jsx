@@ -1456,9 +1456,9 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
       logosByTeamKey?.[ak] || null
     );
 
-    // Score: make VS bigger and yellow (Bebas Neue: single weight, use 400)
-    const scoreFont = `400 72px "Bebas Neue", system-ui, sans-serif`;
-    const vsFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
+    // Score: Bebas Neue — winner bold (700), VS slightly smaller
+    const scoreFont = `700 100px "Bebas Neue", system-ui, sans-serif`;
+    const vsFont = `400 80px "Bebas Neue", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
@@ -1479,13 +1479,13 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     const yy = y + Math.round(cardH * 0.62);
 
     ctx.font = scoreFont;
-    ctx.fillStyle = homeWin ? "#FFB3DE" : "#FFFFFF";
+    ctx.fillStyle = homeWin ? "#FF6B00" : "#FFFFFF";
     ctx.fillText(hsText + pad, startX, yy);
     ctx.fillStyle = "#F9FF00";
     ctx.font = vsFont;
     ctx.fillText(vsText, startX + w1, yy + 6);
     ctx.font = scoreFont;
-    ctx.fillStyle = awayWin ? "#FFB3DE" : "#FFFFFF";
+    ctx.fillStyle = awayWin ? "#FF6B00" : "#FFFFFF";
     ctx.fillText(pad + asText, startX + w1 + w2, yy);
     resetShadow(ctx);
 
