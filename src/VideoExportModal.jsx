@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useVideoExport } from "./hooks/useVideoExport.js";
 
 export default function VideoExportModal({
@@ -9,10 +9,6 @@ export default function VideoExportModal({
   shortsType,
   exportSession,
 }) {
-  const [musicFile, setMusicFile] = useState(null);
-  const [musicVolume, setMusicVolume] = useState(0.8);
-  const [musicStartTime, setMusicStartTime] = useState(0);
-  const [musicFadeOut, setMusicFadeOut] = useState(2);
   const lastSessionRef = useRef(-1);
   const {
     status,
@@ -26,13 +22,16 @@ export default function VideoExportModal({
     revokeDownloadUrl,
   } = useVideoExport();
 
+  const musicLabel =
+    preset?.music_name && String(preset.music_name).trim()
+      ? String(preset.music_name).trim()
+      : null;
+  const hasPresetMusic =
+    preset?.music_s3_key && String(preset.music_s3_key).trim();
+
   useEffect(() => {
     if (!isOpen) {
       lastSessionRef.current = -1;
-      setMusicFile(null);
-      setMusicVolume(0.8);
-      setMusicStartTime(0);
-      setMusicFadeOut(2);
       revokeDownloadUrl();
       return;
     }
@@ -46,9 +45,8 @@ export default function VideoExportModal({
             shorts_type: shortsType || "shorts1",
             slides: {},
             transition: 0.2,
-            music: null,
           };
-    exportVideo(slides, mergedPreset, null, shortsType || "shorts1").catch(
+    exportVideo(slides, mergedPreset, shortsType || "shorts1").catch(
       () => {}
     );
   }, [
@@ -68,24 +66,6 @@ export default function VideoExportModal({
     revokeDownloadUrl();
     lastSessionRef.current = -1;
     onClose?.();
-  };
-
-  const reencodeWithMusic = () => {
-    revokeDownloadUrl();
-    const mergedPreset =
-      preset && typeof preset === "object"
-        ? preset
-        : {
-            shorts_type: shortsType || "shorts1",
-            slides: {},
-            transition: 0.2,
-            music: null,
-          };
-    exportVideo(slides, mergedPreset, musicFile, shortsType || "shorts1", {
-      volume: musicVolume,
-      startTime: Number(musicStartTime) || 0,
-      fadeOutDuration: musicFadeOut,
-    }).catch(() => {});
   };
 
   const title =
@@ -110,71 +90,19 @@ export default function VideoExportModal({
       >
         <h2 className="preset-modal-title">{title}</h2>
 
-        <label className="preset-field">
-          <span>배경 음악 (선택)</span>
-          <input
-            type="file"
-            accept="audio/*,.mp3,.m4a,.wav,.aac"
-            onChange={(e) => setMusicFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-
-        <label className="preset-field">
-          <span>
-            음악 볼륨 ({musicVolume.toFixed(2)})
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={musicVolume}
-            onChange={(e) =>
-              setMusicVolume(Number(e.target.value))
-            }
-          />
-        </label>
-
-        <label className="preset-field">
-          <span>음악 시작 위치 (초, 원본 파일 기준)</span>
-          <input
-            type="number"
-            min={0}
-            step={0.1}
-            value={musicStartTime}
-            onChange={(e) =>
-              setMusicStartTime(
-                Math.max(0, Number(e.target.value) || 0)
-              )
-            }
-          />
-        </label>
-
-        <label className="preset-field">
-          <span>
-            끝 페이드아웃 길이 ({musicFadeOut.toFixed(1)}초, 0~5)
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={5}
-            step={0.1}
-            value={musicFadeOut}
-            onChange={(e) =>
-              setMusicFadeOut(Number(e.target.value))
-            }
-          />
-        </label>
-
-        <button
-          type="button"
-          className="ghost"
-          style={{ marginBottom: 12 }}
-          onClick={reencodeWithMusic}
-          disabled={status === "encoding"}
-        >
-          선택한 음악으로 다시 인코딩
-        </button>
+        {hasPresetMusic ? (
+          <p className="muted" style={{ marginBottom: 14, fontSize: 14 }}>
+            음원:{" "}
+            <strong style={{ color: "#00FF94" }}>
+              {musicLabel || "라이브러리 음원"}
+            </strong>{" "}
+            적용 중
+          </p>
+        ) : (
+          <p className="muted" style={{ marginBottom: 14, fontSize: 14 }}>
+            배경 음악 없음 (프리셋에서 음원을 선택하면 적용됩니다)
+          </p>
+        )}
 
         <div className="video-export-progress-wrap">
           <div className="video-export-progress-bar">

@@ -193,8 +193,13 @@ export const handler = async (event) => {
       durations = [],
       transition = 0,
       slideCount = 0,
-      hasMusic = false,
+      hasMusic: hasMusicMeta = false,
     } = meta;
+    const music_s3_key =
+      meta.music_s3_key && String(meta.music_s3_key).trim()
+        ? String(meta.music_s3_key).trim()
+        : "";
+    const hasMusic = Boolean(music_s3_key) || Boolean(hasMusicMeta);
 
     const n = Math.min(slideCount, durations.length);
     if (n < 1) throw new Error("slideCount 없음");
@@ -214,7 +219,11 @@ export const handler = async (event) => {
     let musicLocal = null;
     if (hasMusic) {
       musicLocal = join(workDir, "music.mp3");
-      await getObjectFile(bucket, `jobs/${jobId}/input/music.mp3`, musicLocal);
+      if (music_s3_key) {
+        await getObjectFile(bucket, music_s3_key, musicLocal);
+      } else {
+        await getObjectFile(bucket, `jobs/${jobId}/input/music.mp3`, musicLocal);
+      }
     }
 
     await putStatus(bucket, jobId, { state: "processing", progress: 35 });

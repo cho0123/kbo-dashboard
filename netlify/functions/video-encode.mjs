@@ -176,7 +176,6 @@ export const handler = async (event) => {
         const slideCount = Number(body.slideCount);
         const durations = body.durations;
         const transition = Number(body.transition ?? 0);
-        const hasMusic = Boolean(body.hasMusic);
 
         if (!Number.isFinite(slideCount) || slideCount < 1) {
           return jsonError(400, "invalid_slideCount", { slideCount: body.slideCount });
@@ -205,14 +204,6 @@ export const handler = async (event) => {
           slideUrls.push(await presignPut(key, "image/png"));
         }
 
-        let musicUrl = null;
-        if (hasMusic) {
-          musicUrl = await presignPut(
-            `jobs/${jobId}/input/music.mp3`,
-            "audio/mpeg"
-          );
-        }
-
         return {
           statusCode: 200,
           headers,
@@ -221,10 +212,27 @@ export const handler = async (event) => {
             bucket,
             presignedPut: {
               slides: slideUrls,
-              music: musicUrl,
+              music: null,
             },
             expiresIn: PRESIGN_EXPIRES_SEC,
             hint: "PUT each file to its URL with Content-Type matching the object (image/png or audio/mpeg), then POST mode=finalize.",
+          }),
+        };
+      }
+
+      if (mode === "music_upload_url") {
+        const fileName = body.fileName != null ? String(body.fileName) : "";
+        void fileName;
+        const key = `music/${randomUUID()}.mp3`;
+        const presignedPutUrl = await presignPut(key, "audio/mpeg");
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            key,
+            presignedPutUrl,
+            expiresIn: PRESIGN_EXPIRES_SEC,
+            bucket,
           }),
         };
       }
@@ -234,7 +242,12 @@ export const handler = async (event) => {
         const slideCount = Number(body.slideCount);
         const durations = body.durations;
         const transition = Number(body.transition ?? 0);
-        const hasMusic = Boolean(body.hasMusic);
+        const music_s3_key =
+          body.music_s3_key != null && String(body.music_s3_key).trim() !== ""
+            ? String(body.music_s3_key).trim()
+            : null;
+        const legacyUpload = Boolean(body.hasMusic) && !music_s3_key;
+        const hasMusic = Boolean(music_s3_key) || legacyUpload;
 
         if (!jobId || typeof jobId !== "string") {
           return jsonError(400, "missing_jobId");
@@ -269,6 +282,7 @@ export const handler = async (event) => {
           transition,
           slideCount,
           hasMusic,
+          ...(music_s3_key ? { music_s3_key } : {}),
           ...(musicOptions ? { musicOptions } : {}),
         };
 
@@ -306,9 +320,9 @@ export const handler = async (event) => {
       }
 
       return jsonError(400, "invalid_or_missing_mode", {
-        expected: "prepare | finalize",
+        expected: "prepare | finalize | music_upload_url",
         received: mode,
-        hint: "Large PNG payloads must not be sent in the JSON body. POST { mode:prepare, slideCount, durations, transition, hasMusic } then PUT files to presigned URLs, then POST { mode:finalize, jobId, ... }.",
+        hint: "Large PNG payloads must not be sent in the JSON body. POST { mode:prepare, slideCount, durations, transition, hasMusic } then PUT files to presigned URLs, then POST { mode:finalize, jobId, ... }. Music library: mode music_upload_url.",
       });
     }
 

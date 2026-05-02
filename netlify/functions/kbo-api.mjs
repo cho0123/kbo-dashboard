@@ -2761,16 +2761,30 @@ export const handler = async (event) => {
           if (Number.isFinite(n)) slides[k] = n;
         }
         const transition = Number(payload.transition);
-        const music =
-          payload.music == null || payload.music === ""
+        const music_s3_key =
+          payload.music_s3_key == null || String(payload.music_s3_key).trim() === ""
             ? null
-            : String(payload.music);
+            : String(payload.music_s3_key).trim();
+        const music_name =
+          payload.music_name == null || String(payload.music_name).trim() === ""
+            ? null
+            : String(payload.music_name).trim();
+        const mv = Number(payload.music_volume);
+        const music_volume = Number.isFinite(mv) ? Math.min(1, Math.max(0, mv)) : 0.8;
+        const mst = Number(payload.music_start_time);
+        const music_start_time = Number.isFinite(mst) ? Math.max(0, mst) : 0;
+        const mfo = Number(payload.music_fade_out);
+        const music_fade_out = Number.isFinite(mfo) ? Math.min(5, Math.max(0, mfo)) : 2;
         const data = {
           name,
           shorts_type,
           slides,
           transition: Number.isFinite(transition) ? transition : 0,
-          music,
+          music_s3_key,
+          music_name,
+          music_volume,
+          music_start_time,
+          music_fade_out,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
         if (id) {
@@ -2803,6 +2817,83 @@ export const handler = async (event) => {
           statusCode: 200,
           headers: corsHeaders(),
           body: JSON.stringify({ ok: true, action, id: delId }),
+        };
+      }
+      case "music_list": {
+        let snap;
+        try {
+          snap = await db.collection("music_library").limit(500).get();
+        } catch (e) {
+          console.warn("[music_list]", e?.message || e);
+          snap = { docs: [], empty: true };
+        }
+        const tracks = (snap.docs || []).map((d) => ({ id: d.id, ...docSnap(d) }));
+        tracks.sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || ""), "ko")
+        );
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            tracks,
+          }),
+        };
+      }
+      case "music_save": {
+        const name = String(payload.name || "").trim();
+        const s3_key = String(payload.s3_key || "").trim();
+        const duration = Number(payload.duration);
+        if (!name) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "이름이 필요합니다." }),
+          };
+        }
+        if (!s3_key.startsWith("music/")) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "s3_key가 music/ 로 시작해야 합니다." }),
+          };
+        }
+        if (!Number.isFinite(duration) || duration < 0) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "duration이 올바르지 않습니다." }),
+          };
+        }
+        const data = {
+          name,
+          s3_key,
+          duration,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        const ref = await db.collection("music_library").add(data);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, action, id: ref.id }),
+        };
+      }
+      case "music_delete": {
+        const mid = String(payload.id || "").trim();
+        if (!mid) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "id가 필요합니다." }),
+          };
+        }
+        await db.collection("music_library").doc(mid).delete();
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, action, id: mid }),
         };
       }
       case "game_results": {

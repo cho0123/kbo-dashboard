@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
 import VideoPresetsPanel from "./VideoPresetsPanel.jsx";
+import MusicLibraryPanel from "./MusicLibraryPanel.jsx";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import JSZip from "jszip";
 
@@ -4719,6 +4720,16 @@ export default function App() {
                 >
                   프리셋 열기
                 </button>
+                <button
+                  type="button"
+                  className="primary"
+                  style={{ marginTop: 8 }}
+                  onClick={() => {
+                    setActiveKey("music_library");
+                  }}
+                >
+                  음원 관리
+                </button>
               </div>
             </div>
           )}
@@ -5476,6 +5487,8 @@ export default function App() {
                     />
                   ) : activeKey === "video_presets" ? (
                     <VideoPresetsPanel />
+                  ) : activeKey === "music_library" ? (
+                    <MusicLibraryPanel />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (

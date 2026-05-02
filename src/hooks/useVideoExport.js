@@ -108,21 +108,15 @@ export function useVideoExport() {
   }
 
   const exportVideo = useCallback(
-    async (
-      slides,
-      preset,
-      musicFile,
-      shortsType = "shorts1",
-      musicOptionsInput
-    ) => {
+    async (slides, preset, shortsType = "shorts1") => {
       cancelledRef.current = false;
       revokeUrl();
       setError(null);
       setProgress(0);
       setDownloadUrl(null);
       const st =
-        String(preset?.shorts_type || "shorts1").replace(/[^a-z0-9_]/gi, "") ||
-        "shorts1";
+        String(preset?.shorts_type || shortsType || "shorts1")
+          .replace(/[^a-z0-9_]/gi, "") || "shorts1";
       setOutputName(`kbo_${st}_${seoulYyyymmdd()}.mp4`);
 
       if (!Array.isArray(slides) || slides.length === 0) {
@@ -157,10 +151,18 @@ export function useVideoExport() {
         }
 
         const transition = Number(preset?.transition);
-        const hasMusic = musicFile instanceof File;
+        const music_s3_key =
+          preset?.music_s3_key && String(preset.music_s3_key).trim()
+            ? String(preset.music_s3_key).trim()
+            : null;
+        const hasMusic = Boolean(music_s3_key);
         const slideCount = slides.length;
         const musicOptions = hasMusic
-          ? clampMusicOptions(musicOptionsInput)
+          ? clampMusicOptions({
+              volume: preset?.music_volume,
+              startTime: preset?.music_start_time,
+              fadeOutDuration: preset?.music_fade_out,
+            })
           : clampMusicOptions({});
 
         setMessage("업로드 URL 발급…");
@@ -172,7 +174,7 @@ export function useVideoExport() {
             slideCount,
             durations,
             transition: Number.isFinite(transition) ? transition : 0,
-            hasMusic,
+            hasMusic: false,
           }),
         });
 
@@ -199,19 +201,6 @@ export function useVideoExport() {
           );
         }
 
-        if (hasMusic) {
-          if (cancelledRef.current) {
-            setStatus("idle");
-            setMessage("취소됨");
-            return;
-          }
-          if (!presignedPut.music) {
-            throw new Error("음악 presigned URL이 없습니다.");
-          }
-          setMessage("S3에 음악 업로드…");
-          await putPresigned(presignedPut.music, musicFile, "audio/mpeg");
-        }
-
         if (cancelledRef.current) {
           setStatus("idle");
           setMessage("취소됨");
@@ -229,6 +218,7 @@ export function useVideoExport() {
             durations,
             transition: Number.isFinite(transition) ? transition : 0,
             hasMusic,
+            ...(music_s3_key ? { music_s3_key } : {}),
             ...(hasMusic ? { musicOptions } : {}),
           }),
         });

@@ -24,9 +24,23 @@ export default function VideoPresetsPanel() {
   const [shortsType, setShortsType] = useState("shorts1");
   const [slides, setSlides] = useState(() => defaultSlidesForType("shorts1"));
   const [transition, setTransition] = useState(0.2);
-  const [music, setMusic] = useState("");
+  const [musicTracks, setMusicTracks] = useState([]);
+  const [music_s3_key, setMusicS3Key] = useState("");
+  const [music_name, setMusicName] = useState("");
+  const [music_volume, setMusicVolume] = useState(0.8);
+  const [music_start_time, setMusicStartTime] = useState(0);
+  const [music_fade_out, setMusicFadeOut] = useState(2);
   const [saveErr, setSaveErr] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const loadMusicTracks = useCallback(async () => {
+    try {
+      const res = await postKbo({ action: "music_list" });
+      setMusicTracks(Array.isArray(res?.tracks) ? res.tracks : []);
+    } catch {
+      setMusicTracks([]);
+    }
+  }, []);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -46,6 +60,14 @@ export default function VideoPresetsPanel() {
     loadList();
   }, [loadList]);
 
+  useEffect(() => {
+    loadMusicTracks();
+  }, [loadMusicTracks]);
+
+  useEffect(() => {
+    if (formOpen) loadMusicTracks();
+  }, [formOpen, loadMusicTracks]);
+
   const filtered = useMemo(() => {
     if (filterTab === "all") return presets;
     return presets.filter((p) => p.shorts_type === filterTab);
@@ -57,7 +79,11 @@ export default function VideoPresetsPanel() {
     setShortsType("shorts1");
     setSlides(defaultSlidesForType("shorts1"));
     setTransition(0.2);
-    setMusic("");
+    setMusicS3Key("");
+    setMusicName("");
+    setMusicVolume(0.8);
+    setMusicStartTime(0);
+    setMusicFadeOut(2);
     setSaveErr(null);
     setFormOpen(true);
   };
@@ -69,7 +95,14 @@ export default function VideoPresetsPanel() {
     setShortsType(st);
     setSlides(mergeSlides(st, p.slides));
     setTransition(Number.isFinite(Number(p.transition)) ? Number(p.transition) : 0.2);
-    setMusic(p.music != null ? String(p.music) : "");
+    setMusicS3Key(p.music_s3_key != null ? String(p.music_s3_key) : "");
+    setMusicName(p.music_name != null ? String(p.music_name) : "");
+    const mv = Number(p.music_volume);
+    setMusicVolume(Number.isFinite(mv) ? Math.min(1, Math.max(0, mv)) : 0.8);
+    const mst = Number(p.music_start_time);
+    setMusicStartTime(Number.isFinite(mst) ? Math.max(0, mst) : 0);
+    const mfo = Number(p.music_fade_out);
+    setMusicFadeOut(Number.isFinite(mfo) ? Math.min(5, Math.max(0, mfo)) : 2);
     setSaveErr(null);
     setFormOpen(true);
   };
@@ -95,7 +128,11 @@ export default function VideoPresetsPanel() {
         shorts_type: shortsType,
         slides,
         transition,
-        music: music.trim() || null,
+        music_s3_key: music_s3_key.trim() || null,
+        music_name: music_s3_key.trim() ? music_name.trim() || null : null,
+        music_volume,
+        music_start_time,
+        music_fade_out,
       });
       await loadList();
       closeForm();
@@ -152,7 +189,7 @@ export default function VideoPresetsPanel() {
     <div className="result-page video-presets-page">
       <div className="result-hero-title">⚙️ 영상 프리셋 설정</div>
       <p className="muted" style={{ marginTop: 6 }}>
-        Firestore <code>video_presets</code>에 저장됩니다. 음악은 메모만 저장합니다.
+        Firestore <code>video_presets</code>에 저장됩니다. 음원은 라이브러리에서 선택합니다.
       </p>
 
       <div className="preset-filter-tabs" role="tablist">
@@ -207,7 +244,9 @@ export default function VideoPresetsPanel() {
             <div className="preset-card-badge">{p.shorts_type}</div>
             <div className="preset-card-meta muted">
               전환 {Number.isFinite(Number(p.transition)) ? p.transition : "—"}초
-              {p.music ? ` · 🎵 ${String(p.music).slice(0, 40)}` : ""}
+              {p.music_s3_key
+                ? ` · 🎵 ${String(p.music_name || p.music_s3_key).slice(0, 40)}`
+                : ""}
             </div>
           </div>
         ))}
@@ -304,12 +343,66 @@ export default function VideoPresetsPanel() {
             </p>
 
             <label className="preset-field">
-              <span>음악 (메모)</span>
+              <span>배경 음원</span>
+              <select
+                value={music_s3_key}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMusicS3Key(v);
+                  const tr = musicTracks.find((t) => t.s3_key === v);
+                  setMusicName(tr?.name != null ? String(tr.name) : "");
+                }}
+              >
+                <option value="">— 음원 없음 —</option>
+                {musicTracks.map((t) => (
+                  <option key={t.id} value={t.s3_key}>
+                    {t.name || t.s3_key}
+                    {Number.isFinite(Number(t.duration))
+                      ? ` (${Math.round(Number(t.duration))}초)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="preset-field">
+              <span>
+                음원 볼륨 ({music_volume.toFixed(2)})
+              </span>
               <input
-                type="text"
-                value={music}
-                onChange={(e) => setMusic(e.target.value)}
-                placeholder="파일 연결 예정 — 메모만 저장"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={music_volume}
+                onChange={(e) => setMusicVolume(Number(e.target.value))}
+              />
+            </label>
+
+            <label className="preset-field">
+              <span>음원 시작 위치 (초)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={music_start_time}
+                onChange={(e) =>
+                  setMusicStartTime(Math.max(0, Number(e.target.value) || 0))
+                }
+              />
+            </label>
+
+            <label className="preset-field">
+              <span>
+                끝 페이드아웃 ({music_fade_out.toFixed(1)}초, 0~5)
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={5}
+                step={0.1}
+                value={music_fade_out}
+                onChange={(e) => setMusicFadeOut(Number(e.target.value))}
               />
             </label>
 
