@@ -6,3 +6,8 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# Local clones / tooling (not part of this app)
+deno.lock
+kbo-dashboard-repo/
+kbo-project/
