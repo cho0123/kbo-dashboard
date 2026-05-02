@@ -271,7 +271,11 @@ export const handler = async (event) => {
           "-c:a",
           "aac",
           "-b:a",
-          "128k",
+          "320k",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
           "-shortest"
         );
       } else {
@@ -322,7 +326,11 @@ export const handler = async (event) => {
           "-c:a",
           "aac",
           "-b:a",
-          "128k",
+          "320k",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
           "-shortest"
         );
       } else {
@@ -369,7 +377,11 @@ export const handler = async (event) => {
           "-c:a",
           "aac",
           "-b:a",
-          "128k",
+          "320k",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
           "-shortest"
         );
       } else {
