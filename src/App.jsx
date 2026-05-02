@@ -798,7 +798,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const dateY = Math.round(h * 0.38);
+  const dateY = Math.round(h * 0.38) + 70;
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
@@ -823,7 +823,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.stroke();
   ctx.restore();
 
-  // 오늘 경기 써머리 (프로야구 + 140px)
+  // 오늘 경기결과 (프로야구 + 140px)
   const titleY = proY + 140;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -833,7 +833,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("오늘 경기 써머리", w / 2, titleY);
+  ctx.fillText("오늘 경기결과", w / 2, titleY);
 
   // 1분컷 (써머리 + 280px), 날짜·1분컷 사이 구분선 없음
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
