@@ -812,14 +812,14 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   const cx = w / 2;
   const pillLeft = cx - pillW / 2;
   const pillTop = dateY - pillH / 2;
-  ctx.fillStyle = accent + "80";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.40)";
   ctx.beginPath();
   ctx.roundRect(pillLeft, pillTop, pillW, pillH, pillRx);
   ctx.fill();
-  ctx.strokeStyle = accent + "CC";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = accent;
   ctx.fillText(dateStr, cx, dateY);
   ctx.restore();
 
