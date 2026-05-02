@@ -785,7 +785,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.27));
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.27) - 50);
   ctx.restore();
 
   // 위→아래: KBO → 날짜 → 프로야구 → 구분선 → 써머리 → 1분컷 (h 기준 비율, 1920 기준 예시 주석)
@@ -847,6 +847,20 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 6;
   const oneMinY = titleY + 280;
   ctx.fillText("1분컷", w / 2, oneMinY);
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  const oneMinFontPx = 220;
+  const oneMinDividerY = oneMinY + oneMinFontPx / 2 + 60;
+  const oneMinDivW = 600;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - oneMinDivW / 2, oneMinDividerY);
+  ctx.lineTo(w / 2 + oneMinDivW / 2, oneMinDividerY);
+  ctx.stroke();
 
   ctx.restore();
 }
