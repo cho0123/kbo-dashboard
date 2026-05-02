@@ -2519,7 +2519,6 @@ function Card8Shorts({ defaultDate }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
-        console.log("[shorts capture] el offsetSize", el.offsetWidth, el.offsetHeight);
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
@@ -2528,6 +2527,8 @@ function Card8Shorts({ defaultDate }) {
           useCORS: true,
           backgroundColor: null,
         });
+        console.log("[capture] canvas size:", c.width, "x", c.height);
+        console.log("[capture] el size:", el.offsetWidth, "x", el.offsetHeight);
         if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
           console.warn("[shorts capture] 예상 해상도와 다름", {
             expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
@@ -2843,7 +2844,6 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
-        console.log("[shorts capture T] el offsetSize", el.offsetWidth, el.offsetHeight);
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
@@ -2852,6 +2852,8 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
           useCORS: true,
           backgroundColor: null,
         });
+        console.log("[capture] canvas size:", c.width, "x", c.height);
+        console.log("[capture] el size:", el.offsetWidth, "x", el.offsetHeight);
         if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
           console.warn("[shorts capture T] 예상 해상도와 다름", {
             expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
