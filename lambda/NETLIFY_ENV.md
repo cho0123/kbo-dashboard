@@ -19,7 +19,7 @@
 
 ### 제한 사항
 
-- Netlify Functions 요청 본문 크기 제한(약 6MB)이 있어, **PNG·음악 base64 합이 크면** 업로드 실패할 수 있습니다. 그 경우 S3 presigned multipart 등으로 분리 업로드가 필요합니다.
+- Netlify Functions **요청 본문**은 약 **6MB**입니다. 큰 PNG·음악은 **presigned PUT URL**로 브라우저 → S3 직접 업로드하고, Function에는 `mode: prepare` / `mode: finalize` JSON만 보냅니다(앱이 이 방식을 사용).
 
 ## AWS Lambda (`kbo-video-encoder`)
 
@@ -34,7 +34,7 @@
 - CloudWatch Logs
 - 레이어: `arn:aws:lambda:ap-northeast-2:145266761615:layer:ffmpeg:1` (함수에 연결)
 
-### S3 버킷 CORS (브라우저에서 presigned MP4 직접 열 때)
+### S3 버킷 CORS (presigned PNG/MP3 **업로드(PUT)**·완성 MP4 **다운로드(GET)**)
 
 최소 예시 (필요 도메인만 `AllowedOrigins` 로 제한 권장):
 
@@ -42,6 +42,7 @@
 <CORSConfiguration>
   <CORSRule>
     <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>PUT</AllowedMethod>
     <AllowedMethod>GET</AllowedMethod>
     <AllowedHeader>*</AllowedHeader>
   </CORSRule>

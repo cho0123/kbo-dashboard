@@ -27,15 +27,39 @@ function resolveDuration(key, preset, shortsType) {
   return Number.isFinite(v) ? v : 2;
 }
 
-async function blobToBase64(blob) {
-  const buf = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  const chunk = 0x8000;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+async function parseJsonOrThrow(res, fallbackLabel) {
+  const rawText = await res.text();
+  let payload;
+  try {
+    payload = JSON.parse(rawText);
+  } catch {
+    throw new Error(rawText || `${fallbackLabel || "응답"} 파싱 실패 (HTTP ${res.status})`);
   }
-  return btoa(binary);
+  if (!res.ok) {
+    const err =
+      payload?.error ||
+      payload?.message ||
+      `HTTP ${res.status}`;
+    const details =
+      payload?.details != null ? ` ${JSON.stringify(payload.details)}` : "";
+    throw new Error(String(err) + details);
+  }
+  return payload;
+}
+
+/** S3 presigned PUT — 본문은 Netlify Function을 거치지 않음 (6MB 제한 회피) */
+async function putPresigned(url, body, contentType) {
+  const res = await fetch(url, {
+    method: "PUT",
+    body,
+    headers: { "Content-Type": contentType },
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(
+      `S3 업로드 실패 HTTP ${res.status}${t ? `: ${t.slice(0, 200)}` : ""}`
+    );
+  }
 }
 
 export function useVideoExport() {
@@ -92,21 +116,11 @@ export function useVideoExport() {
         setMessage("업로드 및 인코딩 요청…");
         setProgress(2);
 
-        const slidesB64 = [];
         for (let i = 0; i < slides.length; i++) {
           const blob = slides[i]?.blob;
           if (!(blob instanceof Blob)) {
             throw new Error(`슬라이드 ${i} Blob이 없습니다.`);
           }
-          slidesB64.push(await blobToBase64(blob));
-          setProgress(
-            Math.min(15, 2 + Math.round((12 * (i + 1)) / slides.length))
-          );
-        }
-
-        let musicBase64 = null;
-        if (musicFile instanceof File) {
-          musicBase64 = await blobToBase64(musicFile);
         }
 
         if (cancelledRef.current) {
@@ -116,33 +130,79 @@ export function useVideoExport() {
         }
 
         const transition = Number(preset?.transition);
-        const res = await fetch("/api/video-encode", {
+        const hasMusic = musicFile instanceof File;
+        const slideCount = slides.length;
+
+        setMessage("업로드 URL 발급…");
+        const prepareRes = await fetch("/api/video-encode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            slides: slidesB64,
+            mode: "prepare",
+            slideCount,
             durations,
             transition: Number.isFinite(transition) ? transition : 0,
-            musicBase64,
+            hasMusic,
           }),
         });
 
-        const rawText = await res.text();
-        if (!res.ok) {
-          throw new Error(rawText || `HTTP ${res.status}`);
+        const prepare = await parseJsonOrThrow(prepareRes, "prepare");
+        const { jobId, presignedPut } = prepare;
+        if (!jobId || !presignedPut?.slides?.length) {
+          throw new Error("prepare 응답에 jobId 또는 presignedPut.slides 없음");
+        }
+        if (presignedPut.slides.length !== slideCount) {
+          throw new Error("presigned URL 개수가 슬라이드 수와 일치하지 않습니다.");
         }
 
-        let payload;
-        try {
-          payload = JSON.parse(rawText);
-        } catch {
-          throw new Error(rawText || "응답 파싱 실패");
+        setMessage("S3에 슬라이드 업로드…");
+        for (let i = 0; i < slideCount; i++) {
+          if (cancelledRef.current) {
+            setStatus("idle");
+            setMessage("취소됨");
+            return;
+          }
+          const blob = slides[i].blob;
+          await putPresigned(presignedPut.slides[i], blob, "image/png");
+          setProgress(
+            Math.min(18, 2 + Math.round((16 * (i + 1)) / slideCount))
+          );
         }
 
-        const { jobId } = payload;
-        if (!jobId) {
-          throw new Error("jobId 없음");
+        if (hasMusic) {
+          if (cancelledRef.current) {
+            setStatus("idle");
+            setMessage("취소됨");
+            return;
+          }
+          if (!presignedPut.music) {
+            throw new Error("음악 presigned URL이 없습니다.");
+          }
+          setMessage("S3에 음악 업로드…");
+          await putPresigned(presignedPut.music, musicFile, "audio/mpeg");
         }
+
+        if (cancelledRef.current) {
+          setStatus("idle");
+          setMessage("취소됨");
+          return;
+        }
+
+        setMessage("인코딩 큐 등록…");
+        const finRes = await fetch("/api/video-encode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "finalize",
+            jobId,
+            slideCount,
+            durations,
+            transition: Number.isFinite(transition) ? transition : 0,
+            hasMusic,
+          }),
+        });
+
+        await parseJsonOrThrow(finRes, "finalize");
 
         setMessage("서버 인코딩 중… (상태 폴링)");
         const started = Date.now();
