@@ -38,6 +38,22 @@ const KBO_TEAM_NAMES = [
 const SHORTS_EXPORT_W = 1080;
 const SHORTS_EXPORT_H = 1920;
 
+/** html2canvas 결과가 1080×1920이 아니면 오프스크린에 맞춤 스케일 */
+function resizeCanvasToShortsExport(source) {
+  if (
+    source.width === SHORTS_EXPORT_W &&
+    source.height === SHORTS_EXPORT_H
+  ) {
+    return source;
+  }
+  const resized = document.createElement("canvas");
+  resized.width = SHORTS_EXPORT_W;
+  resized.height = SHORTS_EXPORT_H;
+  const rctx = resized.getContext("2d");
+  rctx.drawImage(source, 0, 0, SHORTS_EXPORT_W, SHORTS_EXPORT_H);
+  return resized;
+}
+
 function MarkdownView({ text }) {
   const value = (text || "").trim();
   if (!value) return <div className="md">—</div>;
@@ -2519,25 +2535,26 @@ function Card8Shorts({ defaultDate }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale: 1,
-          width: SHORTS_EXPORT_W,
-          height: SHORTS_EXPORT_H,
+          scale,
+          width: el.offsetWidth,
+          height: el.offsetHeight,
           useCORS: true,
           backgroundColor: null,
         });
         console.log("[capture] canvas size:", c.width, "x", c.height);
         console.log("[capture] el size:", el.offsetWidth, "x", el.offsetHeight);
-        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
-          console.warn("[shorts capture] 예상 해상도와 다름", {
-            expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
-            actual: `${c.width}x${c.height}`,
+        const uploadCanvas = resizeCanvasToShortsExport(c);
+        if (uploadCanvas !== c) {
+          console.warn("[shorts capture] 1080×1920 리사이즈 적용", {
+            from: `${c.width}x${c.height}`,
+            scale,
             elCss: `${el.offsetWidth}x${el.offsetHeight}`,
-            scale: 1,
           });
         }
         const blob = await new Promise((resolve, reject) => {
-          c.toBlob(
+          uploadCanvas.toBlob(
             (b) =>
               b ? resolve(b) : reject(new Error("PNG 변환 실패")),
             "image/png"
@@ -2843,25 +2860,26 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale: 1,
-          width: SHORTS_EXPORT_W,
-          height: SHORTS_EXPORT_H,
+          scale,
+          width: el.offsetWidth,
+          height: el.offsetHeight,
           useCORS: true,
           backgroundColor: null,
         });
         console.log("[capture] canvas size:", c.width, "x", c.height);
         console.log("[capture] el size:", el.offsetWidth, "x", el.offsetHeight);
-        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
-          console.warn("[shorts capture T] 예상 해상도와 다름", {
-            expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
-            actual: `${c.width}x${c.height}`,
+        const uploadCanvas = resizeCanvasToShortsExport(c);
+        if (uploadCanvas !== c) {
+          console.warn("[shorts capture T] 1080×1920 리사이즈 적용", {
+            from: `${c.width}x${c.height}`,
+            scale,
             elCss: `${el.offsetWidth}x${el.offsetHeight}`,
-            scale: 1,
           });
         }
         const blob = await new Promise((resolve, reject) => {
-          c.toBlob(
+          uploadCanvas.toBlob(
             (b) =>
               b ? resolve(b) : reject(new Error("PNG 변환 실패")),
             "image/png"
