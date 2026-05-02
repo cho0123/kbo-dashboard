@@ -188,6 +188,30 @@ function logChunkSplitDetail(n, durations, meta, jobId) {
   }
 }
 
+function logMetaJsonFull(meta) {
+  console.log("[meta] meta.json 전체:");
+  console.log(JSON.stringify(meta, null, 2));
+}
+
+/** slideKeys와 durations를 인덱스로 매핑해 한 줄씩 출력 (합계는 transition 차감 전) */
+function logSlideKeysDurationMapping(meta, n, durations) {
+  const keys = Array.isArray(meta.slideKeys) ? meta.slideKeys : [];
+  let rawSum = 0;
+  for (let i = 0; i < n; i++) {
+    const d = Number(durations[i]) || 0;
+    rawSum += d;
+    const label =
+      keys[i] != null && String(keys[i]).trim()
+        ? String(keys[i]).trim()
+        : "";
+    const mid = label ? ` (${label})` : "";
+    console.log(`[meta] slide_${i}${mid} → ${d.toFixed(1)}초`);
+  }
+  console.log(
+    `[meta] 전체 합계: ${rawSum.toFixed(1)}초 (transition 차감 전)`
+  );
+}
+
 function probeFormatDurationSec(workDir, fileName) {
   const bin = ffprobeBin();
   const r = spawnSync(
@@ -338,8 +362,11 @@ export const handler = async (event) => {
     const musicOpts = normalizeMusicOptions(meta);
     const dursForLen = durations.slice(0, n);
     const TfForLen = Number(transition);
+    logMetaJsonFull(meta);
+    logSlideKeysDurationMapping(meta, n, dursForLen);
     logChunkSplitDetail(n, dursForLen, meta, jobId);
     const videoDurSec = computeChunkedPipelineDurationSec(n, dursForLen, TfForLen);
+    console.log(`[meta] transition 차감 후: ${videoDurSec.toFixed(4)}초`);
 
     for (let i = 0; i < n; i++) {
       await getObjectFile(
