@@ -10,8 +10,8 @@ import {
 const region = process.env.AWS_REGION || "ap-northeast-2";
 const s3 = new S3Client({ region });
 
-const VIDEO_VF =
-  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
+/** PNG 정규화: 1080×1920으로 스케일(비율 무시·검은 pad 없음). 입력이 이미 9:16이면 왜곡 최소 */
+const VIDEO_VF = "scale=1080:1920,format=yuv420p";
 
 /**
  * 청크당 최대 슬라이드 수 (xfade 필터 그래프 메모리 상한).
@@ -93,7 +93,7 @@ function prepSlidePngTo1080(workDir, index) {
       "-i",
       src,
       "-vf",
-      `${VIDEO_VF},format=yuv420p`,
+      VIDEO_VF,
       "-frames:v",
       "1",
       dst,

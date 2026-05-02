@@ -2523,6 +2523,8 @@ function Card8Shorts({ defaultDate }) {
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
+          width: SHORTS_EXPORT_W,
+          height: SHORTS_EXPORT_H,
           useCORS: true,
           backgroundColor: null,
         });
@@ -2845,6 +2847,8 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
+          width: SHORTS_EXPORT_W,
+          height: SHORTS_EXPORT_H,
           useCORS: true,
           backgroundColor: null,
         });
