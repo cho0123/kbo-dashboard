@@ -11,8 +11,16 @@ const region = process.env.AWS_REGION || "ap-northeast-2";
 const bucket = process.env.S3_VIDEO_BUCKET || "kbo-video-export";
 const fnName = process.env.LAMBDA_VIDEO_ENCODER || "kbo-video-encoder";
 
-const s3 = new S3Client({ region });
-const lambda = new LambdaClient({ region });
+const kboAccessKeyId = process.env.KBO_AWS_ACCESS_KEY_ID;
+const kboSecretAccessKey = process.env.KBO_AWS_SECRET_ACCESS_KEY;
+const credentials =
+  kboAccessKeyId && kboSecretAccessKey
+    ? { accessKeyId: kboAccessKeyId, secretAccessKey: kboSecretAccessKey }
+    : undefined;
+
+const clientConfig = { region, ...(credentials ? { credentials } : {}) };
+const s3 = new S3Client(clientConfig);
+const lambda = new LambdaClient(clientConfig);
 
 function cors(extra = {}) {
   return {
