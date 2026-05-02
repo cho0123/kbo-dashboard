@@ -24,7 +24,12 @@ function resolveDuration(key, preset, shortsType) {
         ? DEFAULT_DURATION_SHORTS3
         : DEFAULT_DURATION_SHORTS1;
   const v = map[key];
-  return Number.isFinite(v) ? v : 2;
+  if (Number.isFinite(v)) return v;
+  if (shortsType === "shorts1" && key === "summary_last") {
+    const fb = map.summary;
+    if (Number.isFinite(fb)) return fb;
+  }
+  return 2;
 }
 
 async function parseJsonOrThrow(res, fallbackLabel) {

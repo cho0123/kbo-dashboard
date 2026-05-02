@@ -3,8 +3,8 @@
 export const SLIDE_KEYS_SHORTS1 = [
   "intro",
   "summary",
+  "summary_last",
   "game_detail",
-  "outro",
   "standings",
 ];
 export const SLIDE_KEYS_SHORTS3 = ["intro", "summary", "game_detail", "standings"];
@@ -21,8 +21,8 @@ export const SLIDE_KEYS_SHORTS2 = [
 export const DEFAULT_DURATION_SHORTS1 = {
   intro: 3.0,
   summary: 2.5,
+  summary_last: 3.0,
   game_detail: 2.0,
-  outro: 2.0,
   standings: 3.5,
 };
 
@@ -36,7 +36,7 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠3은 outro 슬라이드 없음 */
+/** 쇼츠3: summary_last 구분 없음(쇼츠1 전용) */
 export const DEFAULT_DURATION_SHORTS3 = {
   intro: 3.0,
   summary: 2.5,
@@ -71,9 +71,9 @@ export function slideFieldDefs(shortsType) {
   if (shortsType === "shorts1") {
     return [
       { key: "intro", label: "인트로" },
-      { key: "summary", label: "결과 요약" },
+      { key: "summary", label: "경기결과 1~4장" },
+      { key: "summary_last", label: "경기결과 마지막(5번째)장" },
       { key: "game_detail", label: "경기 상세" },
-      { key: "outro", label: "결과 요약 - 끝" },
       { key: "standings", label: "순위" },
     ];
   }
