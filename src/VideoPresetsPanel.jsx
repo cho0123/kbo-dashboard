@@ -289,7 +289,14 @@ export default function VideoPresetsPanel() {
               />
             </label>
 
-            <p className="muted" style={{ margin: "4px 0 10px", fontSize: 14 }}>
+            <p
+              style={{
+                margin: "4px 0 10px",
+                fontSize: 14,
+                color: "#00FF94",
+                fontWeight: "500",
+              }}
+            >
               예상 영상 길이: {estimatedVideoSec.toFixed(1)}초 (약 {estimatedHumanApprox})
             </p>
 
