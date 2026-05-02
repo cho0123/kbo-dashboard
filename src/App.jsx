@@ -38,6 +38,10 @@ const KBO_TEAM_NAMES = [
 const SHORTS_EXPORT_W = 1080;
 const SHORTS_EXPORT_H = 1920;
 
+/** html2canvas 옵션용 프레임 (9:16 유지, 1080×1920 대비 미세 확대) */
+const HTML2CANVAS_FRAME_W = 1098;
+const HTML2CANVAS_FRAME_H = 1952;
+
 /** html2canvas 결과가 1080×1920이 아니면 오프스크린에 맞춤 스케일 */
 function resizeCanvasToShortsExport(source) {
   if (
@@ -2538,8 +2542,8 @@ function Card8Shorts({ defaultDate }) {
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
-          width: el.offsetWidth,
-          height: el.offsetHeight,
+          width: HTML2CANVAS_FRAME_W,
+          height: HTML2CANVAS_FRAME_H,
           useCORS: true,
           backgroundColor: null,
         });
@@ -2863,8 +2867,8 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
-          width: el.offsetWidth,
-          height: el.offsetHeight,
+          width: HTML2CANVAS_FRAME_W,
+          height: HTML2CANVAS_FRAME_H,
           useCORS: true,
           backgroundColor: null,
         });
