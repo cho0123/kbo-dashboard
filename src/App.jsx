@@ -515,6 +515,22 @@ async function ensureCanvasFonts() {
   }
 }
 
+/** 슬라이드 전환 후 html2canvas 직전 — 매번 최신 FontFaceSet 반영 */
+async function waitFontsReadyForCapture() {
+  if (typeof document === "undefined" || !document.fonts?.ready) return;
+  try {
+    await document.fonts.ready;
+  } catch {
+    // ignore
+  }
+}
+
+const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
+
+function delayMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const FONT_TITLE = "Black Han Sans";
 const FONT_BODY = "Noto Sans KR";
 
@@ -2484,6 +2500,7 @@ function Card8Shorts({ defaultDate }) {
         await new Promise((r) =>
           requestAnimationFrame(() => requestAnimationFrame(r))
         );
+        await waitFontsReadyForCapture();
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
         console.log("[shorts capture] el offsetSize", el.offsetWidth, el.offsetHeight);
@@ -2509,6 +2526,9 @@ function Card8Shorts({ defaultDate }) {
           );
         });
         out.push({ key: slideExportKeyShorts1(slides[i]), blob });
+        if (i < slides.length - 1) {
+          await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
+        }
       }
       setCapturedSlides(out);
     } catch (e) {
@@ -2802,6 +2822,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         await new Promise((r) =>
           requestAnimationFrame(() => requestAnimationFrame(r))
         );
+        await waitFontsReadyForCapture();
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
         console.log("[shorts capture T] el offsetSize", el.offsetWidth, el.offsetHeight);
@@ -2827,6 +2848,9 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
           );
         });
         out.push({ key: slideExportKeyShorts2(slides[i]), blob });
+        if (i < slides.length - 1) {
+          await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
+        }
       }
       setCapturedSlidesT(out);
     } catch (e) {
