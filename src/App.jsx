@@ -33,6 +33,10 @@ const KBO_TEAM_NAMES = [
   "롯데 자이언츠",
 ];
 
+/** ShortsCanvas 미리보기 CSS 크기(360×640) ↔ 논리 캔버스 1080×1920 */
+const SHORTS_EXPORT_W = 1080;
+const SHORTS_EXPORT_H = 1920;
+
 function MarkdownView({ text }) {
   const value = (text || "").trim();
   if (!value) return <div className="md">—</div>;
@@ -2482,12 +2486,19 @@ function Card8Shorts({ defaultDate }) {
         );
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale: 1,
+          scale,
           useCORS: true,
-          width: 1080,
-          height: 1920,
         });
+        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
+          console.warn("[shorts capture] 예상 해상도와 다름", {
+            expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
+            actual: `${c.width}x${c.height}`,
+            elCss: `${el.offsetWidth}x${el.offsetHeight}`,
+            scale,
+          });
+        }
         const blob = await new Promise((resolve, reject) => {
           c.toBlob(
             (b) =>
@@ -2791,12 +2802,19 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         );
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale: 1,
+          scale,
           useCORS: true,
-          width: 1080,
-          height: 1920,
         });
+        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
+          console.warn("[shorts capture T] 예상 해상도와 다름", {
+            expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
+            actual: `${c.width}x${c.height}`,
+            elCss: `${el.offsetWidth}x${el.offsetHeight}`,
+            scale,
+          });
+        }
         const blob = await new Promise((resolve, reject) => {
           c.toBlob(
             (b) =>

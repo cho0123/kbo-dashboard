@@ -9,6 +9,9 @@ import {
 
 const CORE_MT_BASE = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
 
+const VIDEO_VF =
+  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
+
 function seoulYyyymmdd() {
   return new Date()
     .toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })
@@ -185,7 +188,7 @@ export function useVideoExport() {
           "-i",
           "list.txt",
           "-vf",
-          "scale=1080:1920",
+          VIDEO_VF,
           "-c:v",
           "libx264",
           "-preset",
