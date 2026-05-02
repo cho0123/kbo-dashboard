@@ -50,6 +50,7 @@ try {
         --function-name $FunctionName `
         --timeout 900 `
         --memory-size 3008 `
+        --ephemeral-storage Size=10240 `
         --layers $FfmpegLayerArn `
         --environment "Variables={S3_BUCKET=$S3Bucket}" `
         --region $Region
