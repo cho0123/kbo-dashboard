@@ -800,8 +800,22 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
   // Text block: 위로 모음 (기존 대비 상단 여백 축소)
   const blockStart = Math.round(h * 0.34);
-  const DATE_LINE_PX = 230;
   const ONE_MIN_LINE_PX = 185;
+  /** 날짜는 1분컷보다 약간 작게 시작, 넘침 시 추가 축소 */
+  const DATE_MAX_PX = ONE_MIN_LINE_PX - 14;
+  const maxTextW = w * 0.88;
+  const gSans = (weight, sizePx) =>
+    `${weight} ${sizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+
+  function fitFontPx(text, startPx, minPx, weight) {
+    let px = startPx;
+    ctx.font = gSans(weight, px);
+    while (ctx.measureText(text).width > maxTextW && px > minPx) {
+      px -= 2;
+      ctx.font = gSans(weight, px);
+    }
+    return px;
+  }
 
   // Small label: "프로야구" + divider
   ctx.save();
@@ -812,12 +826,13 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const proLabel = "프로야구";
+  fitFontPx(proLabel, 68, 44, 700);
   const proY = blockStart;
-  ctx.fillText("프로야구", w / 2, proY);
+  ctx.fillText(proLabel, w / 2, proY);
 
   const proDivY = proY + 52;
-  const proDivW = 420;
+  const proDivW = Math.min(420, maxTextW);
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -826,8 +841,9 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.stroke();
   ctx.restore();
 
-  // "오늘 경기 써머리"
+  // "오늘 경기 써머리" — 기본 128px, 넘치면 축소
   const titleY = blockStart + 150;
+  const titleText = "오늘 경기 써머리";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
@@ -835,16 +851,17 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowBlur = 14;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("오늘 경기 써머리", w / 2, titleY);
+  fitFontPx(titleText, 128, 72, 900);
+  ctx.fillText(titleText, w / 2, titleY);
 
-  // 날짜 (년도 없음, 1분컷과 비슷하거나 더 크게)
+  // 날짜 (년도 없음, 1분컷보다 약간 작게 + 가로 맞춤)
+  const dateStr = fmtKoreanIntroDateNoYear(date);
   const dateY = titleY + 145;
   ctx.shadowColor = "rgba(0,0,0,0.32)";
   ctx.shadowBlur = 12;
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 ${DATE_LINE_PX}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtKoreanIntroDateNoYear(date), w / 2, dateY);
+  fitFontPx(dateStr, DATE_MAX_PX, 64, 900);
+  ctx.fillText(dateStr, w / 2, dateY);
 
   // 구분선 → "1분컷"
   ctx.shadowColor = "transparent";
@@ -852,7 +869,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   const divY = dateY + 88;
-  const divW = 600;
+  const divW = Math.min(600, maxTextW);
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -861,13 +878,14 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.stroke();
 
   const oneMinY = divY + 72;
+  const oneMinText = "1분컷";
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
-  ctx.font = `800 ${ONE_MIN_LINE_PX}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  ctx.fillText("1분컷", w / 2, oneMinY);
+  fitFontPx(oneMinText, ONE_MIN_LINE_PX, 100, 800);
+  ctx.fillText(oneMinText, w / 2, oneMinY);
 
   ctx.restore();
 }
