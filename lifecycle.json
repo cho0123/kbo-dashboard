@@ -1,1 +1,0 @@
-{"Rules":[{"ID":"auto-delete","Status":"Enabled","Expiration":{"Days":1},"Filter":{"Prefix":"jobs/"}}]}

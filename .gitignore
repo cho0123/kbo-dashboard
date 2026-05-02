@@ -10,6 +10,7 @@ dist
 # Local clones / tooling (not part of this app)
 deno.lock
 kbo-dashboard-repo/
+kbo-dashboard/
 kbo-project/
 
 # Lambda deploy artifact
