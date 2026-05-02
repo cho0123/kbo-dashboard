@@ -83,24 +83,56 @@ function buildChunkMp4ConcatList(chunkCount) {
   return s;
 }
 
+/** 입력 PNG 스트림 가로·세로 (exec 대신 spawnSync — Lambda 번들에 execa 없음) */
+function ffprobePngStreamDimensionsCsv(workDir, relativeInput) {
+  const bin = ffprobeBin();
+  const r = spawnSync(
+    bin,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=width,height",
+      "-of",
+      "csv=p=0",
+      relativeInput,
+    ],
+    {
+      cwd: workDir,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, PATH: `/opt/bin:/usr/bin:${process.env.PATH || ""}` },
+    }
+  );
+  return r.status === 0 ? String(r.stdout || "").trim() : null;
+}
+
 /** S3 PNG → 1080×1920 PNG (sharp/jimp 없이 ffmpeg만 사용) */
 function prepSlidePngTo1080(workDir, index) {
   const src = `slide_${index}.png`;
   const dst = `prep_${index}.png`;
-  runFfmpeg(
-    [
-      "-y",
-      "-i",
-      src,
-      "-vf",
-      VIDEO_VF,
-      "-frames:v",
-      "1",
-      dst,
-    ],
-    workDir,
-    `prep_${index}`
-  );
+
+  const csv = ffprobePngStreamDimensionsCsv(workDir, src);
+  if (csv != null && csv !== "") {
+    console.log("[ffprobe] input PNG size:", csv);
+  } else {
+    console.warn("[ffprobe] input PNG size: (ffprobe failed)");
+  }
+
+  const args = [
+    "-y",
+    "-i",
+    src,
+    "-vf",
+    VIDEO_VF,
+    "-frames:v",
+    "1",
+    dst,
+  ];
+  console.log("[ffmpeg] args:", args.join(" "));
+  runFfmpeg(args, workDir, `prep_${index}`);
   if (existsSync(join(workDir, src))) unlinkSync(join(workDir, src));
 }
 
