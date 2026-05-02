@@ -548,6 +548,17 @@ function fmtKoreanLongDate(iso) {
   return `${y}년 ${mo}월 ${d}일 (${wk})`;
 }
 
+/** 쇼츠1 인트로: 년도 없이 "N월 N일 (요)" */
+function fmtKoreanIntroDateNoYear(iso) {
+  const s = String(iso || "").slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s || "—";
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const wk = new Date(s).toLocaleDateString("ko-KR", { weekday: "short" });
+  return `${mo}월 ${d}일 (${wk})`;
+}
+
 function fmtKoreanDotDate(iso) {
   const s = String(iso || "").slice(0, 10);
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -784,12 +795,13 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.22));
   ctx.restore();
 
-  // Text block layout — same as 2번 인트로
-  const BLOCK_SHIFT_Y = 100;
-  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
+  // Text block: 위로 모음 (기존 대비 상단 여백 축소)
+  const blockStart = Math.round(h * 0.34);
+  const DATE_LINE_PX = 230;
+  const ONE_MIN_LINE_PX = 185;
 
   // Small label: "프로야구" + divider
   ctx.save();
@@ -801,7 +813,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const proY = titleY - 140;
+  const proY = blockStart;
   ctx.fillText("프로야구", w / 2, proY);
 
   const proDivY = proY + 52;
@@ -814,7 +826,8 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.stroke();
   ctx.restore();
 
-  // Middle: title
+  // "오늘 경기 써머리"
+  const titleY = blockStart + 150;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
@@ -825,22 +838,20 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("오늘 경기 써머리", w / 2, titleY);
 
-  // Below: "1분컷" (요일별 보색 유지)
-  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
-  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  // 날짜 (년도 없음, 1분컷과 비슷하거나 더 크게)
+  const dateY = titleY + 145;
+  ctx.shadowColor = "rgba(0,0,0,0.32)";
   ctx.shadowBlur = 12;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 6;
-  const oneMinY = titleY + 220 + 100;
-  ctx.fillText("1분컷", w / 2, oneMinY);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `900 ${DATE_LINE_PX}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(fmtKoreanIntroDateNoYear(date), w / 2, dateY);
 
-  // Divider + date
+  // 구분선 → "1분컷"
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const divY = oneMinY + 110 + 60;
+  const divY = dateY + 88;
   const divW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
@@ -849,11 +860,14 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.lineTo(w / 2 + divW / 2, divY);
   ctx.stroke();
 
-  const dateY = divY + 80;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
+  const oneMinY = divY + 72;
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.font = `800 ${ONE_MIN_LINE_PX}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.3)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText("1분컷", w / 2, oneMinY);
 
   ctx.restore();
 }
