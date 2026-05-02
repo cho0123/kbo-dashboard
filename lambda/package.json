@@ -1,0 +1,9 @@
+{
+  "name": "kbo-video-encoder",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.699.0"
+  }
+}

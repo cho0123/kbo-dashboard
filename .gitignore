@@ -11,3 +11,6 @@ dist
 deno.lock
 kbo-dashboard-repo/
 kbo-project/
+
+# Lambda deploy artifact
+kbo-video-encoder.zip

@@ -54,7 +54,7 @@ export default function VideoExportModal({
   ]);
 
   const handleClose = () => {
-    if (status === "loading_ffmpeg" || status === "encoding") {
+    if (status === "encoding") {
       cancel();
     }
     revokeDownloadUrl();
@@ -86,7 +86,7 @@ export default function VideoExportModal({
       className="preset-modal-overlay video-export-overlay"
       role="presentation"
       onClick={() => {
-        if (status === "loading_ffmpeg" || status === "encoding") return;
+        if (status === "encoding") return;
         handleClose();
       }}
     >
@@ -111,7 +111,7 @@ export default function VideoExportModal({
           className="ghost"
           style={{ marginBottom: 12 }}
           onClick={reencodeWithMusic}
-          disabled={status === "loading_ffmpeg" || status === "encoding"}
+          disabled={status === "encoding"}
         >
           선택한 음악으로 다시 인코딩
         </button>
@@ -137,7 +137,7 @@ export default function VideoExportModal({
         ) : null}
 
         <div className="preset-modal-actions video-export-actions">
-          {(status === "loading_ffmpeg" || status === "encoding") && (
+          {status === "encoding" && (
             <button type="button" className="danger-outline" onClick={cancel}>
               취소
             </button>
@@ -153,7 +153,7 @@ export default function VideoExportModal({
           <button
             type="button"
             className="ghost"
-            disabled={status === "loading_ffmpeg" || status === "encoding"}
+            disabled={status === "encoding"}
             onClick={handleClose}
           >
             닫기

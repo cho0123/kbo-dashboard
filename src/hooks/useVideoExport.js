@@ -1,16 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import {
   DEFAULT_DURATION_SHORTS1,
   DEFAULT_DURATION_SHORTS2,
   DEFAULT_DURATION_SHORTS3,
 } from "../videoPresetDefaults.js";
 
-const CORE_MT_BASE = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
-
-const VIDEO_VF =
-  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
+const POLL_MS = 1500;
+const POLL_MAX_MS = 45 * 60 * 1000;
 
 function seoulYyyymmdd() {
   return new Date()
@@ -31,16 +27,15 @@ function resolveDuration(key, preset, shortsType) {
   return Number.isFinite(v) ? v : 2;
 }
 
-function buildConcatListContent(durations) {
-  let s = "ffconcat version 1.0\n";
-  for (let i = 0; i < durations.length; i++) {
-    s += `file 'slide_${i}.png'\n`;
-    s += `duration ${durations[i]}\n`;
+async function blobToBase64(blob) {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   }
-  const last = durations.length - 1;
-  s += `file 'slide_${last}.png'\n`;
-  s += "duration 0\n";
-  return s;
+  return btoa(binary);
 }
 
 export function useVideoExport() {
@@ -51,27 +46,20 @@ export function useVideoExport() {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [outputName, setOutputName] = useState("kbo_shorts.mp4");
 
-  const ffmpegRef = useRef(null);
   const cancelledRef = useRef(false);
   const downloadUrlRef = useRef(null);
 
   const revokeUrl = useCallback(() => {
-    if (downloadUrlRef.current) {
+    if (downloadUrlRef.current?.startsWith("blob:")) {
       URL.revokeObjectURL(downloadUrlRef.current);
-      downloadUrlRef.current = null;
     }
+    downloadUrlRef.current = null;
     setDownloadUrl(null);
   }, []);
 
   const cancel = useCallback(() => {
     cancelledRef.current = true;
     setMessage("취소 중…");
-    try {
-      ffmpegRef.current?.terminate();
-    } catch {
-      /* ignore */
-    }
-    ffmpegRef.current = null;
   }, []);
 
   const exportVideo = useCallback(
@@ -100,147 +88,111 @@ export function useVideoExport() {
       );
 
       try {
-        setStatus("loading_ffmpeg");
-        setMessage("FFmpeg 로드 중…");
-
-        const ffmpeg = new FFmpeg();
-        ffmpegRef.current = ffmpeg;
-
-        ffmpeg.on("progress", ({ progress: ratio }) => {
-          if (cancelledRef.current) return;
-          const r = Number(ratio);
-          console.log("[useVideoExport] progress 이벤트 ratio:", r);
-          const pct = Math.round((Number.isFinite(r) ? r : 0) * 100);
-          setProgress(Math.min(100, Math.max(0, pct)));
-        });
-
-        ffmpeg.on("log", ({ type, message: logMsg }) => {
-          if (cancelledRef.current) return;
-          console.log("[ffmpeg]", type ?? "log", logMsg ?? "");
-        });
-
-        console.log("[useVideoExport] FFmpeg 로딩 시작");
-
-        const coreURL = await toBlobURL(
-          `${CORE_MT_BASE}/ffmpeg-core.js`,
-          "text/javascript"
-        );
-        const wasmURL = await toBlobURL(
-          `${CORE_MT_BASE}/ffmpeg-core.wasm`,
-          "application/wasm"
-        );
-        const workerURL = await toBlobURL(
-          `${CORE_MT_BASE}/ffmpeg-core.worker.js`,
-          "text/javascript"
-        );
-
-        await ffmpeg.load({ coreURL, wasmURL, workerURL });
-
-        console.log("[useVideoExport] FFmpeg 로딩 완료");
-
-        if (cancelledRef.current) return;
-
         setStatus("encoding");
-        setMessage("입력 파일 준비…");
-        setProgress(0);
+        setMessage("업로드 및 인코딩 요청…");
+        setProgress(2);
 
-        console.log("[useVideoExport] 슬라이드 파일 write 시작", {
-          count: slides.length,
-        });
-
+        const slidesB64 = [];
         for (let i = 0; i < slides.length; i++) {
           const blob = slides[i]?.blob;
           if (!(blob instanceof Blob)) {
             throw new Error(`슬라이드 ${i} Blob이 없습니다.`);
           }
-          console.log(
-            `[useVideoExport] 슬라이드 파일 write 시작 slide_${i}.png`
-          );
-          await ffmpeg.writeFile(
-            `slide_${i}.png`,
-            await fetchFile(blob)
-          );
-          console.log(
-            `[useVideoExport] 슬라이드 파일 write 완료 slide_${i}.png`
+          slidesB64.push(await blobToBase64(blob));
+          setProgress(
+            Math.min(15, 2 + Math.round((12 * (i + 1)) / slides.length))
           );
         }
 
-        console.log("[useVideoExport] 슬라이드 파일 write 전체 완료");
-
+        let musicBase64 = null;
         if (musicFile instanceof File) {
-          console.log("[useVideoExport] 음악 파일 write 시작 music.mp3");
-          await ffmpeg.writeFile("music.mp3", await fetchFile(musicFile));
-          console.log("[useVideoExport] 음악 파일 write 완료 music.mp3");
+          musicBase64 = await blobToBase64(musicFile);
         }
 
-        if (cancelledRef.current) return;
+        if (cancelledRef.current) {
+          setStatus("idle");
+          setMessage("취소됨");
+          return;
+        }
 
-        const listTxt = buildConcatListContent(durations);
-        console.log("[useVideoExport] concat list.txt write 시작");
-        await ffmpeg.writeFile("list.txt", listTxt);
-        console.log("[useVideoExport] concat list.txt write 완료");
+        const transition = Number(preset?.transition);
+        const res = await fetch("/api/video-encode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slides: slidesB64,
+            durations,
+            transition: Number.isFinite(transition) ? transition : 0,
+            musicBase64,
+          }),
+        });
 
-        const args = [
-          "-f",
-          "concat",
-          "-safe",
-          "0",
-          "-i",
-          "list.txt",
-          "-vf",
-          VIDEO_VF,
-          "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "23",
-          "-pix_fmt",
-          "yuv420p",
-          "-r",
-          "30",
-        ];
-        if (musicFile instanceof File) {
-          args.push(
-            "-i",
-            "music.mp3",
-            "-map",
-            "0:v",
-            "-map",
-            "1:a",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "128k",
-            "-shortest"
+        const rawText = await res.text();
+        if (!res.ok) {
+          throw new Error(rawText || `HTTP ${res.status}`);
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(rawText);
+        } catch {
+          throw new Error(rawText || "응답 파싱 실패");
+        }
+
+        const { jobId } = payload;
+        if (!jobId) {
+          throw new Error("jobId 없음");
+        }
+
+        setMessage("서버 인코딩 중… (상태 폴링)");
+        const started = Date.now();
+
+        while (Date.now() - started < POLL_MAX_MS) {
+          if (cancelledRef.current) {
+            setStatus("idle");
+            setMessage("취소됨");
+            return;
+          }
+
+          await new Promise((r) => setTimeout(r, POLL_MS));
+
+          const pollRes = await fetch(
+            `/api/video-encode?jobId=${encodeURIComponent(jobId)}`
           );
-        } else {
-          args.push("-an");
-        }
-        args.push("output.mp4");
+          const pollText = await pollRes.text();
+          let data;
+          try {
+            data = JSON.parse(pollText);
+          } catch {
+            throw new Error(pollText || "폴링 응답 오류");
+          }
 
-        setMessage("인코딩 중…");
-        console.log("[useVideoExport] ffmpeg.exec 시작", { args });
-        const code = await ffmpeg.exec(args, 600000);
-        console.log("[useVideoExport] ffmpeg.exec 종료", { code });
-        if (cancelledRef.current) return;
-        if (code !== 0) {
-          throw new Error(`ffmpeg 종료 코드 ${code}`);
+          if (typeof data.progress === "number") {
+            setProgress(Math.min(99, Math.max(0, data.progress)));
+          }
+
+          if (data.state === "unknown") {
+            continue;
+          }
+
+          if (data.state === "done" && data.downloadUrl) {
+            if (downloadUrlRef.current?.startsWith("blob:")) {
+              URL.revokeObjectURL(downloadUrlRef.current);
+            }
+            downloadUrlRef.current = data.downloadUrl;
+            setDownloadUrl(data.downloadUrl);
+            setProgress(100);
+            setStatus("done");
+            setMessage("완료 — 다운로드 버튼을 누르세요.");
+            return;
+          }
+
+          if (data.state === "error") {
+            throw new Error(data.error || "서버 인코딩 실패");
+          }
         }
 
-        setMessage("파일 읽기…");
-        const data = await ffmpeg.readFile("output.mp4");
-        const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
-        const blob = new Blob([u8], { type: "video/mp4" });
-        const url = URL.createObjectURL(blob);
-        if (downloadUrlRef.current) {
-          URL.revokeObjectURL(downloadUrlRef.current);
-        }
-        downloadUrlRef.current = url;
-        setDownloadUrl(url);
-        setProgress(100);
-        setStatus("done");
-        setMessage("완료 — 다운로드 버튼을 누르세요.");
+        throw new Error("인코딩 시간 초과");
       } catch (e) {
         if (cancelledRef.current) {
           setStatus("idle");
@@ -251,13 +203,6 @@ export function useVideoExport() {
         setStatus("error");
         setError(e instanceof Error ? e : new Error(String(e)));
         setMessage("");
-      } finally {
-        try {
-          ffmpegRef.current?.terminate?.();
-        } catch {
-          /* ignore */
-        }
-        ffmpegRef.current = null;
       }
     },
     [revokeUrl]
@@ -269,6 +214,7 @@ export function useVideoExport() {
     a.href = downloadUrl;
     a.download = outputName;
     a.rel = "noopener";
+    a.target = "_blank";
     a.click();
   }, [downloadUrl, outputName]);
 

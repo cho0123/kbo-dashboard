@@ -1,0 +1,342 @@
+import { spawnSync } from "child_process";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { join } from "path";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+
+const region = process.env.AWS_REGION || "ap-northeast-2";
+const s3 = new S3Client({ region });
+
+const VIDEO_VF =
+  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
+
+function ffmpegBin() {
+  const candidates = ["/opt/bin/ffmpeg", "/opt/ffmpeg/ffmpeg"];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return "ffmpeg";
+}
+
+function buildXfadeGraph(n, durations, transitionRaw) {
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    parts.push(
+      `[${i}:v]${VIDEO_VF},format=yuv420p,setpts=PTS-STARTPTS,fps=30[v${i}s]`
+    );
+  }
+  let Tf = Math.max(0, Number(transitionRaw) || 0);
+  let cur = "[v0s]";
+  let acc = durations[0];
+  for (let i = 1; i < n; i++) {
+    const tf = Math.min(
+      Tf,
+      Math.max(0.04, acc - 0.02),
+      Math.max(0.04, durations[i] - 0.02)
+    );
+    const offset = Math.max(0, acc - tf);
+    const out = i === n - 1 ? "[vout]" : `[vx${i}]`;
+    parts.push(
+      `${cur}[v${i}s]xfade=transition=fade:duration=${tf}:offset=${offset}${out}`
+    );
+    acc = acc + durations[i] - tf;
+    cur = out;
+  }
+  return parts.join(";");
+}
+
+function buildConcatListContent(durations) {
+  let s = "ffconcat version 1.0\n";
+  for (let i = 0; i < durations.length; i++) {
+    s += `file 'slide_${i}.png'\n`;
+    s += `duration ${durations[i]}\n`;
+  }
+  const last = durations.length - 1;
+  s += `file 'slide_${last}.png'\n`;
+  s += "duration 0\n";
+  return s;
+}
+
+async function streamToBuffer(body) {
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function getJson(bucket, key) {
+  const out = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key })
+  );
+  const buf = await streamToBuffer(out.Body);
+  return JSON.parse(buf.toString("utf8"));
+}
+
+async function putStatus(bucket, jobId, payload) {
+  const key = `jobs/${jobId}/status.json`;
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: JSON.stringify(payload),
+      ContentType: "application/json",
+    })
+  );
+}
+
+async function getObjectFile(bucket, key, destPath) {
+  const out = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key })
+  );
+  const buf = await streamToBuffer(out.Body);
+  writeFileSync(destPath, buf);
+}
+
+async function putOutputMp4(bucket, key, filePath) {
+  const body = readFileSync(filePath);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: "video/mp4",
+    })
+  );
+}
+
+function runFfmpeg(args, cwd, label) {
+  const bin = ffmpegBin();
+  const r = spawnSync(bin, args, {
+    cwd,
+    encoding: "utf8",
+    maxBuffer: 20 * 1024 * 1024,
+    env: { ...process.env, PATH: `/opt/bin:/usr/bin:${process.env.PATH || ""}` },
+  });
+  if (r.status !== 0) {
+    console.error(`[ffmpeg ${label}] exit`, r.status, r.stderr || r.stdout);
+    throw new Error(
+      `ffmpeg 실패 (${label}) code=${r.status}: ${(r.stderr || r.stdout || "").slice(0, 800)}`
+    );
+  }
+}
+
+export const handler = async (event) => {
+  const bucket = event.bucket || process.env.S3_BUCKET || "kbo-video-export";
+  const jobId = event.jobId;
+  if (!jobId) {
+    return { ok: false, error: "missing jobId" };
+  }
+
+  const workDir = join("/tmp", `job_${jobId}`);
+  try {
+    mkdirSync(workDir, { recursive: true });
+    await putStatus(bucket, jobId, { state: "processing", progress: 15 });
+
+    const metaKey = `jobs/${jobId}/meta.json`;
+    const meta = await getJson(bucket, metaKey);
+    const {
+      durations = [],
+      transition = 0,
+      slideCount = 0,
+      hasMusic = false,
+    } = meta;
+
+    const n = Math.min(slideCount, durations.length);
+    if (n < 1) throw new Error("slideCount 없음");
+
+    for (let i = 0; i < n; i++) {
+      await getObjectFile(
+        bucket,
+        `jobs/${jobId}/input/slide_${i}.png`,
+        join(workDir, `slide_${i}.png`)
+      );
+    }
+
+    let musicLocal = null;
+    if (hasMusic) {
+      musicLocal = join(workDir, "music.mp3");
+      await getObjectFile(bucket, `jobs/${jobId}/input/music.mp3`, musicLocal);
+    }
+
+    await putStatus(bucket, jobId, { state: "processing", progress: 35 });
+
+    const outLocal = join(workDir, "output.mp4");
+    const Tf = Number(transition);
+    const useXfade = n > 1 && Number.isFinite(Tf) && Tf > 0.001;
+
+    if (n === 1) {
+      const args = [
+        "-y",
+        "-loop",
+        "1",
+        "-framerate",
+        "30",
+        "-t",
+        String(durations[0]),
+        "-i",
+        "slide_0.png",
+        "-vf",
+        `${VIDEO_VF},format=yuv420p,fps=30`,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
+      ];
+      if (hasMusic) {
+        args.push(
+          "-i",
+          "music.mp3",
+          "-map",
+          "0:v",
+          "-map",
+          "1:a",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "128k",
+          "-shortest"
+        );
+      } else {
+        args.push("-an");
+      }
+      args.push("output.mp4");
+      runFfmpeg(args, workDir, "single");
+    } else if (useXfade) {
+      const args = [];
+      for (let i = 0; i < n; i++) {
+        args.push(
+          "-loop",
+          "1",
+          "-framerate",
+          "30",
+          "-t",
+          String(durations[i]),
+          "-i",
+          `slide_${i}.png`
+        );
+      }
+      if (hasMusic) args.push("-i", "music.mp3");
+      args.push("-filter_complex", buildXfadeGraph(n, durations, Tf));
+      const mi = n;
+      args.push(
+        "-map",
+        "[vout]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30"
+      );
+      if (hasMusic) {
+        args.push(
+          "-map",
+          `${mi}:a`,
+          "-c:a",
+          "aac",
+          "-b:a",
+          "128k",
+          "-shortest"
+        );
+      } else {
+        args.push("-an");
+      }
+      args.push("-y", "output.mp4");
+      runFfmpeg(args, workDir, "xfade");
+    } else {
+      const listTxt = buildConcatListContent(durations.slice(0, n));
+      writeFileSync(join(workDir, "list.txt"), listTxt, "utf8");
+      const args = [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        "list.txt",
+        "-vf",
+        VIDEO_VF,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
+      ];
+      if (hasMusic) {
+        args.push(
+          "-i",
+          "music.mp3",
+          "-map",
+          "0:v",
+          "-map",
+          "1:a",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "128k",
+          "-shortest"
+        );
+      } else {
+        args.push("-an");
+      }
+      args.push("output.mp4");
+      runFfmpeg(args, workDir, "concat");
+    }
+
+    await putStatus(bucket, jobId, { state: "processing", progress: 85 });
+
+    const outputKey = `jobs/${jobId}/output/output.mp4`;
+    await putOutputMp4(bucket, outputKey, outLocal);
+
+    await putStatus(bucket, jobId, {
+      state: "done",
+      progress: 100,
+      outputKey,
+    });
+
+    return { ok: true, jobId, outputKey };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[kbo-video-encoder]", msg);
+    try {
+      await putStatus(bucket, jobId, { state: "error", progress: 0, error: msg });
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, error: msg };
+  } finally {
+    try {
+      if (existsSync(workDir)) {
+        for (const f of ["output.mp4", "list.txt", "music.mp3"]) {
+          const p = join(workDir, f);
+          if (existsSync(p)) unlinkSync(p);
+        }
+        for (let i = 0; i < 40; i++) {
+          const p = join(workDir, `slide_${i}.png`);
+          if (existsSync(p)) unlinkSync(p);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+};

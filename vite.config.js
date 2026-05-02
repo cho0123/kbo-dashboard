@@ -14,6 +14,10 @@ export default defineConfig({
         target: "http://localhost:8888",
         changeOrigin: true,
       },
+      "/api/video-encode": {
+        target: "http://localhost:8888",
+        changeOrigin: true,
+      },
     },
   },
   preview: {
