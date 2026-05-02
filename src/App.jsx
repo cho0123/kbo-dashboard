@@ -2519,9 +2519,8 @@ function Card8Shorts({ defaultDate }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
-        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale,
+          scale: 1,
           width: SHORTS_EXPORT_W,
           height: SHORTS_EXPORT_H,
           useCORS: true,
@@ -2534,7 +2533,7 @@ function Card8Shorts({ defaultDate }) {
             expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
             actual: `${c.width}x${c.height}`,
             elCss: `${el.offsetWidth}x${el.offsetHeight}`,
-            scale,
+            scale: 1,
           });
         }
         const blob = await new Promise((resolve, reject) => {
@@ -2844,9 +2843,8 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         await waitFontsReadyForCapture();
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
-        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
-          scale,
+          scale: 1,
           width: SHORTS_EXPORT_W,
           height: SHORTS_EXPORT_H,
           useCORS: true,
@@ -2859,7 +2857,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
             expected: `${SHORTS_EXPORT_W}x${SHORTS_EXPORT_H}`,
             actual: `${c.width}x${c.height}`,
             elCss: `${el.offsetWidth}x${el.offsetHeight}`,
-            scale,
+            scale: 1,
           });
         }
         const blob = await new Promise((resolve, reject) => {
