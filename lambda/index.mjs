@@ -13,55 +13,8 @@ const s3 = new S3Client({ region });
 const VIDEO_VF =
   "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
 
-/** PNG→세그먼트 인코딩 시 RGBA→yuv420p (concat 단계에서는 디코드만 하도록 사전 변환) */
-const SEGMENT_VF = `${VIDEO_VF},format=yuv420p,fps=30`;
-
-/** `df -B1 /tmp`로 /tmp 사용 가능 바이트 (Lambda ephemeral storage) */
-function getAvailTmpBytes() {
-  const r = spawnSync("df", ["-B1", "/tmp"], { encoding: "utf8" });
-  if (r.status !== 0 || !r.stdout) return null;
-  const lines = r.stdout
-    .trim()
-    .split("\n")
-    .filter((l) => l.length);
-  if (lines.length < 2) return null;
-  const parts = lines[1].trim().split(/\s+/);
-  if (parts.length < 4) return null;
-  const avail = Number(parts[3]);
-  return Number.isFinite(avail) ? avail : null;
-}
-
-/** 2단계 인코딩: 세그먼트 mp4 + 최종 concat + PNG 병행 시 /tmp 부족 방지 */
-function assertTmpSpaceForTwoPass(slideCount) {
-  const avail = getAvailTmpBytes();
-  if (avail == null) {
-    throw new Error(
-      "/tmp 여유 공간을 확인할 수 없습니다 (df /tmp 실패). Lambda ephemeral storage를 확인하세요."
-    );
-  }
-  const reserveOutput = 128 * 1024 * 1024;
-  const perSlideBytes = 6 * 1024 * 1024;
-  const needed =
-    BigInt(reserveOutput) + BigInt(Math.max(0, slideCount)) * BigInt(perSlideBytes);
-  if (BigInt(avail) < needed) {
-    const avMiB = (avail / (1024 * 1024)).toFixed(1);
-    const ndMiB = (Number(needed) / (1024 * 1024)).toFixed(1);
-    throw new Error(
-      `/tmp 여유 공간 부족: 사용 가능 약 ${avMiB} MiB, 예상 필요 약 ${ndMiB} MiB (슬라이드 ${slideCount}장·2단계 인코딩). Lambda 함수 설정에서 /tmp(512MB~10GB) 용량을 늘리세요.`
-    );
-  }
-  console.log(
-    `[/tmp] 여유 약 ${(avail / (1024 * 1024)).toFixed(1)} MiB (추정 필요 ≥ ${(Number(needed) / (1024 * 1024)).toFixed(1)} MiB)`
-  );
-}
-
-function buildVideoSegmentConcatList(n) {
-  let s = "ffconcat version 1.0\n";
-  for (let i = 0; i < n; i++) {
-    s += `file 'seg_${i}.mp4'\n`;
-  }
-  return s;
-}
+/** 청크당 최대 슬라이드 수 (xfade 필터 그래프 메모리 상한) */
+const CHUNK_SLIDES = 10;
 
 function ffmpegBin() {
   const candidates = ["/opt/bin/ffmpeg", "/opt/ffmpeg/ffmpeg"];
@@ -71,11 +24,12 @@ function ffmpegBin() {
   return "ffmpeg";
 }
 
-function buildXfadeGraph(n, durations, transitionRaw) {
+/** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */
+function buildXfadeGraphPrepped(n, durations, transitionRaw) {
   const parts = [];
   for (let i = 0; i < n; i++) {
     parts.push(
-      `[${i}:v]${VIDEO_VF},format=yuv420p,setpts=PTS-STARTPTS,fps=30[v${i}s]`
+      `[${i}:v]format=yuv420p,setpts=PTS-STARTPTS,fps=30[v${i}s]`
     );
   }
   let Tf = Math.max(0, Number(transitionRaw) || 0);
@@ -98,14 +52,54 @@ function buildXfadeGraph(n, durations, transitionRaw) {
   return parts.join(";");
 }
 
+function buildFfconcatPrepList(startIdx, count, durSlice) {
+  let s = "ffconcat version 1.0\n";
+  for (let j = 0; j < count; j++) {
+    s += `file 'prep_${startIdx + j}.png'\n`;
+    s += `duration ${durSlice[j]}\n`;
+  }
+  const last = count - 1;
+  s += `file 'prep_${startIdx + last}.png'\n`;
+  s += "duration 0\n";
+  return s;
+}
+
+function buildChunkMp4ConcatList(chunkCount) {
+  let s = "ffconcat version 1.0\n";
+  for (let c = 0; c < chunkCount; c++) {
+    s += `file 'chunk_${c}.mp4'\n`;
+  }
+  return s;
+}
+
+/** S3 PNG → 1080×1920 PNG (sharp/jimp 없이 ffmpeg만 사용) */
+function prepSlidePngTo1080(workDir, index) {
+  const src = `slide_${index}.png`;
+  const dst = `prep_${index}.png`;
+  runFfmpeg(
+    [
+      "-y",
+      "-i",
+      src,
+      "-vf",
+      `${VIDEO_VF},format=yuv420p`,
+      "-frames:v",
+      "1",
+      dst,
+    ],
+    workDir,
+    `prep_${index}`
+  );
+  if (existsSync(join(workDir, src))) unlinkSync(join(workDir, src));
+}
+
 /** 출력 영상 길이(초) — xfade/concat/단일 슬라이드와 동일 로직 */
 function computeVideoDurationSec(n, durations, transitionRaw) {
   const Tf = Math.max(0, Number(transitionRaw) || 0);
   const durs = durations.map((x) => Number(x) || 0);
   if (n < 1) return 0;
   if (n === 1) return Math.max(0.05, durs[0] || 0);
-  /** 20장 이상은 concat demuxer만 사용(크로스페이드 없음) → 길이는 구간 합 */
-  const useXfade = n > 1 && n < 20 && Tf > 0.001;
+  const useXfade = n > 1 && Tf > 0.001;
   if (useXfade) {
     let acc = durs[0];
     for (let i = 1; i < n; i++) {
@@ -244,7 +238,25 @@ export const handler = async (event) => {
     if (n < 1) throw new Error("slideCount 없음");
 
     const musicOpts = normalizeMusicOptions(meta);
-    const videoDurSec = computeVideoDurationSec(n, durations, transition);
+    const dursForLen = durations.slice(0, n);
+    const TfForLen = Number(transition);
+    const videoDurSec =
+      n <= 1
+        ? computeVideoDurationSec(n, dursForLen, TfForLen)
+        : (() => {
+            let sum = 0;
+            const nc = Math.ceil(n / CHUNK_SLIDES);
+            for (let c = 0; c < nc; c++) {
+              const start = c * CHUNK_SLIDES;
+              const m = Math.min(CHUNK_SLIDES, n - start);
+              sum += computeVideoDurationSec(
+                m,
+                dursForLen.slice(start, start + m),
+                TfForLen
+              );
+            }
+            return sum;
+          })();
 
     for (let i = 0; i < n; i++) {
       await getObjectFile(
@@ -278,9 +290,10 @@ export const handler = async (event) => {
 
     const outLocal = join(workDir, "output.mp4");
     const Tf = Number(transition);
-    /** 슬라이드 20장 이상이면 xfade 대신 concat demuxer(필터 그래프 부담 감소) */
-    const useXfade =
-      n > 1 && n < 20 && Number.isFinite(Tf) && Tf > 0.001;
+
+    for (let i = 0; i < n; i++) {
+      prepSlidePngTo1080(workDir, i);
+    }
 
     if (n === 1) {
       const args = [
@@ -292,9 +305,9 @@ export const handler = async (event) => {
         "-t",
         String(durations[0]),
         "-i",
-        "slide_0.png",
+        "prep_0.png",
         "-vf",
-        `${VIDEO_VF},format=yuv420p,fps=30`,
+        "format=yuv420p,fps=30",
         "-c:v",
         "libx264",
         "-preset",
@@ -333,79 +346,64 @@ export const handler = async (event) => {
       }
       args.push("output.mp4");
       runFfmpeg(args, workDir, "single");
-    } else if (useXfade) {
-      const args = [];
-      for (let i = 0; i < n; i++) {
-        args.push(
-          "-loop",
-          "1",
-          "-framerate",
-          "30",
-          "-t",
-          String(durations[i]),
-          "-i",
-          `slide_${i}.png`
-        );
-      }
-      if (musicFileOk) {
-        args.push("-ss", String(musicOpts.startTime), "-i", musicLocal);
-      }
-      const xfadeGraph = buildXfadeGraph(n, durations, Tf);
-      const fc = musicFileOk
-        ? `${xfadeGraph};[${n}:a]${afChain}[aout]`
-        : xfadeGraph;
-      args.push("-filter_complex", fc);
-      args.push(
-        "-map",
-        "[vout]",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30"
-      );
-      if (musicFileOk) {
-        args.push(
-          "-map",
-          "[aout]",
-          "-c:a",
-          "aac",
-          "-b:a",
-          "320k",
-          "-ar",
-          "48000",
-          "-ac",
-          "2",
-          "-shortest"
-        );
-      } else {
-        args.push("-an");
-      }
-      args.push("-y", "output.mp4");
-      runFfmpeg(args, workDir, "xfade");
     } else {
-      assertTmpSpaceForTwoPass(n);
+      const durs = dursForLen;
+      const numChunks = Math.ceil(n / CHUNK_SLIDES);
 
-      const durs = durations.slice(0, n);
-      for (let i = 0; i < n; i++) {
-        runFfmpeg(
-          [
-            "-y",
-            "-loop",
-            "1",
-            "-framerate",
-            "30",
-            "-t",
-            String(durs[i]),
-            "-i",
-            `slide_${i}.png`,
-            "-vf",
-            SEGMENT_VF,
+      for (let c = 0; c < numChunks; c++) {
+        const start = c * CHUNK_SLIDES;
+        const m = Math.min(CHUNK_SLIDES, n - start);
+        const sub = durs.slice(start, start + m);
+
+        if (m === 1) {
+          runFfmpeg(
+            [
+              "-y",
+              "-loop",
+              "1",
+              "-framerate",
+              "30",
+              "-t",
+              String(sub[0]),
+              "-i",
+              `prep_${start}.png`,
+              "-vf",
+              "format=yuv420p,fps=30",
+              "-c:v",
+              "libx264",
+              "-preset",
+              "ultrafast",
+              "-crf",
+              "23",
+              "-pix_fmt",
+              "yuv420p",
+              "-r",
+              "30",
+              "-an",
+              `chunk_${c}.mp4`,
+            ],
+            workDir,
+            `chunk_${c}_one`
+          );
+        } else if (Tf > 0.001) {
+          const args = [];
+          for (let j = 0; j < m; j++) {
+            args.push(
+              "-loop",
+              "1",
+              "-framerate",
+              "30",
+              "-t",
+              String(sub[j]),
+              "-i",
+              `prep_${start + j}.png`
+            );
+          }
+          args.push(
+            "-filter_complex",
+            buildXfadeGraphPrepped(m, sub, Tf),
+            "-map",
+            "[vout]",
             "-c:v",
             "libx264",
             "-preset",
@@ -417,59 +415,165 @@ export const handler = async (event) => {
             "-r",
             "30",
             "-an",
-            `seg_${i}.mp4`,
+            "-y",
+            `chunk_${c}.mp4`
+          );
+          runFfmpeg(args, workDir, `chunk_${c}_xfade`);
+        } else {
+          const listName = `list_chunk_${c}.txt`;
+          writeFileSync(
+            join(workDir, listName),
+            buildFfconcatPrepList(start, m, sub),
+            "utf8"
+          );
+          runFfmpeg(
+            [
+              "-y",
+              "-f",
+              "concat",
+              "-safe",
+              "0",
+              "-i",
+              listName,
+              "-vf",
+              "format=yuv420p,fps=30",
+              "-c:v",
+              "libx264",
+              "-preset",
+              "ultrafast",
+              "-crf",
+              "23",
+              "-pix_fmt",
+              "yuv420p",
+              "-r",
+              "30",
+              "-an",
+              `chunk_${c}.mp4`,
+            ],
+            workDir,
+            `chunk_${c}_nxf`
+          );
+          const lp = join(workDir, listName);
+          if (existsSync(lp)) unlinkSync(lp);
+        }
+
+        for (let j = 0; j < m; j++) {
+          const pp = join(workDir, `prep_${start + j}.png`);
+          if (existsSync(pp)) unlinkSync(pp);
+        }
+      }
+
+      if (numChunks === 1) {
+        if (musicFileOk) {
+          runFfmpeg(
+            [
+              "-y",
+              "-i",
+              "chunk_0.mp4",
+              "-ss",
+              String(musicOpts.startTime),
+              "-i",
+              musicLocal,
+              "-map",
+              "0:v",
+              "-map",
+              "1:a",
+              "-c:v",
+              "copy",
+              "-af",
+              afChain,
+              "-c:a",
+              "aac",
+              "-b:a",
+              "320k",
+              "-ar",
+              "48000",
+              "-ac",
+              "2",
+              "-shortest",
+              "output.mp4",
+            ],
+            workDir,
+            "mux-one-chunk"
+          );
+        } else {
+          runFfmpeg(
+            ["-y", "-i", "chunk_0.mp4", "-c:v", "copy", "-an", "output.mp4"],
+            workDir,
+            "copy-one-chunk"
+          );
+        }
+        const ch0 = join(workDir, "chunk_0.mp4");
+        if (existsSync(ch0)) unlinkSync(ch0);
+      } else {
+        writeFileSync(
+          join(workDir, "list_chunks.txt"),
+          buildChunkMp4ConcatList(numChunks),
+          "utf8"
+        );
+        runFfmpeg(
+          [
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            "list_chunks.txt",
+            "-c:v",
+            "copy",
+            "-an",
+            "joined.mp4",
           ],
           workDir,
-          `segment_${i}`
+          "concat-chunks"
         );
-        const pngPath = join(workDir, `slide_${i}.png`);
-        if (existsSync(pngPath)) unlinkSync(pngPath);
+        for (let c = 0; c < numChunks; c++) {
+          const cp = join(workDir, `chunk_${c}.mp4`);
+          if (existsSync(cp)) unlinkSync(cp);
+        }
+        if (musicFileOk) {
+          runFfmpeg(
+            [
+              "-y",
+              "-i",
+              "joined.mp4",
+              "-ss",
+              String(musicOpts.startTime),
+              "-i",
+              musicLocal,
+              "-map",
+              "0:v",
+              "-map",
+              "1:a",
+              "-c:v",
+              "copy",
+              "-af",
+              afChain,
+              "-c:a",
+              "aac",
+              "-b:a",
+              "320k",
+              "-ar",
+              "48000",
+              "-ac",
+              "2",
+              "-shortest",
+              "output.mp4",
+            ],
+            workDir,
+            "mux-final"
+          );
+        } else {
+          runFfmpeg(
+            ["-y", "-i", "joined.mp4", "-c:v", "copy", "-an", "output.mp4"],
+            workDir,
+            "copy-final"
+          );
+        }
+        const joinedPath = join(workDir, "joined.mp4");
+        if (existsSync(joinedPath)) unlinkSync(joinedPath);
       }
-
-      writeFileSync(
-        join(workDir, "list_seg.txt"),
-        buildVideoSegmentConcatList(n),
-        "utf8"
-      );
-
-      const concatArgs = [
-        "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
-        "-i",
-        "list_seg.txt",
-        "-c:v",
-        "copy",
-      ];
-      if (musicFileOk) {
-        concatArgs.push(
-          "-ss",
-          String(musicOpts.startTime),
-          "-i",
-          musicLocal,
-          "-map",
-          "0:v",
-          "-map",
-          "1:a",
-          "-af",
-          afChain,
-          "-c:a",
-          "aac",
-          "-b:a",
-          "320k",
-          "-ar",
-          "48000",
-          "-ac",
-          "2",
-          "-shortest"
-        );
-      } else {
-        concatArgs.push("-an");
-      }
-      concatArgs.push("output.mp4");
-      runFfmpeg(concatArgs, workDir, "concat-segments");
     }
 
     await putStatus(bucket, jobId, { state: "processing", progress: 85 });
@@ -496,15 +600,25 @@ export const handler = async (event) => {
   } finally {
     try {
       if (existsSync(workDir)) {
-        for (const f of ["output.mp4", "list_seg.txt", "music.mp3"]) {
+        for (const f of [
+          "output.mp4",
+          "list_chunks.txt",
+          "joined.mp4",
+          "music.mp3",
+        ]) {
           const p = join(workDir, f);
           if (existsSync(p)) unlinkSync(p);
         }
         for (let i = 0; i < 200; i++) {
-          const seg = join(workDir, `seg_${i}.mp4`);
-          if (existsSync(seg)) unlinkSync(seg);
-          const png = join(workDir, `slide_${i}.png`);
-          if (existsSync(png)) unlinkSync(png);
+          for (const name of [
+            `slide_${i}.png`,
+            `prep_${i}.png`,
+            `chunk_${i}.mp4`,
+            `seg_${i}.mp4`,
+          ]) {
+            const p = join(workDir, name);
+            if (existsSync(p)) unlinkSync(p);
+          }
         }
       }
     } catch {
