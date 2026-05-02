@@ -855,6 +855,11 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   const dateY = titleY + titlePx / 2 + MB_TITLE_DATE + datePx / 2;
   const oneMinY = dateY + datePx / 2 + MB_DATE_ONEMIN + oneMinPx / 2;
 
+  console.log("프로야구 y:", proY);
+  console.log("오늘 경기 써머리 y:", titleY);
+  console.log("날짜 y:", dateY);
+  console.log("1분컷 y:", oneMinY);
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -885,6 +890,31 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = gSans(800, oneMinPx);
   ctx.fillText(oneMinText, w / 2, oneMinY);
+
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = "#FFFFFF";
+  const dividerW = 200;
+  const dividerH = 2;
+  const yDividerProTitle = proY + proPx / 2 + MB_PRO_TITLE / 2;
+  ctx.fillRect(
+    w / 2 - dividerW / 2,
+    yDividerProTitle - dividerH / 2,
+    dividerW,
+    dividerH
+  );
+  const yDividerDateOneMin = dateY + datePx / 2 + MB_DATE_ONEMIN / 2;
+  ctx.fillRect(
+    w / 2 - dividerW / 2,
+    yDividerDateOneMin - dividerH / 2,
+    dividerW,
+    dividerH
+  );
+  ctx.restore();
 
   ctx.restore();
 }
