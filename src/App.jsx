@@ -1456,36 +1456,40 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
       logosByTeamKey?.[ak] || null
     );
 
-    // Score: Bebas Neue — 88px 통일, 스코어 bold (700), 그림자 없음
+    // Score: Bebas Neue — 88px, 스코어 bold (700), 대시 흰색, 3등분 가운데 정렬
     const scoreFont = `700 88px "Bebas Neue", system-ui, sans-serif`;
-    const vsFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
+    const dashFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
-    const vsText = "VS";
-    const pad = "  ";
+    const dashText = "-";
     const hsNum = Number(g?.home_score);
     const asNum = Number(g?.away_score);
     const homeWin = Number.isFinite(hsNum) && Number.isFinite(asNum) && hsNum > asNum;
     const awayWin = Number.isFinite(hsNum) && Number.isFinite(asNum) && asNum > hsNum;
 
-    ctx.font = scoreFont;
-    const w1 = ctx.measureText(hsText + pad).width;
-    const w3 = ctx.measureText(pad + asText).width;
-    ctx.font = vsFont;
-    const w2 = ctx.measureText(vsText).width;
-    const totalW = w1 + w2 + w3;
-    const startX = x + (cardW - totalW) / 2;
     const yy = y + Math.round(cardH * 0.62);
+    const cxHome = x + cardW / 6;
+    const cxDash = x + cardW / 2;
+    const cxAway = x + (5 * cardW) / 6;
+    const prevAlign = ctx.textAlign;
+    const prevBaseline = ctx.textBaseline;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
 
     ctx.font = scoreFont;
-    ctx.fillStyle = homeWin ? "#FF6B00" : "#FFFFFF";
-    ctx.fillText(hsText + pad, startX, yy);
-    ctx.fillStyle = "#F9FF00";
-    ctx.font = vsFont;
-    ctx.fillText(vsText, startX + w1, yy + 6);
+    ctx.fillStyle = homeWin ? "#FFD700" : "#FFFFFF";
+    ctx.fillText(hsText, cxHome, yy);
+
+    ctx.font = dashFont;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(dashText, cxDash, yy);
+
     ctx.font = scoreFont;
-    ctx.fillStyle = awayWin ? "#FF6B00" : "#FFFFFF";
-    ctx.fillText(pad + asText, startX + w1 + w2, yy);
+    ctx.fillStyle = awayWin ? "#FFD700" : "#FFFFFF";
+    ctx.fillText(asText, cxAway, yy);
+
+    ctx.textAlign = prevAlign;
+    ctx.textBaseline = prevBaseline;
 
     y += cardH + 22;
     if (y > SAFE_BOTTOM - 120) break;
