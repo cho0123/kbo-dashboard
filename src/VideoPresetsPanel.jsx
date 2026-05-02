@@ -223,10 +223,15 @@ export default function VideoPresetsPanel() {
       {loading ? <div className="muted" style={{ marginTop: 12 }}>불러오는 중…</div> : null}
 
       <div className="preset-card-grid">
-        {filtered.map((p) => (
+        {filtered.map((p) => {
+          const st =
+            p.shorts_type === "shorts2" || p.shorts_type === "shorts3"
+              ? p.shorts_type
+              : "shorts1";
+          return (
           <div
             key={p.id}
-            className="preset-card"
+            className={`preset-card preset-card--${st}`}
             role="button"
             tabIndex={0}
             onClick={() => openEdit(p)}
@@ -246,7 +251,8 @@ export default function VideoPresetsPanel() {
                 : ""}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {!loading && filtered.length === 0 ? (

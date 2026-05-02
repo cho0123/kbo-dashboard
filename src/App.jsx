@@ -4710,26 +4710,26 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">⚙️ 영상 설정</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("video_presets");
-                  }}
-                >
-                  프리셋 열기
-                </button>
-                <button
-                  type="button"
-                  className="primary"
-                  style={{ marginTop: 8 }}
-                  onClick={() => {
-                    setActiveKey("music_library");
-                  }}
-                >
-                  음원 관리
-                </button>
+                <div className="side-video-settings-actions">
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("video_presets");
+                    }}
+                  >
+                    프리셋 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setActiveKey("music_library");
+                    }}
+                  >
+                    음원 관리
+                  </button>
+                </div>
               </div>
             </div>
           )}
