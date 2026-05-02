@@ -1473,7 +1473,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     const awayLogoRight = x + LOGO_PAD + logoBoxW;
     const homeLogoLeft = x + cardW - LOGO_PAD - logoBoxW;
     const innerBandW = homeLogoLeft - awayLogoRight;
-    const MID_GAP = 12;
+    const MID_GAP = 40;
 
     const prevAlign = ctx.textAlign;
     const prevBaseline = ctx.textBaseline;
