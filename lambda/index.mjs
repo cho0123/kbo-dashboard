@@ -24,6 +24,14 @@ function ffmpegBin() {
   return "ffmpeg";
 }
 
+function ffprobeBin() {
+  const candidates = ["/opt/bin/ffprobe", "/opt/ffmpeg/ffprobe"];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return "ffprobe";
+}
+
 /** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */
 function buildXfadeGraphPrepped(n, durations, transitionRaw) {
   const parts = [];
@@ -115,6 +123,59 @@ function computeVideoDurationSec(n, durations, transitionRaw) {
   let sum = 0;
   for (let i = 0; i < n; i++) sum += durs[i];
   return sum;
+}
+
+/**
+ * 청크별 인코딩(청크 경계는 concat만, xfade 없음)과 동일한 총 길이.
+ * 각 청크 내부만 computeVideoDurationSec로 합산하며, 청크 사이에서 transition을 한 번 더 빼지 않음.
+ */
+function computeChunkedPipelineDurationSec(n, durations, transitionRaw) {
+  const durs = durations.map((x) => Number(x) || 0);
+  if (n < 1) return 0;
+  const nc = Math.ceil(n / CHUNK_SLIDES);
+  let sum = 0;
+  for (let c = 0; c < nc; c++) {
+    const start = c * CHUNK_SLIDES;
+    const m = Math.min(CHUNK_SLIDES, n - start);
+    const slice = durs.slice(start, start + m);
+    const chunkDur = computeVideoDurationSec(m, slice, transitionRaw);
+    console.log(
+      `[duration] chunk ${c + 1}/${nc} (slides ${start}–${start + m - 1}, n=${m}) → ${chunkDur.toFixed(4)}s`
+    );
+    sum += chunkDur;
+  }
+  const singleGraph = computeVideoDurationSec(n, durs, transitionRaw);
+  console.log(
+    `[duration] chunked_sum=${sum.toFixed(4)}s | single_xfade_graph_if_one_pass=${singleGraph.toFixed(4)}s (청크 인코딩과 불일치—참고만)`
+  );
+  return sum;
+}
+
+function probeFormatDurationSec(workDir, fileName) {
+  const bin = ffprobeBin();
+  const r = spawnSync(
+    bin,
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      fileName,
+    ],
+    {
+      cwd: workDir,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    }
+  );
+  if (r.status !== 0) {
+    console.warn(`[duration] ffprobe failed: ${(r.stderr || "").slice(0, 200)}`);
+    return null;
+  }
+  const t = parseFloat(String(r.stdout || "").trim());
+  return Number.isFinite(t) ? t : null;
 }
 
 function normalizeMusicOptions(meta) {
@@ -240,23 +301,7 @@ export const handler = async (event) => {
     const musicOpts = normalizeMusicOptions(meta);
     const dursForLen = durations.slice(0, n);
     const TfForLen = Number(transition);
-    const videoDurSec =
-      n <= 1
-        ? computeVideoDurationSec(n, dursForLen, TfForLen)
-        : (() => {
-            let sum = 0;
-            const nc = Math.ceil(n / CHUNK_SLIDES);
-            for (let c = 0; c < nc; c++) {
-              const start = c * CHUNK_SLIDES;
-              const m = Math.min(CHUNK_SLIDES, n - start);
-              sum += computeVideoDurationSec(
-                m,
-                dursForLen.slice(start, start + m),
-                TfForLen
-              );
-            }
-            return sum;
-          })();
+    const videoDurSec = computeChunkedPipelineDurationSec(n, dursForLen, TfForLen);
 
     for (let i = 0; i < n; i++) {
       await getObjectFile(
@@ -321,6 +366,8 @@ export const handler = async (event) => {
       ];
       if (musicFileOk) {
         args.push(
+          "-stream_loop",
+          "-1",
           "-ss",
           String(musicOpts.startTime),
           "-i",
@@ -470,6 +517,8 @@ export const handler = async (event) => {
               "-y",
               "-i",
               "chunk_0.mp4",
+              "-stream_loop",
+              "-1",
               "-ss",
               String(musicOpts.startTime),
               "-i",
@@ -538,6 +587,8 @@ export const handler = async (event) => {
               "-y",
               "-i",
               "joined.mp4",
+              "-stream_loop",
+              "-1",
               "-ss",
               String(musicOpts.startTime),
               "-i",
@@ -577,6 +628,11 @@ export const handler = async (event) => {
     }
 
     await putStatus(bucket, jobId, { state: "processing", progress: 85 });
+
+    const probedOut = probeFormatDurationSec(workDir, "output.mp4");
+    console.log(
+      `[duration] expected(chunked)=${videoDurSec.toFixed(4)}s actual_ffprobe=${probedOut != null ? probedOut.toFixed(4) : "n/a"} diff=${probedOut != null ? (probedOut - videoDurSec).toFixed(4) : "n/a"}`
+    );
 
     const outputKey = `jobs/${jobId}/output/output.mp4`;
     await putOutputMp4(bucket, outputKey, outLocal);
