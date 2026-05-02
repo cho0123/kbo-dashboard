@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { join } from "path";
+import { join, resolve } from "path";
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -256,12 +256,15 @@ export const handler = async (event) => {
 
     let musicLocal = null;
     if (hasMusic) {
-      musicLocal = join(workDir, "music.mp3");
+      musicLocal = resolve(join(workDir, "music.mp3"));
       if (music_s3_key) {
         await getObjectFile(bucket, music_s3_key, musicLocal);
       } else {
         await getObjectFile(bucket, `jobs/${jobId}/input/music.mp3`, musicLocal);
       }
+      console.log(
+        `[music] after S3 download path=${musicLocal} exists=${existsSync(musicLocal)}`
+      );
     }
     const musicFileOk = Boolean(musicLocal) && existsSync(musicLocal);
     if (hasMusic && !musicFileOk) {
@@ -308,7 +311,7 @@ export const handler = async (event) => {
           "-ss",
           String(musicOpts.startTime),
           "-i",
-          "music.mp3",
+          musicLocal,
           "-map",
           "0:v",
           "-map",
@@ -345,7 +348,7 @@ export const handler = async (event) => {
         );
       }
       if (musicFileOk) {
-        args.push("-ss", String(musicOpts.startTime), "-i", "music.mp3");
+        args.push("-ss", String(musicOpts.startTime), "-i", musicLocal);
       }
       const xfadeGraph = buildXfadeGraph(n, durations, Tf);
       const fc = musicFileOk
@@ -453,7 +456,7 @@ export const handler = async (event) => {
           "-ss",
           String(musicOpts.startTime),
           "-i",
-          "music.mp3",
+          musicLocal,
           "-map",
           "0:v",
           "-map",
