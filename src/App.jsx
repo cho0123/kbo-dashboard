@@ -792,7 +792,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // 날짜 — 형광펜(하단 절반) + 포인트컬러 텍스트 (h*0.38 ≈ 730@1920)
+  // 날짜 (h*0.38 ≈ 730@1920) — 1분컷과 동일 ONE_MIN_COLOR
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -800,30 +800,11 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetY = 0;
   const dateY = Math.round(h * 0.38) + 70;
   const dateStr = fmtKoreanLongDate(date);
-  const accent = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const fm = ctx.measureText(dateStr);
-  const tw = fm.width;
-  const cx = w / 2;
-  const padX = 20;
-  const ascent = Number.isFinite(fm.actualBoundingBoxAscent)
-    ? fm.actualBoundingBoxAscent
-    : 77;
-  const descent = Number.isFinite(fm.actualBoundingBoxDescent)
-    ? fm.actualBoundingBoxDescent
-    : 33;
-  const textH = ascent + descent;
-  const textTop = dateY - ascent;
-  const highlightTop = textTop + textH / 2;
-  const highlightH = textH / 2;
-  const highlightW = tw + padX * 2;
-  const highlightLeft = cx - highlightW / 2;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-  ctx.fillRect(highlightLeft, highlightTop, highlightW, highlightH);
-  ctx.fillStyle = accent + "80";
-  ctx.fillText(dateStr, cx, dateY);
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.fillText(dateStr, w / 2, dateY);
   ctx.restore();
 
   // 프로야구 (h*0.52 ≈ 998@1920)
