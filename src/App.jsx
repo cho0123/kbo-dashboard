@@ -1457,7 +1457,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
       logosByTeamKey?.[hk] || null
     );
 
-    // Score: 원정점수 | 대시 | 홈점수 — 로고-텍스트 간격 확보, 대시는 두 점수 사이 중앙
+    // Score: 원정점수 — 대시 — 홈점수 묶음을 두 로고 사이에서 가운데 정렬 (로고 위치 고정)
     const scoreFont = `700 88px "Bebas Neue", system-ui, sans-serif`;
     const dashFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
     const hsText = String(g.home_score ?? "—");
@@ -1470,11 +1470,10 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
 
     const yy = y + Math.round(cardH * 0.62);
     const LOGO_PAD = 18;
-    const SCORE_PAD = 22;
     const awayLogoRight = x + LOGO_PAD + logoBoxW;
     const homeLogoLeft = x + cardW - LOGO_PAD - logoBoxW;
-    const awayScoreLeft = awayLogoRight + SCORE_PAD;
-    const homeScoreRight = homeLogoLeft - SCORE_PAD;
+    const innerBandW = homeLogoLeft - awayLogoRight;
+    const MID_GAP = 12;
 
     const prevAlign = ctx.textAlign;
     const prevBaseline = ctx.textBaseline;
@@ -1483,10 +1482,19 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     ctx.font = scoreFont;
     const wAway = ctx.measureText(asText).width;
     const wHome = ctx.measureText(hsText).width;
+    ctx.font = dashFont;
+    const wDash = ctx.measureText(dashText).width;
 
-    const awayScoreRight = awayScoreLeft + wAway;
-    const homeScoreLeftEdge = homeScoreRight - wHome;
-    const dashCx = (awayScoreRight + homeScoreLeftEdge) / 2;
+    const totalClusterW = wAway + MID_GAP + wDash + MID_GAP + wHome;
+    let clusterLeft = awayLogoRight + (innerBandW - totalClusterW) / 2;
+    const MIN_INSET = 4;
+    if (totalClusterW > innerBandW - 2 * MIN_INSET) {
+      clusterLeft = awayLogoRight + MIN_INSET;
+    }
+
+    const awayScoreLeft = clusterLeft;
+    const dashCx = clusterLeft + wAway + MID_GAP + wDash / 2;
+    const homeScoreRight = clusterLeft + wAway + MID_GAP + wDash + MID_GAP + wHome;
 
     ctx.font = scoreFont;
     ctx.textAlign = "left";
