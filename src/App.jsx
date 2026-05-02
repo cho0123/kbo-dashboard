@@ -1838,15 +1838,16 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.clearRect(0, 0, w, h);
   winLoseVerticalGradient(ctx, w, h, loseTeam, winTeam);
 
-  // 중앙 타이틀: NEXT GAME (Arial Black, 약 80% 크기, 반투명)
-  const NEXT_GAME_TITLE_PX = Math.round(132 * 0.8);
-  ctx.textAlign = "center";
+  // 중앙 타이틀: NEXT GAME — drawTomorrowPreviewGameSlide "GAME PREVIEW"와 동일 스타일, 크기만 기존 대비 80%
+  const NEXT_GAME_TITLE_PX = Math.round(Math.round(132 * 0.8) * 0.8);
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "start";
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.font = `900 ${NEXT_GAME_TITLE_PX}px "Arial Black", Arial, Helvetica, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("NEXT GAME", w / 2, DIVIDER_Y + 30);
-  resetShadow(ctx);
+  ctx.font = `italic 1000 ${NEXT_GAME_TITLE_PX}px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("NEXT GAME", 60, DIVIDER_Y + 30);
+  ctx.restore();
 
   // NEXT GAME 아래 날짜/시간
   ctx.textAlign = "center";
