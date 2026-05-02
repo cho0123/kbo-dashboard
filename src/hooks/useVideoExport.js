@@ -133,18 +133,20 @@ export function useVideoExport() {
         const ffmpeg = new FFmpeg();
         ffmpegRef.current = ffmpeg;
 
-        ffmpeg.on("progress", ({ progress: p }) => {
+        ffmpeg.on("progress", ({ progress: ratio }) => {
           if (cancelledRef.current) return;
-          const pct = Math.round((Number(p) || 0) * 100);
+          const r = Number(ratio);
+          console.log("[useVideoExport] progress 이벤트 ratio:", r);
+          const pct = Math.round((Number.isFinite(r) ? r : 0) * 100);
           setProgress(Math.min(100, Math.max(0, pct)));
         });
 
-        ffmpeg.on("log", ({ message: logMsg }) => {
+        ffmpeg.on("log", ({ type, message: logMsg }) => {
           if (cancelledRef.current) return;
-          if (logMsg && logMsg.includes("error")) {
-            console.warn("[ffmpeg]", logMsg);
-          }
+          console.log("[ffmpeg]", type ?? "log", logMsg ?? "");
         });
+
+        console.log("[useVideoExport] FFmpeg 로딩 시작");
 
         const coreURL = await toBlobURL(
           `${CORE_MT_BASE}/ffmpeg-core.js`,
@@ -161,25 +163,41 @@ export function useVideoExport() {
 
         await ffmpeg.load({ coreURL, wasmURL, workerURL });
 
+        console.log("[useVideoExport] FFmpeg 로딩 완료");
+
         if (cancelledRef.current) return;
 
         setStatus("encoding");
         setMessage("입력 파일 준비…");
         setProgress(0);
 
+        console.log("[useVideoExport] 슬라이드 파일 write 시작", {
+          count: slides.length,
+        });
+
         for (let i = 0; i < slides.length; i++) {
           const blob = slides[i]?.blob;
           if (!(blob instanceof Blob)) {
             throw new Error(`슬라이드 ${i} Blob이 없습니다.`);
           }
+          console.log(
+            `[useVideoExport] 슬라이드 파일 write 시작 slide_${i}.png`
+          );
           await ffmpeg.writeFile(
             `slide_${i}.png`,
             await fetchFile(blob)
           );
+          console.log(
+            `[useVideoExport] 슬라이드 파일 write 완료 slide_${i}.png`
+          );
         }
 
+        console.log("[useVideoExport] 슬라이드 파일 write 전체 완료");
+
         if (musicFile instanceof File) {
+          console.log("[useVideoExport] 음악 파일 write 시작 music.mp3");
           await ffmpeg.writeFile("music.mp3", await fetchFile(musicFile));
+          console.log("[useVideoExport] 음악 파일 write 완료 music.mp3");
         }
 
         if (cancelledRef.current) return;
@@ -284,7 +302,9 @@ export function useVideoExport() {
           args.push("output.mp4");
         } else {
           const listTxt = buildConcatListContent(durations);
+          console.log("[useVideoExport] concat list.txt write 시작");
           await ffmpeg.writeFile("list.txt", listTxt);
+          console.log("[useVideoExport] concat list.txt write 완료");
           args = [
             "-f",
             "concat",
@@ -316,7 +336,9 @@ export function useVideoExport() {
         }
 
         setMessage("인코딩 중…");
+        console.log("[useVideoExport] ffmpeg.exec 시작", { args });
         const code = await ffmpeg.exec(args, 600000);
+        console.log("[useVideoExport] ffmpeg.exec 종료", { code });
         if (cancelledRef.current) return;
         if (code !== 0) {
           throw new Error(`ffmpeg 종료 코드 ${code}`);
