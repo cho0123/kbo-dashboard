@@ -10,8 +10,8 @@ import {
 const region = process.env.AWS_REGION || "ap-northeast-2";
 const s3 = new S3Client({ region });
 
-/** PNG 정규화: 1080×1920으로 스케일(비율 무시·검은 pad 없음). 입력이 이미 9:16이면 왜곡 최소 */
-const VIDEO_VF = "scale=1080:1920,format=yuv420p";
+const VIDEO_VF =
+  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
 
 /**
  * 청크당 최대 슬라이드 수 (xfade 필터 그래프 메모리 상한).
@@ -83,56 +83,24 @@ function buildChunkMp4ConcatList(chunkCount) {
   return s;
 }
 
-/** 입력 PNG 스트림 가로·세로 (exec 대신 spawnSync — Lambda 번들에 execa 없음) */
-function ffprobePngStreamDimensionsCsv(workDir, relativeInput) {
-  const bin = ffprobeBin();
-  const r = spawnSync(
-    bin,
-    [
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=width,height",
-      "-of",
-      "csv=p=0",
-      relativeInput,
-    ],
-    {
-      cwd: workDir,
-      encoding: "utf8",
-      maxBuffer: 1024 * 1024,
-      env: { ...process.env, PATH: `/opt/bin:/usr/bin:${process.env.PATH || ""}` },
-    }
-  );
-  return r.status === 0 ? String(r.stdout || "").trim() : null;
-}
-
 /** S3 PNG → 1080×1920 PNG (sharp/jimp 없이 ffmpeg만 사용) */
 function prepSlidePngTo1080(workDir, index) {
   const src = `slide_${index}.png`;
   const dst = `prep_${index}.png`;
-
-  const csv = ffprobePngStreamDimensionsCsv(workDir, src);
-  if (csv != null && csv !== "") {
-    console.log("[ffprobe] input PNG size:", csv);
-  } else {
-    console.warn("[ffprobe] input PNG size: (ffprobe failed)");
-  }
-
-  const args = [
-    "-y",
-    "-i",
-    src,
-    "-vf",
-    VIDEO_VF,
-    "-frames:v",
-    "1",
-    dst,
-  ];
-  console.log("[ffmpeg] args:", args.join(" "));
-  runFfmpeg(args, workDir, `prep_${index}`);
+  runFfmpeg(
+    [
+      "-y",
+      "-i",
+      src,
+      "-vf",
+      `${VIDEO_VF},format=yuv420p`,
+      "-frames:v",
+      "1",
+      dst,
+    ],
+    workDir,
+    `prep_${index}`
+  );
   if (existsSync(join(workDir, src))) unlinkSync(join(workDir, src));
 }
 
