@@ -56,6 +56,42 @@ export function defaultSlidesForType(shortsType) {
   }
 }
 
+/** 프리셋 키당 실제 이미지(슬라이드) 장수 — 예상 영상 길이 합산용 */
+export function slideFrameCountForKey(shortsType, key) {
+  if (shortsType === "shorts1") {
+    const m = {
+      intro: 1,
+      summary: 4,
+      summary_last: 1,
+      game_detail: 10,
+      standings: 1,
+    };
+    return m[key] ?? 1;
+  }
+  if (shortsType === "shorts2") {
+    const m = {
+      intro: 1,
+      game_preview_p1: 1,
+      game_preview_p2: 1,
+      game_preview_p3: 1,
+      game_preview_p4: 1,
+      game_preview_p5: 1,
+      standings: 1,
+    };
+    return m[key] ?? 1;
+  }
+  if (shortsType === "shorts3") {
+    const m = {
+      intro: 1,
+      summary: 1,
+      game_detail: 10,
+      standings: 1,
+    };
+    return m[key] ?? 1;
+  }
+  return 1;
+}
+
 export function slideFieldDefs(shortsType) {
   if (shortsType === "shorts2") {
     return [

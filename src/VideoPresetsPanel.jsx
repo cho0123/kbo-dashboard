@@ -4,6 +4,7 @@ import {
   defaultSlidesForType,
   mergeSlides,
   slideFieldDefs,
+  slideFrameCountForKey,
 } from "./videoPresetDefaults.js";
 
 const SHORTS_TYPES = [
@@ -129,13 +130,15 @@ export default function VideoPresetsPanel() {
     let sumD = 0;
     for (const k of keys) {
       const v = Number(slides[k]);
-      sumD += Number.isFinite(v) ? Math.max(0, v) : 0;
+      const d = Number.isFinite(v) ? Math.max(0, v) : 0;
+      const frames = slideFrameCountForKey(shortsType, k);
+      sumD += d * frames;
     }
     const Tf = Number(transition);
     const t = Number.isFinite(Tf) ? Math.max(0, Tf) : 0;
     if (n <= 1) return sumD;
     return Math.max(0, sumD - n * t);
-  }, [slideRows, slides, transition]);
+  }, [slideRows, slides, transition, shortsType]);
 
   const estimatedHumanApprox = useMemo(() => {
     const est = estimatedVideoSec;
