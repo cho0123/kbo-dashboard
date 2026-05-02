@@ -23,6 +23,29 @@ function resolveDuration(key, preset, shortsType) {
       : shortsType === "shorts3"
         ? DEFAULT_DURATION_SHORTS3
         : DEFAULT_DURATION_SHORTS1;
+
+  if (shortsType === "shorts2") {
+    if (
+      key === "game_preview_p1" ||
+      key === "game_preview_p2" ||
+      key === "game_preview_p3" ||
+      key === "game_preview_p4"
+    ) {
+      const gp = preset?.slides?.game_preview;
+      if (Number.isFinite(Number(gp))) return Math.max(0.05, Number(gp));
+      const v = map.game_preview;
+      if (Number.isFinite(v)) return v;
+      return 1.5;
+    }
+    if (key === "game_preview_p5") {
+      const gl = preset?.slides?.game_preview_last;
+      if (Number.isFinite(Number(gl))) return Math.max(0.05, Number(gl));
+      const v = map.game_preview_last;
+      if (Number.isFinite(v)) return v;
+      return 2;
+    }
+  }
+
   const v = map[key];
   if (Number.isFinite(v)) return v;
   if (shortsType === "shorts1" && key === "summary_last") {

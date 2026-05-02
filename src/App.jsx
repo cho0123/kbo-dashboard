@@ -2301,7 +2301,7 @@ function slideExportKeyShorts2(slide) {
   if (slide.type === "intro") return "intro";
   if (slide.type === "preview_game") {
     const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
-    return `game_preview_p${p}`;
+    return p <= 4 ? "game_preview" : "game_preview_last";
   }
   if (slide.type === "standings") return "standings";
   return "intro";
