@@ -1456,10 +1456,9 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
       logosByTeamKey?.[ak] || null
     );
 
-    // Score: Bebas Neue — winner bold (700), VS slightly smaller
-    const scoreFont = `700 100px "Bebas Neue", system-ui, sans-serif`;
-    const vsFont = `400 80px "Bebas Neue", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
+    // Score: Bebas Neue — 88px 통일, 스코어 bold (700), 그림자 없음
+    const scoreFont = `700 88px "Bebas Neue", system-ui, sans-serif`;
+    const vsFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
     const hsText = String(g.home_score ?? "—");
     const asText = String(g.away_score ?? "—");
     const vsText = "VS";
@@ -1487,7 +1486,6 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     ctx.font = scoreFont;
     ctx.fillStyle = awayWin ? "#FF6B00" : "#FFFFFF";
     ctx.fillText(pad + asText, startX + w1 + w2, yy);
-    resetShadow(ctx);
 
     y += cardH + 22;
     if (y > SAFE_BOTTOM - 120) break;
