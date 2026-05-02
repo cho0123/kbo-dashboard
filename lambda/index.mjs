@@ -13,7 +13,10 @@ const s3 = new S3Client({ region });
 const VIDEO_VF =
   "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
 
-/** 청크당 최대 슬라이드 수 (xfade 필터 그래프 메모리 상한) */
+/**
+ * 청크당 최대 슬라이드 수 (xfade 필터 그래프 메모리 상한).
+ * 분할 기준은 항상 슬라이드 장수이며, 누적 재생 시간(초)으로 청크를 나누지 않음.
+ */
 const CHUNK_SLIDES = 10;
 
 function ffmpegBin() {
@@ -149,6 +152,40 @@ function computeChunkedPipelineDurationSec(n, durations, transitionRaw) {
     `[duration] chunked_sum=${sum.toFixed(4)}s | single_xfade_graph_if_one_pass=${singleGraph.toFixed(4)}s (청크 인코딩과 불일치—참고만)`
   );
   return sum;
+}
+
+function resolveSlideKey(meta, index, jobId) {
+  const raw = meta.slideKeys;
+  if (Array.isArray(raw) && raw[index] != null && String(raw[index]).trim()) {
+    return String(raw[index]).trim();
+  }
+  return `slide_${index}`;
+}
+
+/** 청크 경계: 장수 기준만 사용함을 로그로 남기고, 청크별 슬라이드 키·duration 출력 */
+function logChunkSplitDetail(n, durations, meta, jobId) {
+  console.log(
+    `[chunk] split_basis=slide_count max_slides_per_chunk=${CHUNK_SLIDES} duration_sec_split=false`
+  );
+  const durs = durations.map((x) => Number(x) || 0);
+  const nc = Math.ceil(n / CHUNK_SLIDES);
+  for (let c = 0; c < nc; c++) {
+    const start = c * CHUNK_SLIDES;
+    const m = Math.min(CHUNK_SLIDES, n - start);
+    const slides = [];
+    for (let j = 0; j < m; j++) {
+      const idx = start + j;
+      const key = resolveSlideKey(meta, idx, jobId);
+      slides.push({
+        key,
+        inputObjectKey: `jobs/${jobId}/input/slide_${idx}.png`,
+        durationSec: durs[idx],
+      });
+    }
+    console.log(
+      `[chunk] chunk ${c + 1}/${nc} slide_count=${m} slides=${JSON.stringify(slides)}`
+    );
+  }
 }
 
 function probeFormatDurationSec(workDir, fileName) {
@@ -301,6 +338,7 @@ export const handler = async (event) => {
     const musicOpts = normalizeMusicOptions(meta);
     const dursForLen = durations.slice(0, n);
     const TfForLen = Number(transition);
+    logChunkSplitDetail(n, dursForLen, meta, jobId);
     const videoDurSec = computeChunkedPipelineDurationSec(n, dursForLen, TfForLen);
 
     for (let i = 0; i < n; i++) {
