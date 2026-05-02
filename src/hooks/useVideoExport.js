@@ -9,9 +9,6 @@ import {
 
 const CORE_MT_BASE = "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
 
-const SCALE_PAD =
-  "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2";
-
 function seoulYyyymmdd() {
   return new Date()
     .toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" })
@@ -29,33 +26,6 @@ function resolveDuration(key, preset, shortsType) {
         : DEFAULT_DURATION_SHORTS1;
   const v = map[key];
   return Number.isFinite(v) ? v : 2;
-}
-
-function buildXfadeGraph(n, durations, transitionRaw) {
-  const parts = [];
-  for (let i = 0; i < n; i++) {
-    parts.push(
-      `[${i}:v]${SCALE_PAD},format=yuv420p,setpts=PTS-STARTPTS,fps=30[v${i}s]`
-    );
-  }
-  let Tf = Math.max(0, Number(transitionRaw) || 0);
-  let cur = "[v0s]";
-  let acc = durations[0];
-  for (let i = 1; i < n; i++) {
-    const tf = Math.min(
-      Tf,
-      Math.max(0.04, acc - 0.02),
-      Math.max(0.04, durations[i] - 0.02)
-    );
-    const offset = Math.max(0, acc - tf);
-    const out = i === n - 1 ? "[vout]" : `[vx${i}]`;
-    parts.push(
-      `${cur}[v${i}s]xfade=transition=fade:duration=${tf}:offset=${offset}${out}`
-    );
-    acc = acc + durations[i] - tf;
-    cur = out;
-  }
-  return parts.join(";");
 }
 
 function buildConcatListContent(durations) {
@@ -202,138 +172,49 @@ export function useVideoExport() {
 
         if (cancelledRef.current) return;
 
-        const Tf = Number(preset?.transition);
-        const useXfade =
-          slides.length > 1 && Number.isFinite(Tf) && Tf > 0.001;
+        const listTxt = buildConcatListContent(durations);
+        console.log("[useVideoExport] concat list.txt write 시작");
+        await ffmpeg.writeFile("list.txt", listTxt);
+        console.log("[useVideoExport] concat list.txt write 완료");
 
-        const vfChain = `${SCALE_PAD},format=yuv420p,fps=30`;
-
-        let args;
-
-        if (slides.length === 1) {
-          const d0 = String(durations[0]);
-          args = [
-            "-loop",
-            "1",
-            "-framerate",
-            "30",
-            "-t",
-            d0,
-            "-i",
-            "slide_0.png",
-            "-vf",
-            vfChain,
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-crf",
-            "23",
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            "30",
-          ];
-          if (musicFile instanceof File) {
-            args.push(
-              "-i",
-              "music.mp3",
-              "-map",
-              "0:v",
-              "-map",
-              "1:a",
-              "-c:a",
-              "aac",
-              "-b:a",
-              "128k",
-              "-shortest"
-            );
-          } else {
-            args.push("-an");
-          }
-          args.push("output.mp4");
-        } else if (useXfade) {
-          const fc = buildXfadeGraph(slides.length, durations, Tf);
-          args = [];
-          for (let i = 0; i < slides.length; i++) {
-            args.push(
-              "-loop",
-              "1",
-              "-framerate",
-              "30",
-              "-t",
-              String(durations[i]),
-              "-i",
-              `slide_${i}.png`
-            );
-          }
-          if (musicFile instanceof File) {
-            args.push("-i", "music.mp3");
-          }
-          args.push("-filter_complex", fc);
-          const mi = slides.length;
+        const args = [
+          "-f",
+          "concat",
+          "-safe",
+          "0",
+          "-i",
+          "list.txt",
+          "-vf",
+          "scale=1080:1920",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+        ];
+        if (musicFile instanceof File) {
           args.push(
-            "-map",
-            "[vout]",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-crf",
-            "23",
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            "30"
-          );
-          if (musicFile instanceof File) {
-            args.push(
-              "-map",
-              `${mi}:a`,
-              "-c:a",
-              "aac",
-              "-b:a",
-              "128k",
-              "-shortest"
-            );
-          } else {
-            args.push("-an");
-          }
-          args.push("output.mp4");
-        } else {
-          const listTxt = buildConcatListContent(durations);
-          console.log("[useVideoExport] concat list.txt write 시작");
-          await ffmpeg.writeFile("list.txt", listTxt);
-          console.log("[useVideoExport] concat list.txt write 완료");
-          args = [
-            "-f",
-            "concat",
-            "-safe",
-            "0",
             "-i",
-            "list.txt",
-            "-vf",
-            vfChain,
-            "-vsync",
-            "cfr",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-crf",
-            "23",
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            "30",
-          ];
-          if (musicFile instanceof File) {
-            args.push("-i", "music.mp3", "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "128k", "-shortest");
-          } else {
-            args.push("-an");
-          }
-          args.push("output.mp4");
+            "music.mp3",
+            "-map",
+            "0:v",
+            "-map",
+            "1:a",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-shortest"
+          );
+        } else {
+          args.push("-an");
         }
+        args.push("output.mp4");
 
         setMessage("인코딩 중…");
         console.log("[useVideoExport] ffmpeg.exec 시작", { args });
