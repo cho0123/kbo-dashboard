@@ -1446,17 +1446,18 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     const ly = y + (cardH - logoBoxH) / 2;
     const hk = teamKeyword(g.home_team);
     const ak = teamKeyword(g.away_team);
-    drawLogoInBox(x + 18, ly, logoBoxW, logoBoxH, g.home_team, logosByTeamKey?.[hk] || null);
+    // 좌: 원정 / 우: 홈 → 스코어가 로고 바깥(가운데 띠)에 오도록
+    drawLogoInBox(x + 18, ly, logoBoxW, logoBoxH, g.away_team, logosByTeamKey?.[ak] || null);
     drawLogoInBox(
       x + cardW - 18 - logoBoxW,
       ly,
       logoBoxW,
       logoBoxH,
-      g.away_team,
-      logosByTeamKey?.[ak] || null
+      g.home_team,
+      logosByTeamKey?.[hk] || null
     );
 
-    // Score: Bebas Neue — 88px, 스코어 bold (700), 대시 흰색, 3등분 가운데 정렬
+    // Score: 원정점수 | 대시 | 홈점수 — 로고-텍스트 간격 확보, 대시는 두 점수 사이 중앙
     const scoreFont = `700 88px "Bebas Neue", system-ui, sans-serif`;
     const dashFont = `400 88px "Bebas Neue", system-ui, sans-serif`;
     const hsText = String(g.home_score ?? "—");
@@ -1468,25 +1469,39 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
     const awayWin = Number.isFinite(hsNum) && Number.isFinite(asNum) && asNum > hsNum;
 
     const yy = y + Math.round(cardH * 0.62);
-    const cxHome = x + cardW / 6;
-    const cxDash = x + cardW / 2;
-    const cxAway = x + (5 * cardW) / 6;
+    const LOGO_PAD = 18;
+    const SCORE_PAD = 22;
+    const awayLogoRight = x + LOGO_PAD + logoBoxW;
+    const homeLogoLeft = x + cardW - LOGO_PAD - logoBoxW;
+    const awayScoreLeft = awayLogoRight + SCORE_PAD;
+    const homeScoreRight = homeLogoLeft - SCORE_PAD;
+
     const prevAlign = ctx.textAlign;
     const prevBaseline = ctx.textBaseline;
-    ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
 
     ctx.font = scoreFont;
-    ctx.fillStyle = homeWin ? "#FFD700" : "#FFFFFF";
-    ctx.fillText(hsText, cxHome, yy);
+    const wAway = ctx.measureText(asText).width;
+    const wHome = ctx.measureText(hsText).width;
 
-    ctx.font = dashFont;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillText(dashText, cxDash, yy);
+    const awayScoreRight = awayScoreLeft + wAway;
+    const homeScoreLeftEdge = homeScoreRight - wHome;
+    const dashCx = (awayScoreRight + homeScoreLeftEdge) / 2;
 
     ctx.font = scoreFont;
+    ctx.textAlign = "left";
     ctx.fillStyle = awayWin ? "#FFD700" : "#FFFFFF";
-    ctx.fillText(asText, cxAway, yy);
+    ctx.fillText(asText, awayScoreLeft, yy);
+
+    ctx.font = dashFont;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillText(dashText, dashCx, yy);
+
+    ctx.font = scoreFont;
+    ctx.textAlign = "right";
+    ctx.fillStyle = homeWin ? "#FFD700" : "#FFFFFF";
+    ctx.fillText(hsText, homeScoreRight, yy);
 
     ctx.textAlign = prevAlign;
     ctx.textBaseline = prevBaseline;
