@@ -12,6 +12,8 @@ deno.lock
 kbo-dashboard-repo/
 kbo-dashboard/
 kbo-project/
+cors.json
+lifecycle.json
 
 # Lambda deploy artifact
 kbo-video-encoder.zip
