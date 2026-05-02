@@ -2,13 +2,15 @@
 
 ## Netlify (Site → Environment variables)
 
-| 변수 | 예시 | 설명 |
-|------|------|------|
-| `AWS_ACCESS_KEY_ID` | `AKIA...` | S3 업로드·상태 읽기·presigned URL, Lambda `Invoke` 권한이 있는 IAM 사용자 키 |
-| `AWS_SECRET_ACCESS_KEY` | (비밀) | 위와 쌍 |
-| `AWS_REGION` | `ap-northeast-2` | 서울 리전 |
-| `S3_VIDEO_BUCKET` | `kbo-video-export` | PNG / `status.json` / 출력 MP4 저장 버킷 |
-| `LAMBDA_VIDEO_ENCODER` | `kbo-video-encoder` | 비동기 인코딩 Lambda 함수 이름 |
+**접근 키·시크릿은 IAM 콘솔에서만 발급·보관하고, Netlify UI에만 입력하세요. 이 저장소나 문서에 실제 키 값을 넣지 마세요.**
+
+| 변수 | 설명 |
+|------|------|
+| `KBO_AWS_ACCESS_KEY_ID` | S3 업로드·상태 읽기·presigned URL, Lambda `Invoke` 권한이 있는 IAM 사용자 **Access key ID** (Netlify에만 설정) |
+| `KBO_AWS_SECRET_ACCESS_KEY` | 위와 쌍인 **Secret access key** (Netlify에만 설정) |
+| `KBO_AWS_REGION` | 예: `ap-northeast-2` (서울) |
+| `S3_VIDEO_BUCKET` | `kbo-video-export` — PNG / `status.json` / 출력 MP4 저장 버킷 |
+| `LAMBDA_VIDEO_ENCODER` | `kbo-video-encoder` — 비동기 인코딩 Lambda 함수 이름 |
 
 ### IAM 권한(요약)
 
