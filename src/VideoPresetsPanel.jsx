@@ -123,6 +123,28 @@ export default function VideoPresetsPanel() {
 
   const slideRows = slideFieldDefs(shortsType);
 
+  const estimatedVideoSec = useMemo(() => {
+    const keys = slideRows.map((r) => r.key);
+    const n = keys.length;
+    let sumD = 0;
+    for (const k of keys) {
+      const v = Number(slides[k]);
+      sumD += Number.isFinite(v) ? Math.max(0, v) : 0;
+    }
+    const Tf = Number(transition);
+    const t = Number.isFinite(Tf) ? Math.max(0, Tf) : 0;
+    if (n <= 1) return sumD;
+    return Math.max(0, sumD - n * t);
+  }, [slideRows, slides, transition]);
+
+  const estimatedHumanApprox = useMemo(() => {
+    const est = estimatedVideoSec;
+    const minPart = Math.floor(est / 60);
+    const secPart = Math.round((est - minPart * 60) * 10) / 10;
+    if (minPart === 0) return `${secPart}초`;
+    return `${minPart}분 ${secPart}초`;
+  }, [estimatedVideoSec]);
+
   return (
     <div className="result-page video-presets-page">
       <div className="result-hero-title">⚙️ 영상 프리셋 설정</div>
@@ -266,6 +288,10 @@ export default function VideoPresetsPanel() {
                 }}
               />
             </label>
+
+            <p className="muted" style={{ margin: "4px 0 10px", fontSize: 14 }}>
+              예상 영상 길이: {estimatedVideoSec.toFixed(1)}초 (약 {estimatedHumanApprox})
+            </p>
 
             <label className="preset-field">
               <span>음악 (메모)</span>
