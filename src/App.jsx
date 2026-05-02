@@ -2486,10 +2486,12 @@ function Card8Shorts({ defaultDate }) {
         );
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        console.log("[shorts capture] el offsetSize", el.offsetWidth, el.offsetHeight);
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
           useCORS: true,
+          backgroundColor: null,
         });
         if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
           console.warn("[shorts capture] 예상 해상도와 다름", {
@@ -2802,10 +2804,12 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         );
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
+        console.log("[shorts capture T] el offsetSize", el.offsetWidth, el.offsetHeight);
         const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
         const c = await html2canvas(el, {
           scale,
           useCORS: true,
+          backgroundColor: null,
         });
         if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
           console.warn("[shorts capture T] 예상 해상도와 다름", {
@@ -3608,11 +3612,28 @@ const ShortsCanvas = forwardRef(function ShortsCanvas(
     renderSlide(canvasRef.current);
   }, [slideIdx, renderSlide]);
   return (
-    <div ref={ref} className="shorts-capture-wrap">
-      <canvas
-        ref={canvasRef}
-        style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.15)" }}
-      />
+    <div className="shorts-capture-wrap">
+      <div
+        ref={ref}
+        className="slide-card"
+        style={{
+          margin: 0,
+          padding: 0,
+          display: "inline-block",
+          lineHeight: 0,
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            display: "block",
+            margin: 0,
+            padding: 0,
+            borderRadius: 14,
+            border: "1px solid rgba(0,0,0,0.15)",
+          }}
+        />
+      </div>
     </div>
   );
 });
