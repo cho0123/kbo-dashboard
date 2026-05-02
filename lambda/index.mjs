@@ -245,7 +245,6 @@ export const handler = async (event) => {
 
     const musicOpts = normalizeMusicOptions(meta);
     const videoDurSec = computeVideoDurationSec(n, durations, transition);
-    const afChain = hasMusic ? buildMusicAf(videoDurSec, musicOpts) : "";
 
     for (let i = 0; i < n; i++) {
       await getObjectFile(
@@ -264,6 +263,13 @@ export const handler = async (event) => {
         await getObjectFile(bucket, `jobs/${jobId}/input/music.mp3`, musicLocal);
       }
     }
+    const musicFileOk = Boolean(musicLocal) && existsSync(musicLocal);
+    if (hasMusic && !musicFileOk) {
+      console.warn(
+        "[kbo-video-encoder] hasMusic 메타이지만 music.mp3 없음 — 무음으로 처리"
+      );
+    }
+    const afChain = musicFileOk ? buildMusicAf(videoDurSec, musicOpts) : "";
 
     await putStatus(bucket, jobId, { state: "processing", progress: 35 });
 
@@ -297,7 +303,7 @@ export const handler = async (event) => {
         "-r",
         "30",
       ];
-      if (hasMusic) {
+      if (musicFileOk) {
         args.push(
           "-ss",
           String(musicOpts.startTime),
@@ -338,11 +344,11 @@ export const handler = async (event) => {
           `slide_${i}.png`
         );
       }
-      if (hasMusic) {
+      if (musicFileOk) {
         args.push("-ss", String(musicOpts.startTime), "-i", "music.mp3");
       }
       const xfadeGraph = buildXfadeGraph(n, durations, Tf);
-      const fc = hasMusic
+      const fc = musicFileOk
         ? `${xfadeGraph};[${n}:a]${afChain}[aout]`
         : xfadeGraph;
       args.push("-filter_complex", fc);
@@ -360,7 +366,7 @@ export const handler = async (event) => {
         "-r",
         "30"
       );
-      if (hasMusic) {
+      if (musicFileOk) {
         args.push(
           "-map",
           "[aout]",
@@ -432,9 +438,17 @@ export const handler = async (event) => {
         "-i",
         "list_seg.txt",
         "-c:v",
-        "copy",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
       ];
-      if (hasMusic) {
+      if (musicFileOk) {
         concatArgs.push(
           "-ss",
           String(musicOpts.startTime),
