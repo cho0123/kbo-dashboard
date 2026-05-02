@@ -2483,7 +2483,7 @@ function Card8Shorts({ defaultDate }) {
         const el = captureWrapRef.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
         const c = await html2canvas(el, {
-          scale: 2,
+          scale: 1,
           useCORS: true,
           width: 1080,
           height: 1920,
@@ -2792,7 +2792,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         const el = captureWrapRefT.current;
         if (!el) throw new Error("캡처 대상이 없습니다.");
         const c = await html2canvas(el, {
-          scale: 2,
+          scale: 1,
           useCORS: true,
           width: 1080,
           height: 1920,
