@@ -441,15 +441,7 @@ export const handler = async (event) => {
         "-i",
         "list_seg.txt",
         "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
+        "copy",
       ];
       if (musicFileOk) {
         concatArgs.push(
