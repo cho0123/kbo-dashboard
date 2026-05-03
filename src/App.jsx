@@ -713,10 +713,10 @@ const LOGO_LAYOUT = [
   { key: 3, x: 140, y: 680, size: 185, angle: 10 },
   { key: 4, x: 430, y: 640, size: 210, angle: -8 },
   { key: 5, x: 760, y: 660, size: 170, angle: 18 },
-  { key: 6, x: 220, y: 880, size: 195, angle: -20 },
+  { key: 6, x: 220, y: 920, size: 195, angle: -20 },
   { key: 7, x: 540, y: 840, size: 180, angle: 5 },
-  { key: 8, x: 935, y: 860, size: 200, angle: -10 },
-  { key: 9, x: 740, y: 980, size: 175, angle: 14 },
+  { key: 8, x: 955, y: 800, size: 200, angle: -10 },
+  { key: 9, x: 770, y: 980, size: 175, angle: 14 },
 ];
 
 const __svgLogoCache = new Map();
