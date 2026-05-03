@@ -1,6 +1,7 @@
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -33,6 +34,55 @@ function ffprobeBin() {
     if (existsSync(p)) return p;
   }
   return "ffprobe";
+}
+
+function ytdlpBin() {
+  return join(dirname(fileURLToPath(import.meta.url)), "bin", "yt-dlp");
+}
+
+/**
+ * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
+ * @param {string} url
+ * @param {string} outputPath - yt-dlp -o 대상 경로(파일)
+ * @param {string} [quality='1080'] - 최대 높이(px) 문자열
+ */
+async function downloadVideo(url, outputPath, quality = "1080") {
+  const bin = ytdlpBin();
+  if (!existsSync(bin)) {
+    throw new Error(`yt-dlp not found at ${bin}`);
+  }
+  const fmt = `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
+  const args = [
+    "-f",
+    fmt,
+    "--merge-output-format",
+    "mp4",
+    "-o",
+    outputPath,
+    "--no-playlist",
+    String(url || "").trim(),
+  ];
+  await new Promise((resolvePromise, reject) => {
+    const child = spawn(bin, args, {
+      env: { ...process.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stderr?.on("data", (d) => {
+      stderr += String(d);
+    });
+    child.stdout?.on("data", () => {});
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolvePromise();
+      else
+        reject(
+          new Error(
+            `yt-dlp 실패 (exit ${code}): ${stderr.slice(0, 1200)}`
+          )
+        );
+    });
+  });
 }
 
 /** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */

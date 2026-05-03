@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-  Packages only index.mjs and package.json from this folder (excludes ffmpeg-layer.zip and all other files),
+  Packages index.mjs, package.json, and bin/ (yt-dlp binary after .\download-ytdlp.ps1),
   uploads to kbo-video-encoder, and applies function configuration.
 #>
 param(
@@ -26,15 +26,23 @@ foreach ($name in $Entries) {
     }
 }
 
+$YtdlpPath = Join-Path $LambdaDir 'bin\yt-dlp'
+if (-not (Test-Path -LiteralPath $YtdlpPath)) {
+    throw "yt-dlp binary not found: $YtdlpPath — run .\download-ytdlp.ps1 in this folder first."
+}
+
 $zipPath = Join-Path $env:TEMP "kbo-video-encoder-$([Guid]::NewGuid().ToString('N')).zip"
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
-$toZip = foreach ($name in $Entries) {
-    Join-Path $LambdaDir $name
+Push-Location $LambdaDir
+try {
+    Compress-Archive -Path @('index.mjs', 'package.json', 'bin') -DestinationPath $zipPath -CompressionLevel Optimal -Force
 }
-Compress-Archive -LiteralPath $toZip -DestinationPath $zipPath -CompressionLevel Optimal -Force
+finally {
+    Pop-Location
+}
 
 $zipFileUri = 'fileb://' + ($zipPath -replace '\\', '/')
 Write-Host "Deployment package: $zipPath" -ForegroundColor Cyan
@@ -52,7 +60,7 @@ try {
         --memory-size 3008 `
         --ephemeral-storage Size=10240 `
         --layers $FfmpegLayerArn `
-        --environment "Variables={S3_BUCKET=$S3Bucket}" `
+        --environment "Variables={S3_BUCKET=$S3Bucket,PATH=/var/task/bin:/usr/local/bin:/usr/bin:/bin}" `
         --region $Region
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
