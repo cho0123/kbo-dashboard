@@ -715,8 +715,8 @@ const LOGO_LAYOUT = [
   { key: 5, x: 760, y: 600, size: 170, angle: 18 },
   { key: 6, x: 220, y: 820, size: 195, angle: -20 },
   { key: 7, x: 540, y: 780, size: 180, angle: 5 },
-  { key: 8, x: 840, y: 800, size: 200, angle: -10 },
-  { key: 9, x: 390, y: 980, size: 175, angle: 14 },
+  { key: 8, x: 885, y: 800, size: 200, angle: -10 },
+  { key: 9, x: 540, y: 960, size: 175, angle: 14 },
 ];
 
 const __svgLogoCache = new Map();
@@ -796,25 +796,6 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
   // Baseball (same position/size/opacity as other slides)
   drawBaseballBackground(ctx);
-
-  // Big decorative "KBO" (background layer) — same style/position as 2번 인트로
-  ctx.save();
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
-  const kboText = "KBO";
-  let kboSize = 520;
-  ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
-  while (ctx.measureText(kboText).width > w * 0.96 && kboSize > 380) {
-    kboSize -= 10;
-    ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
-  }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.27) + 50);
-  ctx.restore();
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
