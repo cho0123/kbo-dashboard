@@ -66,7 +66,6 @@ async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
   }
-  const outputPath = join(workDir, "source.%(ext)s");
   let nodePath = "";
   for (const p of NODE_PATHS) {
     try {
@@ -95,7 +94,7 @@ async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null
     "mp4",
     "--no-playlist",
     "-o",
-    outputPath,
+    join(workDir, "source.%(ext)s"),
     String(url || "").trim()
   );
   await new Promise((resolvePromise, reject) => {
@@ -120,13 +119,13 @@ async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null
     });
   });
 
-  const files = readdirSync(workDir)
-    .filter((f) => f.startsWith("source."))
-    .sort();
+  const dirListing = readdirSync(workDir);
+  console.log("[yt-dlp] workDir files:", dirListing);
+  const files = dirListing.filter((f) => f.startsWith("source."));
   if (files.length === 0) throw new Error("yt-dlp 다운로드 파일 없음");
-  const actualFile = join(workDir, files[0]);
-  console.log("[yt-dlp] downloaded file:", actualFile);
-  return actualFile;
+  const actualPath = join(workDir, files[0]);
+  console.log("[yt-dlp] downloaded:", actualPath);
+  return actualPath;
 }
 
 /** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */
@@ -402,8 +401,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       e instanceof Error ? e.message : e
     );
   }
-  const actualSourcePath = await downloadVideo(url, workDir, "1080", cookiesPath);
-  const sourceFileName = basename(actualSourcePath);
+  const videoPath = await downloadVideo(url, workDir, "1080", cookiesPath);
+  const sourceFileName = basename(videoPath);
 
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
