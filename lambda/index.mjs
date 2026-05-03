@@ -51,19 +51,30 @@ async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = n
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
   }
+  let nodePath = "";
   try {
-    const nodePath = execSync("which node").toString().trim();
+    nodePath = execSync(
+      "which node 2>/dev/null || find /usr -name node 2>/dev/null | head -1"
+    )
+      .toString()
+      .trim();
     console.log("[yt-dlp] node path:", nodePath);
   } catch (e) {
-    console.log("[yt-dlp] node not found in PATH");
+    console.log(
+      "[yt-dlp] node not found:",
+      e instanceof Error ? e.message : String(e)
+    );
   }
+  const jsRuntime = nodePath ? `node:${nodePath}` : "node";
+  console.log("[yt-dlp] js-runtime:", jsRuntime);
+
   const args = [];
   if (cookiesPath && existsSync(cookiesPath)) {
     args.push("--cookies", cookiesPath);
   }
   args.push(
     "--js-runtimes",
-    "node",
+    jsRuntime,
     "-f",
     "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
     "--merge-output-format",
