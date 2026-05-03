@@ -867,7 +867,6 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
 
 function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
   ctx.save();
-  // Background: day-of-week color (same as intro)
   const DAY_COLORS = {
     0: "#0097A7", // Sun - 틸시안 (C)
     1: "#FF4081", // Mon - 유지
@@ -891,10 +890,9 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
   ctx.fillRect(0, 0, w, h);
 
-  // Baseball watermark
   drawBaseballBackground(ctx);
 
-  // Big decorative "KBO" (background layer)
+  // Big decorative "KBO" — same position as drawIntroSlide
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -910,24 +908,33 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.25));
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.27) - 50);
   ctx.restore();
 
-  // Text block (4~6) shifted down by 100px
-  const BLOCK_SHIFT_Y = 100;
-  const titleY = Math.round(h * 0.52) - 100 + BLOCK_SHIFT_Y;
-
-  // Small label: "프로야구" + divider just below it
-  ctx.save();
+  // 위→아래: KBO → 날짜 → 프로야구 → 구분선 → 메인 타이틀 → 1분컷 → 구분선 (drawIntroSlide와 동일 비율)
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+
+  const dateY = Math.round(h * 0.38) + 70 + 50;
+  const dateStr = fmtKoreanLongDate(date);
+  ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
+  ctx.fillText(dateStr, w / 2, dateY);
+  ctx.restore();
+
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  const proY = Math.round(h * 0.52) + 50;
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  const proY = titleY - 140;
   ctx.fillText("프로야구", w / 2, proY);
 
   const proDivY = proY + 52;
@@ -940,7 +947,7 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.stroke();
   ctx.restore();
 
-  // Middle: title
+  const titleY = proY + 140;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
@@ -948,39 +955,32 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowBlur = 14;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const titleText = "오늘경기 미리보기";
   ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(titleText, w / 2, titleY);
+  ctx.fillText("오늘경기 미리보기", w / 2, titleY);
 
-  // Below: "1분컷" (same style as drawIntroSlide)
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const oneMinY = titleY + 220 + 100;
+  const oneMinY = titleY + 280;
   ctx.fillText("1분컷", w / 2, oneMinY);
 
-  // Divider + date (same style as drawIntroSlide)
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const divY = oneMinY + 110 + 60;
-  const divW = 600;
+  const oneMinFontPx = 220;
+  const oneMinDividerY = oneMinY + oneMinFontPx / 2 + 60;
+  const oneMinDivW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(w / 2 - divW / 2, divY);
-  ctx.lineTo(w / 2 + divW / 2, divY);
+  ctx.moveTo(w / 2 - oneMinDivW / 2, oneMinDividerY);
+  ctx.lineTo(w / 2 + oneMinDivW / 2, oneMinDividerY);
   ctx.stroke();
 
-  const dateY = divY + 80;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 90px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtKoreanLongDate(date), w / 2, dateY);
   ctx.restore();
 }
 
