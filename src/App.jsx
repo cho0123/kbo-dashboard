@@ -5,6 +5,7 @@ import { postKbo, seoulToday } from "./api.js";
 import VideoPresetsPanel from "./VideoPresetsPanel.jsx";
 import MusicLibraryPanel from "./MusicLibraryPanel.jsx";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
+import Shorts3Panel from "./Shorts3Panel.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -4004,11 +4005,6 @@ export default function App() {
   /* Shorts */
   const [shDate, setShDate] = useState(today);
   const shortsTomorrowIso = useMemo(() => isoSeoulTomorrowIso(), []);
-  const [hlOut, setHlOut] = useState({
-    text: "",
-    summary: null,
-    error: null,
-  });
   const [wkOut, setWkOut] = useState({
     text: "",
     summary: null,
@@ -4178,7 +4174,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              쇼츠 (1–4)
+              쇼츠 (1–5)
             </button>
             <button
               type="button"
@@ -4709,7 +4705,21 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">3. 쇼츠-주간-분석(월요일)</div>
+                <div className="side-group-title">3. 쇼츠-하이라이트</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts3_highlight");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">4. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
@@ -4722,7 +4732,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 최악 매칭업</div>
+                <div className="side-group-title">5. 최악 매칭업</div>
                 <button
                   type="button"
                   className="primary"
@@ -5506,13 +5516,8 @@ export default function App() {
                       error={predOut.error}
                       pending={pending("predict_form_7")}
                     />
-                  ) : activeKey === "shorts_highlight" ? (
-                    <ResultBlock
-                      title={null}
-                      text={hlOut.text}
-                      error={hlOut.error}
-                      pending={pending("shorts_highlight_8")}
-                    />
+                  ) : activeKey === "shorts3_highlight" ? (
+                    <Shorts3Panel />
                   ) : activeKey === "video_presets" ? (
                     <VideoPresetsPanel />
                   ) : activeKey === "music_library" ? (

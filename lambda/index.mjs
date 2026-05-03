@@ -289,6 +289,171 @@ function probeFormatDurationSec(workDir, fileName) {
   return Number.isFinite(t) ? t : null;
 }
 
+function parseTimeToSeconds(t) {
+  if (typeof t === "number" && Number.isFinite(t)) return Math.max(0, t);
+  const s = String(t ?? "").trim();
+  if (!s) throw new Error("빈 시간 값");
+  const parts = s.split(":").map((x) => Number(String(x).trim()));
+  if (parts.some((x) => !Number.isFinite(x))) {
+    throw new Error(`시간 파싱 실패: ${t}`);
+  }
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  throw new Error(`시간 형식 오류: ${t}`);
+}
+
+function probeVideoDimensions(workDir, fileName) {
+  const bin = ffprobeBin();
+  const r = spawnSync(
+    bin,
+    [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=width,height",
+      "-of",
+      "csv=p=0:s=x",
+      fileName,
+    ],
+    {
+      cwd: workDir,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    }
+  );
+  if (r.status !== 0) {
+    throw new Error(
+      `ffprobe 크기 실패: ${(r.stderr || r.stdout || "").slice(0, 400)}`
+    );
+  }
+  const line = String(r.stdout || "").trim();
+  const px = line.split("x");
+  const w = parseInt(px[0], 10);
+  const h = parseInt(px[1], 10);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) {
+    throw new Error(`ffprobe 출력 파싱 실패: ${line}`);
+  }
+  return { w, h };
+}
+
+async function runHighlightPipeline(bucket, jobId, workDir, meta) {
+  const url = String(meta.sourceUrl || "").trim();
+  const segments = Array.isArray(meta.segments) ? meta.segments : [];
+  const cropPosition = String(meta.cropPosition || "center").toLowerCase();
+  if (!url) throw new Error("sourceUrl 없음");
+  if (segments.length < 1) throw new Error("구간 없음");
+
+  await putStatus(bucket, jobId, { state: "processing", progress: 18 });
+  const srcPath = join(workDir, "source.mp4");
+  await downloadVideo(url, srcPath, "1080");
+
+  await putStatus(bucket, jobId, { state: "processing", progress: 32 });
+
+  const { w: iw, h: ih } = probeVideoDimensions(workDir, "source.mp4");
+  let cw = Math.floor((ih * 9) / 16);
+  cw -= cw % 2;
+  cw = Math.min(cw, iw - (iw % 2));
+  let cx = 0;
+  if (cropPosition === "center") cx = Math.floor((iw - cw) / 2);
+  else if (cropPosition === "right") cx = iw - cw;
+  cx -= cx % 2;
+
+  const numSeg = segments.length;
+  for (let i = 0; i < numSeg; i++) {
+    const seg = segments[i];
+    const a = parseTimeToSeconds(seg.start);
+    const b = parseTimeToSeconds(seg.end);
+    const dur = b - a;
+    if (!(dur > 0.04)) {
+      throw new Error(`구간 ${i + 1}: 종료가 시작보다 커야 합니다.`);
+    }
+    await putStatus(bucket, jobId, {
+      state: "processing",
+      progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
+    });
+    runFfmpeg(
+      [
+        "-y",
+        "-ss",
+        String(a),
+        "-i",
+        "source.mp4",
+        "-t",
+        String(dur),
+        "-c",
+        "copy",
+        `seg_${i}.mp4`,
+      ],
+      workDir,
+      `highlight_seg_${i}`
+    );
+  }
+
+  let concatBody = "ffconcat version 1.0\n";
+  for (let i = 0; i < numSeg; i++) {
+    concatBody += `file 'seg_${i}.mp4'\n`;
+  }
+  writeFileSync(join(workDir, "concat_hi.txt"), concatBody, "utf8");
+
+  runFfmpeg(
+    [
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      "concat_hi.txt",
+      "-c",
+      "copy",
+      "joined_hi.mp4",
+    ],
+    workDir,
+    "highlight_concat"
+  );
+
+  await putStatus(bucket, jobId, { state: "processing", progress: 78 });
+
+  const vf = `crop=${cw}:${ih}:${cx}:0,scale=1080:1920:flags=lanczos`;
+  const outLocal = join(workDir, "output.mp4");
+  runFfmpeg(
+    [
+      "-y",
+      "-i",
+      "joined_hi.mp4",
+      "-vf",
+      vf,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "23",
+      "-pix_fmt",
+      "yuv420p",
+      "-an",
+      outLocal,
+    ],
+    workDir,
+    "highlight_crop"
+  );
+
+  const probed = probeFormatDurationSec(workDir, "output.mp4");
+  console.log(`[highlight] out_duration_sec=${probed}`);
+
+  const outputKey = `jobs/${jobId}/output/output.mp4`;
+  await putOutputMp4(bucket, outputKey, outLocal);
+
+  await putStatus(bucket, jobId, {
+    state: "done",
+    progress: 100,
+    outputKey,
+  });
+}
+
 function normalizeMusicOptions(meta) {
   const mo = meta.musicOptions && typeof meta.musicOptions === "object" ? meta.musicOptions : {};
   const volume = Number(mo.volume);
@@ -394,6 +559,16 @@ export const handler = async (event) => {
 
     const metaKey = `jobs/${jobId}/meta.json`;
     const meta = await getJson(bucket, metaKey);
+
+    if (meta.type === "highlight") {
+      await runHighlightPipeline(bucket, jobId, workDir, meta);
+      return {
+        ok: true,
+        jobId,
+        outputKey: `jobs/${jobId}/output/output.mp4`,
+      };
+    }
+
     const {
       durations = [],
       transition = 0,
@@ -776,6 +951,9 @@ export const handler = async (event) => {
           "list_chunks.txt",
           "joined.mp4",
           "music.mp3",
+          "source.mp4",
+          "joined_hi.mp4",
+          "concat_hi.txt",
         ]) {
           const p = join(workDir, f);
           if (existsSync(p)) unlinkSync(p);

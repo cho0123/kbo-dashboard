@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import admin from "firebase-admin";
+import { randomUUID } from "crypto";
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
@@ -112,6 +115,25 @@ function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json; charset=utf-8",
+  };
+}
+
+/** 쇼츠3 하이라이트 인코딩: S3 메타 작성 후 Lambda 비동기 호출 (video-encode.mjs 와 동일 자격·버킷) */
+function videoEncodeAwsClients() {
+  const region = process.env.KBO_AWS_REGION || "ap-northeast-2";
+  const kboAccessKeyId = process.env.KBO_AWS_ACCESS_KEY_ID;
+  const kboSecretAccessKey = process.env.KBO_AWS_SECRET_ACCESS_KEY;
+  const credentials =
+    kboAccessKeyId && kboSecretAccessKey
+      ? { accessKeyId: kboAccessKeyId, secretAccessKey: kboSecretAccessKey }
+      : undefined;
+  const cfg = { region, ...(credentials ? { credentials } : {}) };
+  return {
+    region,
+    bucket: process.env.S3_VIDEO_BUCKET || "kbo-video-export",
+    lambdaName: process.env.LAMBDA_VIDEO_ENCODER || "kbo-video-encoder",
+    s3: new S3Client(cfg),
+    lambda: new LambdaClient(cfg),
   };
 }
 
@@ -2169,6 +2191,103 @@ export const handler = async (event) => {
             }),
           };
         }
+      }
+      case "highlight_video_create": {
+        const url = String(payload.url || "").trim();
+        const segmentsIn = payload.segments;
+        const cropRaw = String(payload.cropPosition || "center").toLowerCase();
+        const allowedCrop = new Set(["left", "center", "right"]);
+        if (!url) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "url이 필요합니다." }),
+          };
+        }
+        if (!Array.isArray(segmentsIn) || segmentsIn.length < 1) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "구간(segments)이 필요합니다." }),
+          };
+        }
+        if (segmentsIn.length > 10) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "구간은 최대 10개입니다." }),
+          };
+        }
+        if (!allowedCrop.has(cropRaw)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "cropPosition은 left, center, right 중 하나여야 합니다.",
+            }),
+          };
+        }
+        const segments = [];
+        for (const s of segmentsIn) {
+          if (!s || typeof s !== "object") {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: "각 구간은 { start, end } 형식이어야 합니다." }),
+            };
+          }
+          const st = s.start != null ? String(s.start).trim() : "";
+          const en = s.end != null ? String(s.end).trim() : "";
+          if (!st || !en) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: "각 구간의 시작·종료 시간을 입력하세요." }),
+            };
+          }
+          segments.push({ start: st, end: en });
+        }
+
+        const jobId = randomUUID();
+        const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
+        const meta = {
+          type: "highlight",
+          sourceUrl: url,
+          segments,
+          cropPosition: cropRaw,
+        };
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: `jobs/${jobId}/meta.json`,
+            Body: JSON.stringify(meta),
+            ContentType: "application/json",
+          })
+        );
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: `jobs/${jobId}/status.json`,
+            Body: JSON.stringify({ state: "queued", progress: 5 }),
+            ContentType: "application/json",
+          })
+        );
+
+        await lambda.send(
+          new InvokeCommand({
+            FunctionName: lambdaName,
+            InvocationType: "Event",
+            Payload: Buffer.from(JSON.stringify({ bucket, jobId })),
+          })
+        );
+
+        return {
+          statusCode: 202,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, jobId, message: "queued" }),
+        };
       }
       case "shorts_slides_data": {
         const dateStr = payload.date || isoSeoulToday();
