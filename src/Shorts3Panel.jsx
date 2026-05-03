@@ -41,6 +41,8 @@ const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
 const MAX_SEGMENTS = 10;
 
+const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
+
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
@@ -173,6 +175,10 @@ export default function Shorts3Panel() {
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
   const [savedFilesError, setSavedFilesError] = useState(null);
 
+  const [localServerOk, setLocalServerOk] = useState(null);
+  const [localYtdlpUrl, setLocalYtdlpUrl] = useState("");
+  const [localDownloadBusy, setLocalDownloadBusy] = useState(false);
+
   const refreshSavedFiles = useCallback(async () => {
     setSavedFilesLoading(true);
     setSavedFilesError(null);
@@ -190,6 +196,29 @@ export default function Shorts3Panel() {
   useEffect(() => {
     refreshSavedFiles();
   }, [refreshSavedFiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ping = async () => {
+      try {
+        const r = await fetch(`${LOCAL_DOWNLOAD_SERVER}/status`, {
+          method: "GET",
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!cancelled) {
+          setLocalServerOk(Boolean(r.ok && j?.running === true));
+        }
+      } catch {
+        if (!cancelled) setLocalServerOk(false);
+      }
+    };
+    ping();
+    const id = setInterval(ping, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   const loadMusicTracks = useCallback(async () => {
     try {
@@ -432,6 +461,35 @@ export default function Shorts3Panel() {
     }
   };
 
+  const onLocalDownload = async () => {
+    const url = localYtdlpUrl.trim();
+    if (!url) {
+      window.alert("다운로드할 URL을 입력하세요.");
+      return;
+    }
+    setLocalDownloadBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`${LOCAL_DOWNLOAD_SERVER}/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, outputDir: "downloads" }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(
+          typeof j.error === "string" ? j.error : `HTTP ${r.status}`
+        );
+      }
+      setMessage("✅ 다운로드 완료! 파일을 업로드해주세요");
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+      setMessage("");
+    } finally {
+      setLocalDownloadBusy(false);
+    }
+  };
+
   const onGenerate = async () => {
     cancelRef.current = false;
     setError(null);
@@ -538,6 +596,71 @@ export default function Shorts3Panel() {
         로컬 원본 영상(mp4/mov/avi)을 업로드하고 구간(HH:MM:SS)을 지정하면
         9:16(1080×1920)으로 합성된 mp4를 만듭니다.
       </p>
+
+      <div style={{ marginTop: 16, maxWidth: 720 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+          로컬 다운로드
+        </div>
+        <div className="muted" style={{ fontSize: 14, marginBottom: 10 }}>
+          {localServerOk === null ? (
+            "서버 상태 확인 중…"
+          ) : localServerOk ? (
+            <span>🟢 연결됨</span>
+          ) : (
+            <span>
+              🔴 연결 안 됨 —{" "}
+              <strong style={{ color: "#ffb347" }}>
+                서버시작.bat를 실행해주세요
+              </strong>
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="url"
+            placeholder="https://..."
+            value={localYtdlpUrl}
+            onChange={(e) => setLocalYtdlpUrl(e.target.value)}
+            disabled={busy || uploading || localDownloadBusy}
+            style={{
+              flex: "1 1 220px",
+              minWidth: 160,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "#0f141d",
+              color: "var(--text, #e9edf5)",
+              fontFamily: "inherit",
+              fontSize: 14,
+            }}
+          />
+          <button
+            type="button"
+            className="primary primary-fill"
+            disabled={
+              busy ||
+              uploading ||
+              localDownloadBusy ||
+              localServerOk === false
+            }
+            onClick={onLocalDownload}
+          >
+            {localDownloadBusy ? "다운로드 중…" : "⬇ 로컬 다운로드"}
+          </button>
+        </div>
+        {localDownloadBusy ? (
+          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+            yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
+          </div>
+        ) : null}
+      </div>
 
       <div style={{ marginTop: 16, maxWidth: 720 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>

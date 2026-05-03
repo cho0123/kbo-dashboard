@@ -6,15 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "local-server": "node local-server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-lambda": "^3.699.0",
     "@aws-sdk/client-s3": "^3.699.0",
     "@aws-sdk/s3-request-presigner": "^3.699.0",
-    "@anthropic-ai/sdk": "^0.39.0",
-    "html2canvas": "^1.4.1",
+    "cors": "^2.8.6",
+    "express": "^4.22.1",
     "firebase-admin": "^13.0.2",
+    "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
