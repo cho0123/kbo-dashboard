@@ -635,6 +635,93 @@ export default function Shorts3Panel() {
     }
   };
 
+  const previewCropTextOverlayEl = useMemo(() => {
+    if (!previewCropOverlay) return null;
+    const b = previewCropOverlay.border;
+    const cropH = b.height;
+    const scale = cropH > 0 ? cropH / 1920 : 1;
+    const previewFontPx = Math.max(8, (Number(topTextSize) || 48) * scale);
+    const topColor = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
+      ? topTextColor
+      : "#ffffff";
+    const topLine = String(topText || "").trim();
+    const seg = segments[previewSegmentIndex];
+    const bottomLine = String(seg?.text ?? "").trim();
+    const tyRaw = Number(seg?.textY);
+    const textYpct = Number.isFinite(tyRaw)
+      ? Math.min(100, Math.max(0, tyRaw))
+      : 85;
+    const bottomColor = /^#[0-9A-Fa-f]{6}$/i.test(String(seg?.textColor || ""))
+      ? seg.textColor
+      : "#ffffff";
+    const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: b.left,
+          top: b.top,
+          width: b.width,
+          height: b.height,
+          zIndex: 3,
+          pointerEvents: "none",
+          overflow: "hidden",
+        }}
+      >
+        {topLine ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 30,
+              textAlign: "center",
+              fontSize: previewFontPx,
+              color: topColor,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              textShadow: shadow,
+              padding: "0 8px",
+              boxSizing: "border-box",
+              wordBreak: "break-word",
+            }}
+          >
+            {topLine}
+          </div>
+        ) : null}
+        {bottomLine ? (
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: `${textYpct}%`,
+              transform: "translate(-50%, -50%)",
+              textAlign: "center",
+              maxWidth: "100%",
+              fontSize: previewFontPx,
+              color: bottomColor,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              textShadow: shadow,
+              padding: "0 8px",
+              boxSizing: "border-box",
+              wordBreak: "break-word",
+            }}
+          >
+            {bottomLine}
+          </div>
+        ) : null}
+      </div>
+    );
+  }, [
+    previewCropOverlay,
+    topText,
+    topTextColor,
+    topTextSize,
+    segments,
+    previewSegmentIndex,
+  ]);
+
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
 
@@ -967,8 +1054,10 @@ export default function Shorts3Panel() {
                     border: "2px solid rgba(255,255,255,0.92)",
                     borderRadius: 2,
                     background: "transparent",
+                    zIndex: 2,
                   }}
                 />
+                {previewCropTextOverlayEl}
               </div>
             ) : null}
           </div>
