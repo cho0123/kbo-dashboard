@@ -247,7 +247,7 @@ export default function Shorts3Panel() {
 
   const [topText, setTopText] = useState("");
   const [topTextColor, setTopTextColor] = useState(TEXT_COLORS[0]);
-  const [topTextSize, setTopTextSize] = useState(48);
+  const [topTextSize, setTopTextSize] = useState(72);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -615,8 +615,8 @@ export default function Shorts3Panel() {
       setStatus("encoding");
       setMessage("작업 요청 중…");
       const sizeClamp = Math.min(
-        80,
-        Math.max(20, Math.round(Number(topTextSize) || 48))
+        200,
+        Math.max(20, Math.round(Number(topTextSize) || 72))
       );
       const payload = {
         action: "highlight_video_create",
@@ -708,7 +708,7 @@ export default function Shorts3Panel() {
     const b = previewCropOverlay.border;
     const cropH = b.height;
     const scale = cropH > 0 ? cropH / 1920 : 1;
-    const previewFontPx = Math.max(8, (Number(topTextSize) || 48) * scale);
+    const previewFontPx = Math.max(8, (Number(topTextSize) || 72) * scale);
     const topColor = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
       ? topTextColor
       : TEXT_COLORS[0];
@@ -1231,15 +1231,15 @@ export default function Shorts3Panel() {
             }}
           >
             폰트 크기 ({Math.round(
-              Math.min(80, Math.max(20, Number(topTextSize) || 48))
+              Math.min(200, Math.max(20, Number(topTextSize) || 72))
             )}
             px)
             <input
               type="range"
               min={20}
-              max={80}
+              max={200}
               step={1}
-              value={Math.min(80, Math.max(20, Number(topTextSize) || 48))}
+              value={Math.min(200, Math.max(20, Number(topTextSize) || 72))}
               disabled={busy || uploading}
               onChange={(e) => setTopTextSize(Number(e.target.value))}
               style={{ width: "100%" }}
