@@ -818,7 +818,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     kboSize -= 10;
     ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
   }
-  ctx.fillText(kboText, w / 2, Math.round(h * 0.27) - 50);
+  ctx.fillText(kboText, w / 2, Math.round(h * 0.27) + 50);
   ctx.restore();
 
   ctx.textAlign = "center";
@@ -830,12 +830,14 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "#FFFFFF";
-  let topTitleSize = 80;
-  ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  while (ctx.measureText(introTitle).width > w * 0.92 && topTitleSize > 44) {
-    topTitleSize -= 2;
-    ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  const titleMaxW = w * 0.8;
+  let topTitleSize = 44;
+  for (let fs = 46; fs <= 280; fs += 2) {
+    ctx.font = `900 ${fs}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    if (ctx.measureText(introTitle).width > titleMaxW) break;
+    topTitleSize = fs;
   }
+  ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(introTitle, w / 2, h * 0.1);
   ctx.restore();
 
@@ -875,7 +877,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillText(dateStr, w / 2, dateY);
   ctx.restore();
 
-  const divY = dateY + 70;
+  const divY = dateY + 120;
   const divW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
@@ -884,7 +886,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.lineTo(w / 2 + divW / 2, divY);
   ctx.stroke();
 
-  const oneMinY = divY + 130;
+  const oneMinY = divY + 200;
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
