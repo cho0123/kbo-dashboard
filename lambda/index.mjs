@@ -346,36 +346,6 @@ function highlightCropXFromOffset(iw, cw, rawOffset) {
   return cx;
 }
 
-/** 번들 폰트: /var/task/fonts, __dirname/fonts, bin/../fonts 등 */
-function resolveHighlightFontFile() {
-  const dirs = [
-    "/var/task/fonts",
-    resolve("/var/task/bin/../fonts"),
-    join(__dirname, "fonts"),
-  ];
-  const seen = new Set();
-  for (const dir of dirs) {
-    let abs;
-    try {
-      abs = resolve(dir);
-    } catch {
-      continue;
-    }
-    if (seen.has(abs)) continue;
-    seen.add(abs);
-    if (!existsSync(abs)) continue;
-    let names;
-    try {
-      names = readdirSync(abs);
-    } catch {
-      continue;
-    }
-    const font = names.find((n) => /\.(ttf|otf|ttc)$/i.test(n));
-    if (font) return join(abs, font);
-  }
-  return null;
-}
-
 function normalizeHexColor(raw, fallback = "#ffffff") {
   const fb = fallback.startsWith("#") ? fallback : `#${fallback}`;
   const s = raw != null ? String(raw).trim() : "";
@@ -432,7 +402,6 @@ function buildHighlightSegmentVf(opts) {
     cw,
     ih,
     cx,
-    fontFile,
     topTextFile,
     bottomTextFile,
     topFontSize,
@@ -446,9 +415,7 @@ function buildHighlightSegmentVf(opts) {
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
   ];
-  const fontPrefix = fontFile
-    ? `fontfile=${escapePathForDrawtextFilter(fontFile)}:`
-    : "";
+  const fontPrefix = "font=Sans:";
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
 
@@ -502,7 +469,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   cw = Math.min(cw, iw - (iw % 2));
 
   const { topText, topTextSize, topTextColor } = normalizeHighlightTop(meta);
-  const fontFile = resolveHighlightFontFile();
   let topTextPath = null;
   if (topText) {
     topTextPath = join(workDir, "hi_top.txt");
@@ -554,7 +520,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       cw,
       ih,
       cx,
-      fontFile,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
       topFontSize: topTextSize,
