@@ -931,7 +931,165 @@ export default function Shorts3Panel() {
         9:16(1080×1920)으로 합성된 mp4를 만듭니다.
       </p>
 
-      <div style={{ marginTop: 16, maxWidth: 720 }}>
+      <div
+        style={{
+          marginTop: 16,
+          display: "flex",
+          flexDirection: "row",
+          gap: 16,
+          alignItems: "flex-start",
+          width: "100%",
+        }}
+      >
+        <div style={{ flex: "0 1 45%", minWidth: 0, maxWidth: "100%" }}>
+          <div
+            style={{
+              position: "sticky",
+              top: 16,
+              alignSelf: "flex-start",
+              width: "100%",
+              zIndex: 10,
+            }}
+          >
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+              원본 미리보기
+            </div>
+            {uploadPhase === "done" && previewUrl ? (
+              <>
+                <div
+                  ref={previewVideoWrapRef}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    maxHeight: 280,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "#000",
+                  }}
+                >
+                  <video
+                    ref={previewVideoRef}
+                    src={previewUrl}
+                    controls
+                    playsInline
+                    style={{
+                      position: "relative",
+                      zIndex: 0,
+                      width: "100%",
+                      maxHeight: 280,
+                      display: "block",
+                      objectFit: "contain",
+                      background: "#000",
+                    }}
+                  />
+                  {previewCropOverlay ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        zIndex: 2,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {previewCropOverlay.darkRects.map((r, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            position: "absolute",
+                            left: r.left,
+                            top: r.top,
+                            width: r.width,
+                            height: r.height,
+                            background: "rgba(0,0,0,0.5)",
+                          }}
+                        />
+                      ))}
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: previewCropOverlay.border.left,
+                          top: previewCropOverlay.border.top,
+                          width: previewCropOverlay.border.width,
+                          height: previewCropOverlay.border.height,
+                          boxSizing: "border-box",
+                          border: "2px solid rgba(255,255,255,0.92)",
+                          borderRadius: 2,
+                          background: "transparent",
+                          zIndex: 2,
+                        }}
+                      />
+                      {previewCropTextOverlayEl}
+                    </div>
+                  ) : null}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    적용 구간
+                    <select
+                      value={previewSegmentIndex}
+                      onChange={(e) =>
+                        setPreviewSegmentIndex(Number(e.target.value) || 0)
+                      }
+                      disabled={busy || uploading}
+                      style={{ padding: 6 }}
+                    >
+                      {segments.map((_, i) => (
+                        <option key={i} value={i}>
+                          #{i + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy || uploading}
+                    onClick={() => applyVideoTimeToSegment("start")}
+                  >
+                    ▶ 시작점 설정
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy || uploading}
+                    onClick={() => applyVideoTimeToSegment("end")}
+                  >
+                    ⏹ 종료점 설정
+                  </button>
+                </div>
+                <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                  재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
+                </p>
+              </>
+            ) : (
+              <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
+                원본 업로드를 완료하면 여기에서 미리보기와 시작·종료점을 설정할 수
+                있습니다.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div style={{ flex: "0 1 55%", minWidth: 0, maxWidth: "100%" }}>
+      <div style={{ marginTop: 0 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
           로컬 다운로드
         </div>
@@ -996,7 +1154,7 @@ export default function Shorts3Panel() {
         ) : null}
       </div>
 
-      <div style={{ marginTop: 16, maxWidth: 720 }}>
+      <div style={{ marginTop: 16, width: "100%" }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
           저장된 파일 목록
         </div>
@@ -1101,7 +1259,7 @@ export default function Shorts3Panel() {
         )}
       </div>
 
-      <div style={{ marginTop: 14, maxWidth: 720 }}>
+      <div style={{ marginTop: 14, width: "100%" }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
           원본 영상 파일
         </div>
@@ -1185,138 +1343,7 @@ export default function Shorts3Panel() {
         ) : null}
       </div>
 
-      {uploadPhase === "done" && previewUrl ? (
-        <div
-          style={{
-            marginTop: 16,
-            maxWidth: 720,
-            position: "sticky",
-            top: 16,
-            zIndex: 10,
-          }}
-        >
-          <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-            원본 미리보기
-          </div>
-          <div
-            ref={previewVideoWrapRef}
-            style={{
-              position: "relative",
-              width: "100%",
-              maxHeight: 280,
-              borderRadius: 8,
-              overflow: "hidden",
-              background: "#000",
-            }}
-          >
-            <video
-              ref={previewVideoRef}
-              src={previewUrl}
-              controls
-              playsInline
-              style={{
-                position: "relative",
-                zIndex: 0,
-                width: "100%",
-                maxHeight: 280,
-                display: "block",
-                objectFit: "contain",
-                background: "#000",
-              }}
-            />
-            {previewCropOverlay ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  zIndex: 2,
-                  pointerEvents: "none",
-                }}
-              >
-                {previewCropOverlay.darkRects.map((r, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      left: r.left,
-                      top: r.top,
-                      width: r.width,
-                      height: r.height,
-                      background: "rgba(0,0,0,0.5)",
-                    }}
-                  />
-                ))}
-                <div
-                  style={{
-                    position: "absolute",
-                    left: previewCropOverlay.border.left,
-                    top: previewCropOverlay.border.top,
-                    width: previewCropOverlay.border.width,
-                    height: previewCropOverlay.border.height,
-                    boxSizing: "border-box",
-                    border: "2px solid rgba(255,255,255,0.92)",
-                    borderRadius: 2,
-                    background: "transparent",
-                    zIndex: 2,
-                  }}
-                />
-                {previewCropTextOverlayEl}
-              </div>
-            ) : null}
-          </div>
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              적용 구간
-              <select
-                value={previewSegmentIndex}
-                onChange={(e) =>
-                  setPreviewSegmentIndex(Number(e.target.value) || 0)
-                }
-                disabled={busy || uploading}
-                style={{ padding: 6 }}
-              >
-                {segments.map((_, i) => (
-                  <option key={i} value={i}>
-                    #{i + 1}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy || uploading}
-              onClick={() => applyVideoTimeToSegment("start")}
-            >
-              ▶ 시작점 설정
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy || uploading}
-              onClick={() => applyVideoTimeToSegment("end")}
-            >
-              ⏹ 종료점 설정
-            </button>
-          </div>
-          <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-            재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
-          </p>
-        </div>
-      ) : null}
-
-      <div style={{ marginTop: 20, maxWidth: 720 }}>
+      <div style={{ marginTop: 20 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
           텍스트 오버레이
         </div>
@@ -1876,6 +1903,8 @@ export default function Shorts3Panel() {
           </button>
         </div>
       ) : null}
+        </div>
+      </div>
     </div>
   );
 }
