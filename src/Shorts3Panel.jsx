@@ -1186,7 +1186,15 @@ export default function Shorts3Panel() {
       </div>
 
       {uploadPhase === "done" && previewUrl ? (
-        <div style={{ marginTop: 16, maxWidth: 720 }}>
+        <div
+          style={{
+            marginTop: 16,
+            maxWidth: 720,
+            position: "sticky",
+            top: 16,
+            zIndex: 10,
+          }}
+        >
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
@@ -1195,7 +1203,7 @@ export default function Shorts3Panel() {
             style={{
               position: "relative",
               width: "100%",
-              maxHeight: 360,
+              maxHeight: 280,
               borderRadius: 8,
               overflow: "hidden",
               background: "#000",
@@ -1210,7 +1218,7 @@ export default function Shorts3Panel() {
                 position: "relative",
                 zIndex: 0,
                 width: "100%",
-                maxHeight: 360,
+                maxHeight: 280,
                 display: "block",
                 objectFit: "contain",
                 background: "#000",
