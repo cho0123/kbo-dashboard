@@ -258,6 +258,10 @@ export default function Shorts3Panel() {
   const [localYtdlpUrl, setLocalYtdlpUrl] = useState("");
   const [localDownloadBusy, setLocalDownloadBusy] = useState(false);
 
+  /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
+  const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
+  const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
+
   const refreshSavedFiles = useCallback(async () => {
     setSavedFilesLoading(true);
     setSavedFilesError(null);
@@ -311,6 +315,58 @@ export default function Shorts3Panel() {
   useEffect(() => {
     loadMusicTracks();
   }, [loadMusicTracks]);
+
+  useEffect(() => {
+    if (!previewUrl) {
+      setPlayingSegmentIndex(null);
+    }
+  }, [previewUrl]);
+
+  useEffect(() => {
+    if (
+      playingSegmentIndex != null &&
+      playingSegmentIndex >= segments.length
+    ) {
+      setPlayingSegmentIndex(null);
+    }
+  }, [playingSegmentIndex, segments.length]);
+
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    if (!v || !previewUrl) return undefined;
+    const onPlay = () => setPreviewPlaybackPaused(false);
+    const onPause = () => setPreviewPlaybackPaused(true);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    setPreviewPlaybackPaused(v.paused);
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+    };
+  }, [previewUrl]);
+
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    if (!v || !previewUrl || playingSegmentIndex == null) return undefined;
+    const seg = segments[playingSegmentIndex];
+    if (!seg) return undefined;
+    const endRaw = String(seg.end ?? "").trim();
+    const endSec = parseHhMmSsToSeconds(endRaw);
+    if (endSec == null) return undefined;
+
+    const onTimeUpdate = () => {
+      if (v.paused) return;
+      if (v.currentTime >= endSec) {
+        v.pause();
+        setPlayingSegmentIndex(null);
+      }
+    };
+
+    v.addEventListener("timeupdate", onTimeUpdate);
+    return () => {
+      v.removeEventListener("timeupdate", onTimeUpdate);
+    };
+  }, [previewUrl, playingSegmentIndex, segments]);
 
   const updatePreviewCropOverlay = useCallback(() => {
     const video = previewVideoRef.current;
@@ -371,8 +427,63 @@ export default function Shorts3Panel() {
   }, []);
 
   const removeSegment = useCallback((idx) => {
+    setPlayingSegmentIndex((cur) =>
+      cur === idx ? null : cur != null && idx < cur ? cur - 1 : cur
+    );
     setSegments((s) => (s.length <= 2 ? s : s.filter((_, i) => i !== idx)));
   }, []);
+
+  const segmentPlaybackTimesValid = useCallback((seg) => {
+    const st = String(seg?.start ?? "").trim();
+    const en = String(seg?.end ?? "").trim();
+    if (!st || !en) return false;
+    const a = parseHhMmSsToSeconds(st);
+    const b = parseHhMmSsToSeconds(en);
+    return a != null && b != null && b > a;
+  }, []);
+
+  const toggleSegmentPreviewPlayback = useCallback(
+    async (index) => {
+      const v = previewVideoRef.current;
+      if (!previewUrl || !v || busy || uploading) return;
+      const seg = segments[index];
+      if (!segmentPlaybackTimesValid(seg)) return;
+
+      const startSec = parseHhMmSsToSeconds(String(seg.start).trim());
+
+      if (playingSegmentIndex === index && !previewPlaybackPaused) {
+        v.pause();
+        return;
+      }
+      if (playingSegmentIndex === index && previewPlaybackPaused) {
+        try {
+          await v.play();
+        } catch {
+          /* autoplay / 미디어 정책 */
+        }
+        return;
+      }
+
+      setPlayingSegmentIndex(index);
+      if (startSec != null) {
+        v.currentTime = startSec;
+      }
+      try {
+        await v.play();
+      } catch {
+        /* autoplay / 미디어 정책 */
+      }
+    },
+    [
+      segments,
+      previewPlaybackPaused,
+      playingSegmentIndex,
+      previewUrl,
+      busy,
+      uploading,
+      segmentPlaybackTimesValid,
+    ]
+  );
 
   useEffect(() => {
     setPreviewSegmentIndex((i) =>
@@ -1355,6 +1466,25 @@ export default function Shorts3Panel() {
                     boxSizing: "border-box",
                   }}
                 />
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={
+                    busy ||
+                    uploading ||
+                    !previewUrl ||
+                    uploadPhase !== "done" ||
+                    !segmentPlaybackTimesValid(seg)
+                  }
+                  onClick={() => toggleSegmentPreviewPlayback(index)}
+                  title={
+                    previewUrl ? "미리보기 영상으로 이 구간만 재생" : "원본 업로드 후 사용"
+                  }
+                >
+                  {playingSegmentIndex === index && !previewPlaybackPaused
+                    ? "⏸ 일시정지"
+                    : "▶ 구간 재생"}
+                </button>
                 <button
                   type="button"
                   className="ghost"
