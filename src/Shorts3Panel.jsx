@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { postKbo } from "./api.js";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -45,6 +52,102 @@ function formatCropOffsetLabel(offset) {
   const n = Math.round(Number(offset) || 0);
   const sign = n > 0 ? "+" : "";
   return `${sign}${n}%`;
+}
+
+/**
+ * object-fit:contain 기준 영상 표시 영역에서 9:16 크롭 박스(표시 좌표, px).
+ * cropWidth = displayHeight * 9/16, cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100
+ */
+function computePreviewCropOverlay(videoEl, wrapEl, cropOffsetPct) {
+  if (!videoEl?.videoWidth || !wrapEl) return null;
+  const cw = wrapEl.clientWidth;
+  const ch = wrapEl.clientHeight;
+  if (cw < 2 || ch < 2) return null;
+
+  const vw = videoEl.videoWidth;
+  const vh = videoEl.videoHeight;
+  if (!vw || !vh) return null;
+
+  const vr = vw / vh;
+  const br = cw / ch;
+  let dispW;
+  let dispH;
+  let offX;
+  let offY;
+  if (vr > br) {
+    dispW = cw;
+    dispH = cw / vr;
+    offX = 0;
+    offY = (ch - dispH) / 2;
+  } else {
+    dispH = ch;
+    dispW = ch * vr;
+    offX = (cw - dispW) / 2;
+    offY = 0;
+  }
+
+  const pct = Math.min(50, Math.max(-50, Number(cropOffsetPct) || 0));
+  let cropW = dispH * (9 / 16);
+  let cropX = (dispW - cropW) / 2 + (dispW * pct) / 100;
+  cropX = Math.max(0, Math.min(cropX, dispW - cropW));
+  if (cropW > dispW) {
+    cropW = dispW;
+    cropX = 0;
+  }
+
+  const innerLeft = offX + cropX;
+  const innerTop = offY;
+  const innerW = cropW;
+  const innerH = dispH;
+
+  const darkRects = [];
+  if (offY > 0.5) {
+    darkRects.push({ left: 0, top: 0, width: cw, height: offY });
+  }
+  const botGap = ch - offY - dispH;
+  if (botGap > 0.5) {
+    darkRects.push({ left: 0, top: offY + dispH, width: cw, height: botGap });
+  }
+  if (offX > 0.5) {
+    darkRects.push({ left: 0, top: offY, width: offX, height: dispH });
+  }
+  const rightGap = cw - offX - dispW;
+  if (rightGap > 0.5) {
+    darkRects.push({
+      left: offX + dispW,
+      top: offY,
+      width: rightGap,
+      height: dispH,
+    });
+  }
+  const leftCropShade = cropX;
+  if (leftCropShade > 0.5) {
+    darkRects.push({
+      left: offX,
+      top: offY,
+      width: leftCropShade,
+      height: dispH,
+    });
+  }
+  const rightCropShade = dispW - cropX - cropW;
+  if (rightCropShade > 0.5) {
+    darkRects.push({
+      left: offX + cropX + cropW,
+      top: offY,
+      width: rightCropShade,
+      height: dispH,
+    });
+  }
+
+  return {
+    darkRects,
+    border: {
+      left: innerLeft,
+      top: innerTop,
+      width: innerW,
+      height: innerH,
+    },
+  };
 }
 
 /** 재생 시각(초) → HH:MM:SS */
@@ -102,6 +205,8 @@ export default function Shorts3Panel() {
   /** 미리보기에서 시작/종료 시각을 넣을 구간 인덱스 */
   const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
   const previewVideoRef = useRef(null);
+  const previewVideoWrapRef = useRef(null);
+  const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
 
   const [muteOriginal, setMuteOriginal] = useState(true);
   const [musicTracks, setMusicTracks] = useState([]);
@@ -144,6 +249,47 @@ export default function Shorts3Panel() {
   useEffect(() => {
     loadMusicTracks();
   }, [loadMusicTracks]);
+
+  const updatePreviewCropOverlay = useCallback(() => {
+    const video = previewVideoRef.current;
+    const wrap = previewVideoWrapRef.current;
+    const cropOffset = segments[previewSegmentIndex]?.cropOffset ?? 0;
+    if (!video || !wrap) {
+      setPreviewCropOverlay(null);
+      return;
+    }
+    setPreviewCropOverlay(
+      computePreviewCropOverlay(video, wrap, cropOffset)
+    );
+  }, [segments, previewSegmentIndex]);
+
+  useLayoutEffect(() => {
+    updatePreviewCropOverlay();
+  }, [updatePreviewCropOverlay, previewUrl]);
+
+  useEffect(() => {
+    const wrap = previewVideoWrapRef.current;
+    const video = previewVideoRef.current;
+    if (!wrap || !previewUrl) return undefined;
+    const ro = new ResizeObserver(() => {
+      updatePreviewCropOverlay();
+    });
+    ro.observe(wrap);
+    const onReady = () => updatePreviewCropOverlay();
+    if (video) {
+      video.addEventListener("loadedmetadata", onReady);
+      video.addEventListener("loadeddata", onReady);
+    }
+    window.addEventListener("resize", onReady);
+    return () => {
+      ro.disconnect();
+      if (video) {
+        video.removeEventListener("loadedmetadata", onReady);
+        video.removeEventListener("loadeddata", onReady);
+      }
+      window.removeEventListener("resize", onReady);
+    };
+  }, [previewUrl, updatePreviewCropOverlay]);
 
   const segmentTotalSec = useMemo(() => {
     let sum = 0;
@@ -641,18 +787,69 @@ export default function Shorts3Panel() {
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
-          <video
-            ref={previewVideoRef}
-            src={previewUrl}
-            controls
-            playsInline
+          <div
+            ref={previewVideoWrapRef}
             style={{
+              position: "relative",
               width: "100%",
               maxHeight: 360,
               borderRadius: 8,
+              overflow: "hidden",
               background: "#000",
             }}
-          />
+          >
+            <video
+              ref={previewVideoRef}
+              src={previewUrl}
+              controls
+              playsInline
+              style={{
+                width: "100%",
+                maxHeight: 360,
+                display: "block",
+                objectFit: "contain",
+                background: "#000",
+              }}
+            />
+            {previewCropOverlay ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  pointerEvents: "none",
+                }}
+              >
+                {previewCropOverlay.darkRects.map((r, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      left: r.left,
+                      top: r.top,
+                      width: r.width,
+                      height: r.height,
+                      background: "rgba(0,0,0,0.5)",
+                    }}
+                  />
+                ))}
+                <div
+                  style={{
+                    position: "absolute",
+                    left: previewCropOverlay.border.left,
+                    top: previewCropOverlay.border.top,
+                    width: previewCropOverlay.border.width,
+                    height: previewCropOverlay.border.height,
+                    boxSizing: "border-box",
+                    border: "2px solid rgba(255,255,255,0.92)",
+                    borderRadius: 2,
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
           <div
             style={{
               marginTop: 10,
