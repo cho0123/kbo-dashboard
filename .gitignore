@@ -19,3 +19,10 @@ lifecycle.json
 kbo-video-encoder.zip
 lambda/ffmpeg-layer.zip
 lambda/.ffmpeg-layer-build/
+
+# 로컬 바이너리
+yt-dlp.exe
+ffmpeg.exe
+ffprobe.exe
+ffplay.exe
+test.mp4
