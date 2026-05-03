@@ -46,6 +46,73 @@ const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
+const TEXT_COLORS = [
+  "#FFFFFF", // 흰색
+  "#F4FF00", // 노랑
+  "#FF4081", // 핫핑크
+  "#00E5FF", // 하늘
+  "#00FF94", // 민트
+  "#FF9500", // 주황
+  "#FFD700", // 골드
+  "#C0155A", // 딥핑크
+  "#1B2A80", // 인디고
+  "#000000", // 검정
+];
+
+function paletteColorSelected(value, paletteHex) {
+  return (
+    String(value || "")
+      .trim()
+      .toUpperCase() === String(paletteHex || "").trim().toUpperCase()
+  );
+}
+
+function TextColorPalette({ value, onChange, disabled }) {
+  const base = 22;
+  const selectedSize = 28;
+  return (
+    <div
+      role="group"
+      aria-label="텍스트 색상"
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        alignItems: "center",
+      }}
+    >
+      {TEXT_COLORS.map((c) => {
+        const selected = paletteColorSelected(value, c);
+        const size = selected ? selectedSize : base;
+        return (
+          <button
+            key={c}
+            type="button"
+            disabled={disabled}
+            title={c}
+            aria-pressed={selected}
+            onClick={() => onChange(c)}
+            style={{
+              width: size,
+              height: size,
+              minWidth: size,
+              minHeight: size,
+              borderRadius: "50%",
+              border: selected ? "3px solid rgba(255,255,255,0.95)" : "none",
+              background: c,
+              padding: 0,
+              cursor: disabled ? "not-allowed" : "pointer",
+              boxSizing: "border-box",
+              flexShrink: 0,
+              opacity: disabled ? 0.55 : 1,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function emptySegment() {
   return {
     start: "",
@@ -53,7 +120,7 @@ function emptySegment() {
     cropOffset: 0,
     text: "",
     textY: 85,
-    textColor: "#ffffff",
+    textColor: TEXT_COLORS[0],
   };
 }
 
@@ -179,7 +246,7 @@ export default function Shorts3Panel() {
   const [bgmFadeOut, setBgmFadeOut] = useState(2);
 
   const [topText, setTopText] = useState("");
-  const [topTextColor, setTopTextColor] = useState("#ffffff");
+  const [topTextColor, setTopTextColor] = useState(TEXT_COLORS[0]);
   const [topTextSize, setTopTextSize] = useState(48);
 
   const [savedFiles, setSavedFiles] = useState([]);
@@ -334,7 +401,7 @@ export default function Shorts3Panel() {
           return { ...seg, textY: v };
         }
         if (field === "textColor") {
-          return { ...seg, textColor: String(rawVal || "#ffffff") };
+          return { ...seg, textColor: String(rawVal || TEXT_COLORS[0]) };
         }
         if (field === "text") {
           return { ...seg, text: rawVal };
@@ -571,7 +638,8 @@ export default function Shorts3Panel() {
                 : 0,
             text: String(s.text ?? "").trim(),
             textY,
-            textColor: String(s.textColor ?? "#ffffff").trim() || "#ffffff",
+            textColor:
+              String(s.textColor ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
           };
         }),
         muteOriginal,
@@ -643,7 +711,7 @@ export default function Shorts3Panel() {
     const previewFontPx = Math.max(8, (Number(topTextSize) || 48) * scale);
     const topColor = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
       ? topTextColor
-      : "#ffffff";
+      : TEXT_COLORS[0];
     const topLine = String(topText || "").trim();
     const seg = segments[previewSegmentIndex];
     const bottomLine = String(seg?.text ?? "").trim();
@@ -653,7 +721,7 @@ export default function Shorts3Panel() {
       : 85;
     const bottomColor = /^#[0-9A-Fa-f]{6}$/i.test(String(seg?.textColor || ""))
       ? seg.textColor
-      : "#ffffff";
+      : TEXT_COLORS[0];
     const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
     return (
       <div
@@ -1133,36 +1201,23 @@ export default function Shorts3Panel() {
             marginBottom: 8,
           }}
         >
-          <label
+          <div
             className="muted"
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 6,
+              gap: 8,
               fontSize: 13,
               fontWeight: 700,
             }}
           >
             폰트 색상
-            <input
-              type="color"
-              value={
-                /^#[0-9A-Fa-f]{6}$/.test(topTextColor)
-                  ? topTextColor
-                  : "#ffffff"
-              }
+            <TextColorPalette
+              value={topTextColor}
               disabled={busy || uploading}
-              onChange={(e) => setTopTextColor(e.target.value)}
-              style={{
-                width: 56,
-                height: 36,
-                padding: 2,
-                borderRadius: 6,
-                border: "1px solid rgba(255,255,255,0.15)",
-                cursor: busy || uploading ? "not-allowed" : "pointer",
-              }}
+              onChange={setTopTextColor}
             />
-          </label>
+          </div>
           <label
             className="muted"
             style={{
@@ -1369,42 +1424,25 @@ export default function Shorts3Panel() {
                     0% = 최상단 · 100% = 최하단
                   </span>
                 </label>
-                <label
+                <div
                   className="muted"
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: 6,
+                    gap: 8,
                     fontSize: 13,
                     fontWeight: 700,
                   }}
                 >
                   폰트 색상
-                  <input
-                    type="color"
-                    value={
-                      /^#[0-9A-Fa-f]{6}$/.test(String(seg.textColor || ""))
-                        ? seg.textColor
-                        : "#ffffff"
-                    }
+                  <TextColorPalette
+                    value={seg.textColor}
                     disabled={busy || uploading}
-                    onChange={(e) =>
-                      handleSegmentOverlayChange(
-                        index,
-                        "textColor",
-                        e.target.value
-                      )
+                    onChange={(c) =>
+                      handleSegmentOverlayChange(index, "textColor", c)
                     }
-                    style={{
-                      width: 56,
-                      height: 36,
-                      padding: 2,
-                      borderRadius: 6,
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      cursor: busy || uploading ? "not-allowed" : "pointer",
-                    }}
                   />
-                </label>
+                </div>
               </div>
             </div>
           ))}
