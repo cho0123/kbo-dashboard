@@ -296,9 +296,20 @@ function probeVideoDimensions(workDir, fileName) {
   return { w, h };
 }
 
+/** 하이라이트 구간 crop x: (iw-cw)/2 + iw * offset% / 100, 짝수·범위 보정 */
+function highlightCropXFromOffset(iw, cw, rawOffset) {
+  const o = Number(rawOffset);
+  const pct = Number.isFinite(o) ? Math.min(50, Math.max(-50, o)) : 0;
+  const base = (iw - cw) / 2;
+  const rawX = base + (iw * pct) / 100;
+  let cx = Math.floor(rawX);
+  cx = Math.max(0, Math.min(cx, iw - cw));
+  cx -= cx % 2;
+  return cx;
+}
+
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const segments = Array.isArray(meta.segments) ? meta.segments : [];
-  const cropPosition = String(meta.cropPosition || "center").toLowerCase();
   if (segments.length < 1) throw new Error("구간 없음");
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
@@ -314,10 +325,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   let cw = Math.floor((ih * 9) / 16);
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
-  let cx = 0;
-  if (cropPosition === "center") cx = Math.floor((iw - cw) / 2);
-  else if (cropPosition === "right") cx = iw - cw;
-  cx -= cx % 2;
 
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
@@ -328,6 +335,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     if (!(dur > 0.04)) {
       throw new Error(`구간 ${i + 1}: 종료가 시작보다 커야 합니다.`);
     }
+    const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
+    const vfSeg = `crop=${cw}:${ih}:${cx}:0,scale=1080:1920:flags=lanczos`;
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
@@ -341,12 +350,16 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         sourceFileName,
         "-t",
         String(dur),
+        "-vf",
+        vfSeg,
         "-c:v",
         "libx264",
         "-preset",
         "ultrafast",
         "-crf",
         "23",
+        "-pix_fmt",
+        "yuv420p",
         "-c:a",
         "aac",
         `seg_${i}.mp4`,
@@ -381,7 +394,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
 
   await putStatus(bucket, jobId, { state: "processing", progress: 78 });
 
-  const vf = `crop=${cw}:${ih}:${cx}:0,scale=1080:1920:flags=lanczos`;
   const outLocal = join(workDir, "output.mp4");
   const muteOriginal = coerceMuteOriginal(meta);
   const musicKeyRaw =
@@ -404,21 +416,13 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "-y",
           "-i",
           "joined_hi.mp4",
-          "-vf",
-          vf,
           "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "23",
-          "-pix_fmt",
-          "yuv420p",
+          "copy",
           "-an",
           "cropped_hi.mp4",
         ],
         workDir,
-        "highlight_crop_video"
+        "highlight_strip_a_for_bgm"
       );
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
       const afChain = buildMusicAf(
@@ -466,26 +470,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "-y",
           "-i",
           "joined_hi.mp4",
-          "-vf",
-          vf,
-          "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "23",
-          "-pix_fmt",
-          "yuv420p",
-          "-c:a",
-          "aac",
-          "-b:a",
-          "320k",
-          "-ar",
-          "48000",
+          "-c",
+          "copy",
           "cropped_va.mp4",
         ],
         workDir,
-        "highlight_crop_va"
+        "highlight_copy_for_mix"
       );
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_va.mp4");
       const chain = buildMusicAf(
@@ -535,48 +525,19 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "-y",
         "-i",
         "joined_hi.mp4",
-        "-vf",
-        vf,
         "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
+        "copy",
         "-an",
         outLocal,
       ],
       workDir,
-      "highlight_crop_mute"
+      "highlight_out_mute"
     );
   } else {
     runFfmpeg(
-      [
-        "-y",
-        "-i",
-        "joined_hi.mp4",
-        "-vf",
-        vf,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "320k",
-        "-ar",
-        "48000",
-        outLocal,
-      ],
+      ["-y", "-i", "joined_hi.mp4", "-c", "copy", outLocal],
       workDir,
-      "highlight_crop"
+      "highlight_out_copy"
     );
   }
 

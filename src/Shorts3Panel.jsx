@@ -37,14 +37,14 @@ const MAX_SEGMENTS = 10;
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
-const CROP_OPTIONS = [
-  { id: "left", label: "좌측" },
-  { id: "center", label: "중앙" },
-  { id: "right", label: "우측" },
-];
-
 function emptySegment() {
-  return { start: "", end: "" };
+  return { start: "", end: "", cropOffset: 0 };
+}
+
+function formatCropOffsetLabel(offset) {
+  const n = Math.round(Number(offset) || 0);
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n}%`;
 }
 
 /** 재생 시각(초) → HH:MM:SS */
@@ -85,7 +85,6 @@ export default function Shorts3Panel() {
     emptySegment(),
     emptySegment(),
   ]);
-  const [cropPosition, setCropPosition] = useState("center");
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(null);
@@ -104,7 +103,7 @@ export default function Shorts3Panel() {
   const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
   const previewVideoRef = useRef(null);
 
-  const [muteOriginal, setMuteOriginal] = useState(false);
+  const [muteOriginal, setMuteOriginal] = useState(true);
   const [musicTracks, setMusicTracks] = useState([]);
   const [highlightMusicS3Key, setHighlightMusicS3Key] = useState("");
   const [bgmVolume, setBgmVolume] = useState(0.8);
@@ -180,6 +179,16 @@ export default function Shorts3Panel() {
       Math.min(i, Math.max(0, segments.length - 1))
     );
   }, [segments.length]);
+
+  const handleCropOffsetChange = (segIndex, rawVal) => {
+    const n = Number(rawVal);
+    const v = Number.isFinite(n) ? Math.min(50, Math.max(-50, Math.round(n))) : 0;
+    setSegments((prev) =>
+      prev.map((seg, i) =>
+        i === segIndex ? { ...seg, cropOffset: v } : seg
+      )
+    );
+  };
 
   const handleTimeChange = (segIndex, field, rawVal) => {
     const digits = rawVal.replace(/\D/g, "").slice(0, 6);
@@ -361,8 +370,11 @@ export default function Shorts3Panel() {
         segments: segments.map((s) => ({
           start: String(s.start).trim(),
           end: String(s.end).trim(),
+          cropOffset:
+            typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
+              ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
+              : 0,
         })),
-        cropPosition,
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
@@ -725,57 +737,93 @@ export default function Shorts3Panel() {
               key={index}
               style={{
                 display: "flex",
-                flexDirection: "row",
-                flexWrap: "nowrap",
+                flexDirection: "column",
                 gap: 8,
-                alignItems: "center",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.02)",
               }}
             >
-              <span className="muted" style={{ minWidth: 40, flexShrink: 0 }}>
-                #{index + 1}
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="00:00:00"
-                maxLength={8}
-                value={seg.start}
-                onChange={(e) =>
-                  handleTimeChange(index, "start", e.target.value)
-                }
-                disabled={busy || uploading}
+              <div
                 style={{
-                  padding: 8,
-                  width: 120,
-                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  alignItems: "center",
                 }}
-              />
-              <span className="muted">~</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="00:00:00"
-                maxLength={8}
-                value={seg.end}
-                onChange={(e) =>
-                  handleTimeChange(index, "end", e.target.value)
-                }
-                disabled={busy || uploading}
-                style={{
-                  padding: 8,
-                  width: 120,
-                  boxSizing: "border-box",
-                }}
-              />
-              <button
-                type="button"
-                className="ghost"
-                disabled={busy || uploading || segments.length <= 2}
-                onClick={() => removeSegment(index)}
-                title="삭제"
               >
-                ✕
-              </button>
+                <span className="muted" style={{ minWidth: 40, flexShrink: 0 }}>
+                  #{index + 1}
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00:00"
+                  maxLength={8}
+                  value={seg.start}
+                  onChange={(e) =>
+                    handleTimeChange(index, "start", e.target.value)
+                  }
+                  disabled={busy || uploading}
+                  style={{
+                    padding: 8,
+                    width: 120,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span className="muted">~</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00:00"
+                  maxLength={8}
+                  value={seg.end}
+                  onChange={(e) =>
+                    handleTimeChange(index, "end", e.target.value)
+                  }
+                  disabled={busy || uploading}
+                  style={{
+                    padding: 8,
+                    width: 120,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading || segments.length <= 2}
+                  onClick={() => removeSegment(index)}
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </div>
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                크롭 오프셋: {formatCropOffsetLabel(seg.cropOffset ?? 0)}
+                <input
+                  type="range"
+                  min={-50}
+                  max={50}
+                  step={1}
+                  value={seg.cropOffset ?? 0}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    handleCropOffsetChange(index, e.target.value)
+                  }
+                  style={{ width: "100%", maxWidth: 420 }}
+                />
+              </label>
             </div>
           ))}
         </div>
@@ -790,26 +838,34 @@ export default function Shorts3Panel() {
           총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
           {Math.floor(segmentTotalSec)}초)
         </div>
-        <label
+        <div
           style={{
             marginTop: 14,
+            width: "100%",
             display: "flex",
-            alignItems: "center",
-            gap: 10,
-            cursor: busy || uploading ? "not-allowed" : "pointer",
-            opacity: busy || uploading ? 0.65 : 1,
+            justifyContent: "flex-start",
           }}
         >
-          <input
-            type="checkbox"
-            checked={muteOriginal}
-            disabled={busy || uploading}
-            onChange={(e) => setMuteOriginal(e.target.checked)}
-          />
-          <span className="muted" style={{ fontWeight: 700 }}>
-            원본 오디오 음소거
-          </span>
-        </label>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: busy || uploading ? "not-allowed" : "pointer",
+              opacity: busy || uploading ? 0.65 : 1,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={muteOriginal}
+              disabled={busy || uploading}
+              onChange={(e) => setMuteOriginal(e.target.checked)}
+            />
+            <span className="muted" style={{ fontWeight: 700 }}>
+              원본 오디오 음소거
+            </span>
+          </label>
+        </div>
       </div>
 
       <div style={{ marginTop: 20, maxWidth: 480 }}>
@@ -880,39 +936,6 @@ export default function Shorts3Panel() {
           BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
           함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
         </p>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-          크롭 위치 (가로 영상 기준 세로 9:16)
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {CROP_OPTIONS.map((o) => {
-            const active = cropPosition === o.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                disabled={busy || uploading}
-                onClick={() => setCropPosition(o.id)}
-                style={{
-                  background: active ? "#0a8f6a" : "#13c79a",
-                  border: active
-                    ? "2px solid #fff"
-                    : "2px solid transparent",
-                  fontWeight: active ? "bold" : "normal",
-                  color: "#0b1a14",
-                  padding: "10px 18px",
-                  borderRadius: 8,
-                  cursor: busy || uploading ? "not-allowed" : "pointer",
-                  opacity: busy || uploading ? 0.65 : 1,
-                }}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div

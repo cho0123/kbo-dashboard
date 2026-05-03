@@ -2243,8 +2243,6 @@ export const handler = async (event) => {
       case "highlight_video_create": {
         const jobId = String(payload.jobId || "").trim();
         const segmentsIn = payload.segments;
-        const cropRaw = String(payload.cropPosition || "center").toLowerCase();
-        const allowedCrop = new Set(["left", "center", "right"]);
         if (!jobId || !UUID_V4_RE.test(jobId)) {
           return {
             statusCode: 400,
@@ -2266,23 +2264,16 @@ export const handler = async (event) => {
             body: JSON.stringify({ ok: false, error: "구간은 최대 10개입니다." }),
           };
         }
-        if (!allowedCrop.has(cropRaw)) {
-          return {
-            statusCode: 400,
-            headers: corsHeaders(),
-            body: JSON.stringify({
-              ok: false,
-              error: "cropPosition은 left, center, right 중 하나여야 합니다.",
-            }),
-          };
-        }
         const segments = [];
         for (const s of segmentsIn) {
           if (!s || typeof s !== "object") {
             return {
               statusCode: 400,
               headers: corsHeaders(),
-              body: JSON.stringify({ ok: false, error: "각 구간은 { start, end } 형식이어야 합니다." }),
+              body: JSON.stringify({
+                ok: false,
+                error: "각 구간은 { start, end, cropOffset? } 형식이어야 합니다.",
+              }),
             };
           }
           const st = s.start != null ? String(s.start).trim() : "";
@@ -2294,7 +2285,11 @@ export const handler = async (event) => {
               body: JSON.stringify({ ok: false, error: "각 구간의 시작·종료 시간을 입력하세요." }),
             };
           }
-          segments.push({ start: st, end: en });
+          const offRaw = Number(s.cropOffset);
+          const cropOffset = Number.isFinite(offRaw)
+            ? Math.min(50, Math.max(-50, offRaw))
+            : 0;
+          segments.push({ start: st, end: en, cropOffset });
         }
 
         const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
@@ -2345,7 +2340,6 @@ export const handler = async (event) => {
           type: "highlight",
           sourceUpload: true,
           segments,
-          cropPosition: cropRaw,
           muteOriginal,
           musicOptions,
         };
