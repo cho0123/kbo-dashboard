@@ -744,22 +744,22 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.save();
   // Background: day-of-week color
   const DAY_COLORS = {
-    0: "#C0392B", // Sun
-    1: "#1A5276", // Mon
-    2: "#1A5276", // Tue
-    3: "#1E8449", // Wed
-    4: "#D35400", // Thu
-    5: "#6C3483", // Fri
-    6: "#B7950B", // Sat
+    0: "#E74C3C", // Sun - 밝은레드
+    1: "#1B2A80", // Mon - 인디고
+    2: "#1B2A80", // Tue - 인디고
+    3: "#27AE60", // Wed - 밝은초록
+    4: "#E67E22", // Thu - 밝은주황
+    5: "#8E44AD", // Fri - 밝은보라
+    6: "#C0155A", // Sat - 딥핑크
   };
   const ONE_MIN_COLOR = {
-    0: "#F4FF00", // Sun
-    1: "#FF9500", // Mon
-    2: "#FF9500", // Tue
-    3: "#FF4ECD", // Wed
-    4: "#00E5FF", // Thu
-    5: "#00FF94", // Fri
-    6: "#4B00FF", // Sat
+    0: "#F4FF00", // Sun - 유지
+    1: "#FF9500", // Mon - 주황
+    2: "#FF9500", // Tue - 주황
+    3: "#FF4ECD", // Wed - 핑크
+    4: "#00E5FF", // Thu - 하늘
+    5: "#00FF94", // Fri - 민트
+    6: "#FF6B6B", // Sat - 코랄
   };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
