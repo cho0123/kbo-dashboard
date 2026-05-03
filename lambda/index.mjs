@@ -44,24 +44,27 @@ function ytdlpBin() {
  * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
  * @param {string} url
  * @param {string} outputPath - yt-dlp -o 대상 경로(파일)
- * @param {string} [quality='1080'] - 최대 높이(px) 문자열
+ * @param {string} [_quality='1080'] - 호환용 (현재 -f 문자열에 고정 반영)
  */
-async function downloadVideo(url, outputPath, quality = "1080", cookiesPath = null) {
+async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = null) {
   const bin = ytdlpBin();
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
   }
-  const fmt = `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
-  const args = ["-f", fmt, "--merge-output-format", "mp4"];
+  const args = [];
   if (cookiesPath && existsSync(cookiesPath)) {
     args.push("--cookies", cookiesPath);
   }
   args.push(
-    "--extractor-args",
-    "youtube:skip=dash,hls",
+    "--js-runtimes",
+    "nodejs:/usr/bin/node",
+    "-f",
+    "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
+    "--merge-output-format",
+    "mp4",
+    "--no-playlist",
     "-o",
     outputPath,
-    "--no-playlist",
     String(url || "").trim()
   );
   await new Promise((resolvePromise, reject) => {

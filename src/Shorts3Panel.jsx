@@ -364,19 +364,31 @@ export default function Shorts3Panel() {
           크롭 위치 (가로 영상 기준 세로 9:16)
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {CROP_OPTIONS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              className={
-                cropPosition === o.id ? "primary primary-fill" : "primary"
-              }
-              disabled={busy}
-              onClick={() => setCropPosition(o.id)}
-            >
-              {o.label}
-            </button>
-          ))}
+          {CROP_OPTIONS.map((o) => {
+            const active = cropPosition === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                disabled={busy}
+                onClick={() => setCropPosition(o.id)}
+                style={{
+                  background: active ? "#0a8f6a" : "#13c79a",
+                  border: active
+                    ? "2px solid #fff"
+                    : "2px solid transparent",
+                  fontWeight: active ? "bold" : "normal",
+                  color: "#0b1a14",
+                  padding: "10px 18px",
+                  borderRadius: 8,
+                  cursor: busy ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.65 : 1,
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
