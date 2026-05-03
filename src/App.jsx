@@ -707,16 +707,16 @@ const KBO_INTRO_TEAM_KEYS = [
 
 /** 쇼츠1 인트로 로고 배치 (1080×1920 기준, x/y=중심) */
 const LOGO_LAYOUT = [
-  { key: 0, x: 180, y: 420, size: 200, angle: -12 },
-  { key: 1, x: 580, y: 390, size: 175, angle: 8 },
-  { key: 2, x: 880, y: 440, size: 190, angle: -15 },
-  { key: 3, x: 140, y: 620, size: 185, angle: 10 },
-  { key: 4, x: 430, y: 580, size: 210, angle: -8 },
-  { key: 5, x: 760, y: 600, size: 170, angle: 18 },
-  { key: 6, x: 220, y: 820, size: 195, angle: -20 },
-  { key: 7, x: 540, y: 780, size: 180, angle: 5 },
-  { key: 8, x: 885, y: 800, size: 200, angle: -10 },
-  { key: 9, x: 540, y: 960, size: 175, angle: 14 },
+  { key: 0, x: 180, y: 480, size: 200, angle: -12 },
+  { key: 1, x: 580, y: 450, size: 175, angle: 8 },
+  { key: 2, x: 880, y: 500, size: 190, angle: -15 },
+  { key: 3, x: 140, y: 680, size: 185, angle: 10 },
+  { key: 4, x: 430, y: 640, size: 210, angle: -8 },
+  { key: 5, x: 760, y: 660, size: 170, angle: 18 },
+  { key: 6, x: 220, y: 880, size: 195, angle: -20 },
+  { key: 7, x: 540, y: 840, size: 180, angle: 5 },
+  { key: 8, x: 935, y: 860, size: 200, angle: -10 },
+  { key: 9, x: 740, y: 980, size: 175, angle: 14 },
 ];
 
 const __svgLogoCache = new Map();
@@ -814,7 +814,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     topTitleSize = fs;
   }
   ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(introTitle, w / 2, h * 0.1 + 5);
+  ctx.fillText(introTitle, w / 2, h * 0.1 + 35);
   ctx.restore();
 
   for (const slot of LOGO_LAYOUT) {
