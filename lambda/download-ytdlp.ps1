@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 $LambdaDir = $PSScriptRoot
 $BinDir = Join-Path $LambdaDir 'bin'
 $Dest = Join-Path $BinDir 'yt-dlp'
-$Url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp'
+$Url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
 
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
