@@ -1,6 +1,13 @@
 import { spawn, spawnSync } from "child_process";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { dirname, join, resolve } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
+import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import {
   GetObjectCommand,
@@ -50,14 +57,16 @@ const NODE_PATHS = [
 /**
  * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
  * @param {string} url
- * @param {string} outputPath - yt-dlp -o 대상 경로(파일)
+ * @param {string} workDir - 작업 디렉터리 (-o 는 source.%(ext)s 템플릿)
  * @param {string} [_quality='1080'] - 호환용 (현재 -f 문자열에 고정 반영)
+ * @returns {Promise<string>} 실제 저장된 파일 절대 경로
  */
-async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = null) {
+async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null) {
   const bin = ytdlpBin();
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
   }
+  const outputPath = join(workDir, "source.%(ext)s");
   let nodePath = "";
   for (const p of NODE_PATHS) {
     try {
@@ -110,6 +119,14 @@ async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = n
         );
     });
   });
+
+  const files = readdirSync(workDir)
+    .filter((f) => f.startsWith("source."))
+    .sort();
+  if (files.length === 0) throw new Error("yt-dlp 다운로드 파일 없음");
+  const actualFile = join(workDir, files[0]);
+  console.log("[yt-dlp] downloaded file:", actualFile);
+  return actualFile;
 }
 
 /** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */
@@ -374,7 +391,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   if (segments.length < 1) throw new Error("구간 없음");
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
-  const srcPath = join(workDir, "source.mp4");
   const cookiesLocal = join(workDir, "youtube_cookies.txt");
   let cookiesPath = null;
   try {
@@ -386,11 +402,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       e instanceof Error ? e.message : e
     );
   }
-  await downloadVideo(url, srcPath, "1080", cookiesPath);
+  const actualSourcePath = await downloadVideo(url, workDir, "1080", cookiesPath);
+  const sourceFileName = basename(actualSourcePath);
 
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
-  const { w: iw, h: ih } = probeVideoDimensions(workDir, "source.mp4");
+  const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
   let cw = Math.floor((ih * 9) / 16);
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
@@ -418,7 +435,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "-ss",
         String(a),
         "-i",
-        "source.mp4",
+        sourceFileName,
         "-t",
         String(dur),
         "-c",
@@ -984,12 +1001,21 @@ export const handler = async (event) => {
   } finally {
     try {
       if (existsSync(workDir)) {
+        try {
+          for (const name of readdirSync(workDir)) {
+            if (name.startsWith("source.")) {
+              const p = join(workDir, name);
+              if (existsSync(p)) unlinkSync(p);
+            }
+          }
+        } catch {
+          /* ignore */
+        }
         for (const f of [
           "output.mp4",
           "list_chunks.txt",
           "joined.mp4",
           "music.mp3",
-          "source.mp4",
           "youtube_cookies.txt",
           "joined_hi.mp4",
           "concat_hi.txt",
