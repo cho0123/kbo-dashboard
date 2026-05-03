@@ -269,17 +269,30 @@ function coerceSegmentFracMs(v) {
   return Math.min(99, Math.max(0, n));
 }
 
-/** HH:MM:SS(+선택 startMs/endMs 0~99, 0.01초) 구간 경계 초 */
+const HIGHLIGHT_MIN_SEGMENT_DUR_SEC = 0.1;
+
+/** HH:MM:SS(+선택 startMs/endMs 0~99, 0.01초) 구간 경계 초 — NaN/음수는 0 */
 function segmentBoundarySeconds(seg, key) {
   const isStart = key === "start";
   const baseRaw = seg[isStart ? "start" : "end"];
   const fracKey = isStart ? "startMs" : "endMs";
-  const base = parseTimeToSeconds(baseRaw);
+  let base = 0;
+  try {
+    base = parseTimeToSeconds(baseRaw);
+  } catch {
+    base = NaN;
+  }
+  if (!Number.isFinite(base) || base < 0) base = 0;
   const frac = coerceSegmentFracMs(seg?.[fracKey]);
-  return base + frac / 100;
+  let t = base + frac / 100;
+  if (!Number.isFinite(t) || t < 0) t = 0;
+  return t;
 }
 
 const HIGHLIGHT_THUMBNAIL_DUR_SEC = 0.3;
+
+/** 썸네일 0.3초 클립 — duration 고정, 일반 구간과 구분 */
+const THUMB_SEG_FLAG = "_thumbnailClip";
 
 function probeVideoDimensions(workDir, fileName) {
   const bin = ffprobeBin();
@@ -447,6 +460,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       end: thumbAt + HIGHLIGHT_THUMBNAIL_DUR_SEC,
       startMs: 0,
       endMs: 0,
+      [THUMB_SEG_FLAG]: true,
     };
     segments = [thumbSeg, ...segments];
   }
@@ -476,12 +490,32 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
-    const a = segmentBoundarySeconds(seg, "start");
-    const b = segmentBoundarySeconds(seg, "end");
-    const dur = b - a;
-    if (!(dur > 0.04)) {
-      throw new Error(`구간 ${i + 1}: 종료가 시작보다 커야 합니다.`);
+    let startSec;
+    let endSec;
+    let duration;
+    if (seg[THUMB_SEG_FLAG] === true) {
+      const rawStart =
+        typeof seg.start === "number" && Number.isFinite(seg.start)
+          ? seg.start
+          : Number(seg.start);
+      startSec =
+        Number.isFinite(rawStart) && rawStart >= 0 ? rawStart : 0;
+      duration = HIGHLIGHT_THUMBNAIL_DUR_SEC;
+      endSec = startSec + duration;
+    } else {
+      startSec = segmentBoundarySeconds(seg, "start");
+      endSec = segmentBoundarySeconds(seg, "end");
+      duration = endSec - startSec;
+      if (duration <= 0) duration = HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
     }
+    console.log(
+      "[seg] start:",
+      startSec,
+      "end:",
+      endSec,
+      "duration:",
+      duration
+    );
     const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
     const {
       text: bottomTxt,
@@ -515,11 +549,11 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       [
         "-y",
         "-ss",
-        String(a),
+        String(startSec),
         "-i",
         sourceFileName,
         "-t",
-        String(dur),
+        String(duration),
         "-vf",
         vfSeg,
         "-c:v",
