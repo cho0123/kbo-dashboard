@@ -1903,7 +1903,6 @@ export default function Shorts3Panel() {
           </button>
         </div>
       ) : null}
-        </div>
       </div>
     </div>
   );
