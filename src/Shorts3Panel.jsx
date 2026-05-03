@@ -121,6 +121,7 @@ function emptySegment() {
     text: "",
     textY: 85,
     textColor: TEXT_COLORS[0],
+    textSize: 48,
   };
 }
 
@@ -406,6 +407,13 @@ export default function Shorts3Panel() {
         if (field === "text") {
           return { ...seg, text: rawVal };
         }
+        if (field === "textSize") {
+          const n = Number(rawVal);
+          const v = Number.isFinite(n)
+            ? Math.min(200, Math.max(20, Math.round(n)))
+            : 48;
+          return { ...seg, textSize: v };
+        }
         return seg;
       })
     );
@@ -640,6 +648,13 @@ export default function Shorts3Panel() {
             textY,
             textColor:
               String(s.textColor ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
+            textSize: Math.min(
+              200,
+              Math.max(
+                20,
+                Math.round(Number(s.textSize)) || 48
+              )
+            ),
           };
         }),
         muteOriginal,
@@ -708,12 +723,16 @@ export default function Shorts3Panel() {
     const b = previewCropOverlay.border;
     const cropH = b.height;
     const scale = cropH > 0 ? cropH / 1920 : 1;
-    const previewFontPx = Math.max(8, (Number(topTextSize) || 72) * scale);
+    const seg = segments[previewSegmentIndex];
+    const previewTopPx = Math.max(8, (Number(topTextSize) || 72) * scale);
+    const previewBottomPx = Math.max(
+      8,
+      (Number(seg?.textSize) || 48) * scale
+    );
     const topColor = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
       ? topTextColor
       : TEXT_COLORS[0];
     const topLine = String(topText || "").trim();
-    const seg = segments[previewSegmentIndex];
     const bottomLine = String(seg?.text ?? "").trim();
     const tyRaw = Number(seg?.textY);
     const textYpct = Number.isFinite(tyRaw)
@@ -744,8 +763,8 @@ export default function Shorts3Panel() {
               right: 0,
               top: 30,
               textAlign: "center",
-              fontSize: previewFontPx,
-              color: topColor,
+            fontSize: previewTopPx,
+            color: topColor,
               fontWeight: 700,
               lineHeight: 1.2,
               textShadow: shadow,
@@ -766,8 +785,8 @@ export default function Shorts3Panel() {
               transform: "translate(-50%, -50%)",
               textAlign: "center",
               maxWidth: "100%",
-              fontSize: previewFontPx,
-              color: bottomColor,
+            fontSize: previewBottomPx,
+            color: bottomColor,
               fontWeight: 700,
               lineHeight: 1.2,
               textShadow: shadow,
@@ -1380,6 +1399,42 @@ export default function Shorts3Panel() {
                   onChange={(e) =>
                     handleSegmentOverlayChange(index, "text", e.target.value)
                   }
+                />
+              </label>
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  marginTop: 8,
+                }}
+              >
+                폰트 크기 (
+                {Math.round(
+                  Math.min(200, Math.max(20, Number(seg.textSize) || 48))
+                )}{" "}
+                px)
+                <input
+                  type="range"
+                  min={20}
+                  max={200}
+                  step={1}
+                  value={Math.min(
+                    200,
+                    Math.max(20, Number(seg.textSize) || 48)
+                  )}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    handleSegmentOverlayChange(
+                      index,
+                      "textSize",
+                      e.target.value
+                    )
+                  }
+                  style={{ width: "100%", maxWidth: 420 }}
                 />
               </label>
               <div

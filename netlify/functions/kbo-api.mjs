@@ -2285,8 +2285,8 @@ export const handler = async (event) => {
         }
         const topTextSizeRaw = Number(payload.topTextSize);
         const topTextSize = Number.isFinite(topTextSizeRaw)
-          ? Math.min(80, Math.max(20, Math.round(topTextSizeRaw)))
-          : 48;
+          ? Math.min(200, Math.max(20, Math.round(topTextSizeRaw)))
+          : 72;
 
         const segments = [];
         for (const s of segmentsIn) {
@@ -2297,7 +2297,7 @@ export const handler = async (event) => {
               body: JSON.stringify({
                 ok: false,
                 error:
-                  "각 구간은 { start, end, cropOffset?, text?, textY?, textColor? } 형식이어야 합니다.",
+                  "각 구간은 { start, end, cropOffset?, text?, textY?, textColor?, textSize? } 형식이어야 합니다.",
               }),
             };
           }
@@ -2336,6 +2336,10 @@ export const handler = async (event) => {
               textColor = c.toLowerCase();
             }
           }
+          const textSizeRaw = Number(s.textSize);
+          const textSize = Number.isFinite(textSizeRaw)
+            ? Math.min(200, Math.max(20, Math.round(textSizeRaw)))
+            : 48;
           segments.push({
             start: st,
             end: en,
@@ -2343,6 +2347,7 @@ export const handler = async (event) => {
             text,
             textY,
             textColor,
+            textSize,
           });
         }
 
