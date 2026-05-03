@@ -57,7 +57,7 @@ async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = n
   }
   args.push(
     "--js-runtimes",
-    "nodejs:/usr/bin/node",
+    "node",
     "-f",
     "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
     "--merge-output-format",
