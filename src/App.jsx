@@ -3559,7 +3559,7 @@ function Card9WeeklySummary() {
 
   return (
     <div className="section soft">
-      <div className="section-title">3. 쇼츠-주간-분석(월요일)</div>
+      <div className="section-title">4. 쇼츠-주간-분석(월요일)</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
