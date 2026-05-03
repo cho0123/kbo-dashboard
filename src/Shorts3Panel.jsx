@@ -465,22 +465,44 @@ export default function Shorts3Panel() {
                       ? `${Math.round(row.size / 1024)} KB`
                       : ""}
                   </span>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy || uploading}
-                    onClick={() => onLoadSavedJob(jid)}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 8,
+                      marginLeft: "auto",
+                    }}
                   >
-                    불러오기
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={busy || uploading}
-                    onClick={() => onDeleteSavedJob(jid)}
-                  >
-                    삭제
-                  </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy || uploading}
+                      onClick={() => onLoadSavedJob(jid)}
+                    >
+                      불러오기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      onClick={() => onDeleteSavedJob(jid)}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(255, 107, 138, 0.55)",
+                        background:
+                          "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
+                        color: "#ffd0dc",
+                        fontWeight: 700,
+                        fontFamily: "inherit",
+                        cursor:
+                          busy || uploading ? "not-allowed" : "pointer",
+                        opacity: busy || uploading ? 0.55 : 1,
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </li>
               );
             })}
