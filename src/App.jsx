@@ -2324,7 +2324,7 @@ function slideExportKeyShorts2(slide) {
   return "intro";
 }
 
-function Card8Shorts({ defaultDate }) {
+function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [date, setDate] = useState(defaultDate);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -2333,6 +2333,13 @@ function Card8Shorts({ defaultDate }) {
   const captureWrapRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [capturedSlides, setCapturedSlides] = useState([]);
+
+  useEffect(() => {
+    setDate(defaultDate);
+  }, [defaultDate]);
+  useEffect(() => {
+    onShortsDateChange?.(date);
+  }, [date, onShortsDateChange]);
 
   const slides = useMemo(() => {
     const games = Array.isArray(data?.games) ? data.games : [];
@@ -4658,6 +4665,24 @@ export default function App() {
                 <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
                 <button
                   type="button"
+                  className="shorts-verify-link shorts-verify-link--naver"
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                  onClick={() => {
+                    const d = String(shDate || "").slice(0, 10);
+                    window.open(
+                      `https://m.sports.naver.com/kbaseball/schedule/index?date=${d}`,
+                      "_blank"
+                    );
+                  }}
+                >
+                  📅 네이버 야구 일정
+                </button>
+                <button
+                  type="button"
                   className="primary primary-fill"
                   style={{ marginTop: 10 }}
                   disabled={busy === "shorts_slides_open"}
@@ -5493,7 +5518,7 @@ export default function App() {
                   ) : activeKey === "music_library" ? (
                     <MusicLibraryPanel />
                   ) : activeKey === "shorts_slides" ? (
-                    <Card8Shorts defaultDate={shDate} />
+                    <Card8Shorts defaultDate={shDate} onShortsDateChange={setShDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (
                     <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
                   ) : activeKey === "shorts_weekly_summary" ? (
