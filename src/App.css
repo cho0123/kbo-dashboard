@@ -522,11 +522,13 @@ button.primary.primary-fill {
 
 .section {
   border-radius: 16px;
+  overflow: visible;
 }
 
 .section.soft {
   background: #f0f0f0;
   padding: 16px 16px;
+  overflow: visible;
 }
 
 .section-title {

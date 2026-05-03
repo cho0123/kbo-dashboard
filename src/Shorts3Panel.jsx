@@ -924,7 +924,7 @@ export default function Shorts3Panel() {
   ]);
 
   return (
-    <div className="section soft">
+    <div className="section soft" style={{ overflow: "visible" }}>
       <div className="section-title">3. 쇼츠-하이라이트</div>
       <p className="muted" style={{ marginTop: 6 }}>
         로컬 원본 영상(mp4/mov/avi)을 업로드하고 구간(HH:MM:SS)을 지정하면
@@ -937,18 +937,31 @@ export default function Shorts3Panel() {
           display: "flex",
           flexDirection: "row",
           gap: 16,
-          alignItems: "flex-start",
+          alignItems: "stretch",
           width: "100%",
+          overflow: "visible",
         }}
       >
-        <div style={{ flex: "0 1 45%", minWidth: 0, maxWidth: "100%" }}>
+        <div
+          style={{
+            flex: "0 1 45%",
+            minWidth: 0,
+            maxWidth: "100%",
+            overflow: "visible",
+            alignSelf: "stretch",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <div
             style={{
               position: "sticky",
-              top: 16,
+              top: 0,
+              height: "fit-content",
               alignSelf: "flex-start",
               width: "100%",
               zIndex: 10,
+              overflow: "visible",
             }}
           >
             <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
@@ -1088,7 +1101,14 @@ export default function Shorts3Panel() {
           </div>
         </div>
 
-        <div style={{ flex: "0 1 55%", minWidth: 0, maxWidth: "100%" }}>
+        <div
+          style={{
+            flex: "0 1 55%",
+            minWidth: 0,
+            maxWidth: "100%",
+            overflow: "visible",
+          }}
+        >
       <div style={{ marginTop: 0 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
           로컬 다운로드
