@@ -1,4 +1,4 @@
-import { execSync, spawn, spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
@@ -40,6 +40,13 @@ function ytdlpBin() {
   return join(dirname(fileURLToPath(import.meta.url)), "bin", "yt-dlp");
 }
 
+const NODE_PATHS = [
+  "/var/lang/bin/node",
+  "/usr/local/bin/node",
+  "/usr/bin/node",
+  "/opt/nodejs/bin/node",
+];
+
 /**
  * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
  * @param {string} url
@@ -52,19 +59,17 @@ async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = n
     throw new Error(`yt-dlp not found at ${bin}`);
   }
   let nodePath = "";
-  try {
-    nodePath = execSync(
-      "which node 2>/dev/null || find /usr -name node 2>/dev/null | head -1"
-    )
-      .toString()
-      .trim();
-    console.log("[yt-dlp] node path:", nodePath);
-  } catch (e) {
-    console.log(
-      "[yt-dlp] node not found:",
-      e instanceof Error ? e.message : String(e)
-    );
+  for (const p of NODE_PATHS) {
+    try {
+      if (existsSync(p)) {
+        nodePath = p;
+        console.log("[yt-dlp] node found at:", nodePath);
+        break;
+      }
+    } catch (e) {}
   }
+  if (!nodePath) console.log("[yt-dlp] node not found in any known path");
+
   const jsRuntime = nodePath ? `node:${nodePath}` : "node";
   console.log("[yt-dlp] js-runtime:", jsRuntime);
 
