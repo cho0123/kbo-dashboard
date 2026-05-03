@@ -1153,36 +1153,60 @@ export default function Shorts3Panel() {
           style={{
             marginTop: 16,
             display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 10,
+            flexDirection: "row",
+            flexWrap: "nowrap",
+            alignItems: "stretch",
+            gap: 8,
           }}
         >
           <a
-            className="primary primary-fill"
             href={downloadUrl}
             download="highlight.mp4"
             style={{
-              display: "inline-block",
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               padding: "10px 16px",
               borderRadius: 8,
               textDecoration: "none",
               color: "#0b1a14",
               fontWeight: 800,
+              background: "#0a8f6a",
+              boxSizing: "border-box",
             }}
           >
-            mp4 다운로드
+            ⬇ mp4 다운로드
           </a>
           <button
             type="button"
-            className="primary"
             disabled={busy || uploading || uploadPhase !== "done" || !jobId}
             onClick={() => {
               setError(null);
               onGenerate();
             }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1px solid rgba(19,199,154,0.5)",
+              background: "rgba(19,199,154,0.4)",
+              color: "#0b1a14",
+              fontWeight: 800,
+              fontFamily: "inherit",
+              cursor:
+                busy || uploading || uploadPhase !== "done" || !jobId
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                busy || uploading || uploadPhase !== "done" || !jobId
+                  ? 0.55
+                  : 1,
+            }}
           >
-            다시 생성
+            ↺ 다시 생성
           </button>
         </div>
       ) : null}
