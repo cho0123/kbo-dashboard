@@ -869,22 +869,22 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.save();
   // Background: day-of-week color (same as intro)
   const DAY_COLORS = {
-    0: "#1A6B8A", // Sun
-    1: "#7D6608", // Mon
-    2: "#7D6608", // Tue
-    3: "#784212", // Wed
-    4: "#7B241C", // Thu
-    5: "#0E4D3A", // Fri
-    6: "#1A4A7A", // Sat
+    0: "#00796B", // Sun - 틸그린
+    1: "#FF4081", // Mon - 핫코랄핑크
+    2: "#FF4081", // Tue - 핫코랄핑크
+    3: "#E65100", // Wed - 딥오렌지
+    4: "#7B241C", // Thu - 딥레드 (유지)
+    5: "#0E4D3A", // Fri - 딥그린 (유지)
+    6: "#1A4A7A", // Sat - 다크블루 (유지)
   };
   const ONE_MIN_COLOR = {
-    0: "#FF6B00", // Sun
-    1: "#00C8FF", // Mon
-    2: "#00C8FF", // Tue
-    3: "#00FFD0", // Wed
-    4: "#00E5FF", // Thu
-    5: "#FFD700", // Fri
-    6: "#FF6B00", // Sat
+    0: "#FFD700", // Sun - 골드
+    1: "#F4FF00", // Mon - 옐로
+    2: "#F4FF00", // Tue - 옐로
+    3: "#F4FF00", // Wed - 옐로
+    4: "#00E5FF", // Thu - 유지
+    5: "#FFD700", // Fri - 유지
+    6: "#FF6B00", // Sat - 유지
   };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
