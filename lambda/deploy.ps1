@@ -54,6 +54,10 @@ try {
         --region $Region
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+    aws lambda wait function-updated --function-name $FunctionName --region $Region
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    # 환경변수 PATH: /var/task/bin 우선 (번들 yt-dlp). S3_BUCKET 기본=kbo-video-export ($S3Bucket)
     aws lambda update-function-configuration `
         --function-name $FunctionName `
         --timeout 900 `
