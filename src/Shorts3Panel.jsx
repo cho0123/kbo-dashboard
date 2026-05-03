@@ -877,8 +877,8 @@ export default function Shorts3Panel() {
           />
         </label>
         <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-          BGM을 선택하면 최종 영상의 오디오가 배경 음원으로 대체됩니다 (쇼츠1/2와
-          동일).
+          BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
+          함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
         </p>
       </div>
 

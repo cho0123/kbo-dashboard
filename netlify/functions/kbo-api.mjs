@@ -2315,7 +2315,10 @@ export const handler = async (event) => {
           };
         }
 
-        const muteOriginal = Boolean(payload.muteOriginal);
+        const muteOriginal =
+          payload.muteOriginal === true ||
+          (typeof payload.muteOriginal === "string" &&
+            payload.muteOriginal.toLowerCase() === "true");
         const music_s3_key = (() => {
           const s =
             payload.music_s3_key != null
