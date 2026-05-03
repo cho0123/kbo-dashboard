@@ -4806,6 +4806,24 @@ export default function App() {
                   >
                     음원 관리
                   </button>
+                  <a
+                    className="primary primary-fill"
+                    href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+                    download="yt-dlp.exe"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ yt-dlp 다운로드
+                  </a>
+                  <a
+                    className="primary"
+                    href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                    download="ffmpeg-release-essentials.zip"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ FFmpeg 다운로드
+                  </a>
                 </div>
               </div>
             </div>

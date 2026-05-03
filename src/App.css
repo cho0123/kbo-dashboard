@@ -155,6 +155,27 @@ body {
   margin-top: 0;
 }
 
+.side-video-settings-actions a.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 11px 14px;
+  border-radius: 11px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: inherit;
+  background: linear-gradient(135deg, #41f0bc, #2db897);
+  color: #081018;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.side-video-settings-actions a.primary.primary-fill {
+  flex: 1;
+}
+
 .date-actions-row {
   display: flex;
   gap: 8px;
