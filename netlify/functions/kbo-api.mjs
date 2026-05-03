@@ -2297,7 +2297,7 @@ export const handler = async (event) => {
               body: JSON.stringify({
                 ok: false,
                 error:
-                  "각 구간은 { start, end, cropOffset?, text?, textY?, textColor?, textSize? } 형식이어야 합니다.",
+                  "각 구간은 { start, end, startMs?, endMs?, cropOffset?, text?, textY?, textColor?, textSize? } 형식이어야 합니다.",
               }),
             };
           }
@@ -2340,9 +2340,19 @@ export const handler = async (event) => {
           const textSize = Number.isFinite(textSizeRaw)
             ? Math.min(200, Math.max(20, Math.round(textSizeRaw)))
             : 48;
+          const startMsRaw = Number(s.startMs);
+          const endMsRaw = Number(s.endMs);
+          const startMs = Number.isFinite(startMsRaw)
+            ? Math.min(99, Math.max(0, Math.round(startMsRaw)))
+            : 0;
+          const endMs = Number.isFinite(endMsRaw)
+            ? Math.min(99, Math.max(0, Math.round(endMsRaw)))
+            : 0;
           segments.push({
             start: st,
             end: en,
+            startMs,
+            endMs,
             cropOffset,
             text,
             textY,
@@ -2395,6 +2405,16 @@ export const handler = async (event) => {
             : 2,
         };
 
+        const thumbRaw = payload.thumbnailTime;
+        const thumbNum = Number(thumbRaw);
+        const thumbnailTime =
+          thumbRaw != null &&
+          thumbRaw !== "" &&
+          Number.isFinite(thumbNum) &&
+          thumbNum >= 0
+            ? thumbNum
+            : null;
+
         const meta = {
           type: "highlight",
           sourceUpload: true,
@@ -2407,6 +2427,9 @@ export const handler = async (event) => {
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
+        }
+        if (thumbnailTime != null) {
+          meta.thumbnailTime = thumbnailTime;
         }
 
         await s3.send(

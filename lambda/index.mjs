@@ -263,6 +263,24 @@ function parseTimeToSeconds(t) {
   throw new Error(`시간 형식 오류: ${t}`);
 }
 
+function coerceSegmentFracMs(v) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(99, Math.max(0, n));
+}
+
+/** HH:MM:SS(+선택 startMs/endMs 0~99, 0.01초) 구간 경계 초 */
+function segmentBoundarySeconds(seg, key) {
+  const isStart = key === "start";
+  const baseRaw = seg[isStart ? "start" : "end"];
+  const fracKey = isStart ? "startMs" : "endMs";
+  const base = parseTimeToSeconds(baseRaw);
+  const frac = coerceSegmentFracMs(seg?.[fracKey]);
+  return base + frac / 100;
+}
+
+const HIGHLIGHT_THUMBNAIL_DUR_SEC = 0.3;
+
 function probeVideoDimensions(workDir, fileName) {
   const bin = ffprobeBin();
   const r = spawnSync(
@@ -413,8 +431,25 @@ function buildHighlightSegmentVf(opts) {
 }
 
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
-  const segments = Array.isArray(meta.segments) ? meta.segments : [];
+  let segments = Array.isArray(meta.segments) ? [...meta.segments] : [];
   if (segments.length < 1) throw new Error("구간 없음");
+
+  const thumbRaw = meta.thumbnailTime;
+  const thumbAt =
+    thumbRaw !== undefined && thumbRaw !== null && thumbRaw !== ""
+      ? Number(thumbRaw)
+      : NaN;
+  if (Number.isFinite(thumbAt) && thumbAt >= 0) {
+    const first = segments[0];
+    const thumbSeg = {
+      ...first,
+      start: thumbAt,
+      end: thumbAt + HIGHLIGHT_THUMBNAIL_DUR_SEC,
+      startMs: 0,
+      endMs: 0,
+    };
+    segments = [thumbSeg, ...segments];
+  }
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
   const sourceKey = `jobs/${jobId}/source.mp4`;
@@ -441,8 +476,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
-    const a = parseTimeToSeconds(seg.start);
-    const b = parseTimeToSeconds(seg.end);
+    const a = segmentBoundarySeconds(seg, "start");
+    const b = segmentBoundarySeconds(seg, "end");
     const dur = b - a;
     if (!(dur > 0.04)) {
       throw new Error(`구간 ${i + 1}: 종료가 시작보다 커야 합니다.`);

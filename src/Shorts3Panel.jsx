@@ -117,12 +117,19 @@ function emptySegment() {
   return {
     start: "",
     end: "",
+    startMs: 0,
+    endMs: 0,
     cropOffset: 0,
     text: "",
     textY: 85,
     textColor: TEXT_COLORS[0],
     textSize: 48,
   };
+}
+
+/** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
+function segmentBoundaryToSeconds(hmsRaw, fracMs) {
+  return parseHhMmSsToSeconds(hmsRaw, fracMs);
 }
 
 function formatCropOffsetLabel(offset) {
@@ -190,8 +197,28 @@ function secondsToHhMmSs(sec) {
   return [h, m, r].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-/** HH:MM:SS 또는 MM:SS 등 → 초; 불가 시 null */
-function parseHhMmSsToSeconds(t) {
+/** 표시용: HH:MM:SS.XX (현재 재생 초, 소수는 2자리) */
+function formatTimeWithCentis(sec) {
+  if (sec == null || !Number.isFinite(Number(sec))) return "";
+  const s = Math.max(0, Number(sec));
+  const whole = Math.floor(s + 1e-9);
+  let cs = Math.round((s - whole) * 100);
+  cs = Math.min(99, Math.max(0, cs));
+  return `${secondsToHhMmSs(whole)}.${String(cs).padStart(2, "0")}`;
+}
+
+/** 구간 소수 부분 0~99 (0.01초 단위) */
+function clampSegmentFracMs(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return 0;
+  return Math.min(99, Math.max(0, v));
+}
+
+/**
+ * HH:MM:SS 또는 MM:SS 등 → 초; 불가 시 null.
+ * 선택 fracMs: 0~99 (0.01초) 합산
+ */
+function parseHhMmSsToSeconds(t, fracMs) {
   const s = String(t || "").trim();
   if (!s) return null;
   const parts = s.split(":").map((p) => p.trim());
@@ -200,18 +227,21 @@ function parseHhMmSsToSeconds(t) {
     return Number.isFinite(n) ? n : NaN;
   });
   if (nums.some((n) => Number.isNaN(n))) return null;
+  let base = null;
   if (parts.length === 3) {
     const [h, m, sec] = nums;
     if (m >= 60 || sec >= 60) return null;
-    return h * 3600 + m * 60 + sec;
-  }
-  if (parts.length === 2) {
+    base = h * 3600 + m * 60 + sec;
+  } else if (parts.length === 2) {
     const [m, sec] = nums;
     if (sec >= 60) return null;
-    return m * 60 + sec;
+    base = m * 60 + sec;
+  } else if (parts.length === 1) {
+    base = nums[0];
   }
-  if (parts.length === 1) return nums[0];
-  return null;
+  if (base == null) return null;
+  if (fracMs === undefined || fracMs === null) return base;
+  return base + clampSegmentFracMs(fracMs) / 100;
 }
 
 export default function Shorts3Panel() {
@@ -261,6 +291,8 @@ export default function Shorts3Panel() {
   /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
+  /** 미리보기 currentTime 기준 썸네일(0.3초) 삽입 위치; Lambda에서 맨 앞에 추가 */
+  const [thumbnailTime, setThumbnailTime] = useState(null);
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
@@ -354,7 +386,7 @@ export default function Shorts3Panel() {
     const seg = segments[playingSegmentIndex];
     if (!seg) return undefined;
     const endRaw = String(seg.end ?? "").trim();
-    const endSec = parseHhMmSsToSeconds(endRaw);
+    const endSec = segmentBoundaryToSeconds(endRaw, seg.endMs);
     if (endSec == null) return undefined;
 
     const onTimeUpdate = () => {
@@ -410,8 +442,8 @@ export default function Shorts3Panel() {
       const st = String(seg.start || "").trim();
       const en = String(seg.end || "").trim();
       if (!st || !en) continue;
-      const a = parseHhMmSsToSeconds(st);
-      const b = parseHhMmSsToSeconds(en);
+      const a = segmentBoundaryToSeconds(st, seg.startMs);
+      const b = segmentBoundaryToSeconds(en, seg.endMs);
       if (a == null || b == null) continue;
       if (b <= a) continue;
       sum += b - a;
@@ -440,8 +472,8 @@ export default function Shorts3Panel() {
     const st = String(seg?.start ?? "").trim();
     const en = String(seg?.end ?? "").trim();
     if (!st || !en) return false;
-    const a = parseHhMmSsToSeconds(st);
-    const b = parseHhMmSsToSeconds(en);
+    const a = segmentBoundaryToSeconds(st, seg?.startMs);
+    const b = segmentBoundaryToSeconds(en, seg?.endMs);
     return a != null && b != null && b > a;
   }, []);
 
@@ -452,7 +484,10 @@ export default function Shorts3Panel() {
       const seg = segments[index];
       if (!segmentPlaybackTimesValid(seg)) return;
 
-      const startSec = parseHhMmSsToSeconds(String(seg.start).trim());
+      const startSec = segmentBoundaryToSeconds(
+        String(seg.start).trim(),
+        seg.startMs
+      );
 
       if (playingSegmentIndex === index && !previewPlaybackPaused) {
         v.pause();
@@ -549,6 +584,18 @@ export default function Shorts3Panel() {
     );
   };
 
+  const handleFracMsChange = (segIndex, field, rawVal) => {
+    const digits = rawVal.replace(/\D/g, "").slice(0, 2);
+    let n = digits === "" ? 0 : Number(digits);
+    if (!Number.isFinite(n)) n = 0;
+    n = clampSegmentFracMs(n);
+    setSegments((prev) =>
+      prev.map((seg, i) =>
+        i === segIndex ? { ...seg, [field]: n } : seg
+      )
+    );
+  };
+
   const onVideoFileChange = (e) => {
     const f = e.target.files?.[0] ?? null;
     setVideoFile(f);
@@ -556,6 +603,7 @@ export default function Shorts3Panel() {
     setUploadPhase("idle");
     setUploadProgress(0);
     setPreviewUrl(null);
+    setThumbnailTime(null);
     setError(null);
   };
 
@@ -567,6 +615,7 @@ export default function Shorts3Panel() {
     setVideoFile(null);
     if (videoInputRef.current) videoInputRef.current.value = "";
     setDownloadUrl(null);
+    setThumbnailTime(null);
     setStatus("idle");
     setMessage("");
     setProgress(0);
@@ -576,10 +625,16 @@ export default function Shorts3Panel() {
   const applyVideoTimeToSegment = useCallback((field) => {
     const el = previewVideoRef.current;
     if (!el) return;
-    const hms = secondsToHhMmSs(el.currentTime);
+    const ct = el.currentTime;
+    const whole = Math.floor(ct);
+    const frac = clampSegmentFracMs(Math.round((ct - whole) * 100));
+    const hms = secondsToHhMmSs(whole);
+    const fracField = field === "start" ? "startMs" : "endMs";
     setSegments((prev) =>
       prev.map((seg, i) =>
-        i === previewSegmentIndex ? { ...seg, [field]: hms } : seg
+        i === previewSegmentIndex
+          ? { ...seg, [field]: hms, [fracField]: frac }
+          : seg
       )
     );
   }, [previewSegmentIndex]);
@@ -726,9 +781,21 @@ export default function Shorts3Panel() {
     }
 
     for (let i = 0; i < segments.length; i++) {
-      const { start, end } = segments[i];
-      if (!String(start).trim() || !String(end).trim()) {
+      const sg = segments[i];
+      const st = String(sg.start ?? "").trim();
+      const en = String(sg.end ?? "").trim();
+      if (!st || !en) {
         setError(new Error(`구간 ${i + 1}: 시작·종료 시간을 모두 입력하세요.`));
+        return;
+      }
+      const a = segmentBoundaryToSeconds(st, sg.startMs);
+      const b = segmentBoundaryToSeconds(en, sg.endMs);
+      if (a == null || b == null || b <= a) {
+        setError(
+          new Error(
+            `구간 ${i + 1}: 시작·종료 시간(소수 포함)을 올바르게 입력하세요.`
+          )
+        );
         return;
       }
     }
@@ -754,6 +821,8 @@ export default function Shorts3Panel() {
           return {
             start: String(s.start).trim(),
             end: String(s.end).trim(),
+            startMs: clampSegmentFracMs(s.startMs ?? 0),
+            endMs: clampSegmentFracMs(s.endMs ?? 0),
             cropOffset:
               typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
                 ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
@@ -778,6 +847,13 @@ export default function Shorts3Panel() {
           fadeOutDuration: bgmFadeOut,
         },
       };
+      if (
+        thumbnailTime != null &&
+        Number.isFinite(thumbnailTime) &&
+        thumbnailTime >= 0
+      ) {
+        payload.thumbnailTime = thumbnailTime;
+      }
       if (highlightMusicS3Key.trim()) {
         payload.music_s3_key = highlightMusicS3Key.trim();
       }
@@ -1026,6 +1102,41 @@ export default function Shorts3Panel() {
                       {previewCropTextOverlayEl}
                     </div>
                   ) : null}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={
+                      busy || uploading || uploadPhase !== "done" || !previewUrl
+                    }
+                    onClick={() => {
+                      const v = previewVideoRef.current;
+                      if (!v) return;
+                      setThumbnailTime(v.currentTime);
+                    }}
+                  >
+                    📸 썸네일로 사용
+                  </button>
+                  {thumbnailTime != null &&
+                  Number.isFinite(thumbnailTime) &&
+                  thumbnailTime >= 0 ? (
+                    <span className="muted" style={{ fontSize: 13 }}>
+                      썸네일: {formatTimeWithCentis(thumbnailTime)} 설정됨
+                    </span>
+                  ) : (
+                    <span className="muted" style={{ fontSize: 13 }}>
+                      재생 위치를 썸네일 시작점(0.3초 구간)으로 보냅니다.
+                    </span>
+                  )}
                 </div>
                 <div
                   style={{
@@ -1484,6 +1595,26 @@ export default function Shorts3Panel() {
                     boxSizing: "border-box",
                   }}
                 />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder=".00"
+                  maxLength={2}
+                  value={String(clampSegmentFracMs(seg.startMs ?? 0)).padStart(
+                    2,
+                    "0"
+                  )}
+                  onChange={(e) =>
+                    handleFracMsChange(index, "startMs", e.target.value)
+                  }
+                  disabled={busy || uploading}
+                  title="시작 소수 초 (0.01초 단위, 00~99)"
+                  style={{
+                    padding: 8,
+                    width: 44,
+                    boxSizing: "border-box",
+                  }}
+                />
                 <span className="muted">~</span>
                 <input
                   type="text"
@@ -1498,6 +1629,26 @@ export default function Shorts3Panel() {
                   style={{
                     padding: 8,
                     width: 120,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder=".00"
+                  maxLength={2}
+                  value={String(clampSegmentFracMs(seg.endMs ?? 0)).padStart(
+                    2,
+                    "0"
+                  )}
+                  onChange={(e) =>
+                    handleFracMsChange(index, "endMs", e.target.value)
+                  }
+                  disabled={busy || uploading}
+                  title="종료 소수 초 (0.01초 단위, 00~99)"
+                  style={{
+                    padding: 8,
+                    width: 44,
                     boxSizing: "border-box",
                   }}
                 />
