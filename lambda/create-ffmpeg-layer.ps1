@@ -1,6 +1,8 @@
 #Requires -Version 5.1
 <#
-  lambda/bin 의 BtbN ffmpeg·ffprobe 로 Lambda 레이어(zip)를 만들고 publish-layer-version 합니다.
+  lambda/bin 의 BtbN ffmpeg·ffprobe 로 Lambda 레이어(zip)를 만들고 S3 에 올린 뒤 publish-layer-version 합니다.
+  (직접 --zip-file 업로드 50MB 제한 우회)
+
   레이어에 올라간 바이너리는 런타임에서 /opt/bin/ffmpeg, /opt/bin/ffprobe 로 접근됩니다.
 
   사전: .\download-ffmpeg.ps1 로 bin/ffmpeg, bin/ffprobe 준비
@@ -12,7 +14,9 @@ param(
     [string]$Region = 'ap-northeast-2',
     [string]$LayerName = 'ffmpeg-btbn-layer',
     [string]$Description = 'FFmpeg BtbN build with drawtext support',
-    [string]$ZipFileName = 'ffmpeg-btbn-layer.zip'
+    [string]$ZipFileName = 'ffmpeg-btbn-layer.zip',
+    [string]$S3Bucket = 'kbo-video-export',
+    [string]$S3Key = 'lambda-deploy/ffmpeg-btbn-layer.zip'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,15 +63,21 @@ finally {
     Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-$zipUri = 'fileb://' + (($LayerZipPath -replace '\\', '/'))
+$s3Uri = "s3://$S3Bucket/$S3Key"
+Write-Host "Uploading layer zip to $s3Uri ..." -ForegroundColor Cyan
+aws s3 cp $LayerZipPath $s3Uri --region $Region
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$published = aws lambda publish-layer-version `
+$publishOut = aws lambda publish-layer-version `
     --layer-name $LayerName `
     --description $Description `
-    --zip-file $zipUri `
+    --content "S3Bucket=$S3Bucket,S3Key=$S3Key" `
     --compatible-runtimes nodejs24.x `
     --region $Region `
-    --output json | ConvertFrom-Json
+    --output json
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$published = $publishOut | ConvertFrom-Json
 
 if (-not $published.LayerVersionArn) {
     throw 'publish-layer-version did not return LayerVersionArn.'
