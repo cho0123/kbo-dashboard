@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "child_process";
+import { execSync, spawn, spawnSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
@@ -50,6 +50,12 @@ async function downloadVideo(url, outputPath, _quality = "1080", cookiesPath = n
   const bin = ytdlpBin();
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
+  }
+  try {
+    const nodePath = execSync("which node").toString().trim();
+    console.log("[yt-dlp] node path:", nodePath);
+  } catch (e) {
+    console.log("[yt-dlp] node not found in PATH");
   }
   const args = [];
   if (cookiesPath && existsSync(cookiesPath)) {
