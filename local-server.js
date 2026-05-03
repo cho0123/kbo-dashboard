@@ -91,12 +91,15 @@ app.post("/download", (req, res) => {
     });
   }
 
-  const outputPattern = join(targetDir, "%(title)s [%(id)s].%(ext)s");
   const args = [
-    "-o",
-    outputPattern,
+    "-f",
+    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+    "--merge-output-format",
+    "mp4",
     "--ffmpeg-location",
-    __dirname,
+    ".",
+    "-o",
+    join(targetDir, "%(title)s.mp4"),
     "--no-playlist",
     "--newline",
     url,
