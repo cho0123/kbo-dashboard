@@ -866,7 +866,7 @@ export default function Shorts3Panel() {
           height: b.height,
           zIndex: 3,
           pointerEvents: "none",
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         {topLine ? (
@@ -898,15 +898,15 @@ export default function Shorts3Panel() {
               top: `${textYpct}%`,
               transform: "translate(-50%, -50%)",
               textAlign: "center",
-              maxWidth: "100%",
-            fontSize: previewBottomPx,
-            color: bottomColor,
+              fontSize: previewBottomPx,
+              color: bottomColor,
               fontWeight: 700,
               lineHeight: 1.2,
               textShadow: shadow,
               padding: "0 8px",
               boxSizing: "border-box",
-              wordBreak: "break-word",
+              whiteSpace: "nowrap",
+              overflow: "visible",
             }}
           >
             {bottomLine}

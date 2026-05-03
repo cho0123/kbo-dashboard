@@ -401,7 +401,7 @@ function buildHighlightSegmentVf(opts) {
 
   if (bottomTextFile) {
     parts.push(
-      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100:shadowx=2:shadowy=2:shadowcolor=black`
+      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100`
     );
   }
   if (topTextFile) {
