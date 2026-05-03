@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 import {
   existsSync,
   mkdirSync,
@@ -7,8 +7,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs";
-import { basename, dirname, join, resolve } from "path";
-import { fileURLToPath } from "url";
+import { join, resolve } from "path";
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -41,94 +40,6 @@ function ffprobeBin() {
     if (existsSync(p)) return p;
   }
   return "ffprobe";
-}
-
-function ytdlpBin() {
-  return join(dirname(fileURLToPath(import.meta.url)), "bin", "yt-dlp");
-}
-
-const NODE_PATHS = [
-  "/var/lang/bin/node",
-  "/usr/local/bin/node",
-  "/usr/bin/node",
-  "/opt/nodejs/bin/node",
-];
-
-const YT_DLP_CHROME_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-/**
- * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
- * @param {string} url
- * @param {string} workDir - 작업 디렉터리 (-o 는 source.%(ext)s 템플릿)
- * @param {string} [_quality='1080'] - 호환용 (현재 -f 문자열에 고정 반영)
- * @returns {Promise<string>} 실제 저장된 파일 절대 경로
- */
-async function downloadVideo(url, workDir, _quality = "1080") {
-  const bin = ytdlpBin();
-  if (!existsSync(bin)) {
-    throw new Error(`yt-dlp not found at ${bin}`);
-  }
-  let nodePath = "";
-  for (const p of NODE_PATHS) {
-    try {
-      if (existsSync(p)) {
-        nodePath = p;
-        console.log("[yt-dlp] node found at:", nodePath);
-        break;
-      }
-    } catch (e) {}
-  }
-  if (!nodePath) console.log("[yt-dlp] node not found in any known path");
-
-  const jsRuntime = nodePath ? `node:${nodePath}` : "node";
-  console.log("[yt-dlp] js-runtime:", jsRuntime);
-
-  const args = [
-    "--js-runtimes",
-    jsRuntime,
-    "--extractor-args",
-    "youtube:player_client=web_creator,default",
-    "--user-agent",
-    YT_DLP_CHROME_UA,
-    "-f",
-    "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
-    "--merge-output-format",
-    "mp4",
-    "--no-playlist",
-    "-o",
-    join(workDir, "source.%(ext)s"),
-    String(url || "").trim(),
-  ];
-  await new Promise((resolvePromise, reject) => {
-    const child = spawn(bin, args, {
-      env: { ...process.env },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stderr = "";
-    child.stderr?.on("data", (d) => {
-      stderr += String(d);
-    });
-    child.stdout?.on("data", () => {});
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolvePromise();
-      else
-        reject(
-          new Error(
-            `yt-dlp 실패 (exit ${code}): ${stderr.slice(0, 1200)}`
-          )
-        );
-    });
-  });
-
-  const dirListing = readdirSync(workDir);
-  console.log("[yt-dlp] workDir files:", dirListing);
-  const files = dirListing.filter((f) => f.startsWith("source."));
-  if (files.length === 0) throw new Error("yt-dlp 다운로드 파일 없음");
-  const actualPath = join(workDir, files[0]);
-  console.log("[yt-dlp] downloaded:", actualPath);
-  return actualPath;
 }
 
 /** prep_N.png(1080×1920) 이후 — 스케일 생략, xfade만 */
@@ -386,15 +297,16 @@ function probeVideoDimensions(workDir, fileName) {
 }
 
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
-  const url = String(meta.sourceUrl || "").trim();
   const segments = Array.isArray(meta.segments) ? meta.segments : [];
   const cropPosition = String(meta.cropPosition || "center").toLowerCase();
-  if (!url) throw new Error("sourceUrl 없음");
   if (segments.length < 1) throw new Error("구간 없음");
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
-  const videoPath = await downloadVideo(url, workDir, "1080");
-  const sourceFileName = basename(videoPath);
+  const sourceKey = `jobs/${jobId}/source.mp4`;
+  const sourceLocal = join(workDir, "source.mp4");
+  await getObjectFile(bucket, sourceKey, sourceLocal);
+  console.log("[highlight] source from S3", sourceKey, "->", sourceLocal);
+  const sourceFileName = "source.mp4";
 
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 

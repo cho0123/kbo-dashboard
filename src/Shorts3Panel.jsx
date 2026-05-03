@@ -1,23 +1,41 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { postKbo } from "./api.js";
 
-async function putPresigned(url, body, contentType) {
-  const res = await fetch(url, {
-    method: "PUT",
-    body,
-    headers: { "Content-Type": contentType },
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(
-      `S3 업로드 실패 HTTP ${res.status}${t ? `: ${t.slice(0, 200)}` : ""}`
+/** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
+function putPresignedWithProgress(url, body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((100 * e.loaded) / e.total));
+      }
+    });
+    xhr.addEventListener("load", () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `S3 업로드 실패 HTTP ${xhr.status}${xhr.responseText ? `: ${xhr.responseText.slice(0, 200)}` : ""}`
+          )
+        );
+      }
+    });
+    xhr.addEventListener("error", () =>
+      reject(new Error("S3 업로드 네트워크 오류"))
     );
-  }
+    xhr.open("PUT", url);
+    xhr.send(body);
+  });
 }
 
 const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
 const MAX_SEGMENTS = 10;
+
+const VIDEO_ACCEPT =
+  ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
 const CROP_OPTIONS = [
   { id: "left", label: "좌측" },
@@ -30,7 +48,6 @@ function emptySegment() {
 }
 
 export default function Shorts3Panel() {
-  const [url, setUrl] = useState("");
   const [segments, setSegments] = useState([
     emptySegment(),
     emptySegment(),
@@ -42,51 +59,13 @@ export default function Shorts3Panel() {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const cancelRef = useRef(false);
-  const cookieInputRef = useRef(null);
-  const [cookieFile, setCookieFile] = useState(null);
-  const [cookieUploading, setCookieUploading] = useState(false);
-  /** null = 서버 확인 전, true = S3에 파일 있음 */
-  const [cookieRemoteOk, setCookieRemoteOk] = useState(null);
 
-  const loadCookieStatus = useCallback(async () => {
-    try {
-      const res = await postKbo({ action: "youtube_cookie_status" });
-      setCookieRemoteOk(Boolean(res?.exists));
-    } catch {
-      setCookieRemoteOk(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCookieStatus();
-  }, [loadCookieStatus]);
-
-  const onCookieUpload = async () => {
-    if (!cookieFile) {
-      window.alert("cookies.txt 파일을 선택하세요.");
-      return;
-    }
-    const name = String(cookieFile.name || "").toLowerCase();
-    if (!name.endsWith(".txt")) {
-      window.alert(".txt 파일만 업로드할 수 있습니다.");
-      return;
-    }
-    setCookieUploading(true);
-    setError(null);
-    try {
-      const prep = await postKbo({ action: "cookie_upload" });
-      const putUrl = prep?.presignedPutUrl;
-      if (!putUrl) throw new Error("presignedPutUrl 없음");
-      await putPresigned(putUrl, cookieFile, "text/plain; charset=utf-8");
-      setCookieFile(null);
-      if (cookieInputRef.current) cookieInputRef.current.value = "";
-      setCookieRemoteOk(true);
-    } catch (e) {
-      setError(e instanceof Error ? e : new Error(String(e)));
-    } finally {
-      setCookieUploading(false);
-    }
-  };
+  const videoInputRef = useRef(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [jobId, setJobId] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  /** idle | uploading | done */
+  const [uploadPhase, setUploadPhase] = useState("idle");
 
   const addSegment = useCallback(() => {
     setSegments((s) => (s.length >= MAX_SEGMENTS ? s : [...s, emptySegment()]));
@@ -112,16 +91,64 @@ export default function Shorts3Panel() {
     );
   };
 
+  const onVideoFileChange = (e) => {
+    const f = e.target.files?.[0] ?? null;
+    setVideoFile(f);
+    setJobId(null);
+    setUploadPhase("idle");
+    setUploadProgress(0);
+    setError(null);
+  };
+
+  const onUploadSource = async () => {
+    if (!videoFile) {
+      window.alert("영상 파일(mp4 / mov / avi)을 선택하세요.");
+      return;
+    }
+    const lower = String(videoFile.name || "").toLowerCase();
+    const ok =
+      lower.endsWith(".mp4") ||
+      lower.endsWith(".mov") ||
+      lower.endsWith(".avi");
+    if (!ok) {
+      window.alert("mp4, mov, avi 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    setError(null);
+    setUploadPhase("uploading");
+    setUploadProgress(0);
+    setJobId(null);
+    try {
+      const prep = await postKbo({ action: "highlight_upload" });
+      const putUrl = prep?.presignedPutUrl;
+      const id = prep?.jobId;
+      if (!putUrl || !id) throw new Error("highlight_upload 응답 오류");
+      setJobId(id);
+      await putPresignedWithProgress(putUrl, videoFile, setUploadProgress);
+      setUploadPhase("done");
+      setMessage("원본 업로드 완료 — 구간을 입력한 뒤 영상 생성을 누르세요.");
+    } catch (e) {
+      setUploadPhase("idle");
+      setUploadProgress(0);
+      setJobId(null);
+      setError(e instanceof Error ? e : new Error(String(e)));
+    }
+  };
+
   const onGenerate = async () => {
     cancelRef.current = false;
     setError(null);
     setDownloadUrl(null);
     setProgress(0);
-    const u = String(url || "").trim();
-    if (!u) {
-      setError(new Error("유튜브 URL을 입력하세요."));
+
+    if (!jobId || uploadPhase !== "done") {
+      setError(
+        new Error("먼저 원본 영상을 선택하고 S3 업로드를 완료하세요.")
+      );
       return;
     }
+
     for (let i = 0; i < segments.length; i++) {
       const { start, end } = segments[i];
       if (!String(start).trim() || !String(end).trim()) {
@@ -135,15 +162,14 @@ export default function Shorts3Panel() {
       setMessage("작업 요청 중…");
       const res = await postKbo({
         action: "highlight_video_create",
-        url: u,
+        jobId,
         segments: segments.map((s) => ({
           start: String(s.start).trim(),
           end: String(s.end).trim(),
         })),
         cropPosition,
       });
-      const jobId = res?.jobId;
-      if (!jobId) throw new Error("jobId 없음");
+      if (!res?.jobId) throw new Error("jobId 없음");
 
       setMessage("서버 인코딩 중… (상태 폴링)");
       const started = Date.now();
@@ -194,18 +220,19 @@ export default function Shorts3Panel() {
   };
 
   const busy = status === "encoding";
+  const uploading = uploadPhase === "uploading";
 
   return (
     <div className="section soft">
       <div className="section-title">3. 쇼츠-하이라이트</div>
       <p className="muted" style={{ marginTop: 6 }}>
-        유튜브 URL과 구간(HH:MM:SS)을 지정하면 9:16(1080×1920)으로 합성된 mp4를
-        만듭니다.
+        로컬 원본 영상(mp4/mov/avi)을 업로드하고 구간(HH:MM:SS)을 지정하면
+        9:16(1080×1920)으로 합성된 mp4를 만듭니다.
       </p>
 
       <div style={{ marginTop: 14, maxWidth: 720 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-          유튜브 쿠키 파일
+          원본 영상 파일
         </div>
         <div
           style={{
@@ -216,56 +243,57 @@ export default function Shorts3Panel() {
           }}
         >
           <input
-            ref={cookieInputRef}
+            ref={videoInputRef}
             type="file"
-            accept=".txt,text/plain"
+            accept={VIDEO_ACCEPT}
             style={{ display: "none" }}
-            onChange={(e) => setCookieFile(e.target.files?.[0] ?? null)}
+            onChange={onVideoFileChange}
           />
           <button
             type="button"
             className="primary"
-            disabled={busy}
-            onClick={() => cookieInputRef.current?.click()}
+            disabled={busy || uploading}
+            onClick={() => videoInputRef.current?.click()}
           >
             파일 선택
           </button>
-          <span className="muted" style={{ fontSize: 13, maxWidth: 260 }}>
-            {cookieFile
-              ? cookieFile.name
-              : "선택 없음 — 브라우저에서 내보낸 cookies.txt"}
+          <span className="muted" style={{ fontSize: 13, maxWidth: 280 }}>
+            {videoFile
+              ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
+              : "선택 없음 — mp4 · mov · avi"}
           </span>
           <button
             type="button"
             className="primary primary-fill"
-            disabled={busy || cookieUploading || !cookieFile}
-            onClick={onCookieUpload}
+            disabled={busy || uploading || !videoFile}
+            onClick={onUploadSource}
           >
-            {cookieUploading ? "업로드 중…" : "업로드"}
+            {uploading ? "업로드 중…" : "S3에 업로드"}
           </button>
-          <span className="muted" style={{ fontWeight: 700 }}>
-            {cookieRemoteOk === null
-              ? "상태: 확인 중…"
-              : cookieRemoteOk
-                ? "상태: 완료"
-                : "상태: 미업로드"}
-          </span>
         </div>
-      </div>
 
-      <div style={{ marginTop: 14, maxWidth: 720 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-          유튜브 URL
-        </div>
-        <input
-          type="url"
-          className="input-wide"
-          placeholder="https://www.youtube.com/watch?v=…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          disabled={busy}
-          style={{ width: "100%", boxSizing: "border-box", padding: 10 }}
-        />
+        {uploading ? (
+          <div style={{ marginTop: 12 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+              업로드 진행
+            </div>
+            <div className="video-export-progress-wrap">
+              <div className="video-export-progress-bar">
+                <div
+                  className="video-export-progress-fill"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <div className="muted" style={{ marginTop: 8 }}>
+                {uploadProgress}%
+              </div>
+            </div>
+          </div>
+        ) : uploadPhase === "done" ? (
+          <div className="muted" style={{ marginTop: 12, fontWeight: 700 }}>
+            업로드 완료 (jobId 저장됨)
+          </div>
+        ) : null}
       </div>
 
       <div style={{ marginTop: 20 }}>
@@ -284,7 +312,7 @@ export default function Shorts3Panel() {
           <button
             type="button"
             className="primary"
-            disabled={busy || segments.length >= MAX_SEGMENTS}
+            disabled={busy || uploading}
             onClick={addSegment}
           >
             + 구간 추가
@@ -321,7 +349,7 @@ export default function Shorts3Panel() {
                 onChange={(e) =>
                   handleTimeChange(index, "start", e.target.value)
                 }
-                disabled={busy}
+                disabled={busy || uploading}
                 style={{
                   padding: 8,
                   width: 120,
@@ -338,7 +366,7 @@ export default function Shorts3Panel() {
                 onChange={(e) =>
                   handleTimeChange(index, "end", e.target.value)
                 }
-                disabled={busy}
+                disabled={busy || uploading}
                 style={{
                   padding: 8,
                   width: 120,
@@ -348,7 +376,7 @@ export default function Shorts3Panel() {
               <button
                 type="button"
                 className="ghost"
-                disabled={busy || segments.length <= 2}
+                disabled={busy || uploading || segments.length <= 2}
                 onClick={() => removeSegment(index)}
                 title="삭제"
               >
@@ -370,7 +398,7 @@ export default function Shorts3Panel() {
               <button
                 key={o.id}
                 type="button"
-                disabled={busy}
+                disabled={busy || uploading}
                 onClick={() => setCropPosition(o.id)}
                 style={{
                   background: active ? "#0a8f6a" : "#13c79a",
@@ -381,8 +409,8 @@ export default function Shorts3Panel() {
                   color: "#0b1a14",
                   padding: "10px 18px",
                   borderRadius: 8,
-                  cursor: busy ? "not-allowed" : "pointer",
-                  opacity: busy ? 0.65 : 1,
+                  cursor: busy || uploading ? "not-allowed" : "pointer",
+                  opacity: busy || uploading ? 0.65 : 1,
                 }}
               >
                 {o.label}
@@ -404,7 +432,7 @@ export default function Shorts3Panel() {
         <button
           type="button"
           className="primary primary-fill"
-          disabled={busy}
+          disabled={busy || uploading || uploadPhase !== "done"}
           onClick={onGenerate}
         >
           {busy ? "처리 중…" : "영상 생성"}

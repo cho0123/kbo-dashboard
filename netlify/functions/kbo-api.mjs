@@ -125,6 +125,10 @@ function corsHeaders() {
 
 const YOUTUBE_COOKIE_S3_KEY = "cookies/youtube.txt";
 const COOKIE_PRESIGN_EXPIRES_SEC = 3600;
+const HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC = 3600;
+
+const UUID_V4_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** 쇼츠3 하이라이트 인코딩: S3 메타 작성 후 Lambda 비동기 호출 (video-encode.mjs 와 동일 자격·버킷) */
 function videoEncodeAwsClients() {
@@ -2200,16 +2204,48 @@ export const handler = async (event) => {
           };
         }
       }
+      case "highlight_upload": {
+        try {
+          const jobId = randomUUID();
+          const { s3, bucket } = videoEncodeAwsClients();
+          const key = `jobs/${jobId}/source.mp4`;
+          const cmd = new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+          });
+          const presignedPutUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              jobId,
+              key,
+              bucket,
+              presignedPutUrl,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "highlight_video_create": {
-        const url = String(payload.url || "").trim();
+        const jobId = String(payload.jobId || "").trim();
         const segmentsIn = payload.segments;
         const cropRaw = String(payload.cropPosition || "center").toLowerCase();
         const allowedCrop = new Set(["left", "center", "right"]);
-        if (!url) {
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
           return {
             statusCode: 400,
             headers: corsHeaders(),
-            body: JSON.stringify({ ok: false, error: "url이 필요합니다." }),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
           };
         }
         if (!Array.isArray(segmentsIn) || segmentsIn.length < 1) {
@@ -2257,11 +2293,27 @@ export const handler = async (event) => {
           segments.push({ start: st, end: en });
         }
 
-        const jobId = randomUUID();
         const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
+        const sourceKey = `jobs/${jobId}/source.mp4`;
+        try {
+          await s3.send(
+            new HeadObjectCommand({ Bucket: bucket, Key: sourceKey })
+          );
+        } catch {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error:
+                "원본 영상이 S3에 없습니다. 먼저 하이라이트 업로드로 파일을 올려주세요.",
+            }),
+          };
+        }
+
         const meta = {
           type: "highlight",
-          sourceUrl: url,
+          sourceUpload: true,
           segments,
           cropPosition: cropRaw,
         };
