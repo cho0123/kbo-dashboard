@@ -15,14 +15,6 @@ function emptySegment() {
   return { start: "", end: "" };
 }
 
-/** 숫자만(최대 6자리) → HH:MM:SS (빈 값은 그대로 빈 문자열) */
-const formatTime = (val) => {
-  const digits = String(val).replace(/\D/g, "").slice(0, 6);
-  if (digits.length === 0) return "";
-  const d = digits.padStart(6, "0");
-  return d.slice(0, 2) + ":" + d.slice(2, 4) + ":" + d.slice(4, 6);
-};
-
 export default function Shorts3Panel() {
   const [url, setUrl] = useState("");
   const [segments, setSegments] = useState([
@@ -45,16 +37,21 @@ export default function Shorts3Panel() {
     setSegments((s) => (s.length <= 2 ? s : s.filter((_, i) => i !== idx)));
   }, []);
 
-  const updateSegment = useCallback((idx, field, value) => {
-    const formatted =
-      field === "start" || field === "end" ? formatTime(value) : value;
-    setSegments((s) => {
-      const next = s.map((row, i) =>
-        i === idx ? { ...row, [field]: formatted } : row
-      );
-      return next;
-    });
-  }, []);
+  const handleTimeChange = (segIndex, field, rawVal) => {
+    const digits = rawVal.replace(/\D/g, "").slice(0, 6);
+    let formatted = digits;
+    if (digits.length > 4) {
+      formatted =
+        digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
+    } else if (digits.length > 2) {
+      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
+    }
+    setSegments((prev) =>
+      prev.map((seg, i) =>
+        i === segIndex ? { ...seg, [field]: formatted } : seg
+      )
+    );
+  };
 
   const onGenerate = async () => {
     cancelRef.current = false;
@@ -192,9 +189,9 @@ export default function Shorts3Panel() {
             gap: 10,
           }}
         >
-          {segments.map((row, idx) => (
+          {segments.map((seg, index) => (
             <div
-              key={idx}
+              key={index}
               style={{
                 display: "flex",
                 flexDirection: "row",
@@ -204,14 +201,17 @@ export default function Shorts3Panel() {
               }}
             >
               <span className="muted" style={{ minWidth: 40, flexShrink: 0 }}>
-                #{idx + 1}
+                #{index + 1}
               </span>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="00:00:00"
-                value={row.start}
-                onChange={(e) => updateSegment(idx, "start", e.target.value)}
+                maxLength={8}
+                value={seg.start}
+                onChange={(e) =>
+                  handleTimeChange(index, "start", e.target.value)
+                }
                 disabled={busy}
                 style={{
                   padding: 8,
@@ -224,8 +224,11 @@ export default function Shorts3Panel() {
                 type="text"
                 inputMode="numeric"
                 placeholder="00:00:00"
-                value={row.end}
-                onChange={(e) => updateSegment(idx, "end", e.target.value)}
+                maxLength={8}
+                value={seg.end}
+                onChange={(e) =>
+                  handleTimeChange(index, "end", e.target.value)
+                }
                 disabled={busy}
                 style={{
                   padding: 8,
@@ -237,7 +240,7 @@ export default function Shorts3Panel() {
                 type="button"
                 className="ghost"
                 disabled={busy || segments.length <= 2}
-                onClick={() => removeSegment(idx)}
+                onClick={() => removeSegment(index)}
                 title="삭제"
               >
                 ✕
