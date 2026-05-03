@@ -691,6 +691,39 @@ function teamLogoPath(teamName) {
   return TEAM_LOGO_PATH[teamKeyword(teamName)] || null;
 }
 
+/** 쇼츠1 인트로 10구단 로고 (프리로드·흩뿌리기 동일 순서) */
+const KBO_INTRO_TEAM_KEYS = [
+  "KIA",
+  "삼성",
+  "LG",
+  "두산",
+  "KT",
+  "SSG",
+  "롯데",
+  "한화",
+  "NC",
+  "키움",
+];
+
+function hashSeed(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const __svgLogoCache = new Map();
 async function loadSvgLogo(teamName) {
   const path = TEAM_LOGO_PATH[String(teamName || "").trim()] || teamLogoPath(teamName);
@@ -788,79 +821,81 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillText(kboText, w / 2, Math.round(h * 0.27) - 50);
   ctx.restore();
 
-  // 위→아래: KBO → 날짜 → 프로야구 → 구분선 → 써머리 → 1분컷 (h 기준 비율, 1920 기준 예시 주석)
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // 날짜 (h*0.38 ≈ 730@1920) — 1분컷과 동일 ONE_MIN_COLOR
   ctx.save();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const dateY = Math.round(h * 0.38) + 70 + 50;
+  ctx.fillStyle = "#FFFFFF";
+  let topTitleSize = 80;
+  ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  while (ctx.measureText(introTitle).width > w * 0.92 && topTitleSize > 44) {
+    topTitleSize -= 2;
+    ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.fillText(introTitle, w / 2, h * 0.1);
+  ctx.restore();
+
+  const bandTop = h * 0.18;
+  const bandBottom = h * 0.58;
+  const bandH = bandBottom - bandTop;
+  const padX = 90;
+  const padY = Math.min(100, bandH * 0.12);
+  for (const tk of KBO_INTRO_TEAM_KEYS) {
+    const rand = mulberry32(hashSeed(`${iso}:intro-scatter:${tk}`));
+    const size = 130 + rand() * 90;
+    const angleDeg = -25 + rand() * 50;
+    const cx = padX + rand() * Math.max(20, w - 2 * padX);
+    const cy = bandTop + padY + rand() * Math.max(20, bandH - 2 * padY);
+    const img = logosByTeamKey?.[tk] || null;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((angleDeg * Math.PI) / 180);
+    if (img) {
+      const iw = Number(img.naturalWidth ?? img.width) || 1;
+      const ih = Number(img.naturalHeight ?? img.height) || 1;
+      const ratio = iw / ih;
+      const drawH = size;
+      const drawW = size * ratio;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    }
+    ctx.restore();
+  }
+
+  const dateY = Math.round(h * 0.64);
   const dateStr = fmtKoreanLongDate(date);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
   ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.fillText(dateStr, w / 2, dateY);
   ctx.restore();
 
-  // 프로야구 (h*0.52 ≈ 998@1920)
-  ctx.save();
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  const proY = Math.round(h * 0.52) + 50;
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 68px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("프로야구", w / 2, proY);
-
-  const proDivY = proY + 52;
-  const proDivW = 420;
+  const divY = dateY + 70;
+  const divW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(w / 2 - proDivW / 2, proDivY);
-  ctx.lineTo(w / 2 + proDivW / 2, proDivY);
+  ctx.moveTo(w / 2 - divW / 2, divY);
+  ctx.lineTo(w / 2 + divW / 2, divY);
   ctx.stroke();
-  ctx.restore();
 
-  // 오늘 경기 결과 (프로야구 + 140px)
-  const titleY = proY + 140;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 14;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 6;
-  ctx.font = `900 128px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("오늘 경기 결과", w / 2, titleY);
-
-  // 1분컷 (써머리 + 280px), 날짜·1분컷 사이 구분선 없음
+  const oneMinY = divY + 130;
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
   ctx.shadowBlur = 12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
-  const oneMinY = titleY + 280;
   ctx.fillText("1분컷", w / 2, oneMinY);
-
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
-  const oneMinFontPx = 220;
-  const oneMinDividerY = oneMinY + oneMinFontPx / 2 + 60;
-  const oneMinDivW = 600;
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - oneMinDivW / 2, oneMinDividerY);
-  ctx.lineTo(w / 2 + oneMinDivW / 2, oneMinDividerY);
-  ctx.stroke();
 
   ctx.restore();
 }
@@ -2366,21 +2401,7 @@ function Card8Shorts({ defaultDate }) {
     // Preload local SVG logos (same-origin) for this slide
     const teamKeys = new Set();
     if (slide.type === "intro") {
-      // preload all 10 team logos for intro collage
-      for (const tk of [
-        "KIA",
-        "삼성",
-        "LG",
-        "두산",
-        "KT",
-        "SSG",
-        "롯데",
-        "한화",
-        "NC",
-        "키움",
-      ]) {
-        teamKeys.add(tk);
-      }
+      for (const tk of KBO_INTRO_TEAM_KEYS) teamKeys.add(tk);
     } else if (slide.type === "summary") {
       const upto = Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1));
       const subset = games.slice(0, upto);
