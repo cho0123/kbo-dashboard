@@ -54,6 +54,9 @@ const NODE_PATHS = [
   "/opt/nodejs/bin/node",
 ];
 
+const YT_DLP_CHROME_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 /**
  * URL에서 영상 다운로드(병합 mp4). Lambda 패키지의 bin/yt-dlp 사용.
  * @param {string} url
@@ -61,7 +64,7 @@ const NODE_PATHS = [
  * @param {string} [_quality='1080'] - 호환용 (현재 -f 문자열에 고정 반영)
  * @returns {Promise<string>} 실제 저장된 파일 절대 경로
  */
-async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null) {
+async function downloadVideo(url, workDir, _quality = "1080") {
   const bin = ytdlpBin();
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
@@ -81,13 +84,13 @@ async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null
   const jsRuntime = nodePath ? `node:${nodePath}` : "node";
   console.log("[yt-dlp] js-runtime:", jsRuntime);
 
-  const args = [];
-  if (cookiesPath && existsSync(cookiesPath)) {
-    args.push("--cookies", cookiesPath);
-  }
-  args.push(
+  const args = [
     "--js-runtimes",
     jsRuntime,
+    "--extractor-args",
+    "youtube:player_client=web_creator,default",
+    "--user-agent",
+    YT_DLP_CHROME_UA,
     "-f",
     "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]",
     "--merge-output-format",
@@ -95,8 +98,8 @@ async function downloadVideo(url, workDir, _quality = "1080", cookiesPath = null
     "--no-playlist",
     "-o",
     join(workDir, "source.%(ext)s"),
-    String(url || "").trim()
-  );
+    String(url || "").trim(),
+  ];
   await new Promise((resolvePromise, reject) => {
     const child = spawn(bin, args, {
       env: { ...process.env },
@@ -390,18 +393,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   if (segments.length < 1) throw new Error("구간 없음");
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
-  const cookiesLocal = join(workDir, "youtube_cookies.txt");
-  let cookiesPath = null;
-  try {
-    await getObjectFile(bucket, "cookies/youtube.txt", cookiesLocal);
-    cookiesPath = cookiesLocal;
-  } catch (e) {
-    console.warn(
-      "[highlight] S3 cookies/youtube.txt 없음 — 비로그인 다운로드 시도:",
-      e instanceof Error ? e.message : e
-    );
-  }
-  const videoPath = await downloadVideo(url, workDir, "1080", cookiesPath);
+  const videoPath = await downloadVideo(url, workDir, "1080");
   const sourceFileName = basename(videoPath);
 
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
@@ -1015,7 +1007,6 @@ export const handler = async (event) => {
           "list_chunks.txt",
           "joined.mp4",
           "music.mp3",
-          "youtube_cookies.txt",
           "joined_hi.mp4",
           "concat_hi.txt",
         ]) {
