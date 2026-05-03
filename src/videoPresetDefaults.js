@@ -7,7 +7,7 @@ export const SLIDE_KEYS_SHORTS1 = [
   "game_detail",
   "standings",
 ];
-export const SLIDE_KEYS_SHORTS3 = ["intro", "summary", "game_detail", "standings"];
+export const SLIDE_KEYS_SHORTS4 = ["intro", "summary", "game_detail", "standings"];
 export const SLIDE_KEYS_SHORTS2 = [
   "intro",
   "game_preview",
@@ -30,8 +30,8 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠3: summary_last 구분 없음(쇼츠1 전용) */
-export const DEFAULT_DURATION_SHORTS3 = {
+/** 쇼츠4: summary_last 구분 없음(쇼츠1 전용) */
+export const DEFAULT_DURATION_SHORTS4 = {
   intro: 3.0,
   summary: 2.5,
   game_detail: 2.0,
@@ -44,9 +44,9 @@ export function defaultSlidesForType(shortsType) {
       return { ...DEFAULT_DURATION_SHORTS1 };
     case "shorts2":
       return { ...DEFAULT_DURATION_SHORTS2 };
-    case "shorts3":
+    case "shorts4":
     default:
-      return { ...DEFAULT_DURATION_SHORTS3 };
+      return { ...DEFAULT_DURATION_SHORTS4 };
   }
 }
 
@@ -71,7 +71,7 @@ export function slideFrameCountForKey(shortsType, key) {
     };
     return m[key] ?? 1;
   }
-  if (shortsType === "shorts3") {
+  if (shortsType === "shorts3" || shortsType === "shorts4") {
     const m = {
       intro: 1,
       summary: 1,

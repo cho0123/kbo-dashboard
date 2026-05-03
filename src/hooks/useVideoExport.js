@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   DEFAULT_DURATION_SHORTS1,
   DEFAULT_DURATION_SHORTS2,
-  DEFAULT_DURATION_SHORTS3,
+  DEFAULT_DURATION_SHORTS4,
 } from "../videoPresetDefaults.js";
 
 const POLL_MS = 1500;
@@ -20,8 +20,8 @@ function resolveDuration(key, preset, shortsType) {
   const map =
     shortsType === "shorts2"
       ? DEFAULT_DURATION_SHORTS2
-      : shortsType === "shorts3"
-        ? DEFAULT_DURATION_SHORTS3
+      : shortsType === "shorts3" || shortsType === "shorts4"
+        ? DEFAULT_DURATION_SHORTS4
         : DEFAULT_DURATION_SHORTS1;
 
   if (shortsType === "shorts2") {

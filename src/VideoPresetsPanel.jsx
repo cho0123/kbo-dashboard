@@ -10,7 +10,7 @@ import {
 const SHORTS_TYPES = [
   { id: "shorts1", label: "쇼츠1" },
   { id: "shorts2", label: "쇼츠2" },
-  { id: "shorts3", label: "쇼츠3" },
+  { id: "shorts4", label: "쇼츠4" },
 ];
 
 export default function VideoPresetsPanel() {
@@ -190,7 +190,7 @@ export default function VideoPresetsPanel() {
       </p>
 
       <div className="preset-filter-tabs" role="tablist">
-        {["all", "shorts1", "shorts2", "shorts3"].map((key) => (
+        {["all", "shorts1", "shorts2", "shorts4"].map((key) => (
           <button
             key={key}
             type="button"
@@ -205,7 +205,7 @@ export default function VideoPresetsPanel() {
                 ? "쇼츠1"
                 : key === "shorts2"
                   ? "쇼츠2"
-                  : "쇼츠3"}
+                  : "쇼츠4"}
           </button>
         ))}
       </div>
@@ -225,9 +225,11 @@ export default function VideoPresetsPanel() {
       <div className="preset-card-grid">
         {filtered.map((p) => {
           const st =
-            p.shorts_type === "shorts2" || p.shorts_type === "shorts3"
-              ? p.shorts_type
-              : "shorts1";
+            p.shorts_type === "shorts2"
+              ? "shorts2"
+              : p.shorts_type === "shorts3" || p.shorts_type === "shorts4"
+                ? "shorts4"
+                : "shorts1";
           return (
           <div
             key={p.id}

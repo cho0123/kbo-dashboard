@@ -1367,7 +1367,7 @@ button.primary:disabled {
   transition: border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 
-/* 타입별 구분: shorts1 파랑, shorts2 초록, shorts3 앰버 */
+/* 타입별 구분: shorts1 파랑, shorts2 초록, shorts4 앰버 */
 .preset-card--shorts1 {
   border-left: 4px solid #4f8cff;
   background: linear-gradient(
@@ -1388,7 +1388,7 @@ button.primary:disabled {
     var(--elevated);
 }
 
-.preset-card--shorts3 {
+.preset-card--shorts4 {
   border-left: 4px solid #e8b84a;
   background: linear-gradient(
       145deg,
@@ -1412,7 +1412,7 @@ button.primary:disabled {
   border-color: rgba(43, 212, 163, 0.45);
 }
 
-.preset-card--shorts3:hover {
+.preset-card--shorts4:hover {
   border-color: rgba(232, 184, 74, 0.45);
 }
 
@@ -1446,7 +1446,7 @@ button.primary:disabled {
   border: 1px solid rgba(43, 212, 163, 0.35);
 }
 
-.preset-card--shorts3 .preset-card-badge {
+.preset-card--shorts4 .preset-card-badge {
   background: rgba(232, 184, 74, 0.22);
   color: #fff3d6;
   border: 1px solid rgba(232, 184, 74, 0.35);
