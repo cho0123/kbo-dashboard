@@ -1714,20 +1714,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const listTop = DIVIDER_Y + 180;
   const lineGap = 107;
 
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#FFFFFF";
-  // 하단 텍스트 그림자(가독성)
-  ctx.shadowColor = "rgba(0,0,0,0.6)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // • 구장명
-  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
-  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
-  ctx.fillText(`• ${venueText}`, leftX, listTop);
-
-  // • 순위 (standings 기반)
   const homeTeamName = String(g?.home_team || "—");
   const awayTeamName = String(g?.away_team || "—");
   const homeKey = teamKeyword(homeTeamName);
@@ -1742,14 +1728,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const pickRank = (r) => r?.rank ?? r?.RANK ?? r?.순위 ?? null;
   const homeRank = pickRank(homeRow);
   const awayRank = pickRank(awayRow);
-  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(
-    `• 순위  ${homeTeamName} ${homeRank ?? "—"}위  |  ${awayTeamName} ${awayRank ?? "—"}위`,
-    leftX,
-    listTop + lineGap * 1
-  );
-
-  // • 상대전적 (홈팀기준)
   const h2h =
     g?.headToHead ??
     g?.head_to_head ??
@@ -1759,27 +1737,76 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const h2hText = h2h
     ? `• 상대전적  ${homeTeamName} ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
     : `• 상대전적 데이터 없음`;
-  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(h2hText, leftX, listTop + lineGap * 2);
 
-  // • 승/패 투수
   const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
   const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
   const winEra = g?.winning_pitcher_era ?? null;
   const loseEra = g?.losing_pitcher_era ?? null;
-  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(
-    `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`,
-    leftX,
-    listTop + lineGap * 3
-  );
-
-  // • ⭐ MVP
+  const pitcherLine = `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
   const mvpName = cleanName(g?.mvp_batter?.name ?? "—");
   const mvpH = g?.mvp_batter?.h ?? null;
   const mvpHr = g?.mvp_batter?.hr ?? null;
   const mvpStat =
     mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#FFFFFF";
+  // 하단 텍스트 그림자(가독성)
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // • 승/패 투수 — 맨 위, 반투명 검정 박스 강조 (박스 → 텍스트 순서)
+  const bulletBodyPx = 48;
+  const pitcherFontPx = Math.round(bulletBodyPx * 1.1);
+  ctx.font = `600 ${pitcherFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  const pm = ctx.measureText(pitcherLine);
+  const pAsc = pm.actualBoundingBoxAscent ?? pitcherFontPx * 0.72;
+  const pDesc = pm.actualBoundingBoxDescent ?? pitcherFontPx * 0.28;
+  const boxPadX = 30;
+  const boxPadY = 18;
+  const boxRadius = 12;
+  const pitchBaselineY = listTop + lineGap * 0;
+  const boxW = pm.width + boxPadX * 2;
+  const boxH = pAsc + pDesc + boxPadY * 2;
+  const boxLeft = leftX - boxPadX;
+  const boxTop = pitchBaselineY - pAsc - boxPadY;
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.beginPath();
+  ctx.roundRect(boxLeft, boxTop, boxW, boxH, boxRadius);
+  ctx.fill();
+
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(pitcherLine, leftX, pitchBaselineY);
+
+  // • 구장명
+  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
+  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
+  ctx.fillText(`• ${venueText}`, leftX, listTop + lineGap * 1);
+
+  // • 순위 (standings 기반)
+  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(
+    `• 순위  ${homeTeamName} ${homeRank ?? "—"}위  |  ${awayTeamName} ${awayRank ?? "—"}위`,
+    leftX,
+    listTop + lineGap * 2
+  );
+
+  // • 상대전적 (홈팀기준)
+  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 3);
+
+  // • ⭐ MVP
   ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif`;
   ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 4);
 
