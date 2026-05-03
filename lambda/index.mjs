@@ -46,22 +46,24 @@ function ytdlpBin() {
  * @param {string} outputPath - yt-dlp -o 대상 경로(파일)
  * @param {string} [quality='1080'] - 최대 높이(px) 문자열
  */
-async function downloadVideo(url, outputPath, quality = "1080") {
+async function downloadVideo(url, outputPath, quality = "1080", cookiesPath = null) {
   const bin = ytdlpBin();
   if (!existsSync(bin)) {
     throw new Error(`yt-dlp not found at ${bin}`);
   }
   const fmt = `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]`;
-  const args = [
-    "-f",
-    fmt,
-    "--merge-output-format",
-    "mp4",
+  const args = ["-f", fmt, "--merge-output-format", "mp4"];
+  if (cookiesPath && existsSync(cookiesPath)) {
+    args.push("--cookies", cookiesPath);
+  }
+  args.push(
+    "--extractor-args",
+    "youtube:skip=dash,hls",
     "-o",
     outputPath,
     "--no-playlist",
-    String(url || "").trim(),
-  ];
+    String(url || "").trim()
+  );
   await new Promise((resolvePromise, reject) => {
     const child = spawn(bin, args, {
       env: { ...process.env },
@@ -348,7 +350,18 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
 
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
   const srcPath = join(workDir, "source.mp4");
-  await downloadVideo(url, srcPath, "1080");
+  const cookiesLocal = join(workDir, "youtube_cookies.txt");
+  let cookiesPath = null;
+  try {
+    await getObjectFile(bucket, "cookies/youtube.txt", cookiesLocal);
+    cookiesPath = cookiesLocal;
+  } catch (e) {
+    console.warn(
+      "[highlight] S3 cookies/youtube.txt 없음 — 비로그인 다운로드 시도:",
+      e instanceof Error ? e.message : e
+    );
+  }
+  await downloadVideo(url, srcPath, "1080", cookiesPath);
 
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
@@ -952,6 +965,7 @@ export const handler = async (event) => {
           "joined.mp4",
           "music.mp3",
           "source.mp4",
+          "youtube_cookies.txt",
           "joined_hi.mp4",
           "concat_hi.txt",
         ]) {

@@ -2,7 +2,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import admin from "firebase-admin";
 import { randomUUID } from "crypto";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
@@ -117,6 +122,9 @@ function corsHeaders() {
     "Content-Type": "application/json; charset=utf-8",
   };
 }
+
+const YOUTUBE_COOKIE_S3_KEY = "cookies/youtube.txt";
+const COOKIE_PRESIGN_EXPIRES_SEC = 3600;
 
 /** 쇼츠3 하이라이트 인코딩: S3 메타 작성 후 Lambda 비동기 호출 (video-encode.mjs 와 동일 자격·버킷) */
 function videoEncodeAwsClients() {
@@ -2288,6 +2296,68 @@ export const handler = async (event) => {
           headers: corsHeaders(),
           body: JSON.stringify({ ok: true, jobId, message: "queued" }),
         };
+      }
+      case "cookie_upload": {
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const cmd = new PutObjectCommand({
+            Bucket: bucket,
+            Key: YOUTUBE_COOKIE_S3_KEY,
+            ContentType: "text/plain; charset=utf-8",
+          });
+          const presignedPutUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: COOKIE_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              key: YOUTUBE_COOKIE_S3_KEY,
+              bucket,
+              presignedPutUrl,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
+      case "youtube_cookie_status": {
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          await s3.send(
+            new HeadObjectCommand({
+              Bucket: bucket,
+              Key: YOUTUBE_COOKIE_S3_KEY,
+            })
+          );
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, exists: true }),
+          };
+        } catch (e) {
+          const sc = e?.$metadata?.httpStatusCode;
+          const name = e?.name || e?.Code || "";
+          if (sc === 404 || name === "NotFound") {
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: true, exists: false }),
+            };
+          }
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
       }
       case "shorts_slides_data": {
         const dateStr = payload.date || isoSeoulToday();

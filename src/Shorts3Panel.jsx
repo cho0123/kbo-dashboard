@@ -1,5 +1,19 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { postKbo } from "./api.js";
+
+async function putPresigned(url, body, contentType) {
+  const res = await fetch(url, {
+    method: "PUT",
+    body,
+    headers: { "Content-Type": contentType },
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(
+      `S3 업로드 실패 HTTP ${res.status}${t ? `: ${t.slice(0, 200)}` : ""}`
+    );
+  }
+}
 
 const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
@@ -28,6 +42,51 @@ export default function Shorts3Panel() {
   const [progress, setProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const cancelRef = useRef(false);
+  const cookieInputRef = useRef(null);
+  const [cookieFile, setCookieFile] = useState(null);
+  const [cookieUploading, setCookieUploading] = useState(false);
+  /** null = 서버 확인 전, true = S3에 파일 있음 */
+  const [cookieRemoteOk, setCookieRemoteOk] = useState(null);
+
+  const loadCookieStatus = useCallback(async () => {
+    try {
+      const res = await postKbo({ action: "youtube_cookie_status" });
+      setCookieRemoteOk(Boolean(res?.exists));
+    } catch {
+      setCookieRemoteOk(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCookieStatus();
+  }, [loadCookieStatus]);
+
+  const onCookieUpload = async () => {
+    if (!cookieFile) {
+      window.alert("cookies.txt 파일을 선택하세요.");
+      return;
+    }
+    const name = String(cookieFile.name || "").toLowerCase();
+    if (!name.endsWith(".txt")) {
+      window.alert(".txt 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    setCookieUploading(true);
+    setError(null);
+    try {
+      const prep = await postKbo({ action: "cookie_upload" });
+      const putUrl = prep?.presignedPutUrl;
+      if (!putUrl) throw new Error("presignedPutUrl 없음");
+      await putPresigned(putUrl, cookieFile, "text/plain; charset=utf-8");
+      setCookieFile(null);
+      if (cookieInputRef.current) cookieInputRef.current.value = "";
+      setCookieRemoteOk(true);
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setCookieUploading(false);
+    }
+  };
 
   const addSegment = useCallback(() => {
     setSegments((s) => (s.length >= MAX_SEGMENTS ? s : [...s, emptySegment()]));
@@ -143,6 +202,56 @@ export default function Shorts3Panel() {
         유튜브 URL과 구간(HH:MM:SS)을 지정하면 9:16(1080×1920)으로 합성된 mp4를
         만듭니다.
       </p>
+
+      <div style={{ marginTop: 14, maxWidth: 720 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+          유튜브 쿠키 파일
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <input
+            ref={cookieInputRef}
+            type="file"
+            accept=".txt,text/plain"
+            style={{ display: "none" }}
+            onChange={(e) => setCookieFile(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() => cookieInputRef.current?.click()}
+          >
+            파일 선택
+          </button>
+          <span className="muted" style={{ fontSize: 13, maxWidth: 260 }}>
+            {cookieFile
+              ? cookieFile.name
+              : "선택 없음 — 브라우저에서 내보낸 cookies.txt"}
+          </span>
+          <button
+            type="button"
+            className="primary primary-fill"
+            disabled={busy || cookieUploading || !cookieFile}
+            onClick={onCookieUpload}
+          >
+            {cookieUploading ? "업로드 중…" : "업로드"}
+          </button>
+          <span className="muted" style={{ fontWeight: 700 }}>
+            {cookieRemoteOk === null
+              ? "상태: 확인 중…"
+              : cookieRemoteOk
+                ? "상태: 완료"
+                : "상태: 미업로드"}
+          </span>
+        </div>
+      </div>
 
       <div style={{ marginTop: 14, maxWidth: 720 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
