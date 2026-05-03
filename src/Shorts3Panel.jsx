@@ -935,66 +935,55 @@ export default function Shorts3Panel() {
         style={{
           marginTop: 16,
           display: "flex",
-          flexDirection: "row",
-          gap: 16,
-          alignItems: "stretch",
+          flexDirection: "column",
+          gap: 0,
           width: "100%",
           overflow: "visible",
         }}
       >
         <div
           style={{
-            flex: "0 1 45%",
-            minWidth: 0,
-            maxWidth: "100%",
-            overflow: "visible",
-            alignSelf: "stretch",
-            display: "flex",
-            flexDirection: "column",
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            width: "100%",
+            background: "#ffffff",
+            paddingTop: 4,
+            paddingBottom: 14,
+            boxSizing: "border-box",
           }}
         >
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              height: "fit-content",
-              alignSelf: "flex-start",
-              width: "100%",
-              zIndex: 10,
-              overflow: "visible",
-            }}
-          >
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-              원본 미리보기
-            </div>
-            {uploadPhase === "done" && previewUrl ? (
-              <>
-                <div
-                  ref={previewVideoWrapRef}
+          <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+            원본 미리보기
+          </div>
+          {uploadPhase === "done" && previewUrl ? (
+            <>
+              <div
+                ref={previewVideoWrapRef}
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  maxHeight: 400,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#000",
+                }}
+              >
+                <video
+                  ref={previewVideoRef}
+                  src={previewUrl}
+                  controls
+                  playsInline
                   style={{
                     position: "relative",
+                    zIndex: 0,
                     width: "100%",
-                    maxHeight: 280,
-                    borderRadius: 8,
-                    overflow: "hidden",
+                    maxHeight: 400,
+                    display: "block",
+                    objectFit: "contain",
                     background: "#000",
                   }}
-                >
-                  <video
-                    ref={previewVideoRef}
-                    src={previewUrl}
-                    controls
-                    playsInline
-                    style={{
-                      position: "relative",
-                      zIndex: 0,
-                      width: "100%",
-                      maxHeight: 280,
-                      display: "block",
-                      objectFit: "contain",
-                      background: "#000",
-                    }}
-                  />
+                />
                   {previewCropOverlay ? (
                     <div
                       style={{
@@ -1098,18 +1087,9 @@ export default function Shorts3Panel() {
                 있습니다.
               </p>
             )}
-          </div>
         </div>
 
-        <div
-          style={{
-            flex: "0 1 55%",
-            minWidth: 0,
-            maxWidth: "100%",
-            overflow: "visible",
-          }}
-        >
-      <div style={{ marginTop: 0 }}>
+        <div style={{ width: "100%", marginTop: 16 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
           로컬 다운로드
         </div>
