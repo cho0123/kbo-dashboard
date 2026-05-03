@@ -2368,27 +2368,25 @@ export const handler = async (event) => {
             const bt = pickTeamName(b);
             return bt && winTeam && (bt.includes(winTeam) || winTeam.includes(bt));
           });
-          let best = null;
-          let bestHr = -1;
-          let bestH = -1;
-          for (const b of winBatters) {
+          // MVP 타자 1·2위: 승리 팀만, 선정 기준 기존과 동일 — 홈런 우선, 동률이면 안타
+          const scoredBatters = winBatters.map((b) => {
             const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
             const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-            if (hr > bestHr || (hr === bestHr && h > bestH)) {
-              bestHr = hr;
-              bestH = h;
-              best = b;
-            }
-          }
-          const mvp = best
-            ? {
-                name: pickPlayerName(best),
-                team: pickTeamName(best),
-                h: bestH,
-                hr: bestHr,
-                ab: pickNum(best, ["ab", "AB", "at_bats", "타수"]),
-              }
-            : null;
+            return { b, hr, h };
+          });
+          scoredBatters.sort((a, b) => {
+            if (b.hr !== a.hr) return b.hr - a.hr;
+            return b.h - a.h;
+          });
+          const topBatters = scoredBatters.slice(0, 2);
+          const mvpBatters = topBatters.map(({ b, hr, h }) => ({
+            name: pickPlayerName(b),
+            team: pickTeamName(b),
+            h,
+            hr,
+            ab: pickNum(b, ["ab", "AB", "at_bats", "타수"]),
+          }));
+          const mvp = mvpBatters[0] ?? null;
 
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
           const homeTeamRaw = String(g?.home_team || rawGame?.home_team || "");
@@ -2497,6 +2495,7 @@ export const handler = async (event) => {
             venue,
             headToHead,
             mvp_batter: mvp,
+            mvp_batters: mvpBatters,
             home_next_game: homeNextGameWithH2h ?? null,
             away_next_game: awayNextGameWithH2h ?? null,
             // Backward-compat: keep next_game but align with home team next game

@@ -1743,11 +1743,14 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const winEra = g?.winning_pitcher_era ?? null;
   const loseEra = g?.losing_pitcher_era ?? null;
   const pitcherLine = `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
-  const mvpName = cleanName(g?.mvp_batter?.name ?? "—");
-  const mvpH = g?.mvp_batter?.h ?? null;
-  const mvpHr = g?.mvp_batter?.hr ?? null;
-  const mvpStat =
-    mvpH == null && mvpHr == null ? "" : ` (${mvpH ?? "—"}H ${mvpHr ?? "—"}HR)`;
+  const fmtMvpLineStat = (h, hr) =>
+    h == null && hr == null ? "" : ` (${h ?? "—"}H ${hr ?? "—"}HR)`;
+  const mvpRows =
+    Array.isArray(g?.mvp_batters) && g.mvp_batters.length > 0
+      ? g.mvp_batters.slice(0, 2)
+      : g?.mvp_batter
+        ? [g.mvp_batter]
+        : [];
 
   ctx.textAlign = "left";
   ctx.fillStyle = "#FFFFFF";
@@ -1806,9 +1809,18 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(h2hText, leftX, listTop + lineGap * 3);
 
-  // • ⭐ MVP
+  // • ⭐ / ✨ 타자 MVP (최대 2명, API 미갱신 시 mvp_batter 단일 호환)
   ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif`;
-  ctx.fillText(`• ⭐ ${mvpName}${mvpStat}`, leftX, listTop + lineGap * 4);
+  if (mvpRows.length === 0) {
+    ctx.fillText(`• ⭐ —`, leftX, listTop + lineGap * 4);
+  } else {
+    mvpRows.forEach((row, i) => {
+      const nm = cleanName(row?.name ?? "—");
+      const stat = fmtMvpLineStat(row?.h ?? null, row?.hr ?? null);
+      const bullet = i === 0 ? "• ⭐ " : "• ✨ ";
+      ctx.fillText(`${bullet}${nm}${stat}`, leftX, listTop + lineGap * (4 + i));
+    });
+  }
 
   // 하단 텍스트 그림자 초기화
   ctx.shadowColor = "transparent";
@@ -2672,7 +2684,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             </div>
             <div className="muted" style={{ marginTop: 10 }}>
               - 슬라이드1: 전체 결과 요약<br />
-              - 슬라이드2~N: 경기별 상세(구장/승패투수/안타 최다 MVP)<br />
+              - 슬라이드2~N: 경기별 상세(구장/승패투수/타자 MVP 최대 2명)<br />
               - 마지막: KBO 순위(`standings`)
             </div>
             <div
