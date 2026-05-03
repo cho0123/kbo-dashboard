@@ -104,6 +104,13 @@ export default function Shorts3Panel() {
   const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
   const previewVideoRef = useRef(null);
 
+  const [muteOriginal, setMuteOriginal] = useState(false);
+  const [musicTracks, setMusicTracks] = useState([]);
+  const [highlightMusicS3Key, setHighlightMusicS3Key] = useState("");
+  const [bgmVolume, setBgmVolume] = useState(0.8);
+  const [bgmStartTime, setBgmStartTime] = useState(0);
+  const [bgmFadeOut, setBgmFadeOut] = useState(2);
+
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
   const [savedFilesError, setSavedFilesError] = useState(null);
@@ -125,6 +132,19 @@ export default function Shorts3Panel() {
   useEffect(() => {
     refreshSavedFiles();
   }, [refreshSavedFiles]);
+
+  const loadMusicTracks = useCallback(async () => {
+    try {
+      const res = await postKbo({ action: "music_list" });
+      setMusicTracks(Array.isArray(res?.tracks) ? res.tracks : []);
+    } catch {
+      setMusicTracks([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMusicTracks();
+  }, [loadMusicTracks]);
 
   const segmentTotalSec = useMemo(() => {
     let sum = 0;
@@ -335,7 +355,7 @@ export default function Shorts3Panel() {
     try {
       setStatus("encoding");
       setMessage("작업 요청 중…");
-      const res = await postKbo({
+      const payload = {
         action: "highlight_video_create",
         jobId,
         segments: segments.map((s) => ({
@@ -343,7 +363,17 @@ export default function Shorts3Panel() {
           end: String(s.end).trim(),
         })),
         cropPosition,
-      });
+        muteOriginal,
+        musicOptions: {
+          volume: bgmVolume,
+          startTime: bgmStartTime,
+          fadeOutDuration: bgmFadeOut,
+        },
+      };
+      if (highlightMusicS3Key.trim()) {
+        payload.music_s3_key = highlightMusicS3Key.trim();
+      }
+      const res = await postKbo(payload);
       if (!res?.jobId) throw new Error("jobId 없음");
 
       setMessage("서버 인코딩 중… (상태 폴링)");
@@ -760,6 +790,96 @@ export default function Shorts3Panel() {
           총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
           {Math.floor(segmentTotalSec)}초)
         </div>
+        <label
+          style={{
+            marginTop: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            cursor: busy || uploading ? "not-allowed" : "pointer",
+            opacity: busy || uploading ? 0.65 : 1,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={muteOriginal}
+            disabled={busy || uploading}
+            onChange={(e) => setMuteOriginal(e.target.checked)}
+          />
+          <span className="muted" style={{ fontWeight: 700 }}>
+            원본 오디오 음소거
+          </span>
+        </label>
+      </div>
+
+      <div style={{ marginTop: 20, maxWidth: 480 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+          배경 음원 (BGM)
+        </div>
+        <label className="preset-field">
+          <span>음원 선택</span>
+          <select
+            value={highlightMusicS3Key}
+            disabled={busy || uploading}
+            onChange={(e) => setHighlightMusicS3Key(e.target.value)}
+          >
+            <option value="">— BGM 없음 —</option>
+            {musicTracks.map((t) => (
+              <option key={t.id} value={t.s3_key}>
+                {t.name || t.s3_key}
+                {Number.isFinite(Number(t.duration))
+                  ? ` (${Math.round(Number(t.duration))}초)`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="preset-field">
+          <span>
+            음원 볼륨 ({bgmVolume.toFixed(2)})
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={bgmVolume}
+            disabled={busy || uploading}
+            onChange={(e) => setBgmVolume(Number(e.target.value))}
+          />
+        </label>
+        <label className="preset-field">
+          <span>음원 시작 위치 (초)</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            value={bgmStartTime}
+            disabled={busy || uploading}
+            onChange={(e) =>
+              setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
+            }
+          />
+        </label>
+        <label className="preset-field">
+          <span>
+            끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={5}
+            step={0.1}
+            value={bgmFadeOut}
+            disabled={busy || uploading}
+            onChange={(e) => setBgmFadeOut(Number(e.target.value))}
+          />
+        </label>
+        <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+          BGM을 선택하면 최종 영상의 오디오가 배경 음원으로 대체됩니다 (쇼츠1/2와
+          동일).
+        </p>
       </div>
 
       <div style={{ marginTop: 20 }}>

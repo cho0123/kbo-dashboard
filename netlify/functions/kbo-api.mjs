@@ -2315,12 +2315,40 @@ export const handler = async (event) => {
           };
         }
 
+        const muteOriginal = Boolean(payload.muteOriginal);
+        const music_s3_key = (() => {
+          const s =
+            payload.music_s3_key != null
+              ? String(payload.music_s3_key).trim()
+              : "";
+          return s || "";
+        })();
+        const mo =
+          payload.musicOptions && typeof payload.musicOptions === "object"
+            ? payload.musicOptions
+            : {};
+        const vol = Number(mo.volume);
+        const mst = Number(mo.startTime);
+        const mfo = Number(mo.fadeOutDuration);
+        const musicOptions = {
+          volume: Number.isFinite(vol) ? Math.min(1, Math.max(0, vol)) : 0.8,
+          startTime: Number.isFinite(mst) ? Math.max(0, mst) : 0,
+          fadeOutDuration: Number.isFinite(mfo)
+            ? Math.min(5, Math.max(0, mfo))
+            : 2,
+        };
+
         const meta = {
           type: "highlight",
           sourceUpload: true,
           segments,
           cropPosition: cropRaw,
+          muteOriginal,
+          musicOptions,
         };
+        if (music_s3_key) {
+          meta.music_s3_key = music_s3_key;
+        }
 
         await s3.send(
           new PutObjectCommand({

@@ -383,32 +383,131 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
 
   const vf = `crop=${cw}:${ih}:${cx}:0,scale=1080:1920:flags=lanczos`;
   const outLocal = join(workDir, "output.mp4");
-  runFfmpeg(
-    [
+  const muteOriginal = Boolean(meta.muteOriginal);
+  const musicKeyRaw =
+    meta.music_s3_key && String(meta.music_s3_key).trim()
+      ? String(meta.music_s3_key).trim()
+      : "";
+  const hasMusic = Boolean(musicKeyRaw);
+  const musicOpts = normalizeMusicOptions(meta);
+
+  if (hasMusic) {
+    const musicLocal = resolve(join(workDir, "highlight_bgm.mp3"));
+    await getObjectFile(bucket, musicKeyRaw, musicLocal);
+    if (!existsSync(musicLocal)) {
+      throw new Error("BGM 파일을 S3에서 받지 못했습니다.");
+    }
+    runFfmpeg(
+      [
+        "-y",
+        "-i",
+        "joined_hi.mp4",
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        "cropped_hi.mp4",
+      ],
+      workDir,
+      "highlight_crop_video"
+    );
+    const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
+    const afChain = buildMusicAf(
+      videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0,
+      musicOpts
+    );
+    const muxArgs = [
       "-y",
       "-i",
-      "joined_hi.mp4",
-      "-vf",
-      vf,
+      "cropped_hi.mp4",
+      "-stream_loop",
+      "-1",
+      "-ss",
+      String(musicOpts.startTime),
+      "-i",
+      musicLocal,
+      "-map",
+      "0:v",
+      "-map",
+      "1:a",
       "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "23",
-      "-pix_fmt",
-      "yuv420p",
+      "copy",
+    ];
+    if (afChain) {
+      muxArgs.push("-af", afChain);
+    }
+    muxArgs.push(
       "-c:a",
       "aac",
       "-b:a",
       "320k",
       "-ar",
       "48000",
-      outLocal,
-    ],
-    workDir,
-    "highlight_crop"
-  );
+      "-ac",
+      "2",
+      "-shortest",
+      outLocal
+    );
+    runFfmpeg(muxArgs, workDir, "highlight_mux_bgm");
+    const ch = join(workDir, "cropped_hi.mp4");
+    if (existsSync(ch)) unlinkSync(ch);
+  } else if (muteOriginal) {
+    runFfmpeg(
+      [
+        "-y",
+        "-i",
+        "joined_hi.mp4",
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        outLocal,
+      ],
+      workDir,
+      "highlight_crop_mute"
+    );
+  } else {
+    runFfmpeg(
+      [
+        "-y",
+        "-i",
+        "joined_hi.mp4",
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "320k",
+        "-ar",
+        "48000",
+        outLocal,
+      ],
+      workDir,
+      "highlight_crop"
+    );
+  }
 
   const probed = probeFormatDurationSec(workDir, "output.mp4");
   console.log(`[highlight] out_duration_sec=${probed}`);
