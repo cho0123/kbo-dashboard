@@ -55,36 +55,15 @@ function formatCropOffsetLabel(offset) {
 }
 
 /**
- * object-fit:contain 기준 영상 표시 영역에서 9:16 크롭 박스(표시 좌표, px).
- * cropWidth = displayHeight * 9/16, cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100
+ * video.offsetWidth / offsetHeight 기준 9:16 크롭 박스(오버레이 좌표, px).
+ * cropWidth = displayHeight * 9/16,
+ * cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100 (클램프)
  */
-function computePreviewCropOverlay(videoEl, wrapEl, cropOffsetPct) {
-  if (!videoEl?.videoWidth || !wrapEl) return null;
-  const cw = wrapEl.clientWidth;
-  const ch = wrapEl.clientHeight;
-  if (cw < 2 || ch < 2) return null;
-
-  const vw = videoEl.videoWidth;
-  const vh = videoEl.videoHeight;
-  if (!vw || !vh) return null;
-
-  const vr = vw / vh;
-  const br = cw / ch;
-  let dispW;
-  let dispH;
-  let offX;
-  let offY;
-  if (vr > br) {
-    dispW = cw;
-    dispH = cw / vr;
-    offX = 0;
-    offY = (ch - dispH) / 2;
-  } else {
-    dispH = ch;
-    dispW = ch * vr;
-    offX = (cw - dispW) / 2;
-    offY = 0;
-  }
+function computePreviewCropOverlay(videoEl, cropOffsetPct) {
+  if (!videoEl) return null;
+  const dispW = videoEl.offsetWidth;
+  const dispH = videoEl.offsetHeight;
+  if (dispW < 2 || dispH < 2) return null;
 
   const pct = Math.min(50, Math.max(-50, Number(cropOffsetPct) || 0));
   let cropW = dispH * (9 / 16);
@@ -95,46 +74,21 @@ function computePreviewCropOverlay(videoEl, wrapEl, cropOffsetPct) {
     cropX = 0;
   }
 
-  const innerLeft = offX + cropX;
-  const innerTop = offY;
-  const innerW = cropW;
-  const innerH = dispH;
-
   const darkRects = [];
-  if (offY > 0.5) {
-    darkRects.push({ left: 0, top: 0, width: cw, height: offY });
-  }
-  const botGap = ch - offY - dispH;
-  if (botGap > 0.5) {
-    darkRects.push({ left: 0, top: offY + dispH, width: cw, height: botGap });
-  }
-  if (offX > 0.5) {
-    darkRects.push({ left: 0, top: offY, width: offX, height: dispH });
-  }
-  const rightGap = cw - offX - dispW;
-  if (rightGap > 0.5) {
+  if (cropX > 0.5) {
     darkRects.push({
-      left: offX + dispW,
-      top: offY,
-      width: rightGap,
+      left: 0,
+      top: 0,
+      width: cropX,
       height: dispH,
     });
   }
-  const leftCropShade = cropX;
-  if (leftCropShade > 0.5) {
+  const rightW = dispW - cropX - cropW;
+  if (rightW > 0.5) {
     darkRects.push({
-      left: offX,
-      top: offY,
-      width: leftCropShade,
-      height: dispH,
-    });
-  }
-  const rightCropShade = dispW - cropX - cropW;
-  if (rightCropShade > 0.5) {
-    darkRects.push({
-      left: offX + cropX + cropW,
-      top: offY,
-      width: rightCropShade,
+      left: cropX + cropW,
+      top: 0,
+      width: rightW,
       height: dispH,
     });
   }
@@ -142,10 +96,10 @@ function computePreviewCropOverlay(videoEl, wrapEl, cropOffsetPct) {
   return {
     darkRects,
     border: {
-      left: innerLeft,
-      top: innerTop,
-      width: innerW,
-      height: innerH,
+      left: cropX,
+      top: 0,
+      width: cropW,
+      height: dispH,
     },
   };
 }
@@ -252,15 +206,12 @@ export default function Shorts3Panel() {
 
   const updatePreviewCropOverlay = useCallback(() => {
     const video = previewVideoRef.current;
-    const wrap = previewVideoWrapRef.current;
     const cropOffset = segments[previewSegmentIndex]?.cropOffset ?? 0;
-    if (!video || !wrap) {
+    if (!video) {
       setPreviewCropOverlay(null);
       return;
     }
-    setPreviewCropOverlay(
-      computePreviewCropOverlay(video, wrap, cropOffset)
-    );
+    setPreviewCropOverlay(computePreviewCropOverlay(video, cropOffset));
   }, [segments, previewSegmentIndex]);
 
   useLayoutEffect(() => {
@@ -268,25 +219,20 @@ export default function Shorts3Panel() {
   }, [updatePreviewCropOverlay, previewUrl]);
 
   useEffect(() => {
-    const wrap = previewVideoWrapRef.current;
     const video = previewVideoRef.current;
-    if (!wrap || !previewUrl) return undefined;
+    if (!previewUrl || !video) return undefined;
     const ro = new ResizeObserver(() => {
       updatePreviewCropOverlay();
     });
-    ro.observe(wrap);
+    ro.observe(video);
     const onReady = () => updatePreviewCropOverlay();
-    if (video) {
-      video.addEventListener("loadedmetadata", onReady);
-      video.addEventListener("loadeddata", onReady);
-    }
+    video.addEventListener("loadedmetadata", onReady);
+    video.addEventListener("loadeddata", onReady);
     window.addEventListener("resize", onReady);
     return () => {
       ro.disconnect();
-      if (video) {
-        video.removeEventListener("loadedmetadata", onReady);
-        video.removeEventListener("loadeddata", onReady);
-      }
+      video.removeEventListener("loadedmetadata", onReady);
+      video.removeEventListener("loadeddata", onReady);
       window.removeEventListener("resize", onReady);
     };
   }, [previewUrl, updatePreviewCropOverlay]);
@@ -804,6 +750,8 @@ export default function Shorts3Panel() {
               controls
               playsInline
               style={{
+                position: "relative",
+                zIndex: 0,
                 width: "100%",
                 maxHeight: 360,
                 display: "block",
@@ -815,10 +763,11 @@ export default function Shorts3Panel() {
               <div
                 style={{
                   position: "absolute",
-                  left: 0,
                   top: 0,
-                  right: 0,
-                  bottom: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 2,
                   pointerEvents: "none",
                 }}
               >
@@ -845,6 +794,7 @@ export default function Shorts3Panel() {
                     boxSizing: "border-box",
                     border: "2px solid rgba(255,255,255,0.92)",
                     borderRadius: 2,
+                    background: "transparent",
                   }}
                 />
               </div>
@@ -1046,8 +996,11 @@ export default function Shorts3Panel() {
           <label
             style={{
               display: "flex",
+              flexDirection: "row",
+              flexWrap: "nowrap",
               alignItems: "center",
               gap: 10,
+              whiteSpace: "nowrap",
               cursor: busy || uploading ? "not-allowed" : "pointer",
               opacity: busy || uploading ? 0.65 : 1,
             }}
@@ -1058,7 +1011,10 @@ export default function Shorts3Panel() {
               disabled={busy || uploading}
               onChange={(e) => setMuteOriginal(e.target.checked)}
             />
-            <span className="muted" style={{ fontWeight: 700 }}>
+            <span
+              className="muted"
+              style={{ fontWeight: 700, whiteSpace: "nowrap" }}
+            >
               원본 오디오 음소거
             </span>
           </label>
