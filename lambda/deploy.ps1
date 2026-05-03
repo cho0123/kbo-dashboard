@@ -98,33 +98,15 @@ try {
     aws lambda wait function-updated --function-name $FunctionName --region $Region
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-    $layersJsonPath = Join-Path $env:TEMP ("lambda-layers-" + [Guid]::NewGuid().ToString('N') + '.json')
-    try {
-        $esc = $FfmpegLayerArn -replace '\\', '\\\\' -replace '"', '\"'
-        [System.IO.File]::WriteAllText($layersJsonPath, "[`"$esc`"]", (New-Object System.Text.UTF8Encoding $false))
-
-        $abs = (Resolve-Path -LiteralPath $layersJsonPath).Path
-        if ($abs -match '^([A-Za-z]):\\(.*)$') {
-            $drive = $Matches[1].ToUpper()
-            $rest = ($Matches[2] -replace '\\', '/')
-            $layersFileUri = "file:///$drive`:/$rest"
-        } else {
-            $layersFileUri = 'file://' + ($abs -replace '\\', '/')
-        }
-
-        aws lambda update-function-configuration `
-            --function-name $FunctionName `
-            --timeout 900 `
-            --memory-size 3008 `
-            --ephemeral-storage Size=10240 `
-            --layers $layersFileUri `
-            --environment "Variables={S3_BUCKET=$S3Bucket,PATH=/var/task/bin:/opt/bin:/usr/local/bin:/usr/bin:/bin}" `
-            --region $Region
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    }
-    finally {
-        Remove-Item -LiteralPath $layersJsonPath -Force -ErrorAction SilentlyContinue
-    }
+    aws lambda update-function-configuration `
+        --function-name $FunctionName `
+        --timeout 900 `
+        --memory-size 3008 `
+        --ephemeral-storage Size=10240 `
+        --layers $FfmpegLayerArn `
+        --environment "Variables={S3_BUCKET=$S3Bucket,PATH=/var/task/bin:/opt/bin:/usr/local/bin:/usr/bin:/bin}" `
+        --region $Region
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {
     Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
