@@ -705,24 +705,19 @@ const KBO_INTRO_TEAM_KEYS = [
   "키움",
 ];
 
-function hashSeed(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/** 쇼츠1 인트로 로고 배치 (1080×1920 기준, x/y=중심) */
+const LOGO_LAYOUT = [
+  { key: 0, x: 180, y: 320, size: 200, angle: -12 },
+  { key: 1, x: 580, y: 290, size: 175, angle: 8 },
+  { key: 2, x: 880, y: 340, size: 190, angle: -15 },
+  { key: 3, x: 140, y: 520, size: 185, angle: 10 },
+  { key: 4, x: 430, y: 480, size: 210, angle: -8 },
+  { key: 5, x: 760, y: 500, size: 170, angle: 18 },
+  { key: 6, x: 220, y: 720, size: 195, angle: -20 },
+  { key: 7, x: 540, y: 680, size: 180, angle: 5 },
+  { key: 8, x: 840, y: 700, size: 200, angle: -10 },
+  { key: 9, x: 390, y: 880, size: 175, angle: 14 },
+];
 
 const __svgLogoCache = new Map();
 async function loadSvgLogo(teamName) {
@@ -841,28 +836,15 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillText(introTitle, w / 2, h * 0.1 + 5);
   ctx.restore();
 
-  const bandTop = h * 0.18;
-  const bandBottom = h * 0.58;
-  const bandH = bandBottom - bandTop;
-  const padX = 90;
-  const padY = Math.min(100, bandH * 0.12);
-  for (const tk of KBO_INTRO_TEAM_KEYS) {
-    const rand = mulberry32(hashSeed(`${iso}:intro-scatter:${tk}`));
-    const size = 130 + rand() * 90;
-    const angleDeg = -25 + rand() * 50;
-    const cx = padX + rand() * Math.max(20, w - 2 * padX);
-    const cy = bandTop + padY + rand() * Math.max(20, bandH - 2 * padY);
+  for (const slot of LOGO_LAYOUT) {
+    const tk = KBO_INTRO_TEAM_KEYS[slot.key];
     const img = logosByTeamKey?.[tk] || null;
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate((angleDeg * Math.PI) / 180);
+    ctx.translate(slot.x, slot.y);
+    ctx.rotate((slot.angle * Math.PI) / 180);
     if (img) {
-      const iw = Number(img.naturalWidth ?? img.width) || 1;
-      const ih = Number(img.naturalHeight ?? img.height) || 1;
-      const ratio = iw / ih;
-      const drawH = size;
-      const drawW = size * ratio;
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      const s = slot.size;
+      ctx.drawImage(img, -s / 2, -s / 2, s, s);
     }
     ctx.restore();
   }
