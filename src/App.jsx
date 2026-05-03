@@ -869,13 +869,13 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.save();
   // Background: day-of-week color (same as intro)
   const DAY_COLORS = {
-    0: "#00796B", // Sun - 틸그린
-    1: "#FF4081", // Mon - 핫코랄핑크
-    2: "#FF4081", // Tue - 핫코랄핑크
-    3: "#E65100", // Wed - 딥오렌지
-    4: "#7B241C", // Thu - 딥레드 (유지)
-    5: "#0E4D3A", // Fri - 딥그린 (유지)
-    6: "#1A4A7A", // Sat - 다크블루 (유지)
+    0: "#0097A7", // Sun - 틸시안 (C)
+    1: "#FF4081", // Mon - 유지
+    2: "#FF4081", // Tue - 유지
+    3: "#E65100", // Wed - 유지
+    4: "#C62828", // Thu - 딥레드 밝게 (B)
+    5: "#1B5E20", // Fri - 딥그린 밝게 (A)
+    6: "#1565C0", // Sat - 블루 밝게 (A)
   };
   const ONE_MIN_COLOR = {
     0: "#FFD700", // Sun - 골드
