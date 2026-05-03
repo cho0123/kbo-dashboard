@@ -47,7 +47,14 @@ const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
 function emptySegment() {
-  return { start: "", end: "", cropOffset: 0 };
+  return {
+    start: "",
+    end: "",
+    cropOffset: 0,
+    text: "",
+    textY: 85,
+    textColor: "#ffffff",
+  };
 }
 
 function formatCropOffsetLabel(offset) {
@@ -170,6 +177,10 @@ export default function Shorts3Panel() {
   const [bgmVolume, setBgmVolume] = useState(0.8);
   const [bgmStartTime, setBgmStartTime] = useState(0);
   const [bgmFadeOut, setBgmFadeOut] = useState(2);
+
+  const [topText, setTopText] = useState("");
+  const [topTextColor, setTopTextColor] = useState("#ffffff");
+  const [topTextSize, setTopTextSize] = useState(48);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -308,6 +319,28 @@ export default function Shorts3Panel() {
       prev.map((seg, i) =>
         i === segIndex ? { ...seg, cropOffset: v } : seg
       )
+    );
+  };
+
+  const handleSegmentOverlayChange = (segIndex, field, rawVal) => {
+    setSegments((prev) =>
+      prev.map((seg, i) => {
+        if (i !== segIndex) return seg;
+        if (field === "textY") {
+          const n = Number(rawVal);
+          const v = Number.isFinite(n)
+            ? Math.min(100, Math.max(0, Math.round(n)))
+            : 85;
+          return { ...seg, textY: v };
+        }
+        if (field === "textColor") {
+          return { ...seg, textColor: String(rawVal || "#ffffff") };
+        }
+        if (field === "text") {
+          return { ...seg, text: rawVal };
+        }
+        return seg;
+      })
     );
   };
 
@@ -514,17 +547,33 @@ export default function Shorts3Panel() {
     try {
       setStatus("encoding");
       setMessage("작업 요청 중…");
+      const sizeClamp = Math.min(
+        80,
+        Math.max(20, Math.round(Number(topTextSize) || 48))
+      );
       const payload = {
         action: "highlight_video_create",
         jobId,
-        segments: segments.map((s) => ({
-          start: String(s.start).trim(),
-          end: String(s.end).trim(),
-          cropOffset:
-            typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
-              ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
-              : 0,
-        })),
+        topText: topText.trim(),
+        topTextColor,
+        topTextSize: sizeClamp,
+        segments: segments.map((s) => {
+          const ty = Number(s.textY);
+          const textY = Number.isFinite(ty)
+            ? Math.min(100, Math.max(0, Math.round(ty)))
+            : 85;
+          return {
+            start: String(s.start).trim(),
+            end: String(s.end).trim(),
+            cropOffset:
+              typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
+                ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
+                : 0,
+            text: String(s.text ?? "").trim(),
+            textY,
+            textColor: String(s.textColor ?? "#ffffff").trim() || "#ffffff",
+          };
+        }),
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
@@ -972,6 +1021,89 @@ export default function Shorts3Panel() {
         </div>
       ) : null}
 
+      <div style={{ marginTop: 20, maxWidth: 720 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+          텍스트 오버레이
+        </div>
+        <label className="preset-field" style={{ marginBottom: 12 }}>
+          <span>상단 제목 텍스트 (비우면 미표시)</span>
+          <input
+            type="text"
+            placeholder="예: 오늘의 하이라이트"
+            value={topText}
+            disabled={busy || uploading}
+            onChange={(e) => setTopText(e.target.value)}
+          />
+        </label>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 16,
+            alignItems: "flex-end",
+            marginBottom: 8,
+          }}
+        >
+          <label
+            className="muted"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
+            폰트 색상
+            <input
+              type="color"
+              value={
+                /^#[0-9A-Fa-f]{6}$/.test(topTextColor)
+                  ? topTextColor
+                  : "#ffffff"
+              }
+              disabled={busy || uploading}
+              onChange={(e) => setTopTextColor(e.target.value)}
+              style={{
+                width: 56,
+                height: 36,
+                padding: 2,
+                borderRadius: 6,
+                border: "1px solid rgba(255,255,255,0.15)",
+                cursor: busy || uploading ? "not-allowed" : "pointer",
+              }}
+            />
+          </label>
+          <label
+            className="muted"
+            style={{
+              flex: "1 1 220px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              minWidth: 180,
+            }}
+          >
+            폰트 크기 ({Math.round(
+              Math.min(80, Math.max(20, Number(topTextSize) || 48))
+            )}
+            px)
+            <input
+              type="range"
+              min={20}
+              max={80}
+              step={1}
+              value={Math.min(80, Math.max(20, Number(topTextSize) || 48))}
+              disabled={busy || uploading}
+              onChange={(e) => setTopTextSize(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </label>
+        </div>
+      </div>
+
       <div style={{ marginTop: 20 }}>
         <div
           style={{
@@ -1094,6 +1226,97 @@ export default function Shorts3Panel() {
                   style={{ width: "100%", maxWidth: 420 }}
                 />
               </label>
+              <label className="preset-field" style={{ marginTop: 4 }}>
+                <span>하단 텍스트 (비우면 해당 구간 미표시)</span>
+                <input
+                  type="text"
+                  placeholder="구간별 자막"
+                  value={seg.text ?? ""}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    handleSegmentOverlayChange(index, "text", e.target.value)
+                  }
+                />
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 16,
+                  alignItems: "flex-end",
+                  marginTop: 8,
+                }}
+              >
+                <label
+                  className="muted"
+                  style={{
+                    flex: "1 1 240px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    minWidth: 200,
+                  }}
+                >
+                  세로 위치: {seg.textY ?? 85}%
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={seg.textY ?? 85}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleSegmentOverlayChange(
+                        index,
+                        "textY",
+                        e.target.value
+                      )
+                    }
+                    style={{ width: "100%", maxWidth: 420 }}
+                  />
+                  <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>
+                    0% = 최상단 · 100% = 최하단
+                  </span>
+                </label>
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  폰트 색상
+                  <input
+                    type="color"
+                    value={
+                      /^#[0-9A-Fa-f]{6}$/.test(String(seg.textColor || ""))
+                        ? seg.textColor
+                        : "#ffffff"
+                    }
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleSegmentOverlayChange(
+                        index,
+                        "textColor",
+                        e.target.value
+                      )
+                    }
+                    style={{
+                      width: 56,
+                      height: 36,
+                      padding: 2,
+                      borderRadius: 6,
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      cursor: busy || uploading ? "not-allowed" : "pointer",
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           ))}
         </div>

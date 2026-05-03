@@ -7,7 +7,8 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -16,6 +17,8 @@ import {
 
 const region = process.env.AWS_REGION || "ap-northeast-2";
 const s3 = new S3Client({ region });
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const VIDEO_VF =
   "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
@@ -308,6 +311,101 @@ function highlightCropXFromOffset(iw, cw, rawOffset) {
   return cx;
 }
 
+function resolveHighlightFontFile() {
+  const dir = join(__dirname, "fonts");
+  if (!existsSync(dir)) return null;
+  let names;
+  try {
+    names = readdirSync(dir);
+  } catch {
+    return null;
+  }
+  const font = names.find((n) => /\.(ttf|otf|ttc)$/i.test(n));
+  return font ? join(dir, font) : null;
+}
+
+function normalizeHexColor(raw, fallback = "#ffffff") {
+  const fb = fallback.startsWith("#") ? fallback : `#${fallback}`;
+  const s = raw != null ? String(raw).trim() : "";
+  if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9A-Fa-f]{3}$/i.test(s)) {
+    const r = s[1];
+    const g = s[2];
+    const b = s[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fb.toLowerCase();
+}
+
+function fontColorForFfmpeg(hex) {
+  const h = normalizeHexColor(hex, "#ffffff");
+  return `0x${h.slice(1)}`;
+}
+
+/** drawtext 필터 인자 안에서 경로 이스케이프 */
+function escapePathForDrawtextFilter(p) {
+  return String(p)
+    .replace(/\\/g, "/")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "\\'");
+}
+
+function normalizeHighlightTop(meta) {
+  const topText =
+    meta.topText != null ? String(meta.topText).trim() : "";
+  const topTextSizeRaw = Number(meta.topTextSize);
+  const topTextSize = Number.isFinite(topTextSizeRaw)
+    ? Math.min(80, Math.max(20, Math.round(topTextSizeRaw)))
+    : 48;
+  const topTextColor = normalizeHexColor(meta.topTextColor, "#ffffff");
+  return { topText, topTextSize, topTextColor };
+}
+
+function normalizeSegmentTextOverlay(seg) {
+  const text = seg?.text != null ? String(seg.text).trim() : "";
+  const ty = Number(seg?.textY);
+  const textY = Number.isFinite(ty)
+    ? Math.min(100, Math.max(0, Math.round(ty)))
+    : 85;
+  const textColor = normalizeHexColor(seg?.textColor, "#ffffff");
+  return { text, textY, textColor };
+}
+
+function buildHighlightSegmentVf(opts) {
+  const {
+    cw,
+    ih,
+    cx,
+    fontFile,
+    topTextFile,
+    bottomTextFile,
+    fontSize,
+    topColor,
+    bottomColor,
+    textY,
+  } = opts;
+  const parts = [
+    `crop=${cw}:${ih}:${cx}:0`,
+    `scale=1080:1920:flags=lanczos`,
+  ];
+  const fontPrefix = fontFile
+    ? `fontfile=${escapePathForDrawtextFilter(fontFile)}:`
+    : "";
+  const fs = Math.round(fontSize);
+
+  if (bottomTextFile) {
+    parts.push(
+      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fs}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100:shadowx=2:shadowy=2:shadowcolor=black`
+    );
+  }
+  if (topTextFile) {
+    parts.push(
+      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fs}:fontcolor=${fontColorForFfmpeg(topColor)}:x=(w-text_w)/2:y=50:shadowx=2:shadowy=2:shadowcolor=black`
+    );
+  }
+  return parts.join(",");
+}
+
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const segments = Array.isArray(meta.segments) ? meta.segments : [];
   if (segments.length < 1) throw new Error("구간 없음");
@@ -326,6 +424,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
+  const { topText, topTextSize, topTextColor } = normalizeHighlightTop(meta);
+  const fontFile = resolveHighlightFontFile();
+  let topTextPath = null;
+  if (topText) {
+    topTextPath = join(workDir, "hi_top.txt");
+    writeFileSync(topTextPath, topText, "utf8");
+  }
+
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
@@ -336,7 +442,28 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       throw new Error(`구간 ${i + 1}: 종료가 시작보다 커야 합니다.`);
     }
     const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
-    const vfSeg = `crop=${cw}:${ih}:${cx}:0,scale=1080:1920:flags=lanczos`;
+    const {
+      text: bottomTxt,
+      textY,
+      textColor: bottomColor,
+    } = normalizeSegmentTextOverlay(seg);
+    let bottomPath = null;
+    if (bottomTxt) {
+      bottomPath = join(workDir, `hi_bottom_${i}.txt`);
+      writeFileSync(bottomPath, bottomTxt, "utf8");
+    }
+    const vfSeg = buildHighlightSegmentVf({
+      cw,
+      ih,
+      cx,
+      fontFile,
+      topTextFile: topTextPath,
+      bottomTextFile: bottomPath,
+      fontSize: topTextSize,
+      topColor: topTextColor,
+      bottomColor,
+      textY,
+    });
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),

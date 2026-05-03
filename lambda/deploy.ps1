@@ -38,7 +38,12 @@ if (Test-Path -LiteralPath $zipPath) {
 
 Push-Location $LambdaDir
 try {
-    Compress-Archive -Path @('index.mjs', 'package.json', 'bin') -DestinationPath $zipPath -CompressionLevel Optimal -Force
+    $zipEntries = @('index.mjs', 'package.json', 'bin')
+    $fontsDir = Join-Path $LambdaDir 'fonts'
+    if (Test-Path -LiteralPath $fontsDir) {
+        $zipEntries += 'fonts'
+    }
+    Compress-Archive -Path $zipEntries -DestinationPath $zipPath -CompressionLevel Optimal -Force
 }
 finally {
     Pop-Location

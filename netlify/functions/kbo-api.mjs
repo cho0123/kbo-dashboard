@@ -2264,6 +2264,30 @@ export const handler = async (event) => {
             body: JSON.stringify({ ok: false, error: "구간은 최대 10개입니다." }),
           };
         }
+        const topText =
+          payload.topText != null ? String(payload.topText).trim() : "";
+        if (topText.length > 500) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "상단 제목은 500자 이하로 입력하세요.",
+            }),
+          };
+        }
+        let topTextColor = "#ffffff";
+        if (payload.topTextColor != null) {
+          const c = String(payload.topTextColor).trim();
+          if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+            topTextColor = c.toLowerCase();
+          }
+        }
+        const topTextSizeRaw = Number(payload.topTextSize);
+        const topTextSize = Number.isFinite(topTextSizeRaw)
+          ? Math.min(80, Math.max(20, Math.round(topTextSizeRaw)))
+          : 48;
+
         const segments = [];
         for (const s of segmentsIn) {
           if (!s || typeof s !== "object") {
@@ -2272,7 +2296,8 @@ export const handler = async (event) => {
               headers: corsHeaders(),
               body: JSON.stringify({
                 ok: false,
-                error: "각 구간은 { start, end, cropOffset? } 형식이어야 합니다.",
+                error:
+                  "각 구간은 { start, end, cropOffset?, text?, textY?, textColor? } 형식이어야 합니다.",
               }),
             };
           }
@@ -2289,7 +2314,36 @@ export const handler = async (event) => {
           const cropOffset = Number.isFinite(offRaw)
             ? Math.min(50, Math.max(-50, offRaw))
             : 0;
-          segments.push({ start: st, end: en, cropOffset });
+          const text = s.text != null ? String(s.text).trim() : "";
+          if (text.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "하단 텍스트는 구간당 500자 이하로 입력하세요.",
+              }),
+            };
+          }
+          const ty = Number(s.textY);
+          const textY = Number.isFinite(ty)
+            ? Math.min(100, Math.max(0, Math.round(ty)))
+            : 85;
+          let textColor = "#ffffff";
+          if (s.textColor != null) {
+            const c = String(s.textColor).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+              textColor = c.toLowerCase();
+            }
+          }
+          segments.push({
+            start: st,
+            end: en,
+            cropOffset,
+            text,
+            textY,
+            textColor,
+          });
         }
 
         const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
@@ -2342,6 +2396,9 @@ export const handler = async (event) => {
           segments,
           muteOriginal,
           musicOptions,
+          topText,
+          topTextColor,
+          topTextSize,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;

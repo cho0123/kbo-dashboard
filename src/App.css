@@ -166,6 +166,9 @@ body {
   cursor: pointer;
   font-weight: 700;
   font-family: inherit;
+  font-size: inherit;
+  line-height: 1.2;
+  min-height: 2.75rem;
   background: linear-gradient(135deg, #41f0bc, #2db897);
   color: #081018;
   text-decoration: none;
