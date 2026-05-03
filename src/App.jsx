@@ -707,16 +707,16 @@ const KBO_INTRO_TEAM_KEYS = [
 
 /** 쇼츠1 인트로 로고 배치 (1080×1920 기준, x/y=중심) */
 const LOGO_LAYOUT = [
-  { key: 0, x: 180, y: 320, size: 200, angle: -12 },
-  { key: 1, x: 580, y: 290, size: 175, angle: 8 },
-  { key: 2, x: 880, y: 340, size: 190, angle: -15 },
-  { key: 3, x: 140, y: 520, size: 185, angle: 10 },
-  { key: 4, x: 430, y: 480, size: 210, angle: -8 },
-  { key: 5, x: 760, y: 500, size: 170, angle: 18 },
-  { key: 6, x: 220, y: 720, size: 195, angle: -20 },
-  { key: 7, x: 540, y: 680, size: 180, angle: 5 },
-  { key: 8, x: 840, y: 700, size: 200, angle: -10 },
-  { key: 9, x: 390, y: 880, size: 175, angle: 14 },
+  { key: 0, x: 180, y: 420, size: 200, angle: -12 },
+  { key: 1, x: 580, y: 390, size: 175, angle: 8 },
+  { key: 2, x: 880, y: 440, size: 190, angle: -15 },
+  { key: 3, x: 140, y: 620, size: 185, angle: 10 },
+  { key: 4, x: 430, y: 580, size: 210, angle: -8 },
+  { key: 5, x: 760, y: 600, size: 170, angle: 18 },
+  { key: 6, x: 220, y: 820, size: 195, angle: -20 },
+  { key: 7, x: 540, y: 780, size: 180, angle: 5 },
+  { key: 8, x: 840, y: 800, size: 200, angle: -10 },
+  { key: 9, x: 390, y: 980, size: 175, angle: 14 },
 ];
 
 const __svgLogoCache = new Map();
@@ -843,8 +843,19 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     ctx.translate(slot.x, slot.y);
     ctx.rotate((slot.angle * Math.PI) / 180);
     if (img) {
+      const iw = Number(img.naturalWidth ?? img.width) || 1;
+      const ih = Number(img.naturalHeight ?? img.height) || 1;
       const s = slot.size;
-      ctx.drawImage(img, -s / 2, -s / 2, s, s);
+      let adjustedW;
+      let adjustedH;
+      if (iw >= ih) {
+        adjustedW = s;
+        adjustedH = s * (ih / iw);
+      } else {
+        adjustedH = s;
+        adjustedW = s * (iw / ih);
+      }
+      ctx.drawImage(img, -adjustedW / 2, -adjustedH / 2, adjustedW, adjustedH);
     }
     ctx.restore();
   }
