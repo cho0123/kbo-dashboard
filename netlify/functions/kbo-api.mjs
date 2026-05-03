@@ -3,6 +3,8 @@ import admin from "firebase-admin";
 import { randomUUID } from "crypto";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import {
+  DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -126,6 +128,7 @@ function corsHeaders() {
 const YOUTUBE_COOKIE_S3_KEY = "cookies/youtube.txt";
 const COOKIE_PRESIGN_EXPIRES_SEC = 3600;
 const HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC = 3600;
+const HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC = 3600;
 
 const UUID_V4_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -2348,6 +2351,85 @@ export const handler = async (event) => {
           headers: corsHeaders(),
           body: JSON.stringify({ ok: true, jobId, message: "queued" }),
         };
+      }
+      case "highlight_delete": {
+        const jobId = String(payload.jobId || "").trim();
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const sourceKey = `jobs/${jobId}/source.mp4`;
+          await s3.send(
+            new DeleteObjectCommand({ Bucket: bucket, Key: sourceKey })
+          );
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, jobId }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
+      case "highlight_preview": {
+        const jobId = String(payload.jobId || "").trim();
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const sourceKey = `jobs/${jobId}/source.mp4`;
+          try {
+            await s3.send(
+              new HeadObjectCommand({ Bucket: bucket, Key: sourceKey })
+            );
+          } catch {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error:
+                  "원본 영상이 S3에 없습니다. 먼저 하이라이트 업로드를 완료하세요.",
+              }),
+            };
+          }
+          const cmd = new GetObjectCommand({ Bucket: bucket, Key: sourceKey });
+          const presignedGetUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              jobId,
+              previewUrl: presignedGetUrl,
+              expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
       }
       case "cookie_upload": {
         try {

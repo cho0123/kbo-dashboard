@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { postKbo } from "./api.js";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -47,6 +47,15 @@ function emptySegment() {
   return { start: "", end: "" };
 }
 
+/** 재생 시각(초) → HH:MM:SS */
+function secondsToHhMmSs(sec) {
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  return [h, m, r].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
 export default function Shorts3Panel() {
   const [segments, setSegments] = useState([
     emptySegment(),
@@ -66,6 +75,10 @@ export default function Shorts3Panel() {
   const [uploadProgress, setUploadProgress] = useState(0);
   /** idle | uploading | done */
   const [uploadPhase, setUploadPhase] = useState("idle");
+  const [previewUrl, setPreviewUrl] = useState(null);
+  /** 미리보기에서 시작/종료 시각을 넣을 구간 인덱스 */
+  const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
+  const previewVideoRef = useRef(null);
 
   const addSegment = useCallback(() => {
     setSegments((s) => (s.length >= MAX_SEGMENTS ? s : [...s, emptySegment()]));
@@ -74,6 +87,12 @@ export default function Shorts3Panel() {
   const removeSegment = useCallback((idx) => {
     setSegments((s) => (s.length <= 2 ? s : s.filter((_, i) => i !== idx)));
   }, []);
+
+  useEffect(() => {
+    setPreviewSegmentIndex((i) =>
+      Math.min(i, Math.max(0, segments.length - 1))
+    );
+  }, [segments.length]);
 
   const handleTimeChange = (segIndex, field, rawVal) => {
     const digits = rawVal.replace(/\D/g, "").slice(0, 6);
@@ -97,7 +116,63 @@ export default function Shorts3Panel() {
     setJobId(null);
     setUploadPhase("idle");
     setUploadProgress(0);
+    setPreviewUrl(null);
     setError(null);
+  };
+
+  const resetUploadState = useCallback(() => {
+    setJobId(null);
+    setUploadPhase("idle");
+    setUploadProgress(0);
+    setPreviewUrl(null);
+    setVideoFile(null);
+    if (videoInputRef.current) videoInputRef.current.value = "";
+    setDownloadUrl(null);
+    setStatus("idle");
+    setMessage("");
+    setProgress(0);
+    setError(null);
+  }, []);
+
+  const applyVideoTimeToSegment = useCallback((field) => {
+    const el = previewVideoRef.current;
+    if (!el) return;
+    const hms = secondsToHhMmSs(el.currentTime);
+    setSegments((prev) =>
+      prev.map((seg, i) =>
+        i === previewSegmentIndex ? { ...seg, [field]: hms } : seg
+      )
+    );
+  }, [previewSegmentIndex]);
+
+  const onDeleteSource = async () => {
+    if (!jobId) return;
+    if (
+      !window.confirm(
+        "S3에 올린 원본 파일을 삭제하고 처음부터 다시 진행합니다. 계속할까요?"
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await postKbo({ action: "highlight_delete", jobId });
+      resetUploadState();
+      setMessage("");
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    }
+  };
+
+  const fetchPreviewUrl = async (id) => {
+    try {
+      const pr = await postKbo({ action: "highlight_preview", jobId: id });
+      const url = pr?.previewUrl || pr?.url;
+      if (url) setPreviewUrl(url);
+    } catch (e) {
+      console.warn("[highlight_preview]", e);
+      setPreviewUrl(null);
+    }
   };
 
   const onUploadSource = async () => {
@@ -128,6 +203,7 @@ export default function Shorts3Panel() {
       await putPresignedWithProgress(putUrl, videoFile, setUploadProgress);
       setUploadPhase("done");
       setMessage("원본 업로드 완료 — 구간을 입력한 뒤 영상 생성을 누르세요.");
+      await fetchPreviewUrl(id);
     } catch (e) {
       setUploadPhase("idle");
       setUploadProgress(0);
@@ -290,11 +366,95 @@ export default function Shorts3Panel() {
             </div>
           </div>
         ) : uploadPhase === "done" ? (
-          <div className="muted" style={{ marginTop: 12, fontWeight: 700 }}>
-            업로드 완료 (jobId 저장됨)
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span className="muted" style={{ fontWeight: 700 }}>
+              업로드 완료 (jobId 저장됨)
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              disabled={busy || uploading}
+              onClick={onDeleteSource}
+            >
+              파일 삭제
+            </button>
           </div>
         ) : null}
       </div>
+
+      {uploadPhase === "done" && previewUrl ? (
+        <div style={{ marginTop: 16, maxWidth: 720 }}>
+          <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+            원본 미리보기
+          </div>
+          <video
+            ref={previewVideoRef}
+            src={previewUrl}
+            controls
+            playsInline
+            style={{
+              width: "100%",
+              maxHeight: 360,
+              borderRadius: 8,
+              background: "#000",
+            }}
+          />
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              적용 구간
+              <select
+                value={previewSegmentIndex}
+                onChange={(e) =>
+                  setPreviewSegmentIndex(Number(e.target.value) || 0)
+                }
+                disabled={busy || uploading}
+                style={{ padding: 6 }}
+              >
+                {segments.map((_, i) => (
+                  <option key={i} value={i}>
+                    #{i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || uploading}
+              onClick={() => applyVideoTimeToSegment("start")}
+            >
+              ▶ 시작점 설정
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || uploading}
+              onClick={() => applyVideoTimeToSegment("end")}
+            >
+              ⏹ 종료점 설정
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+            재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
+          </p>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 20 }}>
         <div
@@ -478,7 +638,15 @@ export default function Shorts3Panel() {
       ) : null}
 
       {downloadUrl ? (
-        <div style={{ marginTop: 16 }}>
+        <div
+          style={{
+            marginTop: 16,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
           <a
             className="primary primary-fill"
             href={downloadUrl}
@@ -494,6 +662,17 @@ export default function Shorts3Panel() {
           >
             mp4 다운로드
           </a>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || uploading || uploadPhase !== "done" || !jobId}
+            onClick={() => {
+              setError(null);
+              onGenerate();
+            }}
+          >
+            다시 생성
+          </button>
         </div>
       ) : null}
     </div>
