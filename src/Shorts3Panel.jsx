@@ -15,9 +15,20 @@ function emptySegment() {
   return { start: "", end: "" };
 }
 
+/** 숫자만(최대 6자리) → HH:MM:SS (빈 값은 그대로 빈 문자열) */
+const formatTime = (val) => {
+  const digits = String(val).replace(/\D/g, "").slice(0, 6);
+  if (digits.length === 0) return "";
+  const d = digits.padStart(6, "0");
+  return d.slice(0, 2) + ":" + d.slice(2, 4) + ":" + d.slice(4, 6);
+};
+
 export default function Shorts3Panel() {
   const [url, setUrl] = useState("");
-  const [segments, setSegments] = useState([emptySegment()]);
+  const [segments, setSegments] = useState([
+    emptySegment(),
+    emptySegment(),
+  ]);
   const [cropPosition, setCropPosition] = useState("center");
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -31,13 +42,15 @@ export default function Shorts3Panel() {
   }, []);
 
   const removeSegment = useCallback((idx) => {
-    setSegments((s) => (s.length <= 1 ? s : s.filter((_, i) => i !== idx)));
+    setSegments((s) => (s.length <= 2 ? s : s.filter((_, i) => i !== idx)));
   }, []);
 
   const updateSegment = useCallback((idx, field, value) => {
+    const formatted =
+      field === "start" || field === "end" ? formatTime(value) : value;
     setSegments((s) => {
       const next = s.map((row, i) =>
-        i === idx ? { ...row, [field]: value } : row
+        i === idx ? { ...row, [field]: formatted } : row
       );
       return next;
     });
@@ -184,35 +197,46 @@ export default function Shorts3Panel() {
               key={idx}
               style={{
                 display: "flex",
-                flexWrap: "wrap",
+                flexDirection: "row",
+                flexWrap: "nowrap",
                 gap: 8,
                 alignItems: "center",
               }}
             >
-              <span className="muted" style={{ minWidth: 56 }}>
+              <span className="muted" style={{ minWidth: 40, flexShrink: 0 }}>
                 #{idx + 1}
               </span>
               <input
                 type="text"
-                placeholder="시작 HH:MM:SS"
+                inputMode="numeric"
+                placeholder="00:00:00"
                 value={row.start}
                 onChange={(e) => updateSegment(idx, "start", e.target.value)}
                 disabled={busy}
-                style={{ padding: 8, minWidth: 120 }}
+                style={{
+                  padding: 8,
+                  width: 120,
+                  boxSizing: "border-box",
+                }}
               />
               <span className="muted">~</span>
               <input
                 type="text"
-                placeholder="종료 HH:MM:SS"
+                inputMode="numeric"
+                placeholder="00:00:00"
                 value={row.end}
                 onChange={(e) => updateSegment(idx, "end", e.target.value)}
                 disabled={busy}
-                style={{ padding: 8, minWidth: 120 }}
+                style={{
+                  padding: 8,
+                  width: 120,
+                  boxSizing: "border-box",
+                }}
               />
               <button
                 type="button"
                 className="ghost"
-                disabled={busy || segments.length <= 1}
+                disabled={busy || segments.length <= 2}
                 onClick={() => removeSegment(idx)}
                 title="삭제"
               >
