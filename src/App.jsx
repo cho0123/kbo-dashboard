@@ -838,7 +838,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
     topTitleSize = fs;
   }
   ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(introTitle, w / 2, h * 0.1);
+  ctx.fillText(introTitle, w / 2, h * 0.1 + 5);
   ctx.restore();
 
   const bandTop = h * 0.18;
@@ -877,7 +877,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.fillText(dateStr, w / 2, dateY);
   ctx.restore();
 
-  const divY = dateY + 120;
+  const divY = dateY + 100;
   const divW = 600;
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 2;
@@ -886,7 +886,7 @@ function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야
   ctx.lineTo(w / 2 + divW / 2, divY);
   ctx.stroke();
 
-  const oneMinY = divY + 200;
+  const oneMinY = divY + 180;
   ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
   ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.shadowColor = "rgba(0,0,0,0.3)";
