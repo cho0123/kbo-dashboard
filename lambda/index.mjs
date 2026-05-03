@@ -830,6 +830,13 @@ async function putOutputMp4(bucket, key, filePath) {
 }
 
 function runFfmpeg(args, cwd, label) {
+  console.log("[ffmpeg-bin]", ffmpegBin());
+  console.log("[ffmpeg-exists]", existsSync(ffmpegBin()));
+  console.log(
+    "[bin-check] /var/task/bin/ffmpeg:",
+    existsSync("/var/task/bin/ffmpeg")
+  );
+  console.log("[bin-check] /opt/bin/ffmpeg:", existsSync("/opt/bin/ffmpeg"));
   const bin = ffmpegBin();
   const r = spawnSync(bin, args, {
     cwd,
