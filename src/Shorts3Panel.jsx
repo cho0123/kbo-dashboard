@@ -262,6 +262,9 @@ export default function Shorts3Panel() {
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
 
+  const busy = status === "encoding";
+  const uploading = uploadPhase === "uploading";
+
   const refreshSavedFiles = useCallback(async () => {
     setSavedFilesLoading(true);
     setSavedFilesError(null);
@@ -919,9 +922,6 @@ export default function Shorts3Panel() {
     segments,
     previewSegmentIndex,
   ]);
-
-  const busy = status === "encoding";
-  const uploading = uploadPhase === "uploading";
 
   return (
     <div className="section soft">
