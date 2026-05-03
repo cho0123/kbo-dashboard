@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { postKbo } from "./api.js";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -56,6 +56,30 @@ function secondsToHhMmSs(sec) {
   return [h, m, r].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+/** HH:MM:SS 또는 MM:SS 등 → 초; 불가 시 null */
+function parseHhMmSsToSeconds(t) {
+  const s = String(t || "").trim();
+  if (!s) return null;
+  const parts = s.split(":").map((p) => p.trim());
+  const nums = parts.map((p) => {
+    const n = parseInt(p, 10);
+    return Number.isFinite(n) ? n : NaN;
+  });
+  if (nums.some((n) => Number.isNaN(n))) return null;
+  if (parts.length === 3) {
+    const [h, m, sec] = nums;
+    if (m >= 60 || sec >= 60) return null;
+    return h * 3600 + m * 60 + sec;
+  }
+  if (parts.length === 2) {
+    const [m, sec] = nums;
+    if (sec >= 60) return null;
+    return m * 60 + sec;
+  }
+  if (parts.length === 1) return nums[0];
+  return null;
+}
+
 export default function Shorts3Panel() {
   const [segments, setSegments] = useState([
     emptySegment(),
@@ -79,6 +103,49 @@ export default function Shorts3Panel() {
   /** 미리보기에서 시작/종료 시각을 넣을 구간 인덱스 */
   const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
   const previewVideoRef = useRef(null);
+
+  const [savedFiles, setSavedFiles] = useState([]);
+  const [savedFilesLoading, setSavedFilesLoading] = useState(false);
+  const [savedFilesError, setSavedFilesError] = useState(null);
+
+  const refreshSavedFiles = useCallback(async () => {
+    setSavedFilesLoading(true);
+    setSavedFilesError(null);
+    try {
+      const res = await postKbo({ action: "highlight_list" });
+      setSavedFiles(Array.isArray(res?.items) ? res.items : []);
+    } catch (e) {
+      setSavedFilesError(e instanceof Error ? e.message : String(e));
+      setSavedFiles([]);
+    } finally {
+      setSavedFilesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSavedFiles();
+  }, [refreshSavedFiles]);
+
+  const segmentTotalSec = useMemo(() => {
+    let sum = 0;
+    for (const seg of segments) {
+      const st = String(seg.start || "").trim();
+      const en = String(seg.end || "").trim();
+      if (!st || !en) continue;
+      const a = parseHhMmSsToSeconds(st);
+      const b = parseHhMmSsToSeconds(en);
+      if (a == null || b == null) continue;
+      if (b <= a) continue;
+      sum += b - a;
+    }
+    return sum;
+  }, [segments]);
+
+  const segmentTotalWarnStyle = useMemo(() => {
+    if (segmentTotalSec > 300) return { color: "#ff6b8a" };
+    if (segmentTotalSec > 60) return { color: "#ffb347" };
+    return {};
+  }, [segmentTotalSec]);
 
   const addSegment = useCallback(() => {
     setSegments((s) => (s.length >= MAX_SEGMENTS ? s : [...s, emptySegment()]));
@@ -159,6 +226,37 @@ export default function Shorts3Panel() {
       await postKbo({ action: "highlight_delete", jobId });
       resetUploadState();
       setMessage("");
+      await refreshSavedFiles();
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    }
+  };
+
+  const onLoadSavedJob = async (id) => {
+    setError(null);
+    setJobId(id);
+    setUploadPhase("done");
+    setVideoFile(null);
+    if (videoInputRef.current) videoInputRef.current.value = "";
+    setDownloadUrl(null);
+    setStatus("idle");
+    setProgress(0);
+    await fetchPreviewUrl(id);
+    setMessage(
+      "저장된 원본을 불러왔습니다. 구간을 입력한 뒤 영상 생성을 누르세요."
+    );
+  };
+
+  const onDeleteSavedJob = async (id) => {
+    if (!window.confirm("S3에서 이 원본 파일을 삭제할까요?")) return;
+    setError(null);
+    try {
+      await postKbo({ action: "highlight_delete", jobId: id });
+      if (jobId === id) {
+        resetUploadState();
+        setMessage("");
+      }
+      await refreshSavedFiles();
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
     }
@@ -204,6 +302,7 @@ export default function Shorts3Panel() {
       setUploadPhase("done");
       setMessage("원본 업로드 완료 — 구간을 입력한 뒤 영상 생성을 누르세요.");
       await fetchPreviewUrl(id);
+      await refreshSavedFiles();
     } catch (e) {
       setUploadPhase("idle");
       setUploadProgress(0);
@@ -305,6 +404,89 @@ export default function Shorts3Panel() {
         로컬 원본 영상(mp4/mov/avi)을 업로드하고 구간(HH:MM:SS)을 지정하면
         9:16(1080×1920)으로 합성된 mp4를 만듭니다.
       </p>
+
+      <div style={{ marginTop: 16, maxWidth: 720 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+          저장된 파일 목록
+        </div>
+        {savedFilesLoading ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            목록 불러오는 중…
+          </div>
+        ) : savedFilesError ? (
+          <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
+            {savedFilesError}
+          </div>
+        ) : savedFiles.length === 0 ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            저장된 원본이 없습니다.
+          </div>
+        ) : (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {savedFiles.map((row) => {
+              const jid = row.jobId || "";
+              const shortName = jid.slice(0, 8) || "—";
+              const when = row.lastModified
+                ? new Date(row.lastModified).toLocaleString("ko-KR", {
+                    timeZone: "Asia/Seoul",
+                    dateStyle: "short",
+                    timeStyle: "medium",
+                  })
+                : "—";
+              return (
+                <li
+                  key={jid}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{shortName}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {when}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {typeof row.size === "number"
+                      ? `${Math.round(row.size / 1024)} KB`
+                      : ""}
+                  </span>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={busy || uploading}
+                    onClick={() => onLoadSavedJob(jid)}
+                  >
+                    불러오기
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={busy || uploading}
+                    onClick={() => onDeleteSavedJob(jid)}
+                  >
+                    삭제
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       <div style={{ marginTop: 14, maxWidth: 720 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
@@ -544,6 +726,17 @@ export default function Shorts3Panel() {
               </button>
             </div>
           ))}
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 15,
+            fontWeight: 700,
+            ...segmentTotalWarnStyle,
+          }}
+        >
+          총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
+          {Math.floor(segmentTotalSec)}초)
         </div>
       </div>
 

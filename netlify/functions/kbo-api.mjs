@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -2351,6 +2352,59 @@ export const handler = async (event) => {
           headers: corsHeaders(),
           body: JSON.stringify({ ok: true, jobId, message: "queued" }),
         };
+      }
+      case "highlight_list": {
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const items = [];
+          let continuationToken = undefined;
+          do {
+            const out = await s3.send(
+              new ListObjectsV2Command({
+                Bucket: bucket,
+                Prefix: "jobs/",
+                ContinuationToken: continuationToken,
+              })
+            );
+            for (const obj of out.Contents || []) {
+              const key = obj.Key || "";
+              if (!key.endsWith("/source.mp4")) continue;
+              const parts = key.split("/").filter(Boolean);
+              if (parts.length < 3) continue;
+              const jobId = parts[1];
+              if (!UUID_V4_RE.test(jobId)) continue;
+              items.push({
+                jobId,
+                lastModified: obj.LastModified
+                  ? obj.LastModified.toISOString()
+                  : null,
+                size: typeof obj.Size === "number" ? obj.Size : 0,
+              });
+            }
+            continuationToken = out.IsTruncated
+              ? out.NextContinuationToken
+              : undefined;
+          } while (continuationToken);
+
+          items.sort((a, b) => {
+            const ta = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+            const tb = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+            return tb - ta;
+          });
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, items }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
       }
       case "highlight_delete": {
         const jobId = String(payload.jobId || "").trim();
