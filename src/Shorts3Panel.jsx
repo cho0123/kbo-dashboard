@@ -1132,9 +1132,8 @@ export default function Shorts3Panel() {
             원본 미리보기
           </div>
           {uploadPhase === "done" && previewUrl ? (
-            <>
-              <div
-                ref={previewVideoWrapRef}
+            <div
+              ref={previewVideoWrapRef}
                 style={{
                   position: "relative",
                   width: "100%",
@@ -1202,14 +1201,24 @@ export default function Shorts3Panel() {
                     </div>
                   ) : null}
                 </div>
-                {videoDuration > 0 ? (
-                  <>
-                    <div
-                      className="muted"
-                      style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
-                    >
-                      구간 타임라인 (클릭 시 재생 위치 이동)
-                    </div>
+          ) : (
+            <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
+              원본 업로드를 완료하면 여기에서 미리보기와 시작·종료점을 설정할 수
+              있습니다.
+            </p>
+          )}
+        </div>
+
+        {uploadPhase === "done" && previewUrl ? (
+          <>
+            {videoDuration > 0 ? (
+              <>
+                <div
+                  className="muted"
+                  style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
+                >
+                  구간 타임라인 (클릭 시 재생 위치 이동)
+                </div>
                     <div
                       onClick={(e) => {
                         const v = previewVideoRef.current;
@@ -1496,14 +1505,8 @@ export default function Shorts3Panel() {
                 <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
                   재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
                 </p>
-              </>
-            ) : (
-              <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                원본 업로드를 완료하면 여기에서 미리보기와 시작·종료점을 설정할 수
-                있습니다.
-              </p>
-            )}
-        </div>
+          </>
+        ) : null}
 
         <div style={{ width: "100%", marginTop: 16 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
