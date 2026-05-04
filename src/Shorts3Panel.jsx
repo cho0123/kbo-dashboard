@@ -45,6 +45,17 @@ const MAX_SEGMENTS = 10;
 const ONE_FRAME_30_FPS_SEC = 1 / 30;
 const TENTH_SEC = 0.1;
 
+/** 구간 시작/종료 미세조정 버튼 (-1f / ±0.1s / +1f) */
+const SEGMENT_NUDGE_BTN_STYLE = {
+  background: "#2a2a2a",
+  border: "1px solid #555",
+  color: "#fff",
+  padding: "2px 8px",
+  borderRadius: 4,
+  fontSize: 11,
+  cursor: "pointer",
+};
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -700,9 +711,13 @@ export default function Shorts3Panel() {
   };
 
   const handleFracMsChange = (segIndex, field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "").slice(0, 2);
-    let n = digits === "" ? 0 : Number(digits);
-    if (!Number.isFinite(n)) n = 0;
+    const digits = rawVal.replace(/\D/g, "");
+    let n = 0;
+    if (digits !== "") {
+      const use = digits.length > 2 ? digits.slice(-2) : digits;
+      const parsed = parseInt(use, 10);
+      n = Number.isFinite(parsed) ? parsed : 0;
+    }
     n = clampSegmentFracMs(n);
     setSegments((prev) =>
       prev.map((seg, i) =>
@@ -1876,10 +1891,14 @@ export default function Shorts3Panel() {
                 </span>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="시작 -1프레임 (30fps)"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "start", -ONE_FRAME_30_FPS_SEC)
                   }
@@ -1888,10 +1907,14 @@ export default function Shorts3Panel() {
                 </button>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="시작 -0.1초"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "start", -TENTH_SEC)
                   }
@@ -1917,7 +1940,6 @@ export default function Shorts3Panel() {
                   type="text"
                   inputMode="numeric"
                   placeholder=".00"
-                  maxLength={2}
                   value={String(clampSegmentFracMs(seg.startMs ?? 0)).padStart(
                     2,
                     "0"
@@ -1929,16 +1951,20 @@ export default function Shorts3Panel() {
                   title="시작 소수 초 (0.01초 단위, 00~99)"
                   style={{
                     padding: "6px 8px",
-                    width: 40,
+                    width: 44,
                     boxSizing: "border-box",
                   }}
                 />
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="시작 +0.1초"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "start", TENTH_SEC)
                   }
@@ -1947,10 +1973,14 @@ export default function Shorts3Panel() {
                 </button>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="시작 +1프레임 (30fps)"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "start", ONE_FRAME_30_FPS_SEC)
                   }
@@ -1960,10 +1990,14 @@ export default function Shorts3Panel() {
                 <span className="muted">~</span>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="종료 -1프레임 (30fps)"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "end", -ONE_FRAME_30_FPS_SEC)
                   }
@@ -1972,10 +2006,14 @@ export default function Shorts3Panel() {
                 </button>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="종료 -0.1초"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "end", -TENTH_SEC)
                   }
@@ -2001,7 +2039,6 @@ export default function Shorts3Panel() {
                   type="text"
                   inputMode="numeric"
                   placeholder=".00"
-                  maxLength={2}
                   value={String(clampSegmentFracMs(seg.endMs ?? 0)).padStart(
                     2,
                     "0"
@@ -2013,16 +2050,20 @@ export default function Shorts3Panel() {
                   title="종료 소수 초 (0.01초 단위, 00~99)"
                   style={{
                     padding: "6px 8px",
-                    width: 40,
+                    width: 44,
                     boxSizing: "border-box",
                   }}
                 />
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="종료 +0.1초"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "end", TENTH_SEC)
                   }
@@ -2031,10 +2072,14 @@ export default function Shorts3Panel() {
                 </button>
                 <button
                   type="button"
-                  className="ghost"
                   disabled={busy || uploading}
                   title="종료 +1프레임 (30fps)"
-                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  style={{
+                    ...SEGMENT_NUDGE_BTN_STYLE,
+                    ...(busy || uploading
+                      ? { opacity: 0.45, cursor: "not-allowed" }
+                      : {}),
+                  }}
                   onClick={() =>
                     adjustSegmentFieldTime(index, "end", ONE_FRAME_30_FPS_SEC)
                   }
