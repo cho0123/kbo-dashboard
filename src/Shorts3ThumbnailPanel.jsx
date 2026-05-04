@@ -354,7 +354,7 @@ export default function Shorts3ThumbnailPanel() {
             {/* 팀명 뱃지 */}
             <div style={{
               position: "absolute",
-              top: 12,
+              top: 20,
               background: tc.accent,
               color: tc.bg,
               fontWeight: "bold",

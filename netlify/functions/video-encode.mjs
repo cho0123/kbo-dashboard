@@ -249,8 +249,25 @@ export const handler = async (event) => {
           textColor2,
           fontSize1,
           fontSize2,
+          team,
         } = body;
         const jobId = randomUUID();
+
+        const teamLabels = {
+          KIA: "KIA 타이거즈",
+          삼성: "삼성 라이온즈",
+          LG: "LG 트윈스",
+          두산: "두산 베어스",
+          KT: "kt wiz",
+          SSG: "SSG 랜더스",
+          롯데: "롯데 자이언츠",
+          한화: "한화 이글스",
+          NC: "NC 다이노스",
+          키움: "키움 히어로즈",
+        };
+        const safeTeamLabel = String(teamLabels[team] || team || "")
+          .replace(/'/g, "\\'")
+          .replace(/:/g, "\\:");
 
         const safeBg = (bgColor || "#000000").replace("#", "");
         const safeAccent = (accentColor || "#ffffff").replace("#", "");
@@ -270,10 +287,11 @@ export const handler = async (event) => {
           Number(fontSize2) > 0 ? Number(fontSize2) : 52;
 
         const vf = [
-          `drawbox=x=0:y=0:w=1080:h=160:color=${safeAccent}@0.2:t=fill`,
-          `drawtext=fontfile=${fontFile1}:text='${safeText1}':fontcolor=0x${safeTextHex1}:fontsize=${fs1}:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
+          `drawbox=x=0:y=192:w=1080:h=120:color=${safeAccent}@0.2:t=fill`,
+          `drawtext=fontfile=${fontFile1}:text='${safeTeamLabel}':fontcolor=0x${safeAccent}:fontsize=52:x=(w-text_w)/2:y=232:shadowcolor=black@0.6:shadowx=2:shadowy=2`,
+          `drawtext=fontfile=${fontFile1}:text='${safeText1}':fontcolor=0x${safeTextHex1}:fontsize=${fs1}:x=(w-text_w)/2:y=780:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
           `drawbox=x=240:y=900:w=600:h=6:color=${safeAccent}:t=fill`,
-          `drawtext=fontfile=${fontFile2}:text='${safeText2}':fontcolor=0x${safeTextHex2}:fontsize=${fs2}:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
+          `drawtext=fontfile=${fontFile2}:text='${safeText2}':fontcolor=0x${safeTextHex2}:fontsize=${fs2}:x=(w-text_w)/2:y=1040:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
         ].join(",");
 
         const meta = {
