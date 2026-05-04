@@ -67,6 +67,19 @@ const FONTS = [
 
 const DEFAULT_TEXT_FONT = "NotoSansKR-Bold.ttf";
 
+/** Lambda TTF 파일명 → 미리보기 CSS font-family (Google / 시스템 글꼴에 대응) */
+function previewFontFamily(fontFile) {
+  const f = String(fontFile || "").trim();
+  if (/blackhansans/i.test(f)) return '"Black Han Sans", sans-serif';
+  if (/notoserifkr/i.test(f)) return '"Noto Serif KR", "Noto Serif", serif';
+  return '"Noto Sans KR", "Noto Sans", sans-serif';
+}
+
+function normalizeFontSelectValue(v) {
+  const s = String(v ?? "").trim();
+  return FONTS.some((f) => f.value === s) ? s : DEFAULT_TEXT_FONT;
+}
+
 const TIMELINE_SEGMENT_COLORS = [
   "#13c79a",
   "#7EC8E3",
@@ -929,12 +942,17 @@ export default function Shorts3Panel() {
           fadeOutDuration: bgmFadeOut,
         },
       };
-      if (
-        thumbnailTime != null &&
-        Number.isFinite(thumbnailTime) &&
-        thumbnailTime >= 0
-      ) {
-        payload.thumbnailTime = thumbnailTime;
+      const thumbSecRaw = thumbnailTime;
+      const thumbSec =
+        thumbSecRaw != null && thumbSecRaw !== ""
+          ? typeof thumbSecRaw === "number"
+            ? thumbSecRaw
+            : Number(thumbSecRaw)
+          : NaN;
+      if (Number.isFinite(thumbSec) && thumbSec >= 0) {
+        payload.thumbnailTime = thumbSec;
+        payload.thumbnailTextFont =
+          String(thumbnailTextFont || "").trim() || DEFAULT_TEXT_FONT;
       }
       payload.thumbnailCropOffset = Math.min(
         50,
@@ -1057,6 +1075,10 @@ export default function Shorts3Panel() {
       : roundOpacity01(seg?.textOpacity ?? 1);
     const bottomColor = hexToRgba(bottomColorRaw, bottomOp);
     const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
+    const topFontFamily = previewFontFamily(topTextFont);
+    const bottomFontFamily = useThumbOverlay
+      ? previewFontFamily(thumbnailTextFont)
+      : previewFontFamily(seg?.textFont || DEFAULT_TEXT_FONT);
     return (
       <div
         style={{
@@ -1078,8 +1100,9 @@ export default function Shorts3Panel() {
               right: 0,
               top: 30,
               textAlign: "center",
-            fontSize: previewTopPx,
-            color: topColor,
+              fontSize: previewTopPx,
+              color: topColor,
+              fontFamily: topFontFamily,
               fontWeight: 700,
               lineHeight: 1.2,
               textShadow: shadow,
@@ -1101,6 +1124,7 @@ export default function Shorts3Panel() {
               textAlign: "center",
               fontSize: previewBottomPx,
               color: bottomColor,
+              fontFamily: bottomFontFamily,
               fontWeight: 700,
               lineHeight: 1.2,
               textShadow: shadow,
@@ -1121,6 +1145,7 @@ export default function Shorts3Panel() {
     topTextColor,
     topTextSize,
     topTextOpacity,
+    topTextFont,
     segments,
     previewSegmentIndex,
     thumbnailText,
@@ -1128,13 +1153,16 @@ export default function Shorts3Panel() {
     thumbnailTextColor,
     thumbnailTextOpacity,
     thumbnailTextSize,
+    thumbnailTextFont,
   ]);
 
-  const thumbnailSeekOk =
-    thumbnailTime != null &&
-    typeof thumbnailTime === "number" &&
-    Number.isFinite(thumbnailTime) &&
-    thumbnailTime >= 0;
+  const thumbnailSeekSec = (() => {
+    const t = thumbnailTime;
+    if (t == null || t === "") return null;
+    const n = typeof t === "number" ? t : Number(t);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  })();
+  const thumbnailSeekOk = thumbnailSeekSec != null;
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -1580,6 +1608,36 @@ export default function Shorts3Panel() {
             >
               썸네일 설정
             </div>
+            {thumbnailSeekOk && thumbnailSeekSec != null ? (
+              <div
+                style={{
+                  marginTop: 8,
+                  marginBottom: 4,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <span className="muted" style={{ fontSize: 14 }}>
+                  📸 썸네일: {formatTimeWithCentis(thumbnailSeekSec)} 설정됨
+                </span>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  disabled={busy || uploading}
+                  onClick={() => {
+                    setPreviewSegmentIndex(0);
+                    const v = previewVideoRef.current;
+                    if (v && thumbnailSeekSec != null) {
+                      v.currentTime = thumbnailSeekSec;
+                    }
+                  }}
+                >
+                  ↩ 썸네일로 이동
+                </button>
+              </div>
+            ) : null}
                 <div
                   style={{
                     marginTop: 10,
@@ -1603,15 +1661,13 @@ export default function Shorts3Panel() {
                   >
                     📸 썸네일로 사용
                   </button>
-                  {thumbnailTime != null &&
-                  Number.isFinite(thumbnailTime) &&
-                  thumbnailTime >= 0 ? (
+                  {!thumbnailSeekOk ? (
                     <span className="muted" style={{ fontSize: 13 }}>
-                      썸네일: {formatTimeWithCentis(thumbnailTime)} 설정됨
+                      재생 위치를 썸네일 시작점(0.3초 구간)으로 보냅니다.
                     </span>
                   ) : (
                     <span className="muted" style={{ fontSize: 13 }}>
-                      재생 위치를 썸네일 시작점(0.3초 구간)으로 보냅니다.
+                      다른 시각으로 바꾸려면 재생 위치를 옮긴 뒤 다시 누르세요.
                     </span>
                   )}
                 </div>
@@ -1768,9 +1824,13 @@ export default function Shorts3Panel() {
                   <label className="preset-field" style={{ marginTop: 8 }}>
                     <span>폰트</span>
                     <select
-                      value={thumbnailTextFont}
+                      value={normalizeFontSelectValue(thumbnailTextFont)}
                       disabled={busy || uploading}
-                      onChange={(e) => setThumbnailTextFont(e.target.value)}
+                      onChange={(e) =>
+                        setThumbnailTextFont(
+                          normalizeFontSelectValue(e.target.value)
+                        )
+                      }
                     >
                       {FONTS.map((f) => (
                         <option key={f.value} value={f.value}>
@@ -1813,20 +1873,6 @@ export default function Shorts3Panel() {
                       ))}
                     </select>
                   </label>
-                  {thumbnailSeekOk ? (
-                    <button
-                      type="button"
-                      className="primary primary-fill"
-                      disabled={busy || uploading}
-                      onClick={() => {
-                        const v = previewVideoRef.current;
-                        if (!v || !thumbnailSeekOk) return;
-                        v.currentTime = thumbnailTime;
-                      }}
-                    >
-                      📸 썸네일로 이동
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     className="primary"
@@ -1946,9 +1992,11 @@ export default function Shorts3Panel() {
           <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 180 }}>
             <span>폰트</span>
             <select
-              value={topTextFont}
+              value={normalizeFontSelectValue(topTextFont)}
               disabled={busy || uploading}
-              onChange={(e) => setTopTextFont(e.target.value)}
+              onChange={(e) =>
+                setTopTextFont(normalizeFontSelectValue(e.target.value))
+              }
             >
               {FONTS.map((f) => (
                 <option key={f.value} value={f.value}>
@@ -2284,13 +2332,13 @@ export default function Shorts3Panel() {
                 <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
                   <span>폰트</span>
                   <select
-                    value={seg.textFont || DEFAULT_TEXT_FONT}
+                    value={normalizeFontSelectValue(seg.textFont)}
                     disabled={busy || uploading}
                     onChange={(e) =>
                       handleSegmentOverlayChange(
                         index,
                         "textFont",
-                        e.target.value
+                        normalizeFontSelectValue(e.target.value)
                       )
                     }
                   >
