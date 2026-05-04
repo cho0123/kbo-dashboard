@@ -47,17 +47,49 @@ const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
 const TEXT_COLORS = [
-  "#FFFFFF", // 흰색
-  "#F4FF00", // 노랑
-  "#FF4081", // 핫핑크
-  "#00E5FF", // 하늘
-  "#00FF94", // 민트
-  "#FF9500", // 주황
-  "#FFD700", // 골드
-  "#C0155A", // 딥핑크
-  "#1B2A80", // 인디고
-  "#000000", // 검정
+  "#FFFFFF",
+  "#F5F0E8",
+  "#FFE066",
+  "#FFB347",
+  "#7EC8E3",
+  "#98E8C1",
+  "#FFB3C6",
+  "#C8A8E9",
+  "#A8D8A8",
+  "#000000",
 ];
+
+const FONTS = [
+  { label: "Noto Sans KR (기본)", value: "NotoSansKR-Bold.ttf" },
+  { label: "Black Han Sans (임팩트)", value: "BlackHanSans-Regular.ttf" },
+  { label: "Noto Serif KR (명조)", value: "NotoSerifKR-Bold.otf" },
+];
+
+const DEFAULT_TEXT_FONT = "NotoSansKR-Bold.ttf";
+
+const TIMELINE_SEGMENT_COLORS = [
+  "#13c79a",
+  "#7EC8E3",
+  "#FFB347",
+  "#FFB3C6",
+  "#C8A8E9",
+];
+
+function roundOpacity01(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 1;
+  return Math.round(Math.min(1, Math.max(0, n)) * 10) / 10;
+}
+
+function hexToRgba(hex, opacity) {
+  const h = String(hex || "").replace(/^#/, "").trim();
+  if (!/^[0-9A-Fa-f]{6}$/.test(h)) return `rgba(255,255,255,${opacity})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const a = Math.min(1, Math.max(0, opacity));
+  return `rgba(${r},${g},${b},${a})`;
+}
 
 function paletteColorSelected(value, paletteHex) {
   return (
@@ -123,7 +155,9 @@ function emptySegment() {
     text: "",
     textY: 85,
     textColor: TEXT_COLORS[0],
+    textOpacity: 1,
     textSize: 48,
+    textFont: DEFAULT_TEXT_FONT,
   };
 }
 
@@ -245,10 +279,7 @@ function parseHhMmSsToSeconds(t, fracMs) {
 }
 
 export default function Shorts3Panel() {
-  const [segments, setSegments] = useState([
-    emptySegment(),
-    emptySegment(),
-  ]);
+  const [segments, setSegments] = useState([emptySegment()]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(null);
@@ -268,6 +299,7 @@ export default function Shorts3Panel() {
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
+  const [videoDuration, setVideoDuration] = useState(0);
 
   const [muteOriginal, setMuteOriginal] = useState(true);
   const [musicTracks, setMusicTracks] = useState([]);
@@ -279,6 +311,15 @@ export default function Shorts3Panel() {
   const [topText, setTopText] = useState("");
   const [topTextColor, setTopTextColor] = useState(TEXT_COLORS[0]);
   const [topTextSize, setTopTextSize] = useState(72);
+  const [topTextOpacity, setTopTextOpacity] = useState(1);
+  const [topTextFont, setTopTextFont] = useState(DEFAULT_TEXT_FONT);
+
+  const [thumbnailText, setThumbnailText] = useState("");
+  const [thumbnailTextY, setThumbnailTextY] = useState(85);
+  const [thumbnailTextColor, setThumbnailTextColor] = useState(TEXT_COLORS[0]);
+  const [thumbnailTextOpacity, setThumbnailTextOpacity] = useState(1);
+  const [thumbnailTextSize, setThumbnailTextSize] = useState(72);
+  const [thumbnailTextFont, setThumbnailTextFont] = useState(DEFAULT_TEXT_FONT);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -355,6 +396,25 @@ export default function Shorts3Panel() {
     if (!previewUrl) {
       setPlayingSegmentIndex(null);
     }
+  }, [previewUrl]);
+
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    if (!v || !previewUrl) {
+      setVideoDuration(0);
+      return undefined;
+    }
+    const onMeta = () => {
+      const d = Number(v.duration);
+      setVideoDuration(Number.isFinite(d) && d > 0 ? d : 0);
+    };
+    v.addEventListener("loadedmetadata", onMeta);
+    v.addEventListener("durationchange", onMeta);
+    onMeta();
+    return () => {
+      v.removeEventListener("loadedmetadata", onMeta);
+      v.removeEventListener("durationchange", onMeta);
+    };
   }, [previewUrl]);
 
   useEffect(() => {
@@ -465,7 +525,7 @@ export default function Shorts3Panel() {
     setPlayingSegmentIndex((cur) =>
       cur === idx ? null : cur != null && idx < cur ? cur - 1 : cur
     );
-    setSegments((s) => (s.length <= 2 ? s : s.filter((_, i) => i !== idx)));
+    setSegments((s) => (s.length <= 1 ? s : s.filter((_, i) => i !== idx)));
   }, []);
 
   const segmentPlaybackTimesValid = useCallback((seg) => {
@@ -562,6 +622,15 @@ export default function Shorts3Panel() {
             ? Math.min(200, Math.max(20, Math.round(n)))
             : 48;
           return { ...seg, textSize: v };
+        }
+        if (field === "textOpacity") {
+          return { ...seg, textOpacity: roundOpacity01(rawVal) };
+        }
+        if (field === "textFont") {
+          return {
+            ...seg,
+            textFont: String(rawVal || "").trim() || DEFAULT_TEXT_FONT,
+          };
         }
         return seg;
       })
@@ -780,24 +849,21 @@ export default function Shorts3Panel() {
       return;
     }
 
-    for (let i = 0; i < segments.length; i++) {
-      const sg = segments[i];
+    const validSegments = segments.filter((sg) => {
       const st = String(sg.start ?? "").trim();
       const en = String(sg.end ?? "").trim();
-      if (!st || !en) {
-        setError(new Error(`구간 ${i + 1}: 시작·종료 시간을 모두 입력하세요.`));
-        return;
-      }
+      if (!st || !en) return false;
       const a = segmentBoundaryToSeconds(st, sg.startMs);
       const b = segmentBoundaryToSeconds(en, sg.endMs);
-      if (a == null || b == null || b <= a) {
-        setError(
-          new Error(
-            `구간 ${i + 1}: 시작·종료 시간(소수 포함)을 올바르게 입력하세요.`
-          )
-        );
-        return;
-      }
+      return a != null && b != null && b > a;
+    });
+    if (validSegments.length < 1) {
+      setError(
+        new Error(
+          "시작·종료가 모두 입력된 유효한 구간이 최소 1개 필요합니다. 빈 구간은 건너뜁니다."
+        )
+      );
+      return;
     }
 
     try {
@@ -813,7 +879,10 @@ export default function Shorts3Panel() {
         topText: topText.trim(),
         topTextColor,
         topTextSize: sizeClamp,
-        segments: segments.map((s) => {
+        topTextOpacity: roundOpacity01(topTextOpacity),
+        topTextFont:
+          String(topTextFont || "").trim() || DEFAULT_TEXT_FONT,
+        segments: validSegments.map((s) => {
           const ty = Number(s.textY);
           const textY = Number.isFinite(ty)
             ? Math.min(100, Math.max(0, Math.round(ty)))
@@ -831,6 +900,9 @@ export default function Shorts3Panel() {
             textY,
             textColor:
               String(s.textColor ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
+            textOpacity: roundOpacity01(s.textOpacity ?? 1),
+            textFont:
+              String(s.textFont || "").trim() || DEFAULT_TEXT_FONT,
             textSize: Math.min(
               200,
               Math.max(
@@ -853,6 +925,26 @@ export default function Shorts3Panel() {
         thumbnailTime >= 0
       ) {
         payload.thumbnailTime = thumbnailTime;
+      }
+      const tt = String(thumbnailText ?? "").trim();
+      if (tt) {
+        payload.thumbnailText = tt;
+        payload.thumbnailTextY = Math.min(
+          100,
+          Math.max(0, Math.round(Number(thumbnailTextY) || 85))
+        );
+        payload.thumbnailTextColor =
+          String(thumbnailTextColor ?? TEXT_COLORS[0]).trim() ||
+          TEXT_COLORS[0];
+        payload.thumbnailTextOpacity = roundOpacity01(
+          thumbnailTextOpacity ?? 1
+        );
+        payload.thumbnailTextSize = Math.min(
+          200,
+          Math.max(20, Math.round(Number(thumbnailTextSize)) || 72)
+        );
+        payload.thumbnailTextFont =
+          String(thumbnailTextFont || "").trim() || DEFAULT_TEXT_FONT;
       }
       if (highlightMusicS3Key.trim()) {
         payload.music_s3_key = highlightMusicS3Key.trim();
@@ -919,18 +1011,24 @@ export default function Shorts3Panel() {
       8,
       (Number(seg?.textSize) || 48) * scale
     );
-    const topColor = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
+    const topColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
       ? topTextColor
       : TEXT_COLORS[0];
+    const topOp = roundOpacity01(topTextOpacity ?? 1);
+    const topColor = hexToRgba(topColorRaw, topOp);
     const topLine = String(topText || "").trim();
     const bottomLine = String(seg?.text ?? "").trim();
     const tyRaw = Number(seg?.textY);
     const textYpct = Number.isFinite(tyRaw)
       ? Math.min(100, Math.max(0, tyRaw))
       : 85;
-    const bottomColor = /^#[0-9A-Fa-f]{6}$/i.test(String(seg?.textColor || ""))
+    const bottomColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(
+      String(seg?.textColor || "")
+    )
       ? seg.textColor
       : TEXT_COLORS[0];
+    const bottomOp = roundOpacity01(seg?.textOpacity ?? 1);
+    const bottomColor = hexToRgba(bottomColorRaw, bottomOp);
     const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
     return (
       <div
@@ -995,6 +1093,7 @@ export default function Shorts3Panel() {
     topText,
     topTextColor,
     topTextSize,
+    topTextOpacity,
     segments,
     previewSegmentIndex,
   ]);
@@ -1103,6 +1202,74 @@ export default function Shorts3Panel() {
                     </div>
                   ) : null}
                 </div>
+                {videoDuration > 0 ? (
+                  <>
+                    <div
+                      className="muted"
+                      style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
+                    >
+                      구간 타임라인 (클릭 시 재생 위치 이동)
+                    </div>
+                    <div
+                      onClick={(e) => {
+                        const v = previewVideoRef.current;
+                        if (!v || !videoDuration) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const r = Math.min(1, Math.max(0, x / rect.width));
+                        v.currentTime = r * videoDuration;
+                      }}
+                      style={{
+                        position: "relative",
+                        marginTop: 4,
+                        height: 28,
+                        width: "100%",
+                        maxWidth: 560,
+                        background: "rgba(0,0,0,0.45)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {segments.map((seg, i) => {
+                        const st = String(seg.start ?? "").trim();
+                        const en = String(seg.end ?? "").trim();
+                        if (!st || !en) return null;
+                        const a = segmentBoundaryToSeconds(st, seg.startMs);
+                        const b = segmentBoundaryToSeconds(en, seg.endMs);
+                        if (a == null || b == null || b <= a) return null;
+                        const left = (a / videoDuration) * 100;
+                        const w = ((b - a) / videoDuration) * 100;
+                        const c =
+                          TIMELINE_SEGMENT_COLORS[
+                            i % TIMELINE_SEGMENT_COLORS.length
+                          ];
+                        return (
+                          <div
+                            key={i}
+                            title={`#${i + 1} ${st} ~ ${en}`}
+                            style={{
+                              position: "absolute",
+                              left: `${left}%`,
+                              width: `${w}%`,
+                              top: 0,
+                              height: "100%",
+                              background: c,
+                              opacity: 0.88,
+                              pointerEvents: "none",
+                              boxSizing: "border-box",
+                              border: "1px solid rgba(255,255,255,0.25)",
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                    전체 길이(loadedmetadata)를 읽으면 타임라인이 표시됩니다.
+                  </p>
+                )}
                 <div
                   style={{
                     marginTop: 10,
@@ -1137,6 +1304,144 @@ export default function Shorts3Panel() {
                       재생 위치를 썸네일 시작점(0.3초 구간)으로 보냅니다.
                     </span>
                   )}
+                </div>
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.02)",
+                    maxWidth: 560,
+                  }}
+                >
+                  <div
+                    className="muted"
+                    style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}
+                  >
+                    썸네일 전용 텍스트 (선택)
+                  </div>
+                  <label className="preset-field" style={{ marginBottom: 8 }}>
+                    <span>썸네일 텍스트 (비우면 0.3초 클립에 별도 자막 없음)</span>
+                    <input
+                      type="text"
+                      placeholder="썸네일에만 표시할 문구"
+                      value={thumbnailText}
+                      disabled={busy || uploading}
+                      onChange={(e) => setThumbnailText(e.target.value)}
+                    />
+                  </label>
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginBottom: 8,
+                    }}
+                  >
+                    세로 위치: {Math.round(thumbnailTextY)}%
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={thumbnailTextY}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailTextY(Number(e.target.value) || 0)
+                      }
+                    />
+                  </label>
+                  <div
+                    className="muted"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginBottom: 6,
+                    }}
+                  >
+                    색상
+                  </div>
+                  <TextColorPalette
+                    value={thumbnailTextColor}
+                    disabled={busy || uploading}
+                    onChange={setThumbnailTextColor}
+                  />
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginTop: 10,
+                    }}
+                  >
+                    투명도 ({Math.round(thumbnailTextOpacity * 100)}%)
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={roundOpacity01(thumbnailTextOpacity)}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailTextOpacity(
+                          roundOpacity01(e.target.value)
+                        )
+                      }
+                    />
+                  </label>
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginTop: 8,
+                    }}
+                  >
+                    폰트 크기 (
+                    {Math.min(
+                      200,
+                      Math.max(20, Math.round(Number(thumbnailTextSize) || 72))
+                    )}
+                    px)
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(
+                        200,
+                        Math.max(20, Math.round(Number(thumbnailTextSize) || 72))
+                      )}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailTextSize(Number(e.target.value))
+                      }
+                    />
+                  </label>
+                  <label className="preset-field" style={{ marginTop: 8 }}>
+                    <span>폰트</span>
+                    <select
+                      value={thumbnailTextFont}
+                      disabled={busy || uploading}
+                      onChange={(e) => setThumbnailTextFont(e.target.value)}
+                    >
+                      {FONTS.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <div
                   style={{
@@ -1521,6 +1826,46 @@ export default function Shorts3Panel() {
               style={{ width: "100%" }}
             />
           </label>
+          <label
+            className="muted"
+            style={{
+              flex: "1 1 200px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              minWidth: 160,
+            }}
+          >
+            투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.1}
+              value={roundOpacity01(topTextOpacity)}
+              disabled={busy || uploading}
+              onChange={(e) =>
+                setTopTextOpacity(roundOpacity01(e.target.value))
+              }
+              style={{ width: "100%" }}
+            />
+          </label>
+          <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 180 }}>
+            <span>폰트</span>
+            <select
+              value={topTextFont}
+              disabled={busy || uploading}
+              onChange={(e) => setTopTextFont(e.target.value)}
+            >
+              {FONTS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
@@ -1674,7 +2019,7 @@ export default function Shorts3Panel() {
                 <button
                   type="button"
                   className="ghost"
-                  disabled={busy || uploading || segments.length <= 2}
+                  disabled={busy || uploading || segments.length <= 1}
                   onClick={() => removeSegment(index)}
                   title="삭제"
                 >
@@ -1814,6 +2159,57 @@ export default function Shorts3Panel() {
                     }
                   />
                 </div>
+                <label
+                  className="muted"
+                  style={{
+                    flex: "1 1 200px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    minWidth: 160,
+                  }}
+                >
+                  투명도 (
+                  {Math.round(roundOpacity01(seg.textOpacity ?? 1) * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={roundOpacity01(seg.textOpacity ?? 1)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleSegmentOverlayChange(
+                        index,
+                        "textOpacity",
+                        e.target.value
+                      )
+                    }
+                    style={{ width: "100%", maxWidth: 420 }}
+                  />
+                </label>
+                <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
+                  <span>폰트</span>
+                  <select
+                    value={seg.textFont || DEFAULT_TEXT_FONT}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleSegmentOverlayChange(
+                        index,
+                        "textFont",
+                        e.target.value
+                      )
+                    }
+                  >
+                    {FONTS.map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
           ))}

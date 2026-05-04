@@ -18,7 +18,10 @@ lifecycle.json
 # Lambda deploy artifact
 kbo-video-encoder.zip
 lambda/ffmpeg-layer.zip
+lambda/ffmpeg-btbn-layer.zip
 lambda/.ffmpeg-layer-build/
+lambda/bin/ffmpeg
+lambda/bin/ffprobe
 
 # 로컬 바이너리
 yt-dlp.exe

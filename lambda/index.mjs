@@ -20,6 +20,8 @@ const s3 = new S3Client({ region });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const DEFAULT_FONT_FILE = "NotoSansKR-Bold.ttf";
+
 const VIDEO_VF =
   "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black";
 
@@ -346,36 +348,16 @@ function highlightCropXFromOffset(iw, cw, rawOffset) {
   return cx;
 }
 
-/** 번들 폰트: /var/task/fonts, __dirname/fonts, bin/../fonts 등 */
-function resolveHighlightFontFile() {
-  const dirs = [
-    "/var/task/fonts",
-    resolve("/var/task/bin/../fonts"),
-    join(__dirname, "fonts"),
-  ];
-  const seen = new Set();
-  for (const dir of dirs) {
-    let abs;
-    try {
-      abs = resolve(dir);
-    } catch {
-      continue;
-    }
-    if (seen.has(abs)) continue;
-    seen.add(abs);
-    if (!existsSync(abs)) continue;
-    let names;
-    try {
-      names = readdirSync(abs);
-    } catch {
-      continue;
-    }
-    const fonts = names
-      .filter((n) => /\.(ttf|otf|ttc)$/i.test(n))
-      .sort();
-    if (fonts.length) return join(abs, fonts[0]);
-  }
-  return null;
+/** /var/task/fonts/{fileName} — 없으면 기본 TTF */
+function resolveBundledFontPath(fileName) {
+  const base = String(fileName || "").trim() || DEFAULT_FONT_FILE;
+  const safe = /^[a-zA-Z0-9._-]+\.(ttf|otf|ttc)$/i.test(base)
+    ? base
+    : DEFAULT_FONT_FILE;
+  const full = join("/var/task/fonts", safe);
+  if (existsSync(full)) return full;
+  const fb = join("/var/task/fonts", DEFAULT_FONT_FILE);
+  return existsSync(fb) ? fb : null;
 }
 
 function normalizeHexColor(raw, fallback = "#ffffff") {
@@ -396,6 +378,13 @@ function fontColorForFfmpeg(hex) {
   return `0x${h.slice(1)}`;
 }
 
+function fontColorForFfmpegWithOpacity(hex, opacityRaw) {
+  const h = normalizeHexColor(hex, "#ffffff");
+  const a = Number(opacityRaw);
+  const o = Number.isFinite(a) ? Math.min(1, Math.max(0, a)) : 1;
+  return `0x${h.slice(1)}@${o}`;
+}
+
 /** drawtext 필터 인자 앞뒤 경로 이스케이프 */
 function escapePathForDrawtextFilter(p) {
   return String(p)
@@ -412,7 +401,21 @@ function normalizeHighlightTop(meta) {
     ? Math.min(200, Math.max(20, Math.round(topTextSizeRaw)))
     : 72;
   const topTextColor = normalizeHexColor(meta.topTextColor, "#ffffff");
-  return { topText, topTextSize, topTextColor };
+  const topOpacityRaw = Number(meta.topTextOpacity);
+  const topTextOpacity = Number.isFinite(topOpacityRaw)
+    ? Math.min(1, Math.max(0, topOpacityRaw))
+    : 1;
+  const topTextFont =
+    meta.topTextFont != null && String(meta.topTextFont).trim()
+      ? String(meta.topTextFont).trim()
+      : DEFAULT_FONT_FILE;
+  return {
+    topText,
+    topTextSize,
+    topTextColor,
+    topTextOpacity,
+    topTextFont,
+  };
 }
 
 function normalizeSegmentTextOverlay(seg) {
@@ -426,7 +429,38 @@ function normalizeSegmentTextOverlay(seg) {
   const textSize = Number.isFinite(tsRaw)
     ? Math.min(200, Math.max(20, Math.round(tsRaw)))
     : 48;
-  return { text, textY, textColor, textSize };
+  const opacityRaw = Number(seg?.textOpacity);
+  const textOpacity = Number.isFinite(opacityRaw)
+    ? Math.min(1, Math.max(0, opacityRaw))
+    : 1;
+  const textFont =
+    seg?.textFont != null && String(seg.textFont).trim()
+      ? String(seg.textFont).trim()
+      : DEFAULT_FONT_FILE;
+  return { text, textY, textColor, textSize, textOpacity, textFont };
+}
+
+function normalizeThumbnailText(meta) {
+  const text =
+    meta.thumbnailText != null ? String(meta.thumbnailText).trim() : "";
+  const ty = Number(meta.thumbnailTextY);
+  const textY = Number.isFinite(ty)
+    ? Math.min(100, Math.max(0, Math.round(ty)))
+    : 85;
+  const textColor = normalizeHexColor(meta.thumbnailTextColor, "#ffffff");
+  const tsRaw = Number(meta.thumbnailTextSize);
+  const textSize = Number.isFinite(tsRaw)
+    ? Math.min(200, Math.max(20, Math.round(tsRaw)))
+    : 72;
+  const opacityRaw = Number(meta.thumbnailTextOpacity);
+  const textOpacity = Number.isFinite(opacityRaw)
+    ? Math.min(1, Math.max(0, opacityRaw))
+    : 1;
+  const textFont =
+    meta.thumbnailTextFont != null && String(meta.thumbnailTextFont).trim()
+      ? String(meta.thumbnailTextFont).trim()
+      : DEFAULT_FONT_FILE;
+  return { text, textY, textColor, textSize, textOpacity, textFont };
 }
 
 function buildHighlightSegmentVf(opts) {
@@ -439,29 +473,29 @@ function buildHighlightSegmentVf(opts) {
     topFontSize,
     bottomFontSize,
     topColor,
+    topOpacity,
     bottomColor,
+    bottomOpacity,
     textY,
-    fontFile,
+    topFontPath,
+    bottomFontPath,
   } = opts;
   const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
   ];
-  const fontPrefix = fontFile
-    ? `fontfile=${escapePathForDrawtextFilter(fontFile)}:`
-    : "";
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
 
-  if (fontFile && bottomTextFile) {
+  if (bottomTextFile && bottomFontPath) {
     parts.push(
-      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100`
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100`
     );
   }
-  if (fontFile && topTextFile) {
+  if (topTextFile && topFontPath) {
     parts.push(
-      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpeg(topColor)}:x=(w-text_w)/2:y=50:shadowx=2:shadowy=2:shadowcolor=black`
+      `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105:shadowx=2:shadowy=2:shadowcolor=black`
     );
   }
   return parts.join(",");
@@ -503,23 +537,26 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
-  const highlightFontFile = resolveHighlightFontFile();
-  if (highlightFontFile) {
-    console.log("[highlight] drawtext fontfile:", highlightFontFile);
-  }
-
-  const { topText, topTextSize, topTextColor } = normalizeHighlightTop(meta);
+  const {
+    topText,
+    topTextSize,
+    topTextColor,
+    topTextOpacity,
+    topTextFont,
+  } = normalizeHighlightTop(meta);
   const metaWantsText =
     Boolean(topText) ||
-    segments.some((s) => s?.text != null && String(s.text).trim() !== "");
-  if (metaWantsText && !highlightFontFile) {
+    segments.some((s) => s?.text != null && String(s.text).trim() !== "") ||
+    Boolean(String(meta.thumbnailText || "").trim());
+  const topFontPath = resolveBundledFontPath(topTextFont);
+  if (metaWantsText && !resolveBundledFontPath(DEFAULT_FONT_FILE)) {
     console.warn(
-      "[highlight] no bundle font under /var/task/fonts — drawtext skipped (video without text overlay)"
+      "[highlight] no bundle font under /var/task/fonts — drawtext may be skipped"
     );
   }
 
   let topTextPath = null;
-  if (highlightFontFile && topText) {
+  if (topText && topFontPath) {
     topTextPath = join(workDir, "hi_top.txt");
     writeFileSync(topTextPath, topText, "utf8");
   }
@@ -554,14 +591,23 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       duration
     );
     const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
+    let bottomParsed;
+    if (seg[THUMB_SEG_FLAG] === true) {
+      bottomParsed = normalizeThumbnailText(meta);
+    } else {
+      bottomParsed = normalizeSegmentTextOverlay(seg);
+    }
     const {
       text: bottomTxt,
       textY,
       textColor: bottomColor,
       textSize: bottomTextSize,
-    } = normalizeSegmentTextOverlay(seg);
+      textOpacity: bottomOpacity,
+      textFont: bottomFontName,
+    } = bottomParsed;
+    const bottomFontPath = resolveBundledFontPath(bottomFontName);
     let bottomPath = null;
-    if (highlightFontFile && bottomTxt) {
+    if (bottomTxt && bottomFontPath) {
       bottomPath = join(workDir, `hi_bottom_${i}.txt`);
       writeFileSync(bottomPath, bottomTxt, "utf8");
     }
@@ -574,9 +620,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topFontSize: topTextSize,
       bottomFontSize: bottomTextSize,
       topColor: topTextColor,
+      topOpacity: topTextOpacity,
       bottomColor,
+      bottomOpacity,
       textY,
-      fontFile: highlightFontFile,
+      topFontPath,
+      bottomFontPath,
     });
     await putStatus(bucket, jobId, {
       state: "processing",

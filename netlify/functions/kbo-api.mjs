@@ -2241,6 +2241,22 @@ export const handler = async (event) => {
         }
       }
       case "highlight_video_create": {
+        const HIGHLIGHT_FONT_FILES = new Set([
+          "NotoSansKR-Bold.ttf",
+          "BlackHanSans-Regular.ttf",
+          "NotoSerifKR-Bold.ttf",
+          "NotoSerifKR-Bold.otf",
+        ]);
+        const DEFAULT_HIGHLIGHT_FONT = "NotoSansKR-Bold.ttf";
+        const sanitizeHighlightFont = (v) => {
+          const s = v != null ? String(v).trim() : "";
+          if (s && HIGHLIGHT_FONT_FILES.has(s)) return s;
+          return DEFAULT_HIGHLIGHT_FONT;
+        };
+        const clamp01 = (x) => {
+          const n = Number(x);
+          return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
+        };
         const jobId = String(payload.jobId || "").trim();
         const segmentsIn = payload.segments;
         if (!jobId || !UUID_V4_RE.test(jobId)) {
@@ -2250,11 +2266,11 @@ export const handler = async (event) => {
             body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
           };
         }
-        if (!Array.isArray(segmentsIn) || segmentsIn.length < 1) {
+        if (!Array.isArray(segmentsIn)) {
           return {
             statusCode: 400,
             headers: corsHeaders(),
-            body: JSON.stringify({ ok: false, error: "구간(segments)이 필요합니다." }),
+            body: JSON.stringify({ ok: false, error: "구간(segments) 배열이 필요합니다." }),
           };
         }
         if (segmentsIn.length > 10) {
@@ -2287,6 +2303,8 @@ export const handler = async (event) => {
         const topTextSize = Number.isFinite(topTextSizeRaw)
           ? Math.min(200, Math.max(20, Math.round(topTextSizeRaw)))
           : 72;
+        const topTextOpacity = clamp01(payload.topTextOpacity);
+        const topTextFont = sanitizeHighlightFont(payload.topTextFont);
 
         const segments = [];
         for (const s of segmentsIn) {
@@ -2297,18 +2315,14 @@ export const handler = async (event) => {
               body: JSON.stringify({
                 ok: false,
                 error:
-                  "각 구간은 { start, end, startMs?, endMs?, cropOffset?, text?, textY?, textColor?, textSize? } 형식이어야 합니다.",
+                  "각 구간은 { start, end, startMs?, endMs?, cropOffset?, text?, textY?, textColor?, textSize?, textOpacity?, textFont? } 형식이어야 합니다.",
               }),
             };
           }
           const st = s.start != null ? String(s.start).trim() : "";
           const en = s.end != null ? String(s.end).trim() : "";
           if (!st || !en) {
-            return {
-              statusCode: 400,
-              headers: corsHeaders(),
-              body: JSON.stringify({ ok: false, error: "각 구간의 시작·종료 시간을 입력하세요." }),
-            };
+            continue;
           }
           const offRaw = Number(s.cropOffset);
           const cropOffset = Number.isFinite(offRaw)
@@ -2340,6 +2354,8 @@ export const handler = async (event) => {
           const textSize = Number.isFinite(textSizeRaw)
             ? Math.min(200, Math.max(20, Math.round(textSizeRaw)))
             : 48;
+          const textOpacity = clamp01(s.textOpacity);
+          const textFont = sanitizeHighlightFont(s.textFont);
           const startMsRaw = Number(s.startMs);
           const endMsRaw = Number(s.endMs);
           const startMs = Number.isFinite(startMsRaw)
@@ -2358,7 +2374,20 @@ export const handler = async (event) => {
             textY,
             textColor,
             textSize,
+            textOpacity,
+            textFont,
           });
+        }
+        if (segments.length < 1) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error:
+                "시작·종료가 모두 입력된 유효한 구간이 최소 1개 필요합니다.",
+            }),
+          };
         }
 
         const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
@@ -2415,6 +2444,51 @@ export const handler = async (event) => {
             ? thumbNum
             : null;
 
+        const thumbTxt =
+          payload.thumbnailText != null
+            ? String(payload.thumbnailText).trim()
+            : "";
+        let thumbnailTextMeta = null;
+        if (thumbTxt.length > 0) {
+          if (thumbTxt.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "썸네일 텍스트는 500자 이하로 입력하세요.",
+              }),
+            };
+          }
+          const tty = Number(payload.thumbnailTextY);
+          const thumbnailTextY = Number.isFinite(tty)
+            ? Math.min(100, Math.max(0, Math.round(tty)))
+            : 85;
+          let thumbnailTextColor = "#ffffff";
+          if (payload.thumbnailTextColor != null) {
+            const c = String(payload.thumbnailTextColor).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+              thumbnailTextColor = c.toLowerCase();
+            }
+          }
+          const thumbnailTextOpacity = clamp01(payload.thumbnailTextOpacity);
+          const ttsRaw = Number(payload.thumbnailTextSize);
+          const thumbnailTextSize = Number.isFinite(ttsRaw)
+            ? Math.min(200, Math.max(20, Math.round(ttsRaw)))
+            : 72;
+          const thumbnailTextFont = sanitizeHighlightFont(
+            payload.thumbnailTextFont
+          );
+          thumbnailTextMeta = {
+            thumbnailText: thumbTxt,
+            thumbnailTextY,
+            thumbnailTextColor,
+            thumbnailTextOpacity,
+            thumbnailTextSize,
+            thumbnailTextFont,
+          };
+        }
+
         const meta = {
           type: "highlight",
           sourceUpload: true,
@@ -2424,12 +2498,17 @@ export const handler = async (event) => {
           topText,
           topTextColor,
           topTextSize,
+          topTextOpacity,
+          topTextFont,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
         }
         if (thumbnailTime != null) {
           meta.thumbnailTime = thumbnailTime;
+        }
+        if (thumbnailTextMeta) {
+          Object.assign(meta, thumbnailTextMeta);
         }
 
         await s3.send(
