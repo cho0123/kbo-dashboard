@@ -64,20 +64,13 @@ async function drawThumbnail({
   fontSize2,
   canvas: existingCanvas,
 }) {
-  await document.fonts.ready;
-
   const W = 1080;
   const H = 1920;
-  const canvas = existingCanvas ?? document.createElement("canvas");
+  const canvas = existingCanvas || document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
 
-  // 1. 전체 배경 (팀컬러)
-  ctx.fillStyle = tc.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // 2. 투명 뚫린 영역 (상단띠 아래 ~ 하단띠 위)
   const TOP_BAR = 280;
   const SIDE_BAR = 40;
   const BOT_BAR = 160;
@@ -88,6 +81,32 @@ async function drawThumbnail({
   const holeW = W - SIDE_BAR * 2;
   const holeH = H - TOP_BAR - BOT_BAR;
 
+  const innerFontFamilyMap = {
+    "NotoSansKR-Bold":      "'Noto Sans KR', sans-serif",
+    "BlackHanSans-Regular": "'Black Han Sans', sans-serif",
+    "NotoSerifKR-Bold":     "'Noto Serif KR', serif",
+  };
+  const ff = (k) =>
+    innerFontFamilyMap[k] || innerFontFamilyMap["NotoSansKR-Bold"];
+
+  const teamLabels = {
+    KIA: "KIA 타이거즈",
+    삼성: "삼성 라이온즈",
+    LG: "LG 트윈스",
+    두산: "두산 베어스",
+    KT: "kt wiz",
+    SSG: "SSG 랜더스",
+    롯데: "롯데 자이언츠",
+    한화: "한화 이글스",
+    NC: "NC 다이노스",
+    키움: "키움 히어로즈",
+  };
+
+  // 1. 전체 배경 (팀컬러)
+  ctx.fillStyle = tc.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 투명 뚫린 영역 (상단 직각, 하단 라운드)
   ctx.save();
   ctx.globalCompositeOperation = "destination-out";
   ctx.beginPath();
@@ -107,85 +126,90 @@ async function drawThumbnail({
   ctx.fill();
   ctx.restore();
 
-  const teamLabels = {
-    KIA: "KIA 타이거즈",
-    삼성: "삼성 라이온즈",
-    LG: "LG 트윈스",
-    두산: "두산 베어스",
-    KT: "kt wiz",
-    SSG: "SSG 랜더스",
-    롯데: "롯데 자이언츠",
-    한화: "한화 이글스",
-    NC: "NC 다이노스",
-    키움: "키움 히어로즈",
-  };
-
-  const ff = (k) =>
-    fontFamilyMap[k] || fontFamilyMap["BlackHanSans-Regular"];
-
-  // 3. 팀명 — 타원 뱃지 (안전영역)
+  // 3. 팀명 pill 뱃지 (Noto Sans KR 고정)
   const teamLabel = teamLabels[team] || team;
-  ctx.font = `bold 52px ${ff(font1)}`;
+  ctx.font = `bold 52px 'Noto Sans KR', sans-serif`;
   const labelW = ctx.measureText(teamLabel).width + 80;
   const labelH = 80;
-  const labelX = W / 2;
-  const labelY = 160;
+  const labelX = W / 2 - labelW / 2;
+  const labelY = 120;
+  const labelR = labelH / 2;
 
   ctx.fillStyle = tc.accent;
   ctx.beginPath();
-  ctx.ellipse(labelX, labelY, labelW / 2, labelH / 2, 0, 0, Math.PI * 2);
+  ctx.moveTo(labelX + labelR, labelY);
+  ctx.lineTo(labelX + labelW - labelR, labelY);
+  ctx.arcTo(labelX + labelW, labelY, labelX + labelW, labelY + labelH, labelR);
+  ctx.lineTo(labelX + labelW, labelY + labelH - labelR);
+  ctx.arcTo(
+    labelX + labelW,
+    labelY + labelH,
+    labelX + labelW - labelR,
+    labelY + labelH,
+    labelR
+  );
+  ctx.lineTo(labelX + labelR, labelY + labelH);
+  ctx.arcTo(labelX, labelY + labelH, labelX, labelY + labelH - labelR, labelR);
+  ctx.lineTo(labelX, labelY + labelR);
+  ctx.arcTo(labelX, labelY, labelX + labelR, labelY, labelR);
+  ctx.closePath();
   ctx.fill();
 
   ctx.fillStyle = tc.bg;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(teamLabel, labelX, labelY);
+  ctx.fillText(teamLabel, W / 2, labelY + labelH / 2);
 
-  // 4. 텍스트1 — 투명 뚫린 영역 정중앙
+  // 4. 텍스트1 - 투명영역 중앙 위쪽
   const holeCenterY = TOP_BAR + holeH / 2;
+
   ctx.fillStyle = textColor1;
   ctx.font = `bold ${fontSize1}px ${ff(font1)}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 8;
-  ctx.fillText(text1 || "", W / 2, holeCenterY);
+  ctx.fillText(text1 || "", W / 2, holeCenterY - fontSize1 / 2 - 30);
   ctx.shadowBlur = 0;
-  ctx.shadowColor = "transparent";
 
-  // 5. 텍스트2 — 하단띠 정중앙
-  const botCenterY = H - BOT_BAR / 2;
+  // 5. 구분선
+  const lineY = holeCenterY + 20;
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.25, lineY);
+  ctx.lineTo(W * 0.75, lineY);
+  ctx.stroke();
+
+  // 6. 텍스트2 - 구분선 아래
   ctx.fillStyle = textColor2;
   ctx.font = `${fontSize2}px ${ff(font2)}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 6;
-  ctx.fillText(text2 || "", W / 2, botCenterY);
+  ctx.fillText(text2 || "", W / 2, lineY + fontSize2 / 2 + 30);
   ctx.shadowBlur = 0;
-  ctx.shadowColor = "transparent";
 
-  // 6. 팀 로고 — 비율 유지
+  // 7. 로고 - 하단띠 경계 위로 삐져나오게
   try {
-    const logoUrl = TEAM_LOGO_PATH[team];
-    if (logoUrl) {
-      const img = await new Promise((res, rej) => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = rej;
-        i.src = logoUrl;
-      });
-      const LOGO_MAX = 110;
-      const logoX = SIDE_BAR + 20;
-      const logoY = H - BOT_BAR + (BOT_BAR - LOGO_MAX) / 2;
-
-      const nw = img.naturalWidth || img.width || 1;
-      const nh = img.naturalHeight || img.height || 1;
-      const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
-      const logoW = nw * scale;
-      const logoH = nh * scale;
-      ctx.drawImage(img, logoX, logoY, logoW, logoH);
-    }
+    const logoSrc = TEAM_LOGO_PATH[team];
+    if (!logoSrc) return canvas;
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = logoSrc;
+    });
+    const LOGO_MAX = 160;
+    const nw = img.naturalWidth || img.width || 1;
+    const nh = img.naturalHeight || img.height || 1;
+    const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
+    const logoW = nw * scale;
+    const logoH = nh * scale;
+    const logoX = SIDE_BAR - 10;
+    const logoY = H - BOT_BAR - LOGO_MAX * 0.4;
+    ctx.drawImage(img, logoX, logoY, logoW, logoH);
   } catch (e) {
     console.warn("로고 로드 실패:", e);
   }
@@ -197,8 +221,8 @@ export default function Shorts3ThumbnailPanel() {
   const [team, setTeam]           = useState("KIA");
   const [text1, setText1]         = useState("");
   const [text2, setText2]         = useState("");
-  const [font1, setFont1]         = useState("BlackHanSans-Regular");
-  const [font2, setFont2]         = useState("BlackHanSans-Regular");
+  const [font1, setFont1]         = useState("NotoSansKR-Bold");
+  const [font2, setFont2]         = useState("NotoSansKR-Bold");
   const [textColor1, setTextColor1] = useState("#FFFFFF");
   const [textColor2, setTextColor2] = useState("#FFFFFF");
   const [fontSize1, setFontSize1] = useState(88);
