@@ -346,13 +346,120 @@ function highlightCropXFromOffset(iw, cw, rawOffset) {
   return cx;
 }
 
+/** 번들 폰트: /var/task/fonts, __dirname/fonts, bin/../fonts 등 */
+function resolveHighlightFontFile() {
+  const dirs = [
+    "/var/task/fonts",
+    resolve("/var/task/bin/../fonts"),
+    join(__dirname, "fonts"),
+  ];
+  const seen = new Set();
+  for (const dir of dirs) {
+    let abs;
+    try {
+      abs = resolve(dir);
+    } catch {
+      continue;
+    }
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    if (!existsSync(abs)) continue;
+    let names;
+    try {
+      names = readdirSync(abs);
+    } catch {
+      continue;
+    }
+    const font = names.find((n) => /\.(ttf|otf|ttc)$/i.test(n));
+    if (font) return join(abs, font);
+  }
+  return null;
+}
+
+function normalizeHexColor(raw, fallback = "#ffffff") {
+  const fb = fallback.startsWith("#") ? fallback : `#${fallback}`;
+  const s = raw != null ? String(raw).trim() : "";
+  if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^#[0-9A-Fa-f]{3}$/i.test(s)) {
+    const r = s[1];
+    const g = s[2];
+    const b = s[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return fb.toLowerCase();
+}
+
+function fontColorForFfmpeg(hex) {
+  const h = normalizeHexColor(hex, "#ffffff");
+  return `0x${h.slice(1)}`;
+}
+
+/** drawtext 필터 인자 앞뒤 경로 이스케이프 */
+function escapePathForDrawtextFilter(p) {
+  return String(p)
+    .replace(/\\/g, "/")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "\\'");
+}
+
+function normalizeHighlightTop(meta) {
+  const topText =
+    meta.topText != null ? String(meta.topText).trim() : "";
+  const topTextSizeRaw = Number(meta.topTextSize);
+  const topTextSize = Number.isFinite(topTextSizeRaw)
+    ? Math.min(200, Math.max(20, Math.round(topTextSizeRaw)))
+    : 72;
+  const topTextColor = normalizeHexColor(meta.topTextColor, "#ffffff");
+  return { topText, topTextSize, topTextColor };
+}
+
+function normalizeSegmentTextOverlay(seg) {
+  const text = seg?.text != null ? String(seg.text).trim() : "";
+  const ty = Number(seg?.textY);
+  const textY = Number.isFinite(ty)
+    ? Math.min(100, Math.max(0, Math.round(ty)))
+    : 85;
+  const textColor = normalizeHexColor(seg?.textColor, "#ffffff");
+  const tsRaw = Number(seg?.textSize);
+  const textSize = Number.isFinite(tsRaw)
+    ? Math.min(200, Math.max(20, Math.round(tsRaw)))
+    : 48;
+  return { text, textY, textColor, textSize };
+}
+
 function buildHighlightSegmentVf(opts) {
-  const { cw, ih, cx } = opts;
-  return [
+  const {
+    cw,
+    ih,
+    cx,
+    topTextFile,
+    bottomTextFile,
+    topFontSize,
+    bottomFontSize,
+    topColor,
+    bottomColor,
+    textY,
+  } = opts;
+  const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
-  ].join(",");
+  ];
+  const fontPrefix = "font=Sans:";
+  const fsTop = Math.round(topFontSize);
+  const fsBottom = Math.round(bottomFontSize);
+
+  if (bottomTextFile) {
+    parts.push(
+      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100`
+    );
+  }
+  if (topTextFile) {
+    parts.push(
+      `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpeg(topColor)}:x=(w-text_w)/2:y=50:shadowx=2:shadowy=2:shadowcolor=black`
+    );
+  }
+  return parts.join(",");
 }
 
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
@@ -391,6 +498,21 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
+  const bundleFont = resolveHighlightFontFile();
+  if (bundleFont) {
+    console.log(
+      "[highlight] bundle font found (drawtext uses font=Sans):",
+      bundleFont
+    );
+  }
+
+  const { topText, topTextSize, topTextColor } = normalizeHighlightTop(meta);
+  let topTextPath = null;
+  if (topText) {
+    topTextPath = join(workDir, "hi_top.txt");
+    writeFileSync(topTextPath, topText, "utf8");
+  }
+
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
@@ -421,7 +543,29 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       duration
     );
     const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
-    const vfSeg = buildHighlightSegmentVf({ cw, ih, cx });
+    const {
+      text: bottomTxt,
+      textY,
+      textColor: bottomColor,
+      textSize: bottomTextSize,
+    } = normalizeSegmentTextOverlay(seg);
+    let bottomPath = null;
+    if (bottomTxt) {
+      bottomPath = join(workDir, `hi_bottom_${i}.txt`);
+      writeFileSync(bottomPath, bottomTxt, "utf8");
+    }
+    const vfSeg = buildHighlightSegmentVf({
+      cw,
+      ih,
+      cx,
+      topTextFile: topTextPath,
+      bottomTextFile: bottomPath,
+      topFontSize: topTextSize,
+      bottomFontSize: bottomTextSize,
+      topColor: topTextColor,
+      bottomColor,
+      textY,
+    });
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
@@ -1160,6 +1304,7 @@ export const handler = async (event) => {
           "music.mp3",
           "joined_hi.mp4",
           "concat_hi.txt",
+          "hi_top.txt",
         ]) {
           const p = join(workDir, f);
           if (existsSync(p)) unlinkSync(p);
@@ -1170,6 +1315,7 @@ export const handler = async (event) => {
             `prep_${i}.png`,
             `chunk_${i}.mp4`,
             `seg_${i}.mp4`,
+            `hi_bottom_${i}.txt`,
           ]) {
             const p = join(workDir, name);
             if (existsSync(p)) unlinkSync(p);
