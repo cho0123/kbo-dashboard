@@ -976,9 +976,42 @@ export const handler = async (event) => {
     if (meta.type === "thumbnail") {
       const { ffmpegArgs, outKey } = meta;
 
+      const thumbnailFfmpegArgs = (() => {
+        const a = [...ffmpegArgs];
+        const framesIdx = a.indexOf("-frames:v");
+        if (framesIdx !== -1) {
+          const alreadyHas =
+            framesIdx >= 3 &&
+            a[framesIdx - 3] === "-y" &&
+            a[framesIdx - 2] === "-update" &&
+            a[framesIdx - 1] === "1";
+          if (!alreadyHas) {
+            a.splice(framesIdx, 0, "-y", "-update", "1");
+          }
+        }
+        return a;
+      })();
+
+      const vfIdx = thumbnailFfmpegArgs.indexOf("-vf");
+      let fontFilePath = null;
+      if (vfIdx !== -1 && vfIdx + 1 < thumbnailFfmpegArgs.length) {
+        const vf = String(thumbnailFfmpegArgs[vfIdx + 1] ?? "");
+        const m = vf.match(/fontfile=([^:]+)/);
+        fontFilePath = m ? m[1] : null;
+      }
+
+      console.log(
+        "[thumbnail] ffmpegArgs:",
+        JSON.stringify(thumbnailFfmpegArgs)
+      );
+      console.log(
+        "[thumbnail] fontFile exists:",
+        fontFilePath != null && existsSync(fontFilePath)
+      );
+
       const ffmpegPath = ffmpegBin();
       await new Promise((resolve, reject) => {
-        const proc = spawn(ffmpegPath, ffmpegArgs, {
+        const proc = spawn(ffmpegPath, thumbnailFfmpegArgs, {
           stdio: ["ignore", "pipe", "pipe"],
         });
         let stderr = "";
@@ -986,6 +1019,7 @@ export const handler = async (event) => {
           stderr += d.toString();
         });
         proc.on("close", (code) => {
+          console.log("[thumbnail] ffmpeg stderr (full):\n" + stderr);
           if (code === 0) resolve();
           else
             reject(
