@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TEAM_COLORS = {
   KIA:  { bg: "#EA0029", accent: "#FFFFFF", label: "KIA 타이거즈" },
@@ -62,12 +62,13 @@ async function drawThumbnail({
   textColor2,
   fontSize1,
   fontSize2,
+  canvas: existingCanvas,
 }) {
   await document.fonts.ready;
 
   const W = 1080;
   const H = 1920;
-  const canvas = document.createElement("canvas");
+  const canvas = existingCanvas ?? document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
@@ -186,6 +187,7 @@ export default function Shorts3ThumbnailPanel() {
   const [status, setStatus]       = useState("idle");
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [error, setError]         = useState(null);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
     const fontMap = {
@@ -205,6 +207,35 @@ export default function Shorts3ThumbnailPanel() {
   }, [font1, font2]);
 
   const tc = TEAM_COLORS[team];
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    void drawThumbnail({
+      team,
+      tc,
+      text1,
+      text2,
+      font1,
+      font2,
+      textColor1,
+      textColor2,
+      fontSize1,
+      fontSize2,
+      canvas,
+    }).catch(() => {});
+  }, [
+    team,
+    text1,
+    text2,
+    font1,
+    font2,
+    textColor1,
+    textColor2,
+    fontSize1,
+    fontSize2,
+    tc,
+  ]);
 
   async function handleGenerate() {
     setStatus("loading");
@@ -453,71 +484,22 @@ export default function Shorts3ThumbnailPanel() {
 
         {/* ── 오른쪽: 미리보기 ── */}
         <div style={{ flex: "0 0 200px" }}>
-          <div className="label">미리보기 (축소)</div>
-          <div
+          <div className="label">미리보기 (실시간)</div>
+          <canvas
+            ref={canvasRef}
+            width={1080}
+            height={1920}
             style={{
               marginTop: 6,
               width: 180,
               height: 320,
               borderRadius: 10,
-              background: tc.bg,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              padding: 16,
-              boxSizing: "border-box",
-              border: `3px solid ${tc.accent}`,
-              position: "relative",
-              overflow: "hidden",
+              border: `2px solid ${tc.accent}`,
+              display: "block",
             }}
-          >
-            {/* 팀명 뱃지 */}
-            <div style={{
-              position: "absolute",
-              top: 20,
-              background: tc.accent,
-              color: tc.bg,
-              fontWeight: "bold",
-              fontSize: 11,
-              padding: "3px 10px",
-              borderRadius: 20,
-            }}>
-              {tc.label}
-            </div>
-
-            {/* 텍스트1 */}
-            <div style={{
-              color: textColor1,
-              fontSize: fontSize1 * 0.18,
-              fontFamily: fontFamilyMap[font1] || "'Black Han Sans', sans-serif",
-              fontWeight: "bold",
-              textAlign: "center",
-              wordBreak: "keep-all",
-              marginTop: 20,
-              textShadow: "1px 1px 4px rgba(0,0,0,0.8)",
-            }}>
-              {text1 || "텍스트 1"}
-            </div>
-
-            {/* 구분선 */}
-            <div style={{ width: "60%", height: 2, background: tc.accent, borderRadius: 2 }} />
-
-            {/* 텍스트2 */}
-            <div style={{
-              color: textColor2,
-              fontSize: fontSize2 * 0.18,
-              fontFamily: fontFamilyMap[font2] || "'Black Han Sans', sans-serif",
-              textAlign: "center",
-              wordBreak: "keep-all",
-              textShadow: "1px 1px 4px rgba(0,0,0,0.8)",
-            }}>
-              {text2 || "텍스트 2"}
-            </div>
-          </div>
+          />
           <div style={{ color: "#555", fontSize: 11, marginTop: 6 }}>
-            실제 출력: 1080×1920px PNG (브라우저 생성)
+            실제 출력: 1080×1920px
           </div>
         </div>
 
