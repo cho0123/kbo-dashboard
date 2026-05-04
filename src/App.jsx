@@ -6,6 +6,7 @@ import VideoPresetsPanel from "./VideoPresetsPanel.jsx";
 import MusicLibraryPanel from "./MusicLibraryPanel.jsx";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import Shorts3Panel from "./Shorts3Panel.jsx";
+import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -4745,16 +4746,26 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">3. 쇼츠-하이라이트</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("shorts3_highlight");
-                  }}
-                >
-                  패널 열기
-                </button>
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("shorts3_highlight");
+                    }}
+                  >
+                    패널 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("shorts3_thumbnail");
+                    }}
+                  >
+                    🖼️ 썸네일
+                  </button>
+                </div>
               </div>
 
               <div className="side-group">
@@ -5575,6 +5586,8 @@ export default function App() {
                     />
                   ) : activeKey === "shorts3_highlight" ? (
                     <Shorts3Panel />
+                  ) : activeKey === "shorts3_thumbnail" ? (
+                    <Shorts3ThumbnailPanel />
                   ) : activeKey === "video_presets" ? (
                     <VideoPresetsPanel />
                   ) : activeKey === "music_library" ? (

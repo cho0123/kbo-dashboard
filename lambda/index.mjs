@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import {
   existsSync,
   mkdirSync,
@@ -972,6 +972,43 @@ export const handler = async (event) => {
 
     const metaKey = `jobs/${jobId}/meta.json`;
     const meta = await getJson(bucket, metaKey);
+
+    if (meta.type === "thumbnail") {
+      const { ffmpegArgs, outKey } = meta;
+
+      const ffmpegPath = ffmpegBin();
+      await new Promise((resolve, reject) => {
+        const proc = spawn(ffmpegPath, ffmpegArgs, {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stderr = "";
+        proc.stderr?.on("data", (d) => {
+          stderr += d.toString();
+        });
+        proc.on("close", (code) => {
+          if (code === 0) resolve();
+          else
+            reject(
+              new Error(
+                `ffmpeg exited with code ${code}: ${stderr.slice(0, 500)}`
+              )
+            );
+        });
+      });
+
+      const thumbPath = "/tmp/thumbnail.jpg";
+      const fileBuffer = readFileSync(thumbPath);
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: outKey,
+          Body: fileBuffer,
+          ContentType: "image/jpeg",
+        })
+      );
+
+      return { ok: true, outKey };
+    }
 
     if (meta.type === "highlight") {
       await runHighlightPipeline(bucket, jobId, workDir, meta);

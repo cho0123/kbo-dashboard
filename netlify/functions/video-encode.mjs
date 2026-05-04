@@ -237,6 +237,86 @@ export const handler = async (event) => {
         };
       }
 
+      if (mode === "thumbnail") {
+        const { bgColor, accentColor, text1, text2, font, textColor } = body;
+        const jobId = randomUUID();
+        const outKey = `jobs/${jobId}/thumbnail.jpg`;
+
+        const safeBg = (bgColor || "#000000").replace("#", "");
+        const safeAccent = (accentColor || "#ffffff").replace("#", "");
+        const safeTextHex = (textColor || "#ffffff").replace(/^#/, "");
+        const safeText1 = (text1 || "")
+          .replace(/'/g, "\\'")
+          .replace(/:/g, "\\:");
+        const safeText2 = (text2 || "")
+          .replace(/'/g, "\\'")
+          .replace(/:/g, "\\:");
+        const fontFile = `/var/task/fonts/${font || "BlackHanSans-Regular"}.ttf`;
+
+        const vf = [
+          `drawbox=x=0:y=0:w=1080:h=160:color=${safeAccent}@0.2:t=fill`,
+          `drawtext=fontfile=${fontFile}:text='${safeText1}':fontcolor=0x${safeTextHex}:fontsize=88:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
+          `drawbox=x=240:y=900:w=600:h=6:color=${safeAccent}:t=fill`,
+          `drawtext=fontfile=${fontFile}:text='${safeText2}':fontcolor=0x${safeTextHex}:fontsize=52:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
+        ].join(",");
+
+        const metaThumbnail = {
+          type: "thumbnail",
+          outKey,
+          ffmpegArgs: [
+            "-f",
+            "lavfi",
+            "-i",
+            `color=c=#${safeBg}:size=1080x1920:rate=1`,
+            "-vf",
+            vf,
+            "-frames:v",
+            "1",
+            "-q:v",
+            "2",
+            "/tmp/thumbnail.jpg",
+          ],
+        };
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: `jobs/${jobId}/meta.json`,
+            Body: JSON.stringify(metaThumbnail),
+            ContentType: "application/json",
+          })
+        );
+
+        const invokeRes = await lambda.send(
+          new InvokeCommand({
+            FunctionName: fnName,
+            InvocationType: "RequestResponse",
+            Payload: Buffer.from(JSON.stringify({ bucket, jobId })),
+          })
+        );
+
+        const lambdaResult = JSON.parse(
+          Buffer.from(invokeRes.Payload).toString()
+        );
+        if (lambdaResult.errorMessage || !lambdaResult.ok) {
+          return jsonError(500, "lambda_error", {
+            detail: lambdaResult.errorMessage || JSON.stringify(lambdaResult),
+          });
+        }
+
+        const downloadUrl = await getSignedUrl(
+          s3,
+          new GetObjectCommand({ Bucket: bucket, Key: outKey }),
+          { expiresIn: 3600 }
+        );
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({ ok: true, downloadUrl }),
+        };
+      }
+
       if (mode === "finalize") {
         const jobId = body.jobId;
         const slideCount = Number(body.slideCount);
@@ -320,7 +400,7 @@ export const handler = async (event) => {
       }
 
       return jsonError(400, "invalid_or_missing_mode", {
-        expected: "prepare | finalize | music_upload_url",
+        expected: "prepare | finalize | music_upload_url | thumbnail",
         received: mode,
         hint: "Large PNG payloads must not be sent in the JSON body. POST { mode:prepare, slideCount, durations, transition, hasMusic } then PUT files to presigned URLs, then POST { mode:finalize, jobId, ... }. Music library: mode music_upload_url.",
       });
