@@ -370,8 +370,10 @@ function resolveHighlightFontFile() {
     } catch {
       continue;
     }
-    const font = names.find((n) => /\.(ttf|otf|ttc)$/i.test(n));
-    if (font) return join(abs, font);
+    const fonts = names
+      .filter((n) => /\.(ttf|otf|ttc)$/i.test(n))
+      .sort();
+    if (fonts.length) return join(abs, fonts[0]);
   }
   return null;
 }
@@ -439,22 +441,25 @@ function buildHighlightSegmentVf(opts) {
     topColor,
     bottomColor,
     textY,
+    fontFile,
   } = opts;
   const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
   ];
-  const fontPrefix = "font=Sans:";
+  const fontPrefix = fontFile
+    ? `fontfile=${escapePathForDrawtextFilter(fontFile)}:`
+    : "";
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
 
-  if (bottomTextFile) {
+  if (fontFile && bottomTextFile) {
     parts.push(
       `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpeg(bottomColor)}:x=(w-text_w)/2:y=h*${textY}/100`
     );
   }
-  if (topTextFile) {
+  if (fontFile && topTextFile) {
     parts.push(
       `drawtext=${fontPrefix}textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpeg(topColor)}:x=(w-text_w)/2:y=50:shadowx=2:shadowy=2:shadowcolor=black`
     );
@@ -498,17 +503,23 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
-  const bundleFont = resolveHighlightFontFile();
-  if (bundleFont) {
-    console.log(
-      "[highlight] bundle font found (drawtext uses font=Sans):",
-      bundleFont
-    );
+  const highlightFontFile = resolveHighlightFontFile();
+  if (highlightFontFile) {
+    console.log("[highlight] drawtext fontfile:", highlightFontFile);
   }
 
   const { topText, topTextSize, topTextColor } = normalizeHighlightTop(meta);
+  const metaWantsText =
+    Boolean(topText) ||
+    segments.some((s) => s?.text != null && String(s.text).trim() !== "");
+  if (metaWantsText && !highlightFontFile) {
+    console.warn(
+      "[highlight] no bundle font under /var/task/fonts — drawtext skipped (video without text overlay)"
+    );
+  }
+
   let topTextPath = null;
-  if (topText) {
+  if (highlightFontFile && topText) {
     topTextPath = join(workDir, "hi_top.txt");
     writeFileSync(topTextPath, topText, "utf8");
   }
@@ -550,7 +561,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       textSize: bottomTextSize,
     } = normalizeSegmentTextOverlay(seg);
     let bottomPath = null;
-    if (bottomTxt) {
+    if (highlightFontFile && bottomTxt) {
       bottomPath = join(workDir, `hi_bottom_${i}.txt`);
       writeFileSync(bottomPath, bottomTxt, "utf8");
     }
@@ -565,6 +576,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topColor: topTextColor,
       bottomColor,
       textY,
+      fontFile: highlightFontFile,
     });
     await putStatus(bucket, jobId, {
       state: "processing",
