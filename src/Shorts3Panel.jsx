@@ -1021,9 +1021,14 @@ export default function Shorts3Panel() {
     const scale = cropH > 0 ? cropH / 1920 : 1;
     const seg = segments[previewSegmentIndex];
     const previewTopPx = Math.max(8, (Number(topTextSize) || 72) * scale);
+    const thumbLine = String(thumbnailText ?? "").trim();
+    const useThumbOverlay =
+      previewSegmentIndex === 0 && thumbLine.length > 0;
     const previewBottomPx = Math.max(
       8,
-      (Number(seg?.textSize) || 48) * scale
+      (useThumbOverlay
+        ? Number(thumbnailTextSize) || 72
+        : Number(seg?.textSize) || 48) * scale
     );
     const topColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
       ? topTextColor
@@ -1031,17 +1036,25 @@ export default function Shorts3Panel() {
     const topOp = roundOpacity01(topTextOpacity ?? 1);
     const topColor = hexToRgba(topColorRaw, topOp);
     const topLine = String(topText || "").trim();
-    const bottomLine = String(seg?.text ?? "").trim();
-    const tyRaw = Number(seg?.textY);
+    const bottomLine = useThumbOverlay
+      ? thumbLine
+      : String(seg?.text ?? "").trim();
+    const tyRaw = useThumbOverlay
+      ? Number(thumbnailTextY)
+      : Number(seg?.textY);
     const textYpct = Number.isFinite(tyRaw)
       ? Math.min(100, Math.max(0, tyRaw))
       : 85;
-    const bottomColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(
-      String(seg?.textColor || "")
-    )
-      ? seg.textColor
-      : TEXT_COLORS[0];
-    const bottomOp = roundOpacity01(seg?.textOpacity ?? 1);
+    const bottomColorRaw = useThumbOverlay
+      ? /^#[0-9A-Fa-f]{6}$/i.test(String(thumbnailTextColor || ""))
+        ? thumbnailTextColor
+        : TEXT_COLORS[0]
+      : /^#[0-9A-Fa-f]{6}$/i.test(String(seg?.textColor || ""))
+        ? seg.textColor
+        : TEXT_COLORS[0];
+    const bottomOp = useThumbOverlay
+      ? roundOpacity01(thumbnailTextOpacity ?? 1)
+      : roundOpacity01(seg?.textOpacity ?? 1);
     const bottomColor = hexToRgba(bottomColorRaw, bottomOp);
     const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
     return (
@@ -1110,7 +1123,18 @@ export default function Shorts3Panel() {
     topTextOpacity,
     segments,
     previewSegmentIndex,
+    thumbnailText,
+    thumbnailTextY,
+    thumbnailTextColor,
+    thumbnailTextOpacity,
+    thumbnailTextSize,
   ]);
+
+  const thumbnailSeekOk =
+    thumbnailTime != null &&
+    typeof thumbnailTime === "number" &&
+    Number.isFinite(thumbnailTime) &&
+    thumbnailTime >= 0;
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -1407,7 +1431,6 @@ export default function Shorts3Panel() {
                 style={{
                   position: "relative",
                   width: "100%",
-                  maxHeight: 320,
                   borderRadius: 8,
                   overflow: "hidden",
                   background: "#000",
@@ -1422,7 +1445,8 @@ export default function Shorts3Panel() {
                     position: "relative",
                     zIndex: 0,
                     width: "100%",
-                    maxHeight: 320,
+                    height: "auto",
+                    maxHeight: "70vh",
                     display: "block",
                     objectFit: "contain",
                     background: "#000",
@@ -1789,16 +1813,14 @@ export default function Shorts3Panel() {
                       ))}
                     </select>
                   </label>
-                  {thumbnailTime != null &&
-                  Number.isFinite(thumbnailTime) &&
-                  thumbnailTime >= 0 ? (
+                  {thumbnailSeekOk ? (
                     <button
                       type="button"
-                      className="ghost"
+                      className="primary primary-fill"
                       disabled={busy || uploading}
                       onClick={() => {
                         const v = previewVideoRef.current;
-                        if (!v) return;
+                        if (!v || !thumbnailSeekOk) return;
                         v.currentTime = thumbnailTime;
                       }}
                     >
