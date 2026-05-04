@@ -2444,6 +2444,23 @@ export const handler = async (event) => {
             ? thumbNum
             : null;
 
+        const tcoRaw = payload.thumbnailCropOffset;
+        let thumbnailCropOffsetMeta = null;
+        if (tcoRaw !== undefined && tcoRaw !== null && tcoRaw !== "") {
+          const tco = Number(tcoRaw);
+          if (!Number.isFinite(tco) || tco < -50 || tco > 50) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "썸네일 크롭 오프셋은 -50~50 사이여야 합니다.",
+              }),
+            };
+          }
+          thumbnailCropOffsetMeta = Math.min(50, Math.max(-50, Math.round(tco)));
+        }
+
         const thumbTxt =
           payload.thumbnailText != null
             ? String(payload.thumbnailText).trim()
@@ -2506,6 +2523,9 @@ export const handler = async (event) => {
         }
         if (thumbnailTime != null) {
           meta.thumbnailTime = thumbnailTime;
+        }
+        if (thumbnailCropOffsetMeta != null) {
+          meta.thumbnailCropOffset = thumbnailCropOffsetMeta;
         }
         if (thumbnailTextMeta) {
           Object.assign(meta, thumbnailTextMeta);

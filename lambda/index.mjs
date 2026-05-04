@@ -590,7 +590,18 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       "duration:",
       duration
     );
-    const cx = highlightCropXFromOffset(iw, cw, seg?.cropOffset);
+    const cropRaw =
+      seg[THUMB_SEG_FLAG] === true
+        ? (() => {
+            const tr = meta.thumbnailCropOffset;
+            if (tr !== undefined && tr !== null && tr !== "") {
+              const n = Number(tr);
+              if (Number.isFinite(n)) return n;
+            }
+            return seg?.cropOffset;
+          })()
+        : seg?.cropOffset;
+    const cx = highlightCropXFromOffset(iw, cw, cropRaw);
     let bottomParsed;
     if (seg[THUMB_SEG_FLAG] === true) {
       bottomParsed = normalizeThumbnailText(meta);

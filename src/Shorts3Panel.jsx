@@ -334,6 +334,8 @@ export default function Shorts3Panel() {
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
   /** 미리보기 currentTime 기준 썸네일(0.3초) 삽입 위치; Lambda에서 맨 앞에 추가 */
   const [thumbnailTime, setThumbnailTime] = useState(null);
+  /** 썸네일 클립 가로 크롭 오프셋 % (-50~50, 미리보기·Lambda 썸네일 구간 전용) */
+  const [thumbnailCropOffset, setThumbnailCropOffset] = useState(0);
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
@@ -465,13 +467,19 @@ export default function Shorts3Panel() {
 
   const updatePreviewCropOverlay = useCallback(() => {
     const video = previewVideoRef.current;
-    const cropOffset = segments[previewSegmentIndex]?.cropOffset ?? 0;
+    const segOff = segments[previewSegmentIndex]?.cropOffset ?? 0;
+    const thumbOff = Math.min(
+      50,
+      Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
+    );
+    const cropOffset =
+      previewSegmentIndex === 0 ? thumbOff : segOff;
     if (!video) {
       setPreviewCropOverlay(null);
       return;
     }
     setPreviewCropOverlay(computePreviewCropOverlay(video, cropOffset));
-  }, [segments, previewSegmentIndex]);
+  }, [segments, previewSegmentIndex, thumbnailCropOffset]);
 
   useLayoutEffect(() => {
     updatePreviewCropOverlay();
@@ -673,6 +681,7 @@ export default function Shorts3Panel() {
     setUploadProgress(0);
     setPreviewUrl(null);
     setThumbnailTime(null);
+    setThumbnailCropOffset(0);
     setError(null);
   };
 
@@ -685,6 +694,7 @@ export default function Shorts3Panel() {
     if (videoInputRef.current) videoInputRef.current.value = "";
     setDownloadUrl(null);
     setThumbnailTime(null);
+    setThumbnailCropOffset(0);
     setStatus("idle");
     setMessage("");
     setProgress(0);
@@ -926,6 +936,10 @@ export default function Shorts3Panel() {
       ) {
         payload.thumbnailTime = thumbnailTime;
       }
+      payload.thumbnailCropOffset = Math.min(
+        50,
+        Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
+      );
       const tt = String(thumbnailText ?? "").trim();
       if (tt) {
         payload.thumbnailText = tt;
@@ -1364,6 +1378,33 @@ export default function Shorts3Panel() {
                       }
                     />
                   </label>
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginBottom: 8,
+                    }}
+                  >
+                    크롭 오프셋: {formatCropOffsetLabel(thumbnailCropOffset)}
+                    <input
+                      type="range"
+                      min={-50}
+                      max={50}
+                      step={1}
+                      value={Math.min(
+                        50,
+                        Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
+                      )}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailCropOffset(Number(e.target.value) || 0)
+                      }
+                    />
+                  </label>
                   <div
                     className="muted"
                     style={{
@@ -1485,6 +1526,22 @@ export default function Shorts3Panel() {
                       ))}
                     </select>
                   </label>
+                  {thumbnailTime != null &&
+                  Number.isFinite(thumbnailTime) &&
+                  thumbnailTime >= 0 ? (
+                    <button
+                      type="button"
+                      className="ghost"
+                      disabled={busy || uploading}
+                      onClick={() => {
+                        const v = previewVideoRef.current;
+                        if (!v) return;
+                        v.currentTime = thumbnailTime;
+                      }}
+                    >
+                      📸 썸네일로 이동
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="primary"
