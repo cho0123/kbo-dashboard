@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "child_process";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -511,7 +512,57 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     thumbRaw !== undefined && thumbRaw !== null && thumbRaw !== ""
       ? Number(thumbRaw)
       : NaN;
-  if (Number.isFinite(thumbAt) && thumbAt >= 0) {
+
+  // thumbnail.png S3에 있으면 PNG → 0.3초 클립으로 변환
+  const thumbPngKey = `jobs/${jobId}/thumbnail.png`;
+  const thumbPngLocal = join(workDir, "thumbnail.png");
+  let hasThumbnailPng = false;
+  try {
+    await getObjectFile(bucket, thumbPngKey, thumbPngLocal);
+    hasThumbnailPng = true;
+    console.log("[highlight] thumbnail.png found, will prepend as 0.3s clip");
+  } catch (e) {
+    console.log("[highlight] no thumbnail.png, skipping");
+  }
+
+  // thumbnail.png 있으면 PNG 클립 사용, 없으면 기존 thumbnailTime 방식
+  if (hasThumbnailPng) {
+    // PNG → 0.3초 mp4 클립 생성
+    const thumbClipLocal = join(workDir, "thumb_clip.mp4");
+    runFfmpeg(
+      [
+        "-y",
+        "-loop",
+        "1",
+        "-framerate",
+        "30",
+        "-t",
+        String(HIGHLIGHT_THUMBNAIL_DUR_SEC),
+        "-i",
+        thumbPngLocal,
+        "-vf",
+        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        thumbClipLocal,
+      ],
+      workDir,
+      "thumb_png_clip"
+    );
+
+    // segments 앞에 PNG 클립 마커 추가
+    segments = [
+      { _pngThumbClip: true, localPath: thumbClipLocal },
+      ...segments,
+    ];
+  } else if (Number.isFinite(thumbAt) && thumbAt >= 0) {
+    // 기존 thumbnailTime 방식 유지
     const first = segments[0];
     const thumbSeg = {
       ...first,
@@ -565,6 +616,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
+    if (seg._pngThumbClip === true) {
+      // 이미 thumb_clip.mp4 생성됨 → seg_i.mp4 로 복사
+      const segOut = join(workDir, `seg_${i}.mp4`);
+      copyFileSync(seg.localPath, segOut);
+      continue;
+    }
     let startSec;
     let endSec;
     let duration;
