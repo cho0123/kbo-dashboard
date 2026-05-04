@@ -2240,6 +2240,40 @@ export const handler = async (event) => {
           };
         }
       }
+      case "thumbnail_upload_url": {
+        try {
+          const { jobId } = payload;
+          if (!jobId) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: "Missing jobId" }),
+            };
+          }
+          const { s3, bucket } = videoEncodeAwsClients();
+          const key = `jobs/${jobId}/thumbnail.png`;
+          const cmd = new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ContentType: "image/png",
+          });
+          const putUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, jobId, key, putUrl }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "highlight_video_create": {
         const HIGHLIGHT_FONT_FILES = new Set([
           "NotoSansKR-Bold.ttf",
