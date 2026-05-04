@@ -243,8 +243,10 @@ export const handler = async (event) => {
           accentColor,
           text1,
           text2,
-          font,
-          textColor,
+          font1,
+          font2,
+          textColor1,
+          textColor2,
           fontSize1,
           fontSize2,
         } = body;
@@ -252,15 +254,16 @@ export const handler = async (event) => {
 
         const safeBg = (bgColor || "#000000").replace("#", "");
         const safeAccent = (accentColor || "#ffffff").replace("#", "");
-        const safeTextHex = (textColor || "#ffffff").replace("#", "");
+        const safeTextHex1 = (textColor1 || "#ffffff").replace("#", "");
+        const safeTextHex2 = (textColor2 || "#ffffff").replace("#", "");
         const safeText1 = (text1 || "")
           .replace(/'/g, "\\'")
           .replace(/:/g, "\\:");
         const safeText2 = (text2 || "")
           .replace(/'/g, "\\'")
           .replace(/:/g, "\\:");
-        const fontBase = font || "BlackHanSans-Regular";
-        const fontFile = `/var/task/fonts/${fontBase}.ttf`;
+        const fontFile1 = `/var/task/fonts/${font1 || "BlackHanSans-Regular"}.ttf`;
+        const fontFile2 = `/var/task/fonts/${font2 || "BlackHanSans-Regular"}.ttf`;
         const fs1 =
           Number(fontSize1) > 0 ? Number(fontSize1) : 88;
         const fs2 =
@@ -268,9 +271,9 @@ export const handler = async (event) => {
 
         const vf = [
           `drawbox=x=0:y=0:w=1080:h=160:color=${safeAccent}@0.2:t=fill`,
-          `drawtext=fontfile=${fontFile}:text='${safeText1}':fontcolor=0x${safeTextHex}:fontsize=${fs1}:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
+          `drawtext=fontfile=${fontFile1}:text='${safeText1}':fontcolor=0x${safeTextHex1}:fontsize=${fs1}:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
           `drawbox=x=240:y=900:w=600:h=6:color=${safeAccent}:t=fill`,
-          `drawtext=fontfile=${fontFile}:text='${safeText2}':fontcolor=0x${safeTextHex}:fontsize=${fs2}:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
+          `drawtext=fontfile=${fontFile2}:text='${safeText2}':fontcolor=0x${safeTextHex2}:fontsize=${fs2}:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
         ].join(",");
 
         const meta = {

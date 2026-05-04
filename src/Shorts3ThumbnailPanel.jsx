@@ -42,8 +42,10 @@ export default function Shorts3ThumbnailPanel() {
   const [team, setTeam]           = useState("KIA");
   const [text1, setText1]         = useState("");
   const [text2, setText2]         = useState("");
-  const [font, setFont]           = useState("BlackHanSans-Regular");
-  const [textColor, setTextColor] = useState("#FFFFFF");
+  const [font1, setFont1]         = useState("BlackHanSans-Regular");
+  const [font2, setFont2]         = useState("BlackHanSans-Regular");
+  const [textColor1, setTextColor1] = useState("#FFFFFF");
+  const [textColor2, setTextColor2] = useState("#FFFFFF");
   const [fontSize1, setFontSize1] = useState(88);
   const [fontSize2, setFontSize2] = useState(52);
   const [status, setStatus]       = useState("idle");
@@ -56,14 +58,16 @@ export default function Shorts3ThumbnailPanel() {
       "BlackHanSans-Regular": "https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap",
       "NotoSerifKR-Bold":  "https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&display=swap",
     };
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = fontMap[font] || fontMap["BlackHanSans-Regular"];
-    link.id = "thumbnail-font";
-    const existing = document.getElementById("thumbnail-font");
-    if (existing) existing.remove();
-    document.head.appendChild(link);
-  }, [font]);
+    [font1, font2].forEach((f, i) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = fontMap[f] || fontMap["BlackHanSans-Regular"];
+      link.id = `thumbnail-font-${i}`;
+      const existing = document.getElementById(`thumbnail-font-${i}`);
+      if (existing) existing.remove();
+      document.head.appendChild(link);
+    });
+  }, [font1, font2]);
 
   const tc = TEAM_COLORS[team];
 
@@ -82,8 +86,10 @@ export default function Shorts3ThumbnailPanel() {
           accentColor: tc.accent,
           text1,
           text2,
-          font: font || "BlackHanSans-Regular",
-          textColor,
+          font1: font1 || "BlackHanSans-Regular",
+          font2: font2 || "BlackHanSans-Regular",
+          textColor1,
+          textColor2,
           fontSize1,
           fontSize2,
         }),
@@ -176,6 +182,44 @@ export default function Shorts3ThumbnailPanel() {
               />
               <span style={{ color: "#fff", fontSize: 13, minWidth: 28 }}>{fontSize1}</span>
             </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+              {FONTS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFont1(f.value)}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    border: font1 === f.value ? "2px solid #4ade80" : "2px solid #444",
+                    background: font1 === f.value ? "#1a3a2a" : "#1e1e1e",
+                    color: font1 === f.value ? "#4ade80" : "#aaa",
+                    cursor: "pointer",
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+              {TEXT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setTextColor1(c.value)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 5,
+                    background: c.value,
+                    border: textColor1 === c.value ? "3px solid #4ade80" : "2px solid #444",
+                    cursor: "pointer",
+                  }}
+                  title={c.label}
+                />
+              ))}
+            </div>
           </div>
 
           {/* 텍스트 2 */}
@@ -200,24 +244,19 @@ export default function Shorts3ThumbnailPanel() {
               />
               <span style={{ color: "#fff", fontSize: 13, minWidth: 28 }}>{fontSize2}</span>
             </div>
-          </div>
-
-          {/* 폰트 선택 */}
-          <div>
-            <div className="label">폰트</div>
             <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
               {FONTS.map((f) => (
                 <button
                   key={f.value}
                   type="button"
-                  onClick={() => setFont(f.value)}
+                  onClick={() => setFont2(f.value)}
                   style={{
-                    padding: "5px 10px",
+                    padding: "4px 8px",
                     borderRadius: 6,
-                    border: font === f.value ? "2px solid #4ade80" : "2px solid #444",
-                    background: font === f.value ? "#1a3a2a" : "#1e1e1e",
-                    color: font === f.value ? "#4ade80" : "#aaa",
-                    fontSize: 12,
+                    fontSize: 11,
+                    border: font2 === f.value ? "2px solid #4ade80" : "2px solid #444",
+                    background: font2 === f.value ? "#1a3a2a" : "#1e1e1e",
+                    color: font2 === f.value ? "#4ade80" : "#aaa",
                     cursor: "pointer",
                   }}
                 >
@@ -225,32 +264,24 @@ export default function Shorts3ThumbnailPanel() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* 텍스트 색상 */}
-          <div>
-            <div className="label">텍스트 색상</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
               {TEXT_COLORS.map((c) => (
                 <button
                   key={c.value}
                   type="button"
-                  onClick={() => setTextColor(c.value)}
+                  onClick={() => setTextColor2(c.value)}
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 6,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 5,
                     background: c.value,
-                    border: textColor === c.value ? "3px solid #4ade80" : "2px solid #444",
+                    border: textColor2 === c.value ? "3px solid #4ade80" : "2px solid #444",
                     cursor: "pointer",
                   }}
                   title={c.label}
                 />
               ))}
             </div>
-            <span style={{ color: "#aaa", fontSize: 12, marginTop: 4, display: "block" }}>
-              선택: {TEXT_COLORS.find((c) => c.value === textColor)?.label} ({textColor})
-            </span>
           </div>
 
           {/* 생성 버튼 */}
@@ -336,9 +367,9 @@ export default function Shorts3ThumbnailPanel() {
 
             {/* 텍스트1 */}
             <div style={{
-              color: textColor,
+              color: textColor1,
               fontSize: fontSize1 * 0.18,
-              fontFamily: fontFamilyMap[font] || "'Black Han Sans', sans-serif",
+              fontFamily: fontFamilyMap[font1] || "'Black Han Sans', sans-serif",
               fontWeight: "bold",
               textAlign: "center",
               wordBreak: "keep-all",
@@ -353,9 +384,9 @@ export default function Shorts3ThumbnailPanel() {
 
             {/* 텍스트2 */}
             <div style={{
-              color: textColor,
+              color: textColor2,
               fontSize: fontSize2 * 0.18,
-              fontFamily: fontFamilyMap[font] || "'Black Han Sans', sans-serif",
+              fontFamily: fontFamilyMap[font2] || "'Black Han Sans', sans-serif",
               textAlign: "center",
               wordBreak: "keep-all",
               textShadow: "1px 1px 4px rgba(0,0,0,0.8)",
