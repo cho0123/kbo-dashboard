@@ -19,6 +19,19 @@ const FONTS = [
   { label: "NotoSerifKR Bold", value: "NotoSerifKR-Bold" },
 ];
 
+const TEXT_COLORS = [
+  { label: "흰색",  value: "#FFFFFF" },
+  { label: "검정",  value: "#000000" },
+  { label: "노랑",  value: "#FFD700" },
+  { label: "하늘",  value: "#00CFFF" },
+  { label: "연두",  value: "#4ade80" },
+  { label: "주황",  value: "#FF6600" },
+  { label: "분홍",  value: "#FF4ECD" },
+  { label: "빨강",  value: "#FF3B3B" },
+  { label: "하늘2", value: "#90CAF9" },
+  { label: "금색",  value: "#FFC107" },
+];
+
 export default function Shorts3ThumbnailPanel() {
   const [team, setTeam]           = useState("KIA");
   const [text1, setText1]         = useState("");
@@ -46,7 +59,7 @@ export default function Shorts3ThumbnailPanel() {
           accentColor: tc.accent,
           text1,
           text2,
-          font,
+          font: font || "BlackHanSans-Regular",
           textColor,
         }),
       });
@@ -168,15 +181,27 @@ export default function Shorts3ThumbnailPanel() {
           {/* 텍스트 색상 */}
           <div>
             <div className="label">텍스트 색상</div>
-            <div style={{ display: "flex", gap: 10, marginTop: 6, alignItems: "center" }}>
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-                style={{ width: 40, height: 40, border: "none", background: "none", cursor: "pointer" }}
-              />
-              <span style={{ color: "#aaa", fontSize: 13 }}>{textColor}</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+              {TEXT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setTextColor(c.value)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 6,
+                    background: c.value,
+                    border: textColor === c.value ? "3px solid #4ade80" : "2px solid #444",
+                    cursor: "pointer",
+                  }}
+                  title={c.label}
+                />
+              ))}
             </div>
+            <span style={{ color: "#aaa", fontSize: 12, marginTop: 4, display: "block" }}>
+              선택: {TEXT_COLORS.find((c) => c.value === textColor)?.label} ({textColor})
+            </span>
           </div>
 
           {/* 생성 버튼 */}
