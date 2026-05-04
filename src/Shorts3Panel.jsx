@@ -1130,6 +1130,260 @@ export default function Shorts3Panel() {
           overflow: "visible",
         }}
       >
+        <div style={{ width: "100%", marginTop: 16 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+          로컬 다운로드
+        </div>
+        <div className="muted" style={{ fontSize: 14, marginBottom: 10 }}>
+          {localServerOk === null ? (
+            "서버 상태 확인 중…"
+          ) : localServerOk ? (
+            <span>🟢 연결됨</span>
+          ) : (
+            <span>
+              🔴 연결 안 됨 —{" "}
+              <strong style={{ color: "#ffb347" }}>
+                서버시작.bat를 실행해주세요
+              </strong>
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="url"
+            placeholder="https://..."
+            value={localYtdlpUrl}
+            onChange={(e) => setLocalYtdlpUrl(e.target.value)}
+            disabled={busy || uploading || localDownloadBusy}
+            style={{
+              flex: "1 1 220px",
+              minWidth: 160,
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "#0f141d",
+              color: "var(--text, #e9edf5)",
+              fontFamily: "inherit",
+              fontSize: 14,
+            }}
+          />
+          <button
+            type="button"
+            className="primary primary-fill"
+            disabled={
+              busy ||
+              uploading ||
+              localDownloadBusy ||
+              localServerOk === false
+            }
+            onClick={onLocalDownload}
+          >
+            {localDownloadBusy ? "다운로드 중…" : "⬇ 로컬 다운로드"}
+          </button>
+        </div>
+        {localDownloadBusy ? (
+          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+            yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ marginTop: 16, width: "100%" }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+          저장된 파일 목록
+        </div>
+        {savedFilesLoading ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            목록 불러오는 중…
+          </div>
+        ) : savedFilesError ? (
+          <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
+            {savedFilesError}
+          </div>
+        ) : savedFiles.length === 0 ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            저장된 원본이 없습니다.
+          </div>
+        ) : (
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {savedFiles.map((row) => {
+              const jid = row.jobId || "";
+              const shortName = jid.slice(0, 8) || "—";
+              const when = row.lastModified
+                ? new Date(row.lastModified).toLocaleString("ko-KR", {
+                    timeZone: "Asia/Seoul",
+                    dateStyle: "short",
+                    timeStyle: "medium",
+                  })
+                : "—";
+              return (
+                <li
+                  key={jid}
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{shortName}</span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    {when}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {typeof row.size === "number"
+                      ? `${Math.round(row.size / 1024)} KB`
+                      : ""}
+                  </span>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 8,
+                      marginLeft: "auto",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy || uploading}
+                      onClick={() => onLoadSavedJob(jid)}
+                    >
+                      불러오기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      onClick={() => onDeleteSavedJob(jid)}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(255, 107, 138, 0.55)",
+                        background:
+                          "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
+                        color: "#ffd0dc",
+                        fontWeight: 700,
+                        fontFamily: "inherit",
+                        cursor:
+                          busy || uploading ? "not-allowed" : "pointer",
+                        opacity: busy || uploading ? 0.55 : 1,
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div style={{ marginTop: 14, width: "100%" }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+          원본 영상 파일
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept={VIDEO_ACCEPT}
+            style={{ display: "none" }}
+            onChange={onVideoFileChange}
+          />
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || uploading}
+            onClick={() => videoInputRef.current?.click()}
+          >
+            파일 선택
+          </button>
+          <span className="muted" style={{ fontSize: 13, maxWidth: 280 }}>
+            {videoFile
+              ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
+              : "선택 없음 — mp4 · mov · avi"}
+          </span>
+          <button
+            type="button"
+            className="primary primary-fill"
+            disabled={busy || uploading || !videoFile}
+            onClick={onUploadSource}
+          >
+            {uploading ? "업로드 중…" : "S3에 업로드"}
+          </button>
+        </div>
+
+        {uploading ? (
+          <div style={{ marginTop: 12 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+              업로드 진행
+            </div>
+            <div className="video-export-progress-wrap">
+              <div className="video-export-progress-bar">
+                <div
+                  className="video-export-progress-fill"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <div className="muted" style={{ marginTop: 8 }}>
+                {uploadProgress}%
+              </div>
+            </div>
+          </div>
+        ) : uploadPhase === "done" ? (
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span className="muted" style={{ fontWeight: 700 }}>
+              업로드 완료 (jobId 저장됨)
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              disabled={busy || uploading}
+              onClick={onDeleteSource}
+            >
+              파일 삭제
+            </button>
+          </div>
+        ) : null}
+      </div>
+
         <div
           style={{
             position: "sticky",
@@ -1140,18 +1394,20 @@ export default function Shorts3Panel() {
             paddingTop: 4,
             paddingBottom: 14,
             boxSizing: "border-box",
+            marginTop: 16,
           }}
         >
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
           {uploadPhase === "done" && previewUrl ? (
+            <>
             <div
               ref={previewVideoWrapRef}
                 style={{
                   position: "relative",
                   width: "100%",
-                  maxHeight: 400,
+                  maxHeight: 320,
                   borderRadius: 8,
                   overflow: "hidden",
                   background: "#000",
@@ -1166,7 +1422,7 @@ export default function Shorts3Panel() {
                     position: "relative",
                     zIndex: 0,
                     width: "100%",
-                    maxHeight: 400,
+                    maxHeight: 320,
                     display: "block",
                     objectFit: "contain",
                     background: "#000",
@@ -1215,24 +1471,14 @@ export default function Shorts3Panel() {
                     </div>
                   ) : null}
                 </div>
-          ) : (
-            <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
-              원본 업로드를 완료하면 여기에서 미리보기와 시작·종료점을 설정할 수
-              있습니다.
-            </p>
-          )}
-        </div>
-
-        {uploadPhase === "done" && previewUrl ? (
-          <>
-            {videoDuration > 0 ? (
-              <>
-                <div
-                  className="muted"
-                  style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
-                >
-                  구간 타임라인 (클릭 시 재생 위치 이동)
-                </div>
+                {videoDuration > 0 ? (
+                  <>
+                    <div
+                      className="muted"
+                      style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
+                    >
+                      구간 타임라인 (클릭 시 재생 위치 이동)
+                    </div>
                     <div
                       onClick={(e) => {
                         const v = previewVideoRef.current;
@@ -1293,6 +1539,23 @@ export default function Shorts3Panel() {
                     전체 길이(loadedmetadata)를 읽으면 타임라인이 표시됩니다.
                   </p>
                 )}
+            </>
+          ) : (
+            <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
+              원본 업로드를 완료하면 여기에서 미리보기와 시작·종료점을 설정할 수
+              있습니다.
+            </p>
+          )}
+        </div>
+
+        {uploadPhase === "done" && previewUrl ? (
+          <>
+            <div
+              className="muted"
+              style={{ fontWeight: 700, marginTop: 4, marginBottom: 4 }}
+            >
+              썸네일 설정
+            </div>
                 <div
                   style={{
                     marginTop: 10,
@@ -1564,260 +1827,6 @@ export default function Shorts3Panel() {
                 </p>
           </>
         ) : null}
-
-        <div style={{ width: "100%", marginTop: 16 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-          로컬 다운로드
-        </div>
-        <div className="muted" style={{ fontSize: 14, marginBottom: 10 }}>
-          {localServerOk === null ? (
-            "서버 상태 확인 중…"
-          ) : localServerOk ? (
-            <span>🟢 연결됨</span>
-          ) : (
-            <span>
-              🔴 연결 안 됨 —{" "}
-              <strong style={{ color: "#ffb347" }}>
-                서버시작.bat를 실행해주세요
-              </strong>
-            </span>
-          )}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            alignItems: "center",
-          }}
-        >
-          <input
-            type="url"
-            placeholder="https://..."
-            value={localYtdlpUrl}
-            onChange={(e) => setLocalYtdlpUrl(e.target.value)}
-            disabled={busy || uploading || localDownloadBusy}
-            style={{
-              flex: "1 1 220px",
-              minWidth: 160,
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "#0f141d",
-              color: "var(--text, #e9edf5)",
-              fontFamily: "inherit",
-              fontSize: 14,
-            }}
-          />
-          <button
-            type="button"
-            className="primary primary-fill"
-            disabled={
-              busy ||
-              uploading ||
-              localDownloadBusy ||
-              localServerOk === false
-            }
-            onClick={onLocalDownload}
-          >
-            {localDownloadBusy ? "다운로드 중…" : "⬇ 로컬 다운로드"}
-          </button>
-        </div>
-        {localDownloadBusy ? (
-          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-            yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
-          </div>
-        ) : null}
-      </div>
-
-      <div style={{ marginTop: 16, width: "100%" }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-          저장된 파일 목록
-        </div>
-        {savedFilesLoading ? (
-          <div className="muted" style={{ fontSize: 14 }}>
-            목록 불러오는 중…
-          </div>
-        ) : savedFilesError ? (
-          <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
-            {savedFilesError}
-          </div>
-        ) : savedFiles.length === 0 ? (
-          <div className="muted" style={{ fontSize: 14 }}>
-            저장된 원본이 없습니다.
-          </div>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            {savedFiles.map((row) => {
-              const jid = row.jobId || "";
-              const shortName = jid.slice(0, 8) || "—";
-              const when = row.lastModified
-                ? new Date(row.lastModified).toLocaleString("ko-KR", {
-                    timeZone: "Asia/Seoul",
-                    dateStyle: "short",
-                    timeStyle: "medium",
-                  })
-                : "—";
-              return (
-                <li
-                  key={jid}
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.03)",
-                  }}
-                >
-                  <span style={{ fontWeight: 700 }}>{shortName}</span>
-                  <span className="muted" style={{ fontSize: 13 }}>
-                    {when}
-                  </span>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    {typeof row.size === "number"
-                      ? `${Math.round(row.size / 1024)} KB`
-                      : ""}
-                  </span>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                      gap: 8,
-                      marginLeft: "auto",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={busy || uploading}
-                      onClick={() => onLoadSavedJob(jid)}
-                    >
-                      불러오기
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || uploading}
-                      onClick={() => onDeleteSavedJob(jid)}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        border: "1px solid rgba(255, 107, 138, 0.55)",
-                        background:
-                          "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
-                        color: "#ffd0dc",
-                        fontWeight: 700,
-                        fontFamily: "inherit",
-                        cursor:
-                          busy || uploading ? "not-allowed" : "pointer",
-                        opacity: busy || uploading ? 0.55 : 1,
-                      }}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div style={{ marginTop: 14, width: "100%" }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-          원본 영상 파일
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 10,
-            alignItems: "center",
-          }}
-        >
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept={VIDEO_ACCEPT}
-            style={{ display: "none" }}
-            onChange={onVideoFileChange}
-          />
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || uploading}
-            onClick={() => videoInputRef.current?.click()}
-          >
-            파일 선택
-          </button>
-          <span className="muted" style={{ fontSize: 13, maxWidth: 280 }}>
-            {videoFile
-              ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
-              : "선택 없음 — mp4 · mov · avi"}
-          </span>
-          <button
-            type="button"
-            className="primary primary-fill"
-            disabled={busy || uploading || !videoFile}
-            onClick={onUploadSource}
-          >
-            {uploading ? "업로드 중…" : "S3에 업로드"}
-          </button>
-        </div>
-
-        {uploading ? (
-          <div style={{ marginTop: 12 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-              업로드 진행
-            </div>
-            <div className="video-export-progress-wrap">
-              <div className="video-export-progress-bar">
-                <div
-                  className="video-export-progress-fill"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <div className="muted" style={{ marginTop: 8 }}>
-                {uploadProgress}%
-              </div>
-            </div>
-          </div>
-        ) : uploadPhase === "done" ? (
-          <div
-            style={{
-              marginTop: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <span className="muted" style={{ fontWeight: 700 }}>
-              업로드 완료 (jobId 저장됨)
-            </span>
-            <button
-              type="button"
-              className="ghost"
-              disabled={busy || uploading}
-              onClick={onDeleteSource}
-            >
-              파일 삭제
-            </button>
-          </div>
-        ) : null}
-      </div>
 
       <div style={{ marginTop: 20 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
