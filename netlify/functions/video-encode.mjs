@@ -238,7 +238,16 @@ export const handler = async (event) => {
       }
 
       if (mode === "thumbnail") {
-        const { bgColor, accentColor, text1, text2, font, textColor } = body;
+        const {
+          bgColor,
+          accentColor,
+          text1,
+          text2,
+          font,
+          textColor,
+          fontSize1,
+          fontSize2,
+        } = body;
         const jobId = randomUUID();
         const outKey = `jobs/${jobId}/thumbnail.jpg`;
 
@@ -251,13 +260,18 @@ export const handler = async (event) => {
         const safeText2 = (text2 || "")
           .replace(/'/g, "\\'")
           .replace(/:/g, "\\:");
-        const fontFile = `/var/task/fonts/${font || "BlackHanSans-Regular"}.ttf`;
+        const fontBase = String(font || "BlackHanSans-Regular").trim() || "BlackHanSans-Regular";
+        const fontFile = `/var/task/fonts/${fontBase}.ttf`;
+        const n1 = Number(fontSize1);
+        const n2 = Number(fontSize2);
+        const fs1 = Number.isFinite(n1) && n1 > 0 ? n1 : 88;
+        const fs2 = Number.isFinite(n2) && n2 > 0 ? n2 : 52;
 
         const vf = [
           `drawbox=x=0:y=0:w=1080:h=160:color=${safeAccent}@0.2:t=fill`,
-          `drawtext=fontfile=${fontFile}:text='${safeText1}':fontcolor=0x${safeTextHex}:fontsize=88:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
+          `drawtext=fontfile=${fontFile}:text='${safeText1}':fontcolor=0x${safeTextHex}:fontsize=${fs1}:x=(w-text_w)/2:y=700:shadowcolor=black@0.8:shadowx=3:shadowy=3`,
           `drawbox=x=240:y=900:w=600:h=6:color=${safeAccent}:t=fill`,
-          `drawtext=fontfile=${fontFile}:text='${safeText2}':fontcolor=0x${safeTextHex}:fontsize=52:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
+          `drawtext=fontfile=${fontFile}:text='${safeText2}':fontcolor=0x${safeTextHex}:fontsize=${fs2}:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
         ].join(",");
 
         const metaThumbnail = {

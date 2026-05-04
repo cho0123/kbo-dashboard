@@ -38,6 +38,8 @@ export default function Shorts3ThumbnailPanel() {
   const [text2, setText2]         = useState("");
   const [font, setFont]           = useState("BlackHanSans-Regular");
   const [textColor, setTextColor] = useState("#FFFFFF");
+  const [fontSize1, setFontSize1] = useState(88);
+  const [fontSize2, setFontSize2] = useState(52);
   const [status, setStatus]       = useState("idle");
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [error, setError]         = useState(null);
@@ -61,6 +63,8 @@ export default function Shorts3ThumbnailPanel() {
           text2,
           font: font || "BlackHanSans-Regular",
           textColor,
+          fontSize1,
+          fontSize2,
         }),
       });
       const res = await response.json().catch(() => ({}));
@@ -139,6 +143,18 @@ export default function Shorts3ThumbnailPanel() {
               onChange={(e) => setText1(e.target.value)}
               placeholder="예) 오늘의 하이라이트"
             />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <span style={{ color: "#aaa", fontSize: 12 }}>크기</span>
+              <input
+                type="range"
+                min={30}
+                max={150}
+                value={fontSize1}
+                onChange={(e) => setFontSize1(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ color: "#fff", fontSize: 13, minWidth: 28 }}>{fontSize1}</span>
+            </div>
           </div>
 
           {/* 텍스트 2 */}
@@ -151,6 +167,18 @@ export default function Shorts3ThumbnailPanel() {
               onChange={(e) => setText2(e.target.value)}
               placeholder="예) 2026.05.04 KIA vs LG"
             />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <span style={{ color: "#aaa", fontSize: 12 }}>크기</span>
+              <input
+                type="range"
+                min={20}
+                max={120}
+                value={fontSize2}
+                onChange={(e) => setFontSize2(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ color: "#fff", fontSize: 13, minWidth: 28 }}>{fontSize2}</span>
+            </div>
           </div>
 
           {/* 폰트 선택 */}
@@ -288,7 +316,7 @@ export default function Shorts3ThumbnailPanel() {
             {/* 텍스트1 */}
             <div style={{
               color: textColor,
-              fontSize: 16,
+              fontSize: fontSize1 * 0.18,
               fontWeight: "bold",
               textAlign: "center",
               wordBreak: "keep-all",
@@ -304,7 +332,7 @@ export default function Shorts3ThumbnailPanel() {
             {/* 텍스트2 */}
             <div style={{
               color: textColor,
-              fontSize: 12,
+              fontSize: fontSize2 * 0.18,
               textAlign: "center",
               wordBreak: "keep-all",
               textShadow: "1px 1px 4px rgba(0,0,0,0.8)",
