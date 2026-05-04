@@ -1608,18 +1608,29 @@ export default function Shorts3Panel() {
             >
               썸네일 설정
             </div>
-            {thumbnailSeekOk && thumbnailSeekSec != null ? (
+            {thumbnailSeekOk ? (
               <div
                 style={{
                   marginTop: 8,
-                  marginBottom: 4,
+                  marginBottom: 8,
+                  padding: "10px 12px",
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
                   gap: 12,
+                  borderRadius: 8,
+                  background: "rgba(19,199,154,0.12)",
+                  border: "1px solid rgba(19,199,154,0.4)",
+                  boxSizing: "border-box",
                 }}
               >
-                <span className="muted" style={{ fontSize: 14 }}>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "var(--text, #e9edf5)",
+                  }}
+                >
                   📸 썸네일: {formatTimeWithCentis(thumbnailSeekSec)} 설정됨
                 </span>
                 <button
@@ -1627,11 +1638,13 @@ export default function Shorts3Panel() {
                   className="primary primary-fill"
                   disabled={busy || uploading}
                   onClick={() => {
+                    const sec = thumbnailSeekSec;
+                    if (sec == null) return;
                     setPreviewSegmentIndex(0);
-                    const v = previewVideoRef.current;
-                    if (v && thumbnailSeekSec != null) {
-                      v.currentTime = thumbnailSeekSec;
-                    }
+                    queueMicrotask(() => {
+                      const v = previewVideoRef.current;
+                      if (v) v.currentTime = sec;
+                    });
                   }}
                 >
                   ↩ 썸네일로 이동
