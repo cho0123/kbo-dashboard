@@ -1110,10 +1110,8 @@ export default function Shorts3Panel() {
         style={{
           marginTop: 16,
           display: "flex",
-          flexDirection: "row",
-          flexWrap: "wrap",
-          alignItems: "flex-start",
-          gap: 20,
+          flexDirection: "column",
+          gap: 0,
           width: "100%",
           overflow: "visible",
         }}
@@ -1122,11 +1120,7 @@ export default function Shorts3Panel() {
           style={{
             position: "sticky",
             top: 0,
-            alignSelf: "flex-start",
-            zIndex: 5,
-            flex: "1 1 340px",
-            maxWidth: 560,
-            minWidth: 280,
+            zIndex: 10,
             width: "100%",
             background: "#ffffff",
             paddingTop: 4,
@@ -1511,15 +1505,7 @@ export default function Shorts3Panel() {
             )}
         </div>
 
-        <div
-          style={{
-            flex: "2 1 400px",
-            minWidth: 0,
-            overflow: "visible",
-            width: "100%",
-          }}
-        >
-        <div style={{ width: "100%", marginTop: 0 }}>
+        <div style={{ width: "100%", marginTop: 16 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
           로컬 다운로드
         </div>
@@ -2464,7 +2450,6 @@ export default function Shorts3Panel() {
           </button>
         </div>
       ) : null}
-        </div>
       </div>
     </div>
   );
