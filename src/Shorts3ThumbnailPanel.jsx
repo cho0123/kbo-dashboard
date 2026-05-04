@@ -13,6 +13,19 @@ const TEAM_COLORS = {
   키움:  { bg: "#570514", accent: "#FFFFFF", label: "키움 히어로즈" },
 };
 
+const TEAM_LOGO_PATH = {
+  KIA: "/logos/kia.svg",
+  삼성: "/logos/samsung.svg",
+  LG: "/logos/lg.svg",
+  두산: "/logos/doosan.svg",
+  KT: "/logos/kt.svg",
+  SSG: "/logos/ssg.svg",
+  롯데: "/logos/lotte.svg",
+  한화: "/logos/hanwha.svg",
+  NC: "/logos/nc.svg",
+  키움: "/logos/kiwoom.svg",
+};
+
 const FONTS = [
   { label: "NotoSansKR Bold",  value: "NotoSansKR-Bold" },
   { label: "BlackHanSans",     value: "BlackHanSans-Regular" },
@@ -37,6 +50,128 @@ const fontFamilyMap = {
   "BlackHanSans-Regular": "'Black Han Sans', sans-serif",
   "NotoSerifKR-Bold":   "'Noto Serif KR', serif",
 };
+
+async function drawThumbnail({
+  team,
+  tc,
+  text1,
+  text2,
+  font1,
+  font2,
+  textColor1,
+  textColor2,
+  fontSize1,
+  fontSize2,
+}) {
+  await document.fonts.ready;
+
+  const W = 1080;
+  const H = 1920;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  const ff1 = fontFamilyMap[font1] || fontFamilyMap["BlackHanSans-Regular"];
+  const ff2 = fontFamilyMap[font2] || fontFamilyMap["BlackHanSans-Regular"];
+
+  // 1. 전체 배경 (팀컬러)
+  ctx.fillStyle = tc.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 투명 뚫린 영역 (상단띠 아래 ~ 하단띠 위)
+  const TOP_BAR = 280;
+  const SIDE_BAR = 40;
+  const BOT_BAR = 160;
+  const RADIUS = 48;
+
+  const holeX = SIDE_BAR;
+  const holeY = TOP_BAR;
+  const holeW = W - SIDE_BAR * 2;
+  const holeH = H - TOP_BAR - BOT_BAR;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  ctx.moveTo(holeX, holeY);
+  ctx.lineTo(holeX + holeW, holeY);
+  ctx.lineTo(holeX + holeW, holeY + holeH - RADIUS);
+  ctx.arcTo(
+    holeX + holeW,
+    holeY + holeH,
+    holeX + holeW - RADIUS,
+    holeY + holeH,
+    RADIUS
+  );
+  ctx.lineTo(holeX + RADIUS, holeY + holeH);
+  ctx.arcTo(holeX, holeY + holeH, holeX, holeY + holeH - RADIUS, RADIUS);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  const teamLabels = {
+    KIA: "KIA 타이거즈",
+    삼성: "삼성 라이온즈",
+    LG: "LG 트윈스",
+    두산: "두산 베어스",
+    KT: "kt wiz",
+    SSG: "SSG 랜더스",
+    롯데: "롯데 자이언츠",
+    한화: "한화 이글스",
+    NC: "NC 다이노스",
+    키움: "키움 히어로즈",
+  };
+
+  // 3. 팀명 텍스트 (상단띠 중앙)
+  ctx.fillStyle = tc.accent;
+  ctx.font = `bold 64px ${ff1}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(teamLabels[team] || team, W / 2, TOP_BAR / 2);
+
+  // 4. 텍스트1 (상단띠 아래쪽)
+  ctx.fillStyle = textColor1;
+  ctx.font = `bold ${fontSize1}px ${ff1}`;
+  ctx.fillText(text1 || "", W / 2, TOP_BAR - 60);
+
+  // 5. 구분선
+  ctx.strokeStyle = tc.accent;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.25, H - BOT_BAR + 40);
+  ctx.lineTo(W * 0.75, H - BOT_BAR + 40);
+  ctx.stroke();
+
+  // 6. 텍스트2 (하단띠)
+  ctx.fillStyle = textColor2;
+  ctx.font = `${fontSize2}px ${ff2}`;
+  ctx.fillText(text2 || "", W / 2, H - BOT_BAR + 100);
+
+  // 7. 팀 로고 (하단 왼쪽)
+  try {
+    const logoUrl = TEAM_LOGO_PATH[team];
+    if (logoUrl) {
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = logoUrl;
+      });
+      const LOGO_SIZE = 120;
+      ctx.drawImage(
+        img,
+        SIDE_BAR + 20,
+        H - BOT_BAR + 20,
+        LOGO_SIZE,
+        LOGO_SIZE
+      );
+    }
+  } catch (e) {
+    console.warn("로고 로드 실패:", e);
+  }
+
+  return canvas;
+}
 
 export default function Shorts3ThumbnailPanel() {
   const [team, setTeam]           = useState("KIA");
@@ -76,34 +211,21 @@ export default function Shorts3ThumbnailPanel() {
     setError(null);
     setDownloadUrl(null);
     try {
-      const response = await fetch("/api/video-encode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "thumbnail",
-          team,
-          bgColor: tc.bg,
-          accentColor: tc.accent,
-          text1,
-          text2,
-          font1: font1 || "BlackHanSans-Regular",
-          font2: font2 || "BlackHanSans-Regular",
-          textColor1,
-          textColor2,
-          fontSize1,
-          fontSize2,
-        }),
+      const canvas = await drawThumbnail({
+        team,
+        tc,
+        text1,
+        text2,
+        font1,
+        font2,
+        textColor1,
+        textColor2,
+        fontSize1,
+        fontSize2,
       });
-      const res = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(res.error || res.message || `HTTP ${response.status}`);
-      }
-      if (res.downloadUrl) {
-        setDownloadUrl(res.downloadUrl);
-        setStatus("done");
-      } else {
-        throw new Error(res.message || "알 수 없는 오류");
-      }
+      const url = canvas.toDataURL("image/png");
+      setDownloadUrl(url);
+      setStatus("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");
@@ -311,7 +433,7 @@ export default function Shorts3ThumbnailPanel() {
           {status === "done" && downloadUrl && (
             <a
               href={downloadUrl}
-              download="thumbnail.jpg"
+              download="thumbnail.png"
               style={{
                 display: "block",
                 textAlign: "center",
@@ -395,7 +517,7 @@ export default function Shorts3ThumbnailPanel() {
             </div>
           </div>
           <div style={{ color: "#555", fontSize: 11, marginTop: 6 }}>
-            실제 출력: 1080×1920px
+            실제 출력: 1080×1920px PNG (브라우저 생성)
           </div>
         </div>
 
