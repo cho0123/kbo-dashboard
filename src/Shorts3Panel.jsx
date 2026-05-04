@@ -185,6 +185,29 @@ function formatCropOffsetLabel(offset) {
   return `${sign}${n}%`;
 }
 
+/** 썸네일 시각과의 거리(초) — 이 안이면 썸네일 전용 자막 */
+const THUMBNAIL_PREVIEW_WINDOW_SEC = 0.5;
+
+/**
+ * 미리보기 currentTime(초)이 [start, end]에 들어가는 첫 구간; 없으면 null
+ */
+function findSegmentAtPreviewTime(ct, segments) {
+  if (!Array.isArray(segments)) return null;
+  const t = Number(ct);
+  if (!Number.isFinite(t)) return null;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const st = String(seg.start ?? "").trim();
+    const en = String(seg.end ?? "").trim();
+    if (!st || !en) continue;
+    const a = segmentBoundaryToSeconds(st, seg.startMs);
+    const b = segmentBoundaryToSeconds(en, seg.endMs);
+    if (a == null || b == null || b <= a) continue;
+    if (t >= a && t <= b) return seg;
+  }
+  return null;
+}
+
 /**
  * video.offsetWidth / offsetHeight 기준 9:16 크롭 박스(오버레이 좌표, px).
  * cropWidth = displayHeight * 9/16,
@@ -313,6 +336,8 @@ export default function Shorts3Panel() {
   const previewVideoWrapRef = useRef(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
+  const [previewPlayheadSec, setPreviewPlayheadSec] = useState(0);
 
   const [muteOriginal, setMuteOriginal] = useState(true);
   const [musicTracks, setMusicTracks] = useState([]);
@@ -477,6 +502,26 @@ export default function Shorts3Panel() {
       v.removeEventListener("timeupdate", onTimeUpdate);
     };
   }, [previewUrl, playingSegmentIndex, segments]);
+
+  useEffect(() => {
+    const v = previewVideoRef.current;
+    if (!v || !previewUrl) {
+      setPreviewPlayheadSec(0);
+      return undefined;
+    }
+    const sync = () => {
+      setPreviewPlayheadSec(Number(v.currentTime) || 0);
+    };
+    sync();
+    v.addEventListener("timeupdate", sync);
+    v.addEventListener("seeked", sync);
+    v.addEventListener("loadeddata", sync);
+    return () => {
+      v.removeEventListener("timeupdate", sync);
+      v.removeEventListener("seeked", sync);
+      v.removeEventListener("loadeddata", sync);
+    };
+  }, [previewUrl]);
 
   const updatePreviewCropOverlay = useCallback(() => {
     const video = previewVideoRef.current;
@@ -1037,18 +1082,26 @@ export default function Shorts3Panel() {
     const b = previewCropOverlay.border;
     const cropH = b.height;
     const scale = cropH > 0 ? cropH / 1920 : 1;
-    const thumbActive = thumbnailTime != null;
-    const isThumbSegment =
-      previewSegmentIndex === 0 && thumbActive;
-    const bottomSeg = isThumbSegment
+    const ct = previewPlayheadSec;
+    const thumbSecRaw = thumbnailTime;
+    const thumbSec =
+      thumbSecRaw != null && thumbSecRaw !== ""
+        ? typeof thumbSecRaw === "number"
+          ? thumbSecRaw
+          : Number(thumbSecRaw)
+        : NaN;
+    const inThumbWindow =
+      Number.isFinite(thumbSec) &&
+      Number.isFinite(ct) &&
+      Math.abs(ct - thumbSec) <= THUMBNAIL_PREVIEW_WINDOW_SEC;
+    const thumbLineTrim = String(thumbnailText ?? "").trim();
+    const useThumbBottom = inThumbWindow && thumbLineTrim.length > 0;
+    const bottomSeg = useThumbBottom
       ? null
-      : thumbActive && previewSegmentIndex > 0
-        ? segments[previewSegmentIndex - 1]
-        : segments[previewSegmentIndex];
+      : findSegmentAtPreviewTime(ct, segments);
+    const segmentBottomLine = String(bottomSeg?.text ?? "").trim();
 
     const previewTopPx = Math.max(8, (Number(topTextSize) || 72) * scale);
-    const thumbLine = String(thumbnailText ?? "").trim();
-    const segmentBottomLine = String(bottomSeg?.text ?? "").trim();
     const thumbBottomPx = Math.max(
       8,
       (Number(thumbnailTextSize) || 72) * scale
@@ -1134,7 +1187,7 @@ export default function Shorts3Panel() {
             {topLine}
           </div>
         ) : null}
-        {isThumbSegment && thumbLine ? (
+        {useThumbBottom ? (
           <div
             style={{
               position: "absolute",
@@ -1154,10 +1207,10 @@ export default function Shorts3Panel() {
               overflow: "visible",
             }}
           >
-            {thumbLine}
+            {thumbLineTrim}
           </div>
         ) : null}
-        {!isThumbSegment && segmentBottomLine ? (
+        {!useThumbBottom && segmentBottomLine ? (
           <div
             style={{
               position: "absolute",
@@ -1184,13 +1237,13 @@ export default function Shorts3Panel() {
     );
   }, [
     previewCropOverlay,
+    previewPlayheadSec,
     topText,
     topTextColor,
     topTextSize,
     topTextOpacity,
     topTextFont,
     segments,
-    previewSegmentIndex,
     thumbnailTime,
     thumbnailText,
     thumbnailTextY,
