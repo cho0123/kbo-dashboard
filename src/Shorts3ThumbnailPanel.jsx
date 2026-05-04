@@ -73,9 +73,6 @@ async function drawThumbnail({
   canvas.height = H;
   const ctx = canvas.getContext("2d");
 
-  const ff1 = fontFamilyMap[font1] || fontFamilyMap["BlackHanSans-Regular"];
-  const ff2 = fontFamilyMap[font2] || fontFamilyMap["BlackHanSans-Regular"];
-
   // 1. 전체 배경 (팀컬러)
   ctx.fillStyle = tc.bg;
   ctx.fillRect(0, 0, W, H);
@@ -123,32 +120,52 @@ async function drawThumbnail({
     키움: "키움 히어로즈",
   };
 
-  // 3. 팀명 텍스트 (상단띠 중앙)
+  const ff = (k) =>
+    fontFamilyMap[k] || fontFamilyMap["BlackHanSans-Regular"];
+
+  // 3. 팀명 — 타원 뱃지 (안전영역)
+  const teamLabel = teamLabels[team] || team;
+  ctx.font = `bold 52px ${ff(font1)}`;
+  const labelW = ctx.measureText(teamLabel).width + 80;
+  const labelH = 80;
+  const labelX = W / 2;
+  const labelY = 160;
+
   ctx.fillStyle = tc.accent;
-  ctx.font = `bold 64px ${ff1}`;
+  ctx.beginPath();
+  ctx.ellipse(labelX, labelY, labelW / 2, labelH / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = tc.bg;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(teamLabels[team] || team, W / 2, TOP_BAR / 2);
+  ctx.fillText(teamLabel, labelX, labelY);
 
-  // 4. 텍스트1 (상단띠 아래쪽)
+  // 4. 텍스트1 — 투명 뚫린 영역 정중앙
+  const holeCenterY = TOP_BAR + holeH / 2;
   ctx.fillStyle = textColor1;
-  ctx.font = `bold ${fontSize1}px ${ff1}`;
-  ctx.fillText(text1 || "", W / 2, TOP_BAR - 60);
+  ctx.font = `bold ${fontSize1}px ${ff(font1)}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 8;
+  ctx.fillText(text1 || "", W / 2, holeCenterY);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
 
-  // 5. 구분선
-  ctx.strokeStyle = tc.accent;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(W * 0.25, H - BOT_BAR + 40);
-  ctx.lineTo(W * 0.75, H - BOT_BAR + 40);
-  ctx.stroke();
-
-  // 6. 텍스트2 (하단띠)
+  // 5. 텍스트2 — 하단띠 정중앙
+  const botCenterY = H - BOT_BAR / 2;
   ctx.fillStyle = textColor2;
-  ctx.font = `${fontSize2}px ${ff2}`;
-  ctx.fillText(text2 || "", W / 2, H - BOT_BAR + 100);
+  ctx.font = `${fontSize2}px ${ff(font2)}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text2 || "", W / 2, botCenterY);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
 
-  // 7. 팀 로고 (하단 왼쪽)
+  // 6. 팀 로고 — 비율 유지
   try {
     const logoUrl = TEAM_LOGO_PATH[team];
     if (logoUrl) {
@@ -158,14 +175,16 @@ async function drawThumbnail({
         i.onerror = rej;
         i.src = logoUrl;
       });
-      const LOGO_SIZE = 120;
-      ctx.drawImage(
-        img,
-        SIDE_BAR + 20,
-        H - BOT_BAR + 20,
-        LOGO_SIZE,
-        LOGO_SIZE
-      );
+      const LOGO_MAX = 110;
+      const logoX = SIDE_BAR + 20;
+      const logoY = H - BOT_BAR + (BOT_BAR - LOGO_MAX) / 2;
+
+      const nw = img.naturalWidth || img.width || 1;
+      const nh = img.naturalHeight || img.height || 1;
+      const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
+      const logoW = nw * scale;
+      const logoH = nh * scale;
+      ctx.drawImage(img, logoX, logoY, logoW, logoH);
     }
   } catch (e) {
     console.warn("로고 로드 실패:", e);
