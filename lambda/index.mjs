@@ -529,7 +529,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   if (hasThumbnailPng) {
     // PNG → 0.3초 mp4 클립 생성
     const thumbClipLocal = join(workDir, "thumb_clip.mp4");
-    runFfmpeg(
+    await runFfmpeg(
       [
         "-y",
         "-loop",
@@ -541,7 +541,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "-i",
         thumbPngLocal,
         "-vf",
-        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
+        `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30`,
         "-c:v",
         "libx264",
         "-preset",
@@ -550,6 +550,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "18",
         "-pix_fmt",
         "yuv420p",
+        "-r",
+        "30",
         thumbClipLocal,
       ],
       workDir,
