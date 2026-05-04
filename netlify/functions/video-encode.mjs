@@ -249,23 +249,22 @@ export const handler = async (event) => {
           fontSize2,
         } = body;
         const jobId = randomUUID();
-        const outKey = `jobs/${jobId}/thumbnail.jpg`;
 
         const safeBg = (bgColor || "#000000").replace("#", "");
         const safeAccent = (accentColor || "#ffffff").replace("#", "");
-        const safeTextHex = (textColor || "#ffffff").replace(/^#/, "");
+        const safeTextHex = (textColor || "#ffffff").replace("#", "");
         const safeText1 = (text1 || "")
           .replace(/'/g, "\\'")
           .replace(/:/g, "\\:");
         const safeText2 = (text2 || "")
           .replace(/'/g, "\\'")
           .replace(/:/g, "\\:");
-        const fontBase = String(font || "BlackHanSans-Regular").trim() || "BlackHanSans-Regular";
+        const fontBase = font || "BlackHanSans-Regular";
         const fontFile = `/var/task/fonts/${fontBase}.ttf`;
-        const n1 = Number(fontSize1);
-        const n2 = Number(fontSize2);
-        const fs1 = Number.isFinite(n1) && n1 > 0 ? n1 : 88;
-        const fs2 = Number.isFinite(n2) && n2 > 0 ? n2 : 52;
+        const fs1 =
+          Number(fontSize1) > 0 ? Number(fontSize1) : 88;
+        const fs2 =
+          Number(fontSize2) > 0 ? Number(fontSize2) : 52;
 
         const vf = [
           `drawbox=x=0:y=0:w=1080:h=160:color=${safeAccent}@0.2:t=fill`,
@@ -274,32 +273,17 @@ export const handler = async (event) => {
           `drawtext=fontfile=${fontFile}:text='${safeText2}':fontcolor=0x${safeTextHex}:fontsize=${fs2}:x=(w-text_w)/2:y=960:shadowcolor=black@0.8:shadowx=2:shadowy=2`,
         ].join(",");
 
-        const metaThumbnail = {
+        const meta = {
           type: "thumbnail",
-          outKey,
-          ffmpegArgs: [
-            "-f",
-            "lavfi",
-            "-i",
-            `color=c=#${safeBg}:size=1080x1920:rate=1`,
-            "-vf",
-            vf,
-            "-y",
-            "-update",
-            "1",
-            "-frames:v",
-            "1",
-            "-q:v",
-            "2",
-            "/tmp/thumbnail.jpg",
-          ],
+          safeBg,
+          vf,
         };
 
         await s3.send(
           new PutObjectCommand({
             Bucket: bucket,
             Key: `jobs/${jobId}/meta.json`,
-            Body: JSON.stringify(metaThumbnail),
+            Body: JSON.stringify(meta),
             ContentType: "application/json",
           })
         );
@@ -321,6 +305,7 @@ export const handler = async (event) => {
           });
         }
 
+        const outKey = `jobs/${jobId}/thumbnail.jpg`;
         const downloadUrl = await getSignedUrl(
           s3,
           new GetObjectCommand({ Bucket: bucket, Key: outKey }),

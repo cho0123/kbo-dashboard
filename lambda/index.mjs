@@ -974,44 +974,28 @@ export const handler = async (event) => {
     const meta = await getJson(bucket, metaKey);
 
     if (meta.type === "thumbnail") {
-      const { ffmpegArgs, outKey } = meta;
+      const { safeBg, vf } = meta;
+      const outKey = `jobs/${jobId}/thumbnail.jpg`;
 
-      const thumbnailFfmpegArgs = (() => {
-        const a = [...ffmpegArgs];
-        const framesIdx = a.indexOf("-frames:v");
-        if (framesIdx !== -1) {
-          const alreadyHas =
-            framesIdx >= 3 &&
-            a[framesIdx - 3] === "-y" &&
-            a[framesIdx - 2] === "-update" &&
-            a[framesIdx - 1] === "1";
-          if (!alreadyHas) {
-            a.splice(framesIdx, 0, "-y", "-update", "1");
-          }
-        }
-        return a;
-      })();
+      const ffmpegArgs = [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        `color=c=#${safeBg}:size=1080x1920:rate=1`,
+        "-vf",
+        vf,
+        "-update",
+        "1",
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        "/tmp/thumbnail.jpg",
+      ];
 
-      const vfIdx = thumbnailFfmpegArgs.indexOf("-vf");
-      let fontFilePath = null;
-      if (vfIdx !== -1 && vfIdx + 1 < thumbnailFfmpegArgs.length) {
-        const vf = String(thumbnailFfmpegArgs[vfIdx + 1] ?? "");
-        const m = vf.match(/fontfile=([^:]+)/);
-        fontFilePath = m ? m[1] : null;
-      }
-
-      console.log(
-        "[thumbnail] ffmpegArgs:",
-        JSON.stringify(thumbnailFfmpegArgs)
-      );
-      console.log(
-        "[thumbnail] fontFile exists:",
-        fontFilePath != null && existsSync(fontFilePath)
-      );
-
-      const ffmpegPath = ffmpegBin();
       await new Promise((resolve, reject) => {
-        const proc = spawn(ffmpegPath, thumbnailFfmpegArgs, {
+        const proc = spawn(ffmpegBin(), ffmpegArgs, {
           stdio: ["ignore", "pipe", "pipe"],
         });
         let stderr = "";
@@ -1019,19 +1003,16 @@ export const handler = async (event) => {
           stderr += d.toString();
         });
         proc.on("close", (code) => {
-          console.log("[thumbnail] ffmpeg stderr (full):\n" + stderr);
+          console.log("[thumbnail] ffmpeg stderr:", stderr);
           if (code === 0) resolve();
           else
             reject(
-              new Error(
-                `ffmpeg exited with code ${code}: ${stderr.slice(0, 500)}`
-              )
+              new Error(`ffmpeg exit ${code}: ${stderr.slice(-300)}`)
             );
         });
       });
 
-      const thumbPath = "/tmp/thumbnail.jpg";
-      const fileBuffer = readFileSync(thumbPath);
+      const fileBuffer = readFileSync("/tmp/thumbnail.jpg");
       await s3.send(
         new PutObjectCommand({
           Bucket: bucket,
