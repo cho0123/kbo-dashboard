@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const TEAM_COLORS = {
   KIA:  { bg: "#EA0029", accent: "#FFFFFF", label: "KIA 타이거즈" },
@@ -32,6 +32,12 @@ const TEXT_COLORS = [
   { label: "금색",  value: "#FFC107" },
 ];
 
+const fontFamilyMap = {
+  "NotoSansKR-Bold":    "'Noto Sans KR', sans-serif",
+  "BlackHanSans-Regular": "'Black Han Sans', sans-serif",
+  "NotoSerifKR-Bold":   "'Noto Serif KR', serif",
+};
+
 export default function Shorts3ThumbnailPanel() {
   const [team, setTeam]           = useState("KIA");
   const [text1, setText1]         = useState("");
@@ -43,6 +49,21 @@ export default function Shorts3ThumbnailPanel() {
   const [status, setStatus]       = useState("idle");
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [error, setError]         = useState(null);
+
+  useEffect(() => {
+    const fontMap = {
+      "NotoSansKR-Bold":   "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap",
+      "BlackHanSans-Regular": "https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap",
+      "NotoSerifKR-Bold":  "https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700&display=swap",
+    };
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = fontMap[font] || fontMap["BlackHanSans-Regular"];
+    link.id = "thumbnail-font";
+    const existing = document.getElementById("thumbnail-font");
+    if (existing) existing.remove();
+    document.head.appendChild(link);
+  }, [font]);
 
   const tc = TEAM_COLORS[team];
 
@@ -317,6 +338,7 @@ export default function Shorts3ThumbnailPanel() {
             <div style={{
               color: textColor,
               fontSize: fontSize1 * 0.18,
+              fontFamily: fontFamilyMap[font] || "'Black Han Sans', sans-serif",
               fontWeight: "bold",
               textAlign: "center",
               wordBreak: "keep-all",
@@ -333,6 +355,7 @@ export default function Shorts3ThumbnailPanel() {
             <div style={{
               color: textColor,
               fontSize: fontSize2 * 0.18,
+              fontFamily: fontFamilyMap[font] || "'Black Han Sans', sans-serif",
               textAlign: "center",
               wordBreak: "keep-all",
               textShadow: "1px 1px 4px rgba(0,0,0,0.8)",
