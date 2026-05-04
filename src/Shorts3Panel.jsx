@@ -62,7 +62,7 @@ const TEXT_COLORS = [
 const FONTS = [
   { label: "Noto Sans KR (기본)", value: "NotoSansKR-Bold.ttf" },
   { label: "Black Han Sans (임팩트)", value: "BlackHanSans-Regular.ttf" },
-  { label: "Noto Serif KR (명조)", value: "NotoSerifKR-Bold.otf" },
+  { label: "Noto Serif KR (명조)", value: "NotoSerifKR-Bold.ttf" },
 ];
 
 const DEFAULT_TEXT_FONT = "NotoSansKR-Bold.ttf";
