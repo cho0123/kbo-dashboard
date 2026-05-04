@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-  function zip에는 index.mjs, package.json, bin/yt-dlp, fonts/(있으면) 포함.
+  function zip에는 index.mjs, package.json, bin/yt-dlp, fonts/*.ttf(필수) 포함.
   ffmpeg·ffprobe 는 Lambda 레이어(.\create-ffmpeg-layer.ps1)의 /opt/bin 을 사용.
 
   업로드: S3 — kbo-video-export/lambda-deploy/kbo-video-encoder.zip (70MB 직접 업로드 한도 우회)
@@ -59,16 +59,22 @@ try {
     Copy-Item -LiteralPath $YtdlpPath -Destination (Join-Path $stageBin 'yt-dlp') -Force
 
     $fontsDir = Join-Path $LambdaDir 'fonts'
-    if (Test-Path -LiteralPath $fontsDir) {
-        Copy-Item -LiteralPath $fontsDir -Destination (Join-Path $StageRoot 'fonts') -Recurse -Force
+    if (-not (Test-Path -LiteralPath $fontsDir)) {
+        throw "fonts directory required for deploy (drawtext TTF). Missing: $fontsDir"
+    }
+    $ttfCount = (Get-ChildItem -LiteralPath $fontsDir -Filter '*.ttf' -File -ErrorAction SilentlyContinue | Measure-Object).Count
+    if ($ttfCount -lt 1) {
+        throw "At least one .ttf file is required under: $fontsDir"
+    }
+    $stageFonts = Join-Path $StageRoot 'fonts'
+    New-Item -ItemType Directory -Path $stageFonts -Force | Out-Null
+    Get-ChildItem -LiteralPath $fontsDir -File | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stageFonts $_.Name) -Force
     }
 
     Push-Location $StageRoot
     try {
-        $toZip = @('index.mjs', 'package.json', 'bin')
-        if (Test-Path -LiteralPath (Join-Path $StageRoot 'fonts')) {
-            $toZip += 'fonts'
-        }
+        $toZip = @('index.mjs', 'package.json', 'bin', 'fonts')
         Compress-Archive -Path $toZip -DestinationPath $zipPath -CompressionLevel Optimal -Force
     }
     finally {
