@@ -41,6 +41,10 @@ const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
 const MAX_SEGMENTS = 10;
 
+/** 30fps 기준 1프레임(초) — 미세조정용 */
+const ONE_FRAME_30_FPS_SEC = 1 / 30;
+const TENTH_SEC = 0.1;
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -674,13 +678,19 @@ export default function Shorts3Panel() {
   };
 
   const handleTimeChange = (segIndex, field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "").slice(0, 6);
+    const digits = rawVal.replace(/\D/g, "").slice(0, 9);
     let formatted = digits;
-    if (digits.length > 4) {
+    const n = digits.length;
+    if (n <= 2) {
+      formatted = digits;
+    } else if (n <= 4) {
+      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
+    } else if (n === 5) {
+      formatted =
+        digits.slice(0, 1) + ":" + digits.slice(1, 3) + ":" + digits.slice(3, 5);
+    } else {
       formatted =
         digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
-    } else if (digits.length > 2) {
-      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
     }
     setSegments((prev) =>
       prev.map((seg, i) =>
@@ -741,6 +751,33 @@ export default function Shorts3Panel() {
       )
     );
   }, [previewSegmentIndex]);
+
+  const adjustSegmentFieldTime = useCallback((segIndex, field, deltaSec) => {
+    let seekSec = null;
+    setSegments((prev) => {
+      const seg = prev[segIndex];
+      if (!seg) return prev;
+      const fracField = field === "start" ? "startMs" : "endMs";
+      const cur =
+        parseHhMmSsToSeconds(seg[field], seg[fracField]) ??
+        (String(seg[field] ?? "").trim() === "" ? 0 : null);
+      if (cur == null) return prev;
+      const next = Math.max(0, cur + deltaSec);
+      seekSec = next;
+      const whole = Math.floor(next + 1e-9);
+      const frac = clampSegmentFracMs(Math.round((next - whole) * 100));
+      const hms = secondsToHhMmSs(whole);
+      return prev.map((s, i) =>
+        i === segIndex ? { ...s, [field]: hms, [fracField]: frac } : s
+      );
+    });
+    if (seekSec == null) return;
+    setPreviewSegmentIndex(segIndex);
+    queueMicrotask(() => {
+      const v = previewVideoRef.current;
+      if (v) v.currentTime = seekSec;
+    });
+  }, []);
 
   const onDeleteSource = async () => {
     if (!jobId) return;
@@ -1837,11 +1874,34 @@ export default function Shorts3Panel() {
                 <span className="muted" style={{ minWidth: 36, flexShrink: 0 }}>
                   #{index + 1}
                 </span>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="시작 -1프레임 (30fps)"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "start", -ONE_FRAME_30_FPS_SEC)
+                  }
+                >
+                  -1f
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="시작 -0.1초"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "start", -TENTH_SEC)
+                  }
+                >
+                  -0.1s
+                </button>
                 <input
                   type="text"
                   inputMode="numeric"
                   placeholder="00:00:00"
-                  maxLength={8}
                   value={seg.start}
                   onChange={(e) =>
                     handleTimeChange(index, "start", e.target.value)
@@ -1849,7 +1909,7 @@ export default function Shorts3Panel() {
                   disabled={busy || uploading}
                   style={{
                     padding: "6px 8px",
-                    width: 114,
+                    width: 118,
                     boxSizing: "border-box",
                   }}
                 />
@@ -1873,12 +1933,59 @@ export default function Shorts3Panel() {
                     boxSizing: "border-box",
                   }}
                 />
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="시작 +0.1초"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "start", TENTH_SEC)
+                  }
+                >
+                  +0.1s
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="시작 +1프레임 (30fps)"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "start", ONE_FRAME_30_FPS_SEC)
+                  }
+                >
+                  +1f
+                </button>
                 <span className="muted">~</span>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="종료 -1프레임 (30fps)"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "end", -ONE_FRAME_30_FPS_SEC)
+                  }
+                >
+                  -1f
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="종료 -0.1초"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "end", -TENTH_SEC)
+                  }
+                >
+                  -0.1s
+                </button>
                 <input
                   type="text"
                   inputMode="numeric"
                   placeholder="00:00:00"
-                  maxLength={8}
                   value={seg.end}
                   onChange={(e) =>
                     handleTimeChange(index, "end", e.target.value)
@@ -1886,7 +1993,7 @@ export default function Shorts3Panel() {
                   disabled={busy || uploading}
                   style={{
                     padding: "6px 8px",
-                    width: 114,
+                    width: 118,
                     boxSizing: "border-box",
                   }}
                 />
@@ -1910,6 +2017,30 @@ export default function Shorts3Panel() {
                     boxSizing: "border-box",
                   }}
                 />
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="종료 +0.1초"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "end", TENTH_SEC)
+                  }
+                >
+                  +0.1s
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={busy || uploading}
+                  title="종료 +1프레임 (30fps)"
+                  style={{ padding: "4px 8px", fontSize: 12 }}
+                  onClick={() =>
+                    adjustSegmentFieldTime(index, "end", ONE_FRAME_30_FPS_SEC)
+                  }
+                >
+                  +1f
+                </button>
                 <button
                   type="button"
                   className="primary"
