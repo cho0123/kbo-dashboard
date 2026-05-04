@@ -264,6 +264,34 @@ export default function Shorts3ThumbnailPanel() {
   };
 
   useEffect(() => {
+    if (!previewUrl) return undefined;
+    const video = videoRef.current;
+    if (!video) return undefined;
+    let rafId = 0;
+    const update = () => {
+      setThumbTime(video.currentTime);
+      rafId = requestAnimationFrame(update);
+    };
+    const onPlay = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(update);
+    };
+    const onPause = () => {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("ended", onPause);
+    return () => {
+      cancelAnimationFrame(rafId);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("ended", onPause);
+    };
+  }, [previewUrl]);
+
+  useEffect(() => {
     const fontMap = {
       "NotoSansKR-Bold":
         "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap",
@@ -557,9 +585,147 @@ export default function Shorts3ThumbnailPanel() {
                 crossOrigin="anonymous"
                 controls
                 style={{ width: "100%", marginTop: 6, borderRadius: 8 }}
-                onTimeUpdate={(e) => setThumbTime(e.target.currentTime)}
                 onLoadedMetadata={() => setVideoMetaTick((n) => n + 1)}
               />
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  marginTop: 8,
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const v = videoRef.current;
+                    if (v) setThumbTime(v.currentTime);
+                  }}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: 6,
+                    background: "#4ade80",
+                    color: "#000",
+                    fontWeight: "bold",
+                    fontSize: 13,
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  📸 여기를 썸네일로
+                </button>
+                <span style={{ color: "#4ade80", fontSize: 13 }}>
+                  선택: {thumbTime.toFixed(3)}초
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 8,
+                }}
+              >
+                <span style={{ color: "#aaa", fontSize: 12 }}>미세 조정</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = Math.max(0, thumbTime - 0.1);
+                    setThumbTime(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 4,
+                    background: "#333",
+                    color: "#fff",
+                    border: "1px solid #555",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  -0.1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = Math.max(0, thumbTime - 0.033);
+                    setThumbTime(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 4,
+                    background: "#333",
+                    color: "#fff",
+                    border: "1px solid #555",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  -1f
+                </button>
+                <input
+                  type="number"
+                  value={thumbTime.toFixed(3)}
+                  step={0.001}
+                  min={0}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    const t = Math.max(0, Number.isFinite(raw) ? raw : 0);
+                    setThumbTime(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
+                  style={{
+                    width: 80,
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                    background: "#1e1e1e",
+                    color: "#fff",
+                    border: "1px solid #555",
+                    fontSize: 13,
+                    textAlign: "center",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = thumbTime + 0.033;
+                    setThumbTime(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 4,
+                    background: "#333",
+                    color: "#fff",
+                    border: "1px solid #555",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  +1f
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = thumbTime + 0.1;
+                    setThumbTime(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 4,
+                    background: "#333",
+                    color: "#fff",
+                    border: "1px solid #555",
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  +0.1
+                </button>
+              </div>
               <div style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
                 현재 시각: {thumbTime.toFixed(2)}초 → 썸네일 컷으로 사용됩니다
               </div>
