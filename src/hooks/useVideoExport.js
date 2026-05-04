@@ -165,6 +165,10 @@ export function useVideoExport() {
               i < baseDurations.length - 1 ? d + Tf : d
             );
 
+      console.log("[exportVideo] preset:", JSON.stringify(preset));
+      console.log("[exportVideo] baseDurations:", JSON.stringify(baseDurations));
+      console.log("[exportVideo] durations:", JSON.stringify(durations));
+
       try {
         setStatus("encoding");
         setMessage("업로드 및 인코딩 요청…");
