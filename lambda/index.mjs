@@ -79,17 +79,17 @@ function buildXfadeGraphPrepped(n, durations, transitionRaw) {
   return parts.join(";");
 }
 
-function buildFfconcatPrepList(startIdx, count, durSlice) {
-  let s = "ffconcat version 1.0\n";
-  for (let j = 0; j < count; j++) {
-    s += `file 'prep_${startIdx + j}.png'\n`;
-    s += `duration ${durSlice[j]}\n`;
+/** transition=0, 슬라이드 2장 이상: concat 필터 (입력마다 yuv420p/30fps 맞춘 뒤 concat) */
+function buildConcatFilterNoTransition(m) {
+  const parts = [];
+  const links = [];
+  for (let i = 0; i < m; i++) {
+    const tag = `cv${i}`;
+    parts.push(`[${i}:v]format=yuv420p,fps=30[${tag}]`);
+    links.push(`[${tag}]`);
   }
-  // ffconcat demuxer: 마지막 파일을 duration 없이 한 번 더 추가
-  // (없으면 마지막 프레임이 잘림, duration 0은 청크당 ~2초 추가됨)
-  const last = count - 1;
-  s += `file 'prep_${startIdx + last}.png'\n`;
-  return s;
+  parts.push(`${links.join("")}concat=n=${m}:v=1:a=0[vout]`);
+  return parts.join(";");
 }
 
 function buildChunkMp4ConcatList(chunkCount) {
@@ -1223,41 +1223,39 @@ export const handler = async (event) => {
           );
           runFfmpeg(args, workDir, `chunk_${c}_xfade`);
         } else {
-          const listName = `list_chunk_${c}.txt`;
-          writeFileSync(
-            join(workDir, listName),
-            buildFfconcatPrepList(start, m, sub),
-            "utf8"
-          );
-          runFfmpeg(
-            [
-              "-y",
-              "-f",
-              "concat",
-              "-safe",
-              "0",
-              "-i",
-              listName,
-              "-vf",
-              "format=yuv420p,fps=30",
-              "-c:v",
-              "libx264",
-              "-preset",
-              "ultrafast",
-              "-crf",
-              "23",
-              "-pix_fmt",
-              "yuv420p",
-              "-r",
+          const args = [];
+          for (let j = 0; j < m; j++) {
+            args.push(
+              "-loop",
+              "1",
+              "-framerate",
               "30",
-              "-an",
-              `chunk_${c}.mp4`,
-            ],
-            workDir,
-            `chunk_${c}_nxf`
+              "-t",
+              String(sub[j]),
+              "-i",
+              `prep_${start + j}.png`
+            );
+          }
+          args.push(
+            "-filter_complex",
+            buildConcatFilterNoTransition(m),
+            "-map",
+            "[vout]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-an",
+            "-y",
+            `chunk_${c}.mp4`
           );
-          const lp = join(workDir, listName);
-          if (existsSync(lp)) unlinkSync(lp);
+          runFfmpeg(args, workDir, `chunk_${c}_concat`);
         }
 
         for (let j = 0; j < m; j++) {
