@@ -185,9 +185,6 @@ function formatCropOffsetLabel(offset) {
   return `${sign}${n}%`;
 }
 
-/** 썸네일 시각과의 거리(초) — 이 안이면 썸네일 전용 자막 */
-const THUMBNAIL_PREVIEW_WINDOW_SEC = 0.5;
-
 /**
  * 미리보기 currentTime(초)이 [start, end]에 들어가는 첫 구간; 없으면 null
  */
@@ -267,16 +264,6 @@ function secondsToHhMmSs(sec) {
   return [h, m, r].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-/** 표시용: HH:MM:SS.XX (현재 재생 초, 소수는 2자리) */
-function formatTimeWithCentis(sec) {
-  if (sec == null || !Number.isFinite(Number(sec))) return "";
-  const s = Math.max(0, Number(sec));
-  const whole = Math.floor(s + 1e-9);
-  let cs = Math.round((s - whole) * 100);
-  cs = Math.min(99, Math.max(0, cs));
-  return `${secondsToHhMmSs(whole)}.${String(cs).padStart(2, "0")}`;
-}
-
 /** 구간 소수 부분 0~99 (0.01초 단위) */
 function clampSegmentFracMs(n) {
   const v = Math.round(Number(n));
@@ -352,13 +339,6 @@ export default function Shorts3Panel() {
   const [topTextOpacity, setTopTextOpacity] = useState(1);
   const [topTextFont, setTopTextFont] = useState(DEFAULT_TEXT_FONT);
 
-  const [thumbnailText, setThumbnailText] = useState("");
-  const [thumbnailTextY, setThumbnailTextY] = useState(85);
-  const [thumbnailTextColor, setThumbnailTextColor] = useState(TEXT_COLORS[0]);
-  const [thumbnailTextOpacity, setThumbnailTextOpacity] = useState(1);
-  const [thumbnailTextSize, setThumbnailTextSize] = useState(72);
-  const [thumbnailTextFont, setThumbnailTextFont] = useState(DEFAULT_TEXT_FONT);
-
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
   const [savedFilesError, setSavedFilesError] = useState(null);
@@ -370,10 +350,6 @@ export default function Shorts3Panel() {
   /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
-  /** 미리보기 currentTime 기준 썸네일(0.3초) 삽입 위치; Lambda에서 맨 앞에 추가 */
-  const [thumbnailTime, setThumbnailTime] = useState(null);
-  /** 썸네일 클립 가로 크롭 오프셋 % (-50~50, 미리보기·Lambda 썸네일 구간 전용) */
-  const [thumbnailCropOffset, setThumbnailCropOffset] = useState(0);
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
@@ -526,18 +502,12 @@ export default function Shorts3Panel() {
   const updatePreviewCropOverlay = useCallback(() => {
     const video = previewVideoRef.current;
     const segOff = segments[previewSegmentIndex]?.cropOffset ?? 0;
-    const thumbOff = Math.min(
-      50,
-      Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
-    );
-    const cropOffset =
-      previewSegmentIndex === 0 ? thumbOff : segOff;
     if (!video) {
       setPreviewCropOverlay(null);
       return;
     }
-    setPreviewCropOverlay(computePreviewCropOverlay(video, cropOffset));
-  }, [segments, previewSegmentIndex, thumbnailCropOffset]);
+    setPreviewCropOverlay(computePreviewCropOverlay(video, segOff));
+  }, [segments, previewSegmentIndex]);
 
   useLayoutEffect(() => {
     updatePreviewCropOverlay();
@@ -738,8 +708,6 @@ export default function Shorts3Panel() {
     setUploadPhase("idle");
     setUploadProgress(0);
     setPreviewUrl(null);
-    setThumbnailTime(null);
-    setThumbnailCropOffset(0);
     setError(null);
   };
 
@@ -751,8 +719,6 @@ export default function Shorts3Panel() {
     setVideoFile(null);
     if (videoInputRef.current) videoInputRef.current.value = "";
     setDownloadUrl(null);
-    setThumbnailTime(null);
-    setThumbnailCropOffset(0);
     setStatus("idle");
     setMessage("");
     setProgress(0);
@@ -987,7 +953,8 @@ export default function Shorts3Panel() {
           fadeOutDuration: bgmFadeOut,
         },
       };
-      const thumbSecRaw = thumbnailTime;
+      // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
+      const thumbSecRaw = null;
       const thumbSec =
         thumbSecRaw != null && thumbSecRaw !== ""
           ? typeof thumbSecRaw === "number"
@@ -996,33 +963,9 @@ export default function Shorts3Panel() {
           : NaN;
       if (Number.isFinite(thumbSec) && thumbSec >= 0) {
         payload.thumbnailTime = thumbSec;
-        payload.thumbnailTextFont =
-          String(thumbnailTextFont || "").trim() || DEFAULT_TEXT_FONT;
+        payload.thumbnailTextFont = DEFAULT_TEXT_FONT;
       }
-      payload.thumbnailCropOffset = Math.min(
-        50,
-        Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
-      );
-      const tt = String(thumbnailText ?? "").trim();
-      if (tt) {
-        payload.thumbnailText = tt;
-        payload.thumbnailTextY = Math.min(
-          100,
-          Math.max(0, Math.round(Number(thumbnailTextY) || 85))
-        );
-        payload.thumbnailTextColor =
-          String(thumbnailTextColor ?? TEXT_COLORS[0]).trim() ||
-          TEXT_COLORS[0];
-        payload.thumbnailTextOpacity = roundOpacity01(
-          thumbnailTextOpacity ?? 1
-        );
-        payload.thumbnailTextSize = Math.min(
-          200,
-          Math.max(20, Math.round(Number(thumbnailTextSize)) || 72)
-        );
-        payload.thumbnailTextFont =
-          String(thumbnailTextFont || "").trim() || DEFAULT_TEXT_FONT;
-      }
+      payload.thumbnailCropOffset = 0;
       if (highlightMusicS3Key.trim()) {
         payload.music_s3_key = highlightMusicS3Key.trim();
       }
@@ -1083,29 +1026,10 @@ export default function Shorts3Panel() {
     const cropH = b.height;
     const scale = cropH > 0 ? cropH / 1920 : 1;
     const ct = previewPlayheadSec;
-    const thumbSecRaw = thumbnailTime;
-    const thumbSec =
-      thumbSecRaw != null && thumbSecRaw !== ""
-        ? typeof thumbSecRaw === "number"
-          ? thumbSecRaw
-          : Number(thumbSecRaw)
-        : NaN;
-    const inThumbWindow =
-      Number.isFinite(thumbSec) &&
-      Number.isFinite(ct) &&
-      Math.abs(ct - thumbSec) <= THUMBNAIL_PREVIEW_WINDOW_SEC;
-    const thumbLineTrim = String(thumbnailText ?? "").trim();
-    const useThumbBottom = inThumbWindow && thumbLineTrim.length > 0;
-    const bottomSeg = useThumbBottom
-      ? null
-      : findSegmentAtPreviewTime(ct, segments);
+    const bottomSeg = findSegmentAtPreviewTime(ct, segments);
     const segmentBottomLine = String(bottomSeg?.text ?? "").trim();
 
     const previewTopPx = Math.max(8, (Number(topTextSize) || 72) * scale);
-    const thumbBottomPx = Math.max(
-      8,
-      (Number(thumbnailTextSize) || 72) * scale
-    );
     const segBottomPx = Math.max(
       8,
       (Number(bottomSeg?.textSize) || 48) * scale
@@ -1119,21 +1043,6 @@ export default function Shorts3Panel() {
     const topLine = String(topText || "").trim();
     const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
     const topFontFamily = previewFontFamily(topTextFont);
-
-    const thumbYRaw = Number(thumbnailTextY);
-    const thumbYpct = Number.isFinite(thumbYRaw)
-      ? Math.min(100, Math.max(0, thumbYRaw))
-      : 85;
-    const thumbColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(
-      String(thumbnailTextColor || "")
-    )
-      ? thumbnailTextColor
-      : TEXT_COLORS[0];
-    const thumbColor = hexToRgba(
-      thumbColorRaw,
-      roundOpacity01(thumbnailTextOpacity ?? 1)
-    );
-    const thumbFontFamily = previewFontFamily(thumbnailTextFont);
 
     const segYRaw = Number(bottomSeg?.textY);
     const segYpct = Number.isFinite(segYRaw)
@@ -1187,30 +1096,7 @@ export default function Shorts3Panel() {
             {topLine}
           </div>
         ) : null}
-        {useThumbBottom ? (
-          <div
-            style={{
-              position: "absolute",
-              left: "50%",
-              top: `${thumbYpct}%`,
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-              fontSize: thumbBottomPx,
-              color: thumbColor,
-              fontFamily: thumbFontFamily,
-              fontWeight: 700,
-              lineHeight: 1.2,
-              textShadow: shadow,
-              padding: "0 8px",
-              boxSizing: "border-box",
-              whiteSpace: "nowrap",
-              overflow: "visible",
-            }}
-          >
-            {thumbLineTrim}
-          </div>
-        ) : null}
-        {!useThumbBottom && segmentBottomLine ? (
+        {segmentBottomLine ? (
           <div
             style={{
               position: "absolute",
@@ -1244,22 +1130,7 @@ export default function Shorts3Panel() {
     topTextOpacity,
     topTextFont,
     segments,
-    thumbnailTime,
-    thumbnailText,
-    thumbnailTextY,
-    thumbnailTextColor,
-    thumbnailTextOpacity,
-    thumbnailTextSize,
-    thumbnailTextFont,
   ]);
-
-  const thumbnailSeekSec = (() => {
-    const t = thumbnailTime;
-    if (t == null || t === "") return null;
-    const n = typeof t === "number" ? t : Number(t);
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  })();
-  const thumbnailSeekOk = thumbnailSeekSec != null;
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -1727,308 +1598,63 @@ export default function Shorts3Panel() {
           <>
             <div
               className="muted"
-              style={{ fontWeight: 700, marginTop: 4, marginBottom: 4 }}
+              style={{ fontWeight: 700, marginTop: 4, marginBottom: 8 }}
             >
-              썸네일 설정
+              미리보기 — 구간 시작·종료
             </div>
-            {thumbnailSeekOk ? (
-              <div
+            <div
+              style={{
+                marginTop: 0,
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <label
+                className="muted"
                 style={{
-                  marginTop: 8,
-                  marginBottom: 8,
-                  padding: "10px 12px",
                   display: "flex",
-                  flexWrap: "wrap",
                   alignItems: "center",
-                  gap: 12,
-                  borderRadius: 8,
-                  background: "rgba(19,199,154,0.12)",
-                  border: "1px solid rgba(19,199,154,0.4)",
-                  boxSizing: "border-box",
+                  gap: 6,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "var(--text, #e9edf5)",
-                  }}
-                >
-                  📸 썸네일: {formatTimeWithCentis(thumbnailSeekSec)} 설정됨
-                </span>
-                <button
-                  type="button"
-                  className="primary primary-fill"
+                적용 구간
+                <select
+                  value={previewSegmentIndex}
+                  onChange={(e) =>
+                    setPreviewSegmentIndex(Number(e.target.value) || 0)
+                  }
                   disabled={busy || uploading}
-                  onClick={() => {
-                    const sec = thumbnailSeekSec;
-                    if (sec == null) return;
-                    setPreviewSegmentIndex(0);
-                    queueMicrotask(() => {
-                      const v = previewVideoRef.current;
-                      if (v) v.currentTime = sec;
-                    });
-                  }}
+                  style={{ padding: 6 }}
                 >
-                  ↩ 썸네일로 이동
-                </button>
-              </div>
-            ) : null}
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={
-                      busy || uploading || uploadPhase !== "done" || !previewUrl
-                    }
-                    onClick={() => {
-                      const v = previewVideoRef.current;
-                      if (!v) return;
-                      setThumbnailTime(v.currentTime);
-                    }}
-                  >
-                    📸 썸네일로 사용
-                  </button>
-                  {!thumbnailSeekOk ? (
-                    <span className="muted" style={{ fontSize: 13 }}>
-                      재생 위치를 썸네일 시작점(0.3초 구간)으로 보냅니다.
-                    </span>
-                  ) : (
-                    <span className="muted" style={{ fontSize: 13 }}>
-                      다른 시각으로 바꾸려면 재생 위치를 옮긴 뒤 다시 누르세요.
-                    </span>
-                  )}
-                </div>
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.02)",
-                    maxWidth: 560,
-                  }}
-                >
-                  <div
-                    className="muted"
-                    style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}
-                  >
-                    썸네일 전용 텍스트 (선택)
-                  </div>
-                  <label className="preset-field" style={{ marginBottom: 8 }}>
-                    <span>썸네일 텍스트 (비우면 0.3초 클립에 별도 자막 없음)</span>
-                    <input
-                      type="text"
-                      placeholder="썸네일에만 표시할 문구"
-                      value={thumbnailText}
-                      disabled={busy || uploading}
-                      onChange={(e) => setThumbnailText(e.target.value)}
-                    />
-                  </label>
-                  <label
-                    className="muted"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
-                    세로 위치: {Math.round(thumbnailTextY)}%
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={thumbnailTextY}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailTextY(Number(e.target.value) || 0)
-                      }
-                    />
-                  </label>
-                  <label
-                    className="muted"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
-                    크롭 오프셋: {formatCropOffsetLabel(thumbnailCropOffset)}
-                    <input
-                      type="range"
-                      min={-50}
-                      max={50}
-                      step={1}
-                      value={Math.min(
-                        50,
-                        Math.max(-50, Math.round(Number(thumbnailCropOffset) || 0))
-                      )}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailCropOffset(Number(e.target.value) || 0)
-                      }
-                    />
-                  </label>
-                  <div
-                    className="muted"
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      marginBottom: 6,
-                    }}
-                  >
-                    색상
-                  </div>
-                  <TextColorPalette
-                    value={thumbnailTextColor}
-                    disabled={busy || uploading}
-                    onChange={setThumbnailTextColor}
-                  />
-                  <label
-                    className="muted"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      marginTop: 10,
-                    }}
-                  >
-                    투명도 ({Math.round(thumbnailTextOpacity * 100)}%)
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      value={roundOpacity01(thumbnailTextOpacity)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailTextOpacity(
-                          roundOpacity01(e.target.value)
-                        )
-                      }
-                    />
-                  </label>
-                  <label
-                    className="muted"
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      marginTop: 8,
-                    }}
-                  >
-                    폰트 크기 (
-                    {Math.min(
-                      200,
-                      Math.max(20, Math.round(Number(thumbnailTextSize) || 72))
-                    )}
-                    px)
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(
-                        200,
-                        Math.max(20, Math.round(Number(thumbnailTextSize) || 72))
-                      )}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailTextSize(Number(e.target.value))
-                      }
-                    />
-                  </label>
-                  <label className="preset-field" style={{ marginTop: 8 }}>
-                    <span>폰트</span>
-                    <select
-                      value={normalizeFontSelectValue(thumbnailTextFont)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailTextFont(
-                          normalizeFontSelectValue(e.target.value)
-                        )
-                      }
-                    >
-                      {FONTS.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <label
-                    className="muted"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    적용 구간
-                    <select
-                      value={previewSegmentIndex}
-                      onChange={(e) =>
-                        setPreviewSegmentIndex(Number(e.target.value) || 0)
-                      }
-                      disabled={busy || uploading}
-                      style={{ padding: 6 }}
-                    >
-                      {segments.map((_, i) => (
-                        <option key={i} value={i}>
-                          #{i + 1}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy || uploading}
-                    onClick={() => applyVideoTimeToSegment("start")}
-                  >
-                    ▶ 시작점 설정
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy || uploading}
-                    onClick={() => applyVideoTimeToSegment("end")}
-                  >
-                    ⏹ 종료점 설정
-                  </button>
-                </div>
-                <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-                  재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
-                </p>
+                  {segments.map((_, i) => (
+                    <option key={i} value={i}>
+                      #{i + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || uploading}
+                onClick={() => applyVideoTimeToSegment("start")}
+              >
+                ▶ 시작점 설정
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || uploading}
+                onClick={() => applyVideoTimeToSegment("end")}
+              >
+                ⏹ 종료점 설정
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+              재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
+            </p>
           </>
         ) : null}
 
