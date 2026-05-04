@@ -85,9 +85,6 @@ function buildFfconcatPrepList(startIdx, count, durSlice) {
     s += `file 'prep_${startIdx + j}.png'\n`;
     s += `duration ${durSlice[j]}\n`;
   }
-  const last = count - 1;
-  s += `file 'prep_${startIdx + last}.png'\n`;
-  s += "duration 0\n";
   return s;
 }
 
