@@ -500,7 +500,8 @@ function buildHighlightSegmentVf(opts) {
       `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105:shadowx=2:shadowy=2:shadowcolor=black`
     );
   }
-  return parts.join(",");
+  const chain = parts.join(",");
+  return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
 }
 
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
@@ -721,6 +722,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "23",
         "-pix_fmt",
         "yuv420p",
+        "-r",
+        "30",
         "-c:a",
         "aac",
         `seg_${i}.mp4`,
