@@ -213,6 +213,7 @@ export default function Shorts3ThumbnailPanel() {
   const [thumbTime, setThumbTime] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [debouncedThumbTime, setDebouncedThumbTime] = useState(0);
+  const [cropOffset, setCropOffset] = useState(0);
 
   const [team, setTeam] = useState("KIA");
   const [text1, setText1] = useState("");
@@ -285,11 +286,20 @@ export default function Shorts3ThumbnailPanel() {
   const tc = TEAM_COLORS[team];
 
   const makeFinalCanvas = useCallback(
-    async (timeOverride) => {
+    async (timeOverride, cropOffsetOverride) => {
       const seekTime =
         timeOverride != null && Number.isFinite(Number(timeOverride))
           ? Number(timeOverride)
           : debouncedThumbTime;
+
+      const cropRaw =
+        cropOffsetOverride !== undefined && cropOffsetOverride !== null
+          ? Number(cropOffsetOverride)
+          : cropOffset;
+      const co = Math.min(
+        50,
+        Math.max(-50, Number.isFinite(cropRaw) ? cropRaw : 0)
+      );
 
       const video = videoRef.current;
       let frameCanvas = null;
@@ -313,7 +323,10 @@ export default function Shorts3ThumbnailPanel() {
           let sh = vh;
           if (videoRatio > targetRatio) {
             sw = vh * targetRatio;
-            sx = (vw - sw) / 2;
+            const center = vw / 2;
+            const offsetPx = (vw * co) / 100;
+            sx = center - sw / 2 + offsetPx;
+            sx = Math.max(0, Math.min(vw - sw, sx));
           } else {
             sh = vw / targetRatio;
             sy = (vh - sh) / 2;
@@ -357,6 +370,7 @@ export default function Shorts3ThumbnailPanel() {
       fontSize1,
       fontSize2,
       videoMetaTick,
+      cropOffset,
     ]
   );
 
@@ -395,7 +409,7 @@ export default function Shorts3ThumbnailPanel() {
     return () => {
       cancelled = true;
     };
-  }, [makeFinalCanvas]);
+  }, [makeFinalCanvas, cropOffset]);
 
   async function handleGenerate() {
     setStatus("loading");
@@ -405,7 +419,7 @@ export default function Shorts3ThumbnailPanel() {
       return null;
     });
     try {
-      const finalCanvas = await makeFinalCanvas(thumbTime);
+      const finalCanvas = await makeFinalCanvas(thumbTime, cropOffset);
 
       const blob = await new Promise((res) =>
         finalCanvas.toBlob((b) => res(b), "image/png")
@@ -506,6 +520,7 @@ export default function Shorts3ThumbnailPanel() {
                         setSelectedJobId(jid);
                         setThumbTime(0);
                         setDebouncedThumbTime(0);
+                        setCropOffset(0);
                         setPreviewUrl(null);
                         await fetchPreviewUrl(jid);
                       }}
@@ -547,6 +562,31 @@ export default function Shorts3ThumbnailPanel() {
               />
               <div style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
                 현재 시각: {thumbTime.toFixed(2)}초 → 썸네일 컷으로 사용됩니다
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <div className="label">크롭 오프셋 (좌우 이동)</div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginTop: 6,
+                  }}
+                >
+                  <span style={{ color: "#aaa", fontSize: 12 }}>-50%</span>
+                  <input
+                    type="range"
+                    min={-50}
+                    max={50}
+                    value={cropOffset}
+                    onChange={(e) => setCropOffset(Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ color: "#aaa", fontSize: 12 }}>+50%</span>
+                  <span style={{ color: "#fff", fontSize: 13, minWidth: 36 }}>
+                    {cropOffset > 0 ? `+${cropOffset}` : cropOffset}%
+                  </span>
+                </div>
               </div>
             </div>
           )}
