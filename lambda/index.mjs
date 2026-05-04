@@ -85,6 +85,10 @@ function buildFfconcatPrepList(startIdx, count, durSlice) {
     s += `file 'prep_${startIdx + j}.png'\n`;
     s += `duration ${durSlice[j]}\n`;
   }
+  // ffconcat demuxer: 마지막 파일을 duration 없이 한 번 더 추가
+  // (없으면 마지막 프레임이 잘림, duration 0은 청크당 ~2초 추가됨)
+  const last = count - 1;
+  s += `file 'prep_${startIdx + last}.png'\n`;
   return s;
 }
 
