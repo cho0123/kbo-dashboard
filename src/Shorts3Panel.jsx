@@ -1873,8 +1873,8 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     style={{
                       padding: "4px 6px",
-                      width: 80,
-                      fontSize: 12,
+                      width: 62,
+                      fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1896,8 +1896,8 @@ export default function Shorts3Panel() {
                     title="시작 소수 초 (0.01초 단위, 00~99)"
                     style={{
                       padding: "4px 6px",
-                      width: 32,
-                      fontSize: 12,
+                      width: 26,
+                      fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1938,8 +1938,8 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     style={{
                       padding: "4px 6px",
-                      width: 80,
-                      fontSize: 12,
+                      width: 62,
+                      fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1961,8 +1961,8 @@ export default function Shorts3Panel() {
                     title="종료 소수 초 (0.01초 단위, 00~99)"
                     style={{
                       padding: "4px 6px",
-                      width: 32,
-                      fontSize: 12,
+                      width: 26,
+                      fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
@@ -2180,44 +2180,41 @@ export default function Shorts3Panel() {
             + 구간 추가
           </button>
 
-          {/* 총 구간 합계 */}
+          {/* 총 구간 합계 + 원본 음소거 */}
           <div
             style={{
-              fontSize: 14,
-              fontWeight: 700,
-              ...segmentTotalWarnStyle,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 6,
             }}
           >
-            총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
-            {Math.floor(segmentTotalSec)}초)
+            <span style={{ color: "#aaa", fontSize: 12, ...segmentTotalWarnStyle }}>
+              총 {secondsToHhMmSs(segmentTotalSec)} ({Math.floor(segmentTotalSec)}초)
+            </span>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "#aaa",
+                cursor: busy || uploading ? "not-allowed" : "pointer",
+                opacity: busy || uploading ? 0.65 : 1,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={muteOriginal}
+                disabled={busy || uploading}
+                onChange={(e) => setMuteOriginal(e.target.checked)}
+              />
+              원본 음소거
+            </label>
           </div>
 
           {/* 구분선 */}
           <hr style={{ borderColor: "#333", margin: "8px 0" }} />
-
-          {/* 원본 음소거 */}
-          <label
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              flexWrap: "nowrap",
-              alignItems: "center",
-              gap: 10,
-              whiteSpace: "nowrap",
-              cursor: busy || uploading ? "not-allowed" : "pointer",
-              opacity: busy || uploading ? 0.65 : 1,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={muteOriginal}
-              disabled={busy || uploading}
-              onChange={(e) => setMuteOriginal(e.target.checked)}
-            />
-            <span className="muted" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
-              원본 오디오 음소거
-            </span>
-          </label>
 
           {/* BGM 설정 */}
           <div style={{ maxWidth: 480 }}>
@@ -2242,20 +2239,12 @@ export default function Shorts3Panel() {
                 ))}
               </select>
             </label>
-            <label className="preset-field">
-              <span>음원 볼륨 ({bgmVolume.toFixed(2)})</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={bgmVolume}
-                disabled={busy || uploading}
-                onChange={(e) => setBgmVolume(Number(e.target.value))}
-              />
-            </label>
-            <label className="preset-field">
-              <span>음원 시작 위치 (초)</span>
+
+            {/* 시작 위치 + 볼륨 (한 줄) */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+              <span style={{ color: "#aaa", fontSize: 11, whiteSpace: "nowrap" }}>
+                시작
+              </span>
               <input
                 type="number"
                 min={0}
@@ -2266,8 +2255,42 @@ export default function Shorts3Panel() {
                 onChange={(e) =>
                   setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
                 }
+                style={{
+                  width: 50,
+                  padding: "2px 4px",
+                  fontSize: 11,
+                  background: "#1e1e1e",
+                  color: "#fff",
+                  border: "1px solid #444",
+                  borderRadius: 4,
+                }}
               />
-            </label>
+              <span style={{ color: "#aaa", fontSize: 11 }}>초</span>
+              <span
+                style={{
+                  color: "#aaa",
+                  fontSize: 11,
+                  marginLeft: 8,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                볼륨
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={bgmVolume}
+                disabled={busy || uploading}
+                onChange={(e) => setBgmVolume(Number(e.target.value))}
+                style={{ flex: 1 }}
+              />
+              <span style={{ color: "#aaa", fontSize: 11, minWidth: 30 }}>
+                {Number(bgmVolume).toFixed(2)}
+              </span>
+            </div>
+
             <label className="preset-field">
               <span>끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)</span>
               <input
