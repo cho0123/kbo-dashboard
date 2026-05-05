@@ -807,10 +807,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "highlight_strip_a_for_bgm"
       );
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
-      const afChain = buildMusicAf(
-        videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0,
-        musicOpts
-      );
+      const videoDurForMux =
+        videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+      const afChain = buildMusicAf(videoDurForMux, musicOpts);
       const muxArgs = [
         "-y",
         "-i",
@@ -840,7 +839,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "48000",
         "-ac",
         "2",
-        "-shortest",
+        "-t",
+        String(videoDurForMux),
         outLocal
       );
       runFfmpeg(muxArgs, workDir, "highlight_mux_bgm");
@@ -860,10 +860,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         "highlight_copy_for_mix"
       );
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_va.mp4");
-      const chain = buildMusicAf(
-        videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0,
-        musicOpts
-      );
+      const videoDurForMux =
+        videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+      const chain = buildMusicAf(videoDurForMux, musicOpts);
       const fc = `[1:a]${chain}[bm];[0:a][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
       runFfmpeg(
         [
@@ -892,7 +891,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "48000",
           "-ac",
           "2",
-          "-shortest",
+          "-t",
+          String(videoDurForMux),
           outLocal,
         ],
         workDir,
