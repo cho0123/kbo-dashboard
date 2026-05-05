@@ -104,55 +104,12 @@ export default function Shorts3AIPanel() {
     setAiRaw("");
     setCards([]);
     try {
-      // NOTE: 브라우저에서 직접 호출은 CORS/키 노출 문제가 생길 수 있음.
-      // 일단 요청하신 형태대로 구성하되, 키는 env로 받도록 함.
-      const apiKey =
-        (typeof import.meta !== "undefined" &&
-          import.meta.env &&
-          import.meta.env.VITE_ANTHROPIC_API_KEY) ||
-        "";
-      if (!apiKey) {
-        throw new Error(
-          "VITE_ANTHROPIC_API_KEY가 설정되어 있지 않습니다. (.env.local 등)"
-        );
-      }
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: `다음 KBO 경기 데이터를 분석해서 각 경기별로 아래 형식으로 답해줘.
-형식:
-[경기] 홈팀 vs 원정팀 (점수)
-핫이슈: (핵심 이슈 1줄)
-하이라이트 텍스트: (영상 하단 자막용 임팩트 있는 문구 10자 이내)
-썸네일 텍스트: (썸네일 메인 텍스트 8자 이내)
-
-경기 데이터:
-${safeJsonStringify(gamesData)}`,
-            },
-          ],
-        }),
+      const res = await postKbo({
+        action: "ai_highlight_analysis",
+        games: gamesData,
       });
-
-      const j = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(j?.error?.message || j?.error || `HTTP ${response.status}`);
-      }
-      const text =
-        Array.isArray(j?.content) && j.content[0]?.type === "text"
-          ? j.content.map((c) => c?.text || "").join("\n")
-          : j?.content?.text || j?.text || "";
-      setAiRaw(String(text || ""));
+      const text = String(res?.text || "");
+      setAiRaw(text);
       const parsed = parseClaudeBlocks(text);
       setCards(parsed);
     } catch (e) {

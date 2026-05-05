@@ -170,6 +170,22 @@ async function claude(system, user, maxTokens = 2048) {
   return parts.join("").trim();
 }
 
+async function claudeRawUserPrompt(user, { model, maxTokens = 1000 } = {}) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("Missing ANTHROPIC_API_KEY");
+  const client = new Anthropic({ apiKey: key });
+  const msg = await client.messages.create({
+    model: model || MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: user }],
+  });
+  const parts = [];
+  for (const block of msg.content) {
+    if (block.type === "text") parts.push(block.text);
+  }
+  return parts.join("").trim();
+}
+
 function docSnap(d) {
   const v =
     typeof d?.data === "function"
@@ -2207,6 +2223,48 @@ export const handler = async (event) => {
             }),
           };
         }
+      }
+      case "ai_highlight_analysis": {
+        const games = Array.isArray(payload.games) ? payload.games : [];
+        if (games.length < 1) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              action,
+              error: "Missing games array",
+            }),
+          };
+        }
+
+        const userPrompt = `다음 KBO 경기 데이터를 분석해서 각 경기별로 아래 형식으로 답해줘.
+형식:
+[경기] 홈팀 vs 원정팀 (점수)
+핫이슈: (핵심 이슈 1줄)
+하이라이트 텍스트: (영상 하단 자막용 임팩트 있는 문구 10자 이내)
+썸네일 텍스트: (썸네일 메인 텍스트 8자 이내)
+
+경기 데이터:
+${JSON.stringify(games, null, 2)}`;
+
+        const model =
+          process.env.CLAUDE_HIGHLIGHT_MODEL || "claude-sonnet-4-20250514";
+        const text = await claudeRawUserPrompt(userPrompt, {
+          model,
+          maxTokens: 1000,
+        });
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            model,
+            text,
+          }),
+        };
       }
       case "highlight_upload": {
         try {
