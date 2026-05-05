@@ -2249,7 +2249,7 @@ export const handler = async (event) => {
 ${JSON.stringify(games, null, 2)}`;
 
         const model =
-          process.env.CLAUDE_HIGHLIGHT_MODEL || "claude-sonnet-4-20250514";
+          process.env.CLAUDE_HIGHLIGHT_MODEL || "claude-sonnet-4-5";
         const text = await claudeRawUserPrompt(userPrompt, {
           model,
           maxTokens: 1000,
