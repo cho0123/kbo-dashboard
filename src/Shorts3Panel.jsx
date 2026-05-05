@@ -1828,8 +1828,8 @@ export default function Shorts3Panel() {
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "28px 52px 62px 10px 26px 12px 52px 62px 10px 26px 26px",
-                    columnGap: 6,
+                      "16px 44px 58px 6px 22px 8px 44px 58px 6px 22px 18px",
+                    columnGap: 4,
                     rowGap: 6,
                     alignItems: "center",
                     overflowX: "hidden",
@@ -1842,6 +1842,8 @@ export default function Shorts3Panel() {
                       gridColumn: 1,
                       gridRow: 1,
                       fontWeight: 700,
+                      minWidth: 16,
+                      fontSize: 11,
                       justifySelf: "start",
                     }}
                   >
@@ -1860,9 +1862,9 @@ export default function Shorts3Panel() {
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
-                      padding: "2px 6px",
+                      padding: "2px 4px",
                       borderRadius: 4,
-                      fontSize: 11,
+                      fontSize: 10,
                       cursor: "pointer",
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
@@ -1884,14 +1886,20 @@ export default function Shorts3Panel() {
                       gridColumn: 3,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 62,
+                      width: 58,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
                   <span
                     className="muted"
-                    style={{ gridColumn: 4, gridRow: 1, userSelect: "none" }}
+                    style={{
+                      gridColumn: 4,
+                      gridRow: 1,
+                      userSelect: "none",
+                      margin: "0 2px",
+                      justifySelf: "center",
+                    }}
                   >
                     .
                   </span>
@@ -1912,14 +1920,19 @@ export default function Shorts3Panel() {
                       gridColumn: 5,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 26,
+                      width: 22,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
                   <span
                     className="muted"
-                    style={{ gridColumn: 6, gridRow: 1, justifySelf: "center" }}
+                    style={{
+                      gridColumn: 6,
+                      gridRow: 1,
+                      justifySelf: "center",
+                      margin: "0 3px",
+                    }}
                   >
                     ~
                   </span>
@@ -1936,9 +1949,9 @@ export default function Shorts3Panel() {
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
-                      padding: "2px 6px",
+                      padding: "2px 4px",
                       borderRadius: 4,
-                      fontSize: 11,
+                      fontSize: 10,
                       cursor: "pointer",
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
@@ -1960,14 +1973,20 @@ export default function Shorts3Panel() {
                       gridColumn: 8,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 62,
+                      width: 58,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
                   <span
                     className="muted"
-                    style={{ gridColumn: 9, gridRow: 1, userSelect: "none" }}
+                    style={{
+                      gridColumn: 9,
+                      gridRow: 1,
+                      userSelect: "none",
+                      margin: "0 2px",
+                      justifySelf: "center",
+                    }}
                   >
                     .
                   </span>
@@ -1988,7 +2007,7 @@ export default function Shorts3Panel() {
                       gridColumn: 10,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 26,
+                      width: 22,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
@@ -2005,8 +2024,8 @@ export default function Shorts3Panel() {
                     style={{
                       gridColumn: 11,
                       gridRow: 1,
-                      padding: "2px 6px",
-                      fontSize: 12,
+                      padding: "2px 4px",
+                      fontSize: 10,
                       lineHeight: 1,
                       justifySelf: "end",
                     }}
