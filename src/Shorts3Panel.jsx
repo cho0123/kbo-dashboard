@@ -1775,25 +1775,17 @@ export default function Shorts3Panel() {
             flex: "0 0 420px",
             display: "flex",
             flexDirection: "column",
-            height: "calc(100vh - 620px)",
-            overflowY: "hidden",
-            overflowX: "hidden",
+            gap: 8,
             minWidth: 0,
-            minHeight: 0,
             maxWidth: "100%",
           }}
         >
           {/* 구간 목록 */}
           <div
             style={{
-              flex: 1,
-              overflowY: "auto",
-              overflowX: "hidden",
               display: "flex",
               flexDirection: "column",
               gap: 6,
-              minHeight: 0,
-              paddingRight: 2,
             }}
           >
             {segments.map((seg, index) => (
@@ -2160,241 +2152,255 @@ export default function Shorts3Panel() {
             ))}
           </div>
 
-          {/* 왼쪽 하단 고정 */}
-          <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
-              }}
-            >
-              <label
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  flexWrap: "nowrap",
-                  alignItems: "center",
-                  gap: 10,
-                  whiteSpace: "nowrap",
-                  cursor: busy || uploading ? "not-allowed" : "pointer",
-                  opacity: busy || uploading ? 0.65 : 1,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={muteOriginal}
-                  disabled={busy || uploading}
-                  onChange={(e) => setMuteOriginal(e.target.checked)}
-                />
-                <span
-                  className="muted"
-                  style={{ fontWeight: 700, whiteSpace: "nowrap" }}
-                >
-                  원본 오디오 음소거
-                </span>
-              </label>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  ...segmentTotalWarnStyle,
-                }}
-              >
-                총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
-                {Math.floor(segmentTotalSec)}초)
-              </div>
-            </div>
+          {/* 구간 추가 버튼 */}
+          <button
+            type="button"
+            onClick={addSegment}
+            disabled={busy || uploading}
+            style={{
+              background: "#4ade80",
+              color: "#000",
+              fontWeight: "bold",
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12,
+              alignSelf: "flex-start",
+              ...(busy || uploading
+                ? { opacity: 0.6, cursor: "not-allowed" }
+                : {}),
+            }}
+          >
+            + 구간 추가
+          </button>
 
-            <div style={{ maxWidth: 480 }}>
-              <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
-                배경 음원 (BGM)
-              </div>
-              <label className="preset-field">
-                <span>음원 선택</span>
-                <select
-                  value={highlightMusicS3Key}
-                  disabled={busy || uploading}
-                  onChange={(e) => setHighlightMusicS3Key(e.target.value)}
-                >
-                  <option value="">— BGM 없음 —</option>
-                  {musicTracks.map((t) => (
-                    <option key={t.id} value={t.s3_key}>
-                      {t.name || t.s3_key}
-                      {Number.isFinite(Number(t.duration))
-                        ? ` (${Math.round(Number(t.duration))}초)`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="preset-field">
-                <span>음원 볼륨 ({bgmVolume.toFixed(2)})</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={bgmVolume}
-                  disabled={busy || uploading}
-                  onChange={(e) => setBgmVolume(Number(e.target.value))}
-                />
-              </label>
-              <label className="preset-field">
-                <span>음원 시작 위치 (초)</span>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
-                  value={bgmStartTime}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
-                  }
-                />
-              </label>
-              <label className="preset-field">
-                <span>끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  value={bgmFadeOut}
-                  disabled={busy || uploading}
-                  onChange={(e) => setBgmFadeOut(Number(e.target.value))}
-                />
-              </label>
-              <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-                BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
-                함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
-              </p>
-            </div>
+          {/* 총 구간 합계 */}
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              ...segmentTotalWarnStyle,
+            }}
+          >
+            총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
+            {Math.floor(segmentTotalSec)}초)
+          </div>
 
-            <div
-              style={{
-                marginTop: 12,
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
+          {/* 구분선 */}
+          <hr style={{ borderColor: "#333", margin: "8px 0" }} />
+
+          {/* 원본 음소거 */}
+          <label
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              flexWrap: "nowrap",
+              alignItems: "center",
+              gap: 10,
+              whiteSpace: "nowrap",
+              cursor: busy || uploading ? "not-allowed" : "pointer",
+              opacity: busy || uploading ? 0.65 : 1,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={muteOriginal}
+              disabled={busy || uploading}
+              onChange={(e) => setMuteOriginal(e.target.checked)}
+            />
+            <span className="muted" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+              원본 오디오 음소거
+            </span>
+          </label>
+
+          {/* BGM 설정 */}
+          <div style={{ maxWidth: 480 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+              배경 음원 (BGM)
+            </div>
+            <label className="preset-field">
+              <span>음원 선택</span>
+              <select
+                value={highlightMusicS3Key}
+                disabled={busy || uploading}
+                onChange={(e) => setHighlightMusicS3Key(e.target.value)}
+              >
+                <option value="">— BGM 없음 —</option>
+                {musicTracks.map((t) => (
+                  <option key={t.id} value={t.s3_key}>
+                    {t.name || t.s3_key}
+                    {Number.isFinite(Number(t.duration))
+                      ? ` (${Math.round(Number(t.duration))}초)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="preset-field">
+              <span>음원 볼륨 ({bgmVolume.toFixed(2)})</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={bgmVolume}
+                disabled={busy || uploading}
+                onChange={(e) => setBgmVolume(Number(e.target.value))}
+              />
+            </label>
+            <label className="preset-field">
+              <span>음원 시작 위치 (초)</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={bgmStartTime}
+                disabled={busy || uploading}
+                onChange={(e) =>
+                  setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
+                }
+              />
+            </label>
+            <label className="preset-field">
+              <span>끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)</span>
+              <input
+                type="range"
+                min={0}
+                max={5}
+                step={0.1}
+                value={bgmFadeOut}
+                disabled={busy || uploading}
+                onChange={(e) => setBgmFadeOut(Number(e.target.value))}
+              />
+            </label>
+            <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+              BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
+              함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
+            </p>
+          </div>
+
+          {/* 영상 생성 버튼 */}
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              className="primary primary-fill"
+              disabled={busy || uploading || uploadPhase !== "done"}
+              onClick={onGenerate}
             >
+              {busy ? "처리 중…" : "영상 생성"}
+            </button>
+            {busy ? (
               <button
                 type="button"
-                className="primary primary-fill"
-                disabled={busy || uploading || uploadPhase !== "done"}
-                onClick={onGenerate}
-              >
-                {busy ? "처리 중…" : "영상 생성"}
-              </button>
-              {busy ? (
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => {
-                    cancelRef.current = true;
-                  }}
-                >
-                  취소
-                </button>
-              ) : null}
-            </div>
-
-            {busy ? (
-              <div style={{ marginTop: 16 }}>
-                <div className="video-export-progress-wrap">
-                  <div className="video-export-progress-bar">
-                    <div
-                      className="video-export-progress-fill"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="muted" style={{ marginTop: 8 }}>
-                    {progress}%
-                  </div>
-                </div>
-                <p className="video-export-message">{message}</p>
-              </div>
-            ) : message ? (
-              <div className="muted" style={{ marginTop: 12 }}>
-                {message}
-              </div>
-            ) : null}
-
-            {error ? (
-              <pre className="result-error-light" style={{ marginTop: 12 }}>
-                {error.message}
-              </pre>
-            ) : null}
-
-            {downloadUrl ? (
-              <div
-                style={{
-                  marginTop: 16,
-                  display: "flex",
-                  flexDirection: "row",
-                  flexWrap: "nowrap",
-                  alignItems: "stretch",
-                  gap: 8,
+                className="ghost"
+                onClick={() => {
+                  cancelRef.current = true;
                 }}
               >
-                <a
-                  href={downloadUrl}
-                  download="highlight.mp4"
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "10px 16px",
-                    borderRadius: 8,
-                    textDecoration: "none",
-                    color: "#0b1a14",
-                    fontWeight: 800,
-                    background: "#0a8f6a",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  ⬇ mp4 다운로드
-                </a>
-                <button
-                  type="button"
-                  disabled={busy || uploading || uploadPhase !== "done" || !jobId}
-                  onClick={() => {
-                    setError(null);
-                    onGenerate();
-                  }}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    padding: "10px 16px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(19,199,154,0.5)",
-                    background: "rgba(19,199,154,0.4)",
-                    color: "#0b1a14",
-                    fontWeight: 800,
-                    fontFamily: "inherit",
-                    cursor:
-                      busy || uploading || uploadPhase !== "done" || !jobId
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      busy || uploading || uploadPhase !== "done" || !jobId
-                        ? 0.55
-                        : 1,
-                  }}
-                >
-                  ↺ 다시 생성
-                </button>
-              </div>
+                취소
+              </button>
             ) : null}
           </div>
+
+          {busy ? (
+            <div style={{ marginTop: 16 }}>
+              <div className="video-export-progress-wrap">
+                <div className="video-export-progress-bar">
+                  <div
+                    className="video-export-progress-fill"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="muted" style={{ marginTop: 8 }}>
+                  {progress}%
+                </div>
+              </div>
+              <p className="video-export-message">{message}</p>
+            </div>
+          ) : message ? (
+            <div className="muted" style={{ marginTop: 12 }}>
+              {message}
+            </div>
+          ) : null}
+
+          {error ? (
+            <pre className="result-error-light" style={{ marginTop: 12 }}>
+              {error.message}
+            </pre>
+          ) : null}
+
+          {downloadUrl ? (
+            <div
+              style={{
+                marginTop: 16,
+                display: "flex",
+                flexDirection: "row",
+                flexWrap: "nowrap",
+                alignItems: "stretch",
+                gap: 8,
+              }}
+            >
+              <a
+                href={downloadUrl}
+                download="highlight.mp4"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  textDecoration: "none",
+                  color: "#0b1a14",
+                  fontWeight: 800,
+                  background: "#0a8f6a",
+                  boxSizing: "border-box",
+                }}
+              >
+                ⬇ mp4 다운로드
+              </a>
+              <button
+                type="button"
+                disabled={busy || uploading || uploadPhase !== "done" || !jobId}
+                onClick={() => {
+                  setError(null);
+                  onGenerate();
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(19,199,154,0.5)",
+                  background: "rgba(19,199,154,0.4)",
+                  color: "#0b1a14",
+                  fontWeight: 800,
+                  fontFamily: "inherit",
+                  cursor:
+                    busy || uploading || uploadPhase !== "done" || !jobId
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    busy || uploading || uploadPhase !== "done" || !jobId
+                      ? 0.55
+                      : 1,
+                }}
+              >
+                ↺ 다시 생성
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* 오른쪽 컬럼 */}
