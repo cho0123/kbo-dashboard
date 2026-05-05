@@ -1776,9 +1776,10 @@ export default function Shorts3Panel() {
             display: "flex",
             flexDirection: "column",
             height: "calc(100vh - 620px)",
-            overflowY: "auto",
+            overflowY: "hidden",
             overflowX: "hidden",
             minWidth: 0,
+            minHeight: 0,
             maxWidth: "100%",
           }}
         >
@@ -1791,6 +1792,7 @@ export default function Shorts3Panel() {
               display: "flex",
               flexDirection: "column",
               gap: 6,
+              minHeight: 0,
               paddingRight: 2,
             }}
           >
