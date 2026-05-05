@@ -1828,7 +1828,7 @@ export default function Shorts3Panel() {
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "16px 44px 58px 6px 22px 8px 44px 58px 6px 22px 18px",
+                      "16px 44px 58px 6px 30px 8px 44px 58px 6px 30px 18px",
                     columnGap: 4,
                     rowGap: 6,
                     alignItems: "center",
@@ -1920,7 +1920,7 @@ export default function Shorts3Panel() {
                       gridColumn: 5,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 22,
+                      width: 30,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
@@ -2007,7 +2007,7 @@ export default function Shorts3Panel() {
                       gridColumn: 10,
                       gridRow: 1,
                       padding: "4px 6px",
-                      width: 22,
+                      width: 30,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
