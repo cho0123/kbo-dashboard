@@ -1763,20 +1763,25 @@ export default function Shorts3Panel() {
 
       <div
         style={{
-          marginTop: 20,
+          marginTop: 12,
           display: "flex",
           gap: 16,
           alignItems: "flex-start",
+          height: "calc(100vh - 680px)",
+          minHeight: 400,
         }}
       >
         {/* 왼쪽 컬럼 */}
         <div
           style={{
             flex: "0 0 420px",
+            height: "100%",
+            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 8,
             minWidth: 0,
+            paddingRight: 4,
             maxWidth: "100%",
           }}
         >
@@ -2407,10 +2412,10 @@ export default function Shorts3Panel() {
         <div
           style={{
             flex: 1,
-            height: "calc(100vh - 620px)",
+            height: "100%",
             overflowY: "auto",
-            overflowX: "hidden",
             minWidth: 0,
+            paddingLeft: 4,
           }}
         >
           <div className="label">
