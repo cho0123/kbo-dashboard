@@ -809,7 +809,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
       const videoDurForMux =
         videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
-      console.log("[mux] videoDurForMux:", videoDurForMux);
       const afChain = buildMusicAf(videoDurForMux, musicOpts);
       const muxArgs = [
         "-y",
@@ -863,42 +862,19 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_va.mp4");
       const videoDurForMux =
         videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
-      console.log("[mux] videoDurForMux:", videoDurForMux);
-      const fd = Math.min(musicOpts.fadeOutDuration || 2, videoDurForMux);
-      const st = Math.max(0, videoDurForMux - fd);
       const chain = buildMusicAf(videoDurForMux, musicOpts);
-      const fc = `[0:a]afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}[oa];[1:a]${chain}[bm];[oa][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
-
-      const bgmTrimLocal = resolve(join(workDir, "bgm_trim.mp3"));
-      const bgmDur = videoDurForMux + 0.5;
-      runFfmpeg(
-        [
-          "-y",
-          "-i",
-          musicLocal,
-          "-ss",
-          String(musicOpts.startTime),
-          "-t",
-          String(bgmDur),
-          "-c:a",
-          "aac",
-          "-ar",
-          "48000",
-          "-ac",
-          "2",
-          bgmTrimLocal,
-        ],
-        workDir,
-        "bgm_trim"
-      );
-
+      const fc = `[1:a]${chain}[bm];[0:a][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
       runFfmpeg(
         [
           "-y",
           "-i",
           "cropped_va.mp4",
+          "-stream_loop",
+          "-1",
+          "-ss",
+          String(musicOpts.startTime),
           "-i",
-          bgmTrimLocal,
+          musicLocal,
           "-filter_complex",
           fc,
           "-map",
@@ -924,7 +900,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       );
       const pva = join(workDir, "cropped_va.mp4");
       if (existsSync(pva)) unlinkSync(pva);
-      if (existsSync(bgmTrimLocal)) unlinkSync(bgmTrimLocal);
     }
   } else if (muteOriginal) {
     runFfmpeg(
@@ -990,12 +965,10 @@ function buildMusicAf(videoDurSec, opts) {
   const fdRaw = opts.fadeOutDuration;
   const fd = Math.min(fdRaw, videoDurSec);
   const st = Math.max(0, videoDurSec - fd);
-  console.log("[musicAf] videoDurSec:", videoDurSec, "fdRaw:", fdRaw, "fd:", fd, "st:", st);
   const parts = [`volume=${vol}`];
   if (fd > 0.001) {
     parts.push(`afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}`);
   }
-  console.log("[musicAf] chain:", parts.join(","));
   return parts.join(",");
 }
 
