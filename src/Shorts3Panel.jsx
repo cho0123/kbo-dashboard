@@ -50,7 +50,7 @@ const SEGMENT_NUDGE_BTN_STYLE = {
   background: "#2a2a2a",
   border: "1px solid #555",
   color: "#fff",
-  padding: "2px 8px",
+  padding: "3px 8px",
   borderRadius: 4,
   fontSize: 11,
   cursor: "pointer",
@@ -1617,78 +1617,138 @@ export default function Shorts3Panel() {
                     </div>
                   ) : null}
                 </div>
-                {videoDuration > 0 ? (
-                  <>
-                    <div
-                      className="muted"
-                      style={{ marginTop: 10, fontSize: 12, fontWeight: 700 }}
-                    >
-                      구간 타임라인 (클릭 시 재생 위치 이동)
-                    </div>
-                    <div
-                      onClick={(e) => {
-                        const v = previewVideoRef.current;
-                        if (!v || !videoDuration) return;
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const r = Math.min(1, Math.max(0, x / rect.width));
-                        v.currentTime = r * videoDuration;
-                      }}
-                      style={{
-                        position: "relative",
-                        marginTop: 4,
-                        height: 28,
-                        width:
-                          previewWrapWidthPx != null && previewWrapWidthPx > 0
-                            ? `${previewWrapWidthPx}px`
-                            : "100%",
-                        maxWidth: "100%",
-                        boxSizing: "border-box",
-                        background: "rgba(0,0,0,0.45)",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {segments.map((seg, i) => {
-                        const st = String(seg.start ?? "").trim();
-                        const en = String(seg.end ?? "").trim();
-                        if (!st || !en) return null;
-                        const a = segmentBoundaryToSeconds(st, seg.startMs);
-                        const b = segmentBoundaryToSeconds(en, seg.endMs);
-                        if (a == null || b == null || b <= a) return null;
-                        const left = (a / videoDuration) * 100;
-                        const w = ((b - a) / videoDuration) * 100;
-                        const c =
-                          TIMELINE_SEGMENT_COLORS[
-                            i % TIMELINE_SEGMENT_COLORS.length
-                          ];
-                        return (
-                          <div
-                            key={i}
-                            title={`#${i + 1} ${st} ~ ${en}`}
-                            style={{
-                              position: "absolute",
-                              left: `${left}%`,
-                              width: `${w}%`,
-                              top: 0,
-                              height: "100%",
-                              background: c,
-                              opacity: 0.88,
-                              pointerEvents: "none",
-                              boxSizing: "border-box",
-                              border: "1px solid rgba(255,255,255,0.25)",
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                    전체 길이(loadedmetadata)를 읽으면 타임라인이 표시됩니다.
-                  </p>
-                )}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: "8px 0",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={addSegment}
+                    disabled={busy || uploading}
+                    style={{
+                      background: "#4ade80",
+                      color: "#000",
+                      fontWeight: "bold",
+                      padding: "6px 14px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    + 구간 추가
+                  </button>
+
+                  <select
+                    value={selectedSegIndex}
+                    onChange={(e) =>
+                      setSelectedSegIndex(Number(e.target.value) || 0)
+                    }
+                    disabled={busy || uploading}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: 6,
+                      background: "#1e1e1e",
+                      color: "#fff",
+                      border: "1px solid #444",
+                      fontSize: 13,
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    {segments.map((_, i) => (
+                      <option key={i} value={i}>
+                        구간 #{i + 1}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    onClick={() => {
+                      const t = previewVideoRef.current?.currentTime ?? 0;
+                      const whole = Math.floor(t);
+                      const frac = clampSegmentFracMs(
+                        Math.round((t - whole) * 100)
+                      );
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? { ...s, start: secondsToHhMmSs(whole), startMs: frac }
+                            : s
+                        )
+                      );
+                    }}
+                    style={{
+                      background: "#1a3a2a",
+                      color: "#4ade80",
+                      border: "1px solid #4ade80",
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    ✂️ 시작점 설정
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    onClick={() => {
+                      const t = previewVideoRef.current?.currentTime ?? 0;
+                      const whole = Math.floor(t);
+                      const frac = clampSegmentFracMs(
+                        Math.round((t - whole) * 100)
+                      );
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? { ...s, end: secondsToHhMmSs(whole), endMs: frac }
+                            : s
+                        )
+                      );
+                    }}
+                    style={{
+                      background: "#1a2a3a",
+                      color: "#60a5fa",
+                      border: "1px solid #60a5fa",
+                      padding: "6px 12px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    ✂️ 종료점 설정
+                  </button>
+
+                  <span
+                    style={{
+                      color: "#aaa",
+                      fontSize: 12,
+                      marginLeft: "auto",
+                    }}
+                  >
+                    총 {secondsToHhMmSs(segmentTotalSec)} (
+                    {Math.floor(segmentTotalSec)}초)
+                  </span>
+                </div>
             </>
           ) : (
             <p className="muted" style={{ fontSize: 14, lineHeight: 1.5 }}>
@@ -1697,71 +1757,7 @@ export default function Shorts3Panel() {
             </p>
           )}
         </div>
-
-
-        {uploadPhase === "done" && previewUrl ? (
-          <>
-            <div
-              className="muted"
-              style={{ fontWeight: 700, marginTop: 12, marginBottom: 8 }}
-            >
-              미리보기 — 구간 시작·종료
-            </div>
-            <div
-              style={{
-                marginTop: 0,
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                적용 구간
-                <select
-                  value={selectedSegIndex}
-                  onChange={(e) =>
-                    selectSegment(Number(e.target.value) || 0)
-                  }
-                  disabled={busy || uploading}
-                  style={{ padding: 6 }}
-                >
-                  {segments.map((_, i) => (
-                    <option key={i} value={i}>
-                      #{i + 1}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || uploading}
-                onClick={() => applyVideoTimeToSegment("start")}
-              >
-                ▶ 시작점 설정
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || uploading}
-                onClick={() => applyVideoTimeToSegment("end")}
-              >
-                ⏹ 종료점 설정
-              </button>
-            </div>
-            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-              재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
-            </p>
-          </>
-        ) : null}
+        
 
       <div
         style={{
@@ -1865,11 +1861,22 @@ export default function Shorts3Panel() {
                 >
                   <button
                     type="button"
-                    className="ghost"
                     disabled={busy || uploading}
                     onClick={(e) => {
                       e.stopPropagation();
                       seekPreviewToSegmentBoundary(index, "start");
+                    }}
+                    style={{
+                      background: "#1a3a2a",
+                      border: "1px solid #4ade80",
+                      color: "#4ade80",
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
                     }}
                   >
                     ▶시작
@@ -2008,11 +2015,22 @@ export default function Shorts3Panel() {
                 >
                   <button
                     type="button"
-                    className="ghost"
                     disabled={busy || uploading}
                     onClick={(e) => {
                       e.stopPropagation();
                       seekPreviewToSegmentBoundary(index, "end");
+                    }}
+                    style={{
+                      background: "#1a3a2a",
+                      border: "1px solid #4ade80",
+                      color: "#4ade80",
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
                     }}
                   >
                     ▶종료
