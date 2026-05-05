@@ -2633,6 +2633,7 @@ export default function Shorts3Panel() {
                         color: "#aaa",
                         cursor: "pointer",
                         marginLeft: 8,
+                        whiteSpace: "nowrap",
                         fontWeight: 500,
                       }}
                     >
@@ -2889,6 +2890,7 @@ export default function Shorts3Panel() {
                             color: "#aaa",
                             cursor: "pointer",
                             marginLeft: 8,
+                            whiteSpace: "nowrap",
                             fontWeight: 500,
                           }}
                         >
