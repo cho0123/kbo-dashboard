@@ -336,6 +336,8 @@ export default function Shorts3Panel() {
   const [previewSegmentIndex, setPreviewSegmentIndex] = useState(0);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
+  /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
+  const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
@@ -527,6 +529,19 @@ export default function Shorts3Panel() {
   useLayoutEffect(() => {
     updatePreviewCropOverlay();
   }, [updatePreviewCropOverlay, previewUrl]);
+
+  useLayoutEffect(() => {
+    const wrap = previewVideoWrapRef.current;
+    if (!wrap || !previewUrl || uploadPhase !== "done") {
+      setPreviewWrapWidthPx(null);
+      return undefined;
+    }
+    const sync = () => setPreviewWrapWidthPx(wrap.offsetWidth);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [previewUrl, uploadPhase]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
@@ -1590,8 +1605,12 @@ export default function Shorts3Panel() {
                         position: "relative",
                         marginTop: 4,
                         height: 28,
-                        width: "100%",
-                        maxWidth: 560,
+                        width:
+                          previewWrapWidthPx != null && previewWrapWidthPx > 0
+                            ? `${previewWrapWidthPx}px`
+                            : "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box",
                         background: "rgba(0,0,0,0.45)",
                         borderRadius: 6,
                         cursor: "pointer",
@@ -1646,194 +1665,6 @@ export default function Shorts3Panel() {
           )}
         </div>
 
-        {uploadPhase === "done" && previewUrl ? (
-          <>
-            <div
-              className="muted"
-              style={{ fontWeight: 700, marginTop: 4, marginBottom: 8 }}
-            >
-              미리보기 — 구간 시작·종료
-            </div>
-            <div
-              style={{
-                marginTop: 0,
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                적용 구간
-                <select
-                  value={previewSegmentIndex}
-                  onChange={(e) =>
-                    setPreviewSegmentIndex(Number(e.target.value) || 0)
-                  }
-                  disabled={busy || uploading}
-                  style={{ padding: 6 }}
-                >
-                  {segments.map((_, i) => (
-                    <option key={i} value={i}>
-                      #{i + 1}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || uploading}
-                onClick={() => applyVideoTimeToSegment("start")}
-              >
-                ▶ 시작점 설정
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={busy || uploading}
-                onClick={() => applyVideoTimeToSegment("end")}
-              >
-                ⏹ 종료점 설정
-              </button>
-            </div>
-            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-              재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
-            </p>
-          </>
-        ) : null}
-
-      <div style={{ marginTop: 20 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
-          텍스트 오버레이
-        </div>
-        <label className="preset-field" style={{ marginBottom: 12 }}>
-          <span>상단 제목 텍스트 (비우면 미표시)</span>
-          <input
-            type="text"
-            placeholder="예: 오늘의 하이라이트"
-            value={topText}
-            disabled={busy || uploading}
-            onChange={(e) => setTopText(e.target.value)}
-          />
-        </label>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "flex-end",
-            marginBottom: 10,
-          }}
-        >
-          <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
-            <span>폰트</span>
-            <select
-              value={normalizeFontSelectValue(topTextFont)}
-              disabled={busy || uploading}
-              onChange={(e) =>
-                setTopTextFont(normalizeFontSelectValue(e.target.value))
-              }
-            >
-              {FONTS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label
-            className="muted"
-            style={{
-              flex: "2 1 220px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              fontSize: 13,
-              fontWeight: 700,
-              minWidth: 160,
-            }}
-          >
-            폰트 크기 ({Math.round(
-              Math.min(200, Math.max(20, Number(topTextSize) || 72))
-            )}
-            px)
-            <input
-              type="range"
-              min={20}
-              max={200}
-              step={1}
-              value={Math.min(200, Math.max(20, Number(topTextSize) || 72))}
-              disabled={busy || uploading}
-              onChange={(e) => setTopTextSize(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
-          </label>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-            marginBottom: 8,
-          }}
-        >
-          <div
-            className="muted"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 700,
-              flex: "1 1 200px",
-              minWidth: 0,
-            }}
-          >
-            폰트 색상
-            <TextColorPalette
-              value={topTextColor}
-              disabled={busy || uploading}
-              onChange={setTopTextColor}
-            />
-          </div>
-          <label
-            className="muted"
-            style={{
-              flex: "1 1 200px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              fontSize: 13,
-              fontWeight: 700,
-              minWidth: 160,
-            }}
-          >
-            투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={roundOpacity01(topTextOpacity)}
-              disabled={busy || uploading}
-              onChange={(e) =>
-                setTopTextOpacity(roundOpacity01(e.target.value))
-              }
-              style={{ width: "100%" }}
-            />
-          </label>
-        </div>
-      </div>
-
       <div style={{ marginTop: 20 }}>
         <div
           style={{
@@ -1880,212 +1711,303 @@ export default function Shorts3Panel() {
               <div
                 style={{
                   display: "flex",
-                  flexDirection: "row",
                   flexWrap: "wrap",
-                  gap: 8,
                   alignItems: "center",
+                  gap: 8,
+                  rowGap: 10,
                 }}
               >
-                <span className="muted" style={{ minWidth: 36, flexShrink: 0 }}>
-                  #{index + 1}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    className="muted"
+                    style={{ minWidth: 28, fontWeight: 700 }}
+                  >
+                    #{index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={busy || uploading || segments.length <= 1}
+                    onClick={() => removeSegment(index)}
+                    title="삭제"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 -1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(
+                        index,
+                        "start",
+                        -ONE_FRAME_30_FPS_SEC
+                      )
+                    }
+                  >
+                    -1f
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 -0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(index, "start", -TENTH_SEC)
+                    }
+                  >
+                    -0.1s
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00:00:00"
+                    value={seg.start}
+                    onChange={(e) =>
+                      handleTimeChange(index, "start", e.target.value)
+                    }
+                    disabled={busy || uploading}
+                    style={{
+                      padding: "6px 8px",
+                      width: 118,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder=".00"
+                    value={String(clampSegmentFracMs(seg.startMs ?? 0)).padStart(
+                      2,
+                      "0"
+                    )}
+                    onChange={(e) =>
+                      handleFracMsChange(index, "startMs", e.target.value)
+                    }
+                    disabled={busy || uploading}
+                    title="시작 소수 초 (0.01초 단위, 00~99)"
+                    style={{
+                      padding: "6px 8px",
+                      width: 44,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 +0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(index, "start", TENTH_SEC)
+                    }
+                  >
+                    +0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 +1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(
+                        index,
+                        "start",
+                        ONE_FRAME_30_FPS_SEC
+                      )
+                    }
+                  >
+                    +1f
+                  </button>
+                </div>
+                <span className="muted" style={{ flexShrink: 0 }}>
+                  ~
                 </span>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="시작 -1프레임 (30fps)"
+                <div
                   style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flexWrap: "wrap",
                   }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "start", -ONE_FRAME_30_FPS_SEC)
-                  }
                 >
-                  -1f
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="시작 -0.1초"
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 -1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(
+                        index,
+                        "end",
+                        -ONE_FRAME_30_FPS_SEC
+                      )
+                    }
+                  >
+                    -1f
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 -0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(index, "end", -TENTH_SEC)
+                    }
+                  >
+                    -0.1s
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00:00:00"
+                    value={seg.end}
+                    onChange={(e) =>
+                      handleTimeChange(index, "end", e.target.value)
+                    }
+                    disabled={busy || uploading}
+                    style={{
+                      padding: "6px 8px",
+                      width: 118,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder=".00"
+                    value={String(clampSegmentFracMs(seg.endMs ?? 0)).padStart(
+                      2,
+                      "0"
+                    )}
+                    onChange={(e) =>
+                      handleFracMsChange(index, "endMs", e.target.value)
+                    }
+                    disabled={busy || uploading}
+                    title="종료 소수 초 (0.01초 단위, 00~99)"
+                    style={{
+                      padding: "6px 8px",
+                      width: 44,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 +0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(index, "end", TENTH_SEC)
+                    }
+                  >
+                    +0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 +1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={() =>
+                      adjustSegmentFieldTime(
+                        index,
+                        "end",
+                        ONE_FRAME_30_FPS_SEC
+                      )
+                    }
+                  >
+                    +1f
+                  </button>
+                </div>
+                <div
                   style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flex: "1 1 220px",
+                    minWidth: 200,
                   }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "start", -TENTH_SEC)
-                  }
                 >
-                  -0.1s
-                </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00:00"
-                  value={seg.start}
-                  onChange={(e) =>
-                    handleTimeChange(index, "start", e.target.value)
-                  }
-                  disabled={busy || uploading}
-                  style={{
-                    padding: "6px 8px",
-                    width: 118,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder=".00"
-                  value={String(clampSegmentFracMs(seg.startMs ?? 0)).padStart(
-                    2,
-                    "0"
-                  )}
-                  onChange={(e) =>
-                    handleFracMsChange(index, "startMs", e.target.value)
-                  }
-                  disabled={busy || uploading}
-                  title="시작 소수 초 (0.01초 단위, 00~99)"
-                  style={{
-                    padding: "6px 8px",
-                    width: 44,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="시작 +0.1초"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "start", TENTH_SEC)
-                  }
-                >
-                  +0.1s
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="시작 +1프레임 (30fps)"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "start", ONE_FRAME_30_FPS_SEC)
-                  }
-                >
-                  +1f
-                </button>
-                <span className="muted">~</span>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="종료 -1프레임 (30fps)"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "end", -ONE_FRAME_30_FPS_SEC)
-                  }
-                >
-                  -1f
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="종료 -0.1초"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "end", -TENTH_SEC)
-                  }
-                >
-                  -0.1s
-                </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00:00"
-                  value={seg.end}
-                  onChange={(e) =>
-                    handleTimeChange(index, "end", e.target.value)
-                  }
-                  disabled={busy || uploading}
-                  style={{
-                    padding: "6px 8px",
-                    width: 118,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder=".00"
-                  value={String(clampSegmentFracMs(seg.endMs ?? 0)).padStart(
-                    2,
-                    "0"
-                  )}
-                  onChange={(e) =>
-                    handleFracMsChange(index, "endMs", e.target.value)
-                  }
-                  disabled={busy || uploading}
-                  title="종료 소수 초 (0.01초 단위, 00~99)"
-                  style={{
-                    padding: "6px 8px",
-                    width: 44,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="종료 +0.1초"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "end", TENTH_SEC)
-                  }
-                >
-                  +0.1s
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  title="종료 +1프레임 (30fps)"
-                  style={{
-                    ...SEGMENT_NUDGE_BTN_STYLE,
-                    ...(busy || uploading
-                      ? { opacity: 0.45, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                  onClick={() =>
-                    adjustSegmentFieldTime(index, "end", ONE_FRAME_30_FPS_SEC)
-                  }
-                >
-                  +1f
-                </button>
+                  <span
+                    className="muted"
+                    style={{ fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                  >
+                    크롭
+                  </span>
+                  <input
+                    type="range"
+                    min={-50}
+                    max={50}
+                    step={1}
+                    value={seg.cropOffset ?? 0}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleCropOffsetChange(index, e.target.value)
+                    }
+                    style={{ flex: 1, minWidth: 72 }}
+                  />
+                  <span
+                    className="muted"
+                    style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                  >
+                    {formatCropOffsetLabel(seg.cropOffset ?? 0)}
+                  </span>
+                </div>
                 <button
                   type="button"
                   className="primary"
@@ -2098,47 +2020,17 @@ export default function Shorts3Panel() {
                   }
                   onClick={() => toggleSegmentPreviewPlayback(index)}
                   title={
-                    previewUrl ? "미리보기 영상으로 이 구간만 재생" : "원본 업로드 후 사용"
+                    previewUrl
+                      ? "미리보기 영상으로 이 구간만 재생"
+                      : "원본 업로드 후 사용"
                   }
+                  style={{ flexShrink: 0 }}
                 >
                   {playingSegmentIndex === index && !previewPlaybackPaused
                     ? "⏸ 일시정지"
-                    : "▶ 구간 재생"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={busy || uploading || segments.length <= 1}
-                  onClick={() => removeSegment(index)}
-                  title="삭제"
-                >
-                  ✕
+                    : "▶ 구간재생"}
                 </button>
               </div>
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                크롭 오프셋: {formatCropOffsetLabel(seg.cropOffset ?? 0)}
-                <input
-                  type="range"
-                  min={-50}
-                  max={50}
-                  step={1}
-                  value={seg.cropOffset ?? 0}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    handleCropOffsetChange(index, e.target.value)
-                  }
-                  style={{ width: "100%" }}
-                />
-              </label>
               <label className="preset-field" style={{ marginTop: 2 }}>
                 <span>하단 텍스트 (비우면 해당 구간 미표시)</span>
                 <input
@@ -2363,6 +2255,195 @@ export default function Shorts3Panel() {
           </div>
         </div>
       </div>
+
+        {uploadPhase === "done" && previewUrl ? (
+          <>
+            <div
+              className="muted"
+              style={{ fontWeight: 700, marginTop: 4, marginBottom: 8 }}
+            >
+              미리보기 — 구간 시작·종료
+            </div>
+            <div
+              style={{
+                marginTop: 0,
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                적용 구간
+                <select
+                  value={previewSegmentIndex}
+                  onChange={(e) =>
+                    setPreviewSegmentIndex(Number(e.target.value) || 0)
+                  }
+                  disabled={busy || uploading}
+                  style={{ padding: 6 }}
+                >
+                  {segments.map((_, i) => (
+                    <option key={i} value={i}>
+                      #{i + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || uploading}
+                onClick={() => applyVideoTimeToSegment("start")}
+              >
+                ▶ 시작점 설정
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || uploading}
+                onClick={() => applyVideoTimeToSegment("end")}
+              >
+                ⏹ 종료점 설정
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+              재생 위치의 시간을 HH:MM:SS로 선택한 구간에 반영합니다.
+            </p>
+          </>
+        ) : null}
+
+      <div style={{ marginTop: 20 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+          텍스트 오버레이
+        </div>
+        <label className="preset-field" style={{ marginBottom: 12 }}>
+          <span>상단 제목 텍스트 (비우면 미표시)</span>
+          <input
+            type="text"
+            placeholder="예: 오늘의 하이라이트"
+            value={topText}
+            disabled={busy || uploading}
+            onChange={(e) => setTopText(e.target.value)}
+          />
+        </label>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "flex-end",
+            marginBottom: 10,
+          }}
+        >
+          <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
+            <span>폰트</span>
+            <select
+              value={normalizeFontSelectValue(topTextFont)}
+              disabled={busy || uploading}
+              onChange={(e) =>
+                setTopTextFont(normalizeFontSelectValue(e.target.value))
+              }
+            >
+              {FONTS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="muted"
+            style={{
+              flex: "2 1 220px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              fontSize: 13,
+              fontWeight: 700,
+              minWidth: 160,
+            }}
+          >
+            폰트 크기 ({Math.round(
+              Math.min(200, Math.max(20, Number(topTextSize) || 72))
+            )}
+            px)
+            <input
+              type="range"
+              min={20}
+              max={200}
+              step={1}
+              value={Math.min(200, Math.max(20, Number(topTextSize) || 72))}
+              disabled={busy || uploading}
+              onChange={(e) => setTopTextSize(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </label>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+            marginBottom: 8,
+          }}
+        >
+          <div
+            className="muted"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              flex: "1 1 200px",
+              minWidth: 0,
+            }}
+          >
+            폰트 색상
+            <TextColorPalette
+              value={topTextColor}
+              disabled={busy || uploading}
+              onChange={setTopTextColor}
+            />
+          </div>
+          <label
+            className="muted"
+            style={{
+              flex: "1 1 200px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              fontSize: 13,
+              fontWeight: 700,
+              minWidth: 160,
+            }}
+          >
+            투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.1}
+              value={roundOpacity01(topTextOpacity)}
+              disabled={busy || uploading}
+              onChange={(e) =>
+                setTopTextOpacity(roundOpacity01(e.target.value))
+              }
+              style={{ width: "100%" }}
+            />
+          </label>
+        </div>
+      </div>
+
 
       <div style={{ marginTop: 20, maxWidth: 480 }}>
         <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
