@@ -874,12 +874,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       runFfmpeg(
         [
           "-y",
+          "-i",
+          musicLocal,
           "-ss",
           String(musicOpts.startTime),
           "-t",
           String(bgmDur),
-          "-i",
-          musicLocal,
           "-c:a",
           "aac",
           "-ar",
