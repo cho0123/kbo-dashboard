@@ -15,7 +15,7 @@ function parseClaudeBlocks(text) {
   if (!raw) return [];
 
   // 기대 포맷:
-  // ## [경기 N]
+  // ## [경기 N] (타이틀 optional)
   // (경기 결과 라인 optional)
   // **핫이슈:** ...
   // **하이라이트 텍스트:** ...
@@ -39,6 +39,8 @@ function parseClaudeBlocks(text) {
   };
 
   return blocks.map((b) => {
+    const titleMatch = b.match(/##\s*\[경기\s*\d+\]\s*(.+)/);
+    const title = titleMatch ? String(titleMatch[1] || "").trim() : "";
     const header = (b.match(/^##\s*(\[경기\s*\d+\].*)$/m) || [])[1] || "";
     const gameLine = pickLineAfterHeader(b);
     const hot = (b.match(/\*\*핫이슈:\*\*\s*(.+)$/m) || [])[1] || "";
@@ -47,12 +49,19 @@ function parseClaudeBlocks(text) {
     const th =
       (b.match(/\*\*썸네일\s*텍스트:\*\*\s*(.+)$/m) || [])[1] || "";
     return {
+      title,
       game: (gameLine || header).trim(),
       hot: hot.trim(),
       highlight: hi.trim(),
       thumbnail: th.trim(),
       raw: b,
     };
+  }).filter((card, idx) => {
+    // 상단 "# KBO 경기 분석" 같은 헤더성 블록이 첫 카드로 들어오는 경우 숨김
+    const hasAny =
+      Boolean(card.hot) || Boolean(card.highlight) || Boolean(card.thumbnail);
+    if (idx === 0 && !hasAny) return false;
+    return true;
   });
 }
 
@@ -97,6 +106,17 @@ export default function Shorts3AIPanel() {
   const [aiRaw, setAiRaw] = useState("");
 
   const [cards, setCards] = useState([]);
+  const [savedFiles, setSavedFiles] = useState([]);
+
+  useEffect(() => {
+    postKbo({ action: "highlight_list" })
+      .then((res) => {
+        setSavedFiles(Array.isArray(res?.items) ? res.items : []);
+      })
+      .catch(() => {
+        setSavedFiles([]);
+      });
+  }, []);
 
   const gamesData = useMemo(() => {
     // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
@@ -268,6 +288,18 @@ export default function Shorts3AIPanel() {
                   padding: "12px 14px",
                 }}
               >
+                {c.title ? (
+                  <div
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: 14,
+                      color: "#fff",
+                      marginBottom: 6,
+                    }}
+                  >
+                    ⚾ {c.title}
+                  </div>
+                ) : null}
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 900, flex: "1 1 240px" }}>
                     {c.game || `경기 #${idx + 1}`}
@@ -314,6 +346,34 @@ export default function Shorts3AIPanel() {
                       복사
                     </button>
                   </div>
+
+                  <select
+                    style={{
+                      width: "100%",
+                      marginTop: 8,
+                      padding: "4px",
+                      background: "#1e1e1e",
+                      color: "#aaa",
+                      border: "1px solid #444",
+                      borderRadius: 4,
+                      fontSize: 12,
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="">— 관련 영상 선택 —</option>
+                    {savedFiles.map((f) => (
+                      <option key={f.jobId} value={f.jobId}>
+                        {String(f.jobId || "").slice(0, 8)} ·{" "}
+                        {f.lastModified
+                          ? new Date(f.lastModified).toLocaleString("ko-KR", {
+                              timeZone: "Asia/Seoul",
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : "—"}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ))}
