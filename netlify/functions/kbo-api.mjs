@@ -2860,33 +2860,75 @@ export const handler = async (event) => {
             }
           }
 
-          // MVP batter: winner team only, HR first then hits
+          // MVP batter:
+          // - 무승부(home_score === away_score)면 홈팀 1명 + 원정팀 1명
+          // - 그 외엔 승리팀 1·2위(기존) — 홈런 우선, 동률이면 안타
           const batters = await fetchBattersForGame(db, gid);
-          const homeWin = (g.home_score ?? 0) > (g.away_score ?? 0);
-          const winTeam = homeWin ? g.home_team : g.away_team;
+          const hs = Number(g?.home_score);
+          const as = Number(g?.away_score);
+          const isDraw =
+            Number.isFinite(hs) && Number.isFinite(as) ? hs === as : false;
 
-          const winBatters = (batters || []).filter((b) => {
-            const bt = pickTeamName(b);
-            return bt && winTeam && (bt.includes(winTeam) || winTeam.includes(bt));
-          });
-          // MVP 타자 1·2위: 승리 팀만, 선정 기준 기존과 동일 — 홈런 우선, 동률이면 안타
-          const scoredBatters = winBatters.map((b) => {
-            const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
-            const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-            return { b, hr, h };
-          });
-          scoredBatters.sort((a, b) => {
-            if (b.hr !== a.hr) return b.hr - a.hr;
-            return b.h - a.h;
-          });
-          const topBatters = scoredBatters.slice(0, 2);
-          const mvpBatters = topBatters.map(({ b, hr, h }) => ({
-            name: pickPlayerName(b),
-            team: pickTeamName(b),
-            h,
-            hr,
-            ab: pickNum(b, ["ab", "AB", "at_bats", "타수"]),
-          }));
+          const scoreOneTeamTopBatter = (teamName) => {
+            const team = String(teamName || "").trim();
+            if (!team) return null;
+            const teamBatters = (batters || []).filter((b) => {
+              const bt = pickTeamName(b);
+              return bt && (bt.includes(team) || team.includes(bt));
+            });
+            const scored = teamBatters.map((b) => {
+              const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
+              const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
+              return { b, hr, h };
+            });
+            scored.sort((a, b) => {
+              if (b.hr !== a.hr) return b.hr - a.hr;
+              return b.h - a.h;
+            });
+            const top = scored[0];
+            if (!top) return null;
+            return {
+              name: pickPlayerName(top.b),
+              team: pickTeamName(top.b),
+              h: top.h,
+              hr: top.hr,
+              ab: pickNum(top.b, ["ab", "AB", "at_bats", "타수"]),
+            };
+          };
+
+          let mvpBatters = [];
+          if (isDraw) {
+            const homeTop = scoreOneTeamTopBatter(g?.home_team);
+            const awayTop = scoreOneTeamTopBatter(g?.away_team);
+            mvpBatters = [homeTop, awayTop].filter(Boolean);
+          } else {
+            const homeWin = (g.home_score ?? 0) > (g.away_score ?? 0);
+            const winTeam = homeWin ? g.home_team : g.away_team;
+
+            const winBatters = (batters || []).filter((b) => {
+              const bt = pickTeamName(b);
+              return (
+                bt && winTeam && (bt.includes(winTeam) || winTeam.includes(bt))
+              );
+            });
+            const scoredBatters = winBatters.map((b) => {
+              const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
+              const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
+              return { b, hr, h };
+            });
+            scoredBatters.sort((a, b) => {
+              if (b.hr !== a.hr) return b.hr - a.hr;
+              return b.h - a.h;
+            });
+            const topBatters = scoredBatters.slice(0, 2);
+            mvpBatters = topBatters.map(({ b, hr, h }) => ({
+              name: pickPlayerName(b),
+              team: pickTeamName(b),
+              h,
+              hr,
+              ab: pickNum(b, ["ab", "AB", "at_bats", "타수"]),
+            }));
+          }
           const mvp = mvpBatters[0] ?? null;
 
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
