@@ -2185,7 +2185,8 @@ export default function Shorts3Panel() {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
+              gap: 16,
               marginTop: 6,
             }}
           >
@@ -2199,6 +2200,7 @@ export default function Shorts3Panel() {
                 gap: 6,
                 fontSize: 12,
                 color: "#aaa",
+                whiteSpace: "nowrap",
                 cursor: busy || uploading ? "not-allowed" : "pointer",
                 opacity: busy || uploading ? 0.65 : 1,
               }}
