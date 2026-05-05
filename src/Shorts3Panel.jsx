@@ -90,6 +90,14 @@ function previewFontFamily(fontFile) {
   return '"Noto Sans KR", "Noto Sans", sans-serif';
 }
 
+function newSegmentId() {
+  try {
+    return globalThis.crypto?.randomUUID?.() || `seg_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  } catch {
+    return `seg_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+}
+
 function normalizeFontSelectValue(v) {
   const s = String(v ?? "").trim();
   return FONTS.some((f) => f.value === s) ? s : DEFAULT_TEXT_FONT;
@@ -175,6 +183,7 @@ function TextColorPalette({ value, onChange, disabled }) {
 
 function emptySegment() {
   return {
+    id: newSegmentId(),
     start: "",
     end: "",
     startMs: 0,
@@ -1810,7 +1819,7 @@ export default function Shorts3Panel() {
           >
             {segments.map((seg, index) => (
               <div
-                key={index}
+                key={seg?.id || index}
                 role="presentation"
                 onClick={(e) => {
                   const t = e.target;
@@ -2613,30 +2622,34 @@ export default function Shorts3Panel() {
                     minWidth: 0,
                   }}
                 >
-                  폰트 색상
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    폰트 색상
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 12,
+                        color: "#aaa",
+                        cursor: "pointer",
+                        marginLeft: 8,
+                        fontWeight: 500,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={topTextShadow}
+                        disabled={busy || uploading}
+                        onChange={(e) => setTopTextShadow(e.target.checked)}
+                      />
+                      그림자
+                    </label>
+                  </div>
                   <TextColorPalette
                     value={topTextColor}
                     disabled={busy || uploading}
                     onChange={setTopTextColor}
                   />
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontSize: 12,
-                      color: "#aaa",
-                      fontWeight: 500,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={topTextShadow}
-                      disabled={busy || uploading}
-                      onChange={(e) => setTopTextShadow(e.target.checked)}
-                    />
-                    그림자
-                  </label>
                 </div>
                 <label
                   className="muted"
@@ -2865,7 +2878,35 @@ export default function Shorts3Panel() {
                         minWidth: 0,
                       }}
                     >
-                      폰트 색상
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        폰트 색상
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 12,
+                            color: "#aaa",
+                            cursor: "pointer",
+                            marginLeft: 8,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={seg.textShadow || false}
+                            disabled={busy || uploading}
+                            onChange={(e) =>
+                              handleSegmentOverlayChange(
+                                index,
+                                "textShadow",
+                                e.target.checked
+                              )
+                            }
+                          />
+                          그림자
+                        </label>
+                      </div>
                       <TextColorPalette
                         value={seg.textColor}
                         disabled={busy || uploading}
@@ -2873,30 +2914,6 @@ export default function Shorts3Panel() {
                           handleSegmentOverlayChange(index, "textColor", c)
                         }
                       />
-                      <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          fontSize: 12,
-                          color: "#aaa",
-                          fontWeight: 500,
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={seg.textShadow || false}
-                          disabled={busy || uploading}
-                          onChange={(e) =>
-                            handleSegmentOverlayChange(
-                              index,
-                              "textShadow",
-                              e.target.checked
-                            )
-                          }
-                        />
-                        그림자
-                      </label>
                     </div>
                     <label
                       className="muted"
