@@ -864,8 +864,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const videoDurForMux =
         videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
       console.log("[mux] videoDurForMux:", videoDurForMux);
+      const fd = Math.min(musicOpts.fadeOutDuration || 2, videoDurForMux);
+      const st = Math.max(0, videoDurForMux - fd);
       const chain = buildMusicAf(videoDurForMux, musicOpts);
-      const fc = `[1:a]${chain}[bm];[0:a][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
+      const fc = `[0:a]afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}[oa];[1:a]${chain}[bm];[oa][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
       runFfmpeg(
         [
           "-y",
