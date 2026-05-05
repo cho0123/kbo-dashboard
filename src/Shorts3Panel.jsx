@@ -50,9 +50,9 @@ const SEGMENT_NUDGE_BTN_STYLE = {
   background: "#2a2a2a",
   border: "1px solid #555",
   color: "#fff",
-  padding: "3px 8px",
+  padding: "2px 6px",
   borderRadius: 4,
-  fontSize: 11,
+  fontSize: 10,
   cursor: "pointer",
 };
 
@@ -1620,10 +1620,11 @@ export default function Shorts3Panel() {
                 <div
                   style={{
                     display: "flex",
-                    gap: 8,
+                    gap: 6,
                     alignItems: "center",
                     padding: "8px 0",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
+                    overflowX: "auto",
                   }}
                 >
                   <button
@@ -1634,11 +1635,11 @@ export default function Shorts3Panel() {
                       background: "#4ade80",
                       color: "#000",
                       fontWeight: "bold",
-                      padding: "6px 14px",
+                      padding: "3px 8px",
                       borderRadius: 6,
                       border: "none",
                       cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 12,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1654,12 +1655,13 @@ export default function Shorts3Panel() {
                     }
                     disabled={busy || uploading}
                     style={{
-                      padding: "5px 10px",
+                      padding: "3px 8px",
                       borderRadius: 6,
                       background: "#1e1e1e",
                       color: "#fff",
                       border: "1px solid #444",
-                      fontSize: 13,
+                      fontSize: 12,
+                      width: 100,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1693,10 +1695,10 @@ export default function Shorts3Panel() {
                       background: "#1a3a2a",
                       color: "#4ade80",
                       border: "1px solid #4ade80",
-                      padding: "6px 12px",
+                      padding: "3px 8px",
                       borderRadius: 6,
                       cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 12,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1726,10 +1728,10 @@ export default function Shorts3Panel() {
                       background: "#1a2a3a",
                       color: "#60a5fa",
                       border: "1px solid #60a5fa",
-                      padding: "6px 12px",
+                      padding: "3px 8px",
                       borderRadius: 6,
                       cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 12,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1741,7 +1743,7 @@ export default function Shorts3Panel() {
                   <span
                     style={{
                       color: "#aaa",
-                      fontSize: 12,
+                      fontSize: 11,
                       marginLeft: "auto",
                     }}
                   >
@@ -1771,27 +1773,6 @@ export default function Shorts3Panel() {
         <div style={{ flex: "0 0 420px", maxWidth: "100%", minWidth: 0 }}>
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
-            <div className="muted" style={{ fontWeight: 700 }}>
-              구간 설정 (최대 {MAX_SEGMENTS}개)
-            </div>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy || uploading}
-              onClick={addSegment}
-            >
-              + 구간 추가
-            </button>
-          </div>
-          <div
-            style={{
               marginTop: 10,
               display: "flex",
               flexDirection: "column",
@@ -1816,8 +1797,8 @@ export default function Shorts3Panel() {
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 10,
-                  padding: "10px 12px",
+                  gap: 6,
+                  padding: "8px",
                   borderRadius: 8,
                   border:
                     selectedSegIndex === index
@@ -1830,35 +1811,18 @@ export default function Shorts3Panel() {
                 <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span className="muted" style={{ fontWeight: 700 }}>
-                    #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={busy || uploading || segments.length <= 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSegment(index);
-                    }}
-                    title="삭제"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
                     alignItems: "center",
                     gap: 6,
+                    flexWrap: "nowrap",
+                    overflowX: "auto",
                   }}
                 >
+                  <span
+                    className="muted"
+                    style={{ fontWeight: 700, flexShrink: 0 }}
+                  >
+                    #{index + 1}
+                  </span>
                   <button
                     type="button"
                     disabled={busy || uploading}
@@ -1870,10 +1834,11 @@ export default function Shorts3Panel() {
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
-                      padding: "4px 8px",
+                      padding: "2px 6px",
                       borderRadius: 4,
-                      fontSize: 12,
+                      fontSize: 11,
                       cursor: "pointer",
+                      flexShrink: 0,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1891,8 +1856,9 @@ export default function Shorts3Panel() {
                     }
                     disabled={busy || uploading}
                     style={{
-                      padding: "6px 8px",
-                      width: 118,
+                      padding: "4px 6px",
+                      width: 80,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -1913,106 +1879,15 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     title="시작 소수 초 (0.01초 단위, 00~99)"
                     style={{
-                      padding: "6px 8px",
-                      width: 44,
+                      padding: "4px 6px",
+                      width: 32,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 4,
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 -1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(
-                        index,
-                        "start",
-                        -ONE_FRAME_30_FPS_SEC
-                      );
-                    }}
-                  >
-                    -1f
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 -0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(index, "start", -TENTH_SEC);
-                    }}
-                  >
-                    -0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 +0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(index, "start", TENTH_SEC);
-                    }}
-                  >
-                    +0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 +1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(
-                        index,
-                        "start",
-                        ONE_FRAME_30_FPS_SEC
-                      );
-                    }}
-                  >
-                    +1f
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 6,
-                    marginTop: 4,
-                  }}
-                >
+                  <span className="muted" style={{ flexShrink: 0 }}>
+                    ~
+                  </span>
                   <button
                     type="button"
                     disabled={busy || uploading}
@@ -2024,10 +1899,11 @@ export default function Shorts3Panel() {
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
-                      padding: "4px 8px",
+                      padding: "2px 6px",
                       borderRadius: 4,
-                      fontSize: 12,
+                      fontSize: 11,
                       cursor: "pointer",
+                      flexShrink: 0,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -2045,8 +1921,9 @@ export default function Shorts3Panel() {
                     }
                     disabled={busy || uploading}
                     style={{
-                      padding: "6px 8px",
-                      width: 118,
+                      padding: "4px 6px",
+                      width: 80,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -2067,95 +1944,200 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     title="종료 소수 초 (0.01초 단위, 00~99)"
                     style={{
-                      padding: "6px 8px",
-                      width: 44,
+                      padding: "4px 6px",
+                      width: 32,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={busy || uploading || segments.length <= 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeSegment(index);
+                    }}
+                    title="삭제"
+                    style={{
+                      padding: "2px 6px",
+                      fontSize: 12,
+                      lineHeight: 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ✕
+                  </button>
                 </div>
+
                 <div
                   style={{
                     display: "flex",
-                    flexWrap: "wrap",
-                    gap: 4,
+                    alignItems: "center",
+                    flexWrap: "nowrap",
+                    overflowX: "auto",
+                    gap: 8,
                   }}
                 >
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 -1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(
-                        index,
-                        "end",
-                        -ONE_FRAME_30_FPS_SEC
-                      );
-                    }}
-                  >
-                    -1f
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 -0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(index, "end", -TENTH_SEC);
-                    }}
-                  >
-                    -0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 +0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(index, "end", TENTH_SEC);
-                    }}
-                  >
-                    +0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 +1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustSegmentFieldTime(
-                        index,
-                        "end",
-                        ONE_FRAME_30_FPS_SEC
-                      );
-                    }}
-                  >
-                    +1f
-                  </button>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="시작 -1프레임 (30fps)"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(
+                          index,
+                          "start",
+                          -ONE_FRAME_30_FPS_SEC
+                        );
+                      }}
+                    >
+                      -1f
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="시작 -0.1초"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(index, "start", -TENTH_SEC);
+                      }}
+                    >
+                      -0.1s
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="시작 +0.1초"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(index, "start", TENTH_SEC);
+                      }}
+                    >
+                      +0.1s
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="시작 +1프레임 (30fps)"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(
+                          index,
+                          "start",
+                          ONE_FRAME_30_FPS_SEC
+                        );
+                      }}
+                    >
+                      +1f
+                    </button>
+                  </div>
+
+                  <div style={{ flex: 1 }} />
+
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="종료 -1프레임 (30fps)"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(
+                          index,
+                          "end",
+                          -ONE_FRAME_30_FPS_SEC
+                        );
+                      }}
+                    >
+                      -1f
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="종료 -0.1초"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(index, "end", -TENTH_SEC);
+                      }}
+                    >
+                      -0.1s
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="종료 +0.1초"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(index, "end", TENTH_SEC);
+                      }}
+                    >
+                      +0.1s
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || uploading}
+                      title="종료 +1프레임 (30fps)"
+                      style={{
+                        ...SEGMENT_NUDGE_BTN_STYLE,
+                        ...(busy || uploading
+                          ? { opacity: 0.45, cursor: "not-allowed" }
+                          : {}),
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        adjustSegmentFieldTime(
+                          index,
+                          "end",
+                          ONE_FRAME_30_FPS_SEC
+                        );
+                      }}
+                    >
+                      +1f
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
