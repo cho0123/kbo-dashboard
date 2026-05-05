@@ -868,21 +868,37 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const st = Math.max(0, videoDurForMux - fd);
       const chain = buildMusicAf(videoDurForMux, musicOpts);
       const fc = `[0:a]afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}[oa];[1:a]${chain}[bm];[oa][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
+
+      const bgmTrimLocal = resolve(join(workDir, "bgm_trim.mp3"));
+      const bgmDur = videoDurForMux + 0.5;
+      runFfmpeg(
+        [
+          "-y",
+          "-ss",
+          String(musicOpts.startTime),
+          "-t",
+          String(bgmDur),
+          "-i",
+          musicLocal,
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          bgmTrimLocal,
+        ],
+        workDir,
+        "bgm_trim"
+      );
+
       runFfmpeg(
         [
           "-y",
           "-i",
           "cropped_va.mp4",
-          "-stream_loop",
-          "-1",
-          "-ss",
-          String(musicOpts.startTime),
-          "-t",
-          String(
-            videoDurForMux + (musicOpts.fadeOutDuration || 2) + 1
-          ),
           "-i",
-          musicLocal,
+          bgmTrimLocal,
           "-filter_complex",
           fc,
           "-map",
@@ -899,7 +915,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "48000",
           "-ac",
           "2",
-          "-shortest",
+          "-t",
+          String(videoDurForMux),
           outLocal,
         ],
         workDir,
@@ -907,6 +924,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       );
       const pva = join(workDir, "cropped_va.mp4");
       if (existsSync(pva)) unlinkSync(pva);
+      if (existsSync(bgmTrimLocal)) unlinkSync(bgmTrimLocal);
     }
   } else if (muteOriginal) {
     runFfmpeg(
