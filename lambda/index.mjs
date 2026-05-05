@@ -877,6 +877,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "-1",
           "-ss",
           String(musicOpts.startTime),
+          "-t",
+          String(
+            videoDurForMux + (musicOpts.fadeOutDuration || 2) + 1
+          ),
           "-i",
           musicLocal,
           "-filter_complex",
@@ -895,8 +899,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "48000",
           "-ac",
           "2",
-          "-t",
-          String(videoDurForMux),
+          "-shortest",
           outLocal,
         ],
         workDir,
