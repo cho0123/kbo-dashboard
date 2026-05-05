@@ -1765,20 +1765,33 @@ export default function Shorts3Panel() {
         style={{
           marginTop: 20,
           display: "flex",
-          flexWrap: "wrap",
           gap: 16,
           alignItems: "flex-start",
         }}
       >
-        <div style={{ flex: "0 0 420px", maxWidth: "100%", minWidth: 0 }}>
+        {/* 왼쪽 컬럼 */}
+        <div
+          style={{
+            flex: "0 0 420px",
+            display: "flex",
+            flexDirection: "column",
+            height: "calc(100vh - 620px)",
+            overflowY: "auto",
+            overflowX: "hidden",
+            minWidth: 0,
+            maxWidth: "100%",
+          }}
+        >
+          {/* 구간 목록 */}
           <div
             style={{
-              marginTop: 10,
-              maxHeight: 400,
+              flex: 1,
               overflowY: "auto",
+              overflowX: "hidden",
               display: "flex",
               flexDirection: "column",
               gap: 6,
+              paddingRight: 2,
             }}
           >
             {segments.map((seg, index) => (
@@ -1808,15 +1821,17 @@ export default function Shorts3Panel() {
                       : "1px solid rgba(255,255,255,0.1)",
                   background: "rgba(255,255,255,0.02)",
                   cursor: "pointer",
+                  overflow: "hidden",
                 }}
               >
+                {/* [수정1] 구간 박스 내부 가로 스크롤/슬라이더 제거 */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    flexWrap: "nowrap",
-                    overflowX: "auto",
+                    flexWrap: "wrap",
+                    overflowX: "hidden",
                   }}
                 >
                   <span
@@ -1976,8 +1991,8 @@ export default function Shorts3Panel() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    flexWrap: "nowrap",
-                    overflowX: "auto",
+                    flexWrap: "wrap",
+                    overflowX: "hidden",
                     gap: 8,
                   }}
                 >
@@ -2059,8 +2074,6 @@ export default function Shorts3Panel() {
                       +1f
                     </button>
                   </div>
-
-                  <div style={{ flex: 1 }} />
 
                   <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                     <button
@@ -2144,66 +2157,390 @@ export default function Shorts3Panel() {
               </div>
             ))}
           </div>
-          <div
-            style={{
-              marginTop: 12,
-              width: "100%",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <label
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                flexWrap: "nowrap",
-                alignItems: "center",
-                gap: 10,
-                whiteSpace: "nowrap",
-                cursor: busy || uploading ? "not-allowed" : "pointer",
-                opacity: busy || uploading ? 0.65 : 1,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={muteOriginal}
-                disabled={busy || uploading}
-                onChange={(e) => setMuteOriginal(e.target.checked)}
-              />
-              <span
-                className="muted"
-                style={{ fontWeight: 700, whiteSpace: "nowrap" }}
-              >
-                원본 오디오 음소거
-              </span>
-            </label>
+
+          {/* 왼쪽 하단 고정 */}
+          <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
             <div
               style={{
-                fontSize: 14,
-                fontWeight: 700,
-                ...segmentTotalWarnStyle,
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 10,
               }}
             >
-              총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
-              {Math.floor(segmentTotalSec)}초)
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "nowrap",
+                  alignItems: "center",
+                  gap: 10,
+                  whiteSpace: "nowrap",
+                  cursor: busy || uploading ? "not-allowed" : "pointer",
+                  opacity: busy || uploading ? 0.65 : 1,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={muteOriginal}
+                  disabled={busy || uploading}
+                  onChange={(e) => setMuteOriginal(e.target.checked)}
+                />
+                <span
+                  className="muted"
+                  style={{ fontWeight: 700, whiteSpace: "nowrap" }}
+                >
+                  원본 오디오 음소거
+                </span>
+              </label>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  ...segmentTotalWarnStyle,
+                }}
+              >
+                총 구간 합계: {secondsToHhMmSs(segmentTotalSec)} (
+                {Math.floor(segmentTotalSec)}초)
+              </div>
             </div>
+
+            <div style={{ maxWidth: 480 }}>
+              <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+                배경 음원 (BGM)
+              </div>
+              <label className="preset-field">
+                <span>음원 선택</span>
+                <select
+                  value={highlightMusicS3Key}
+                  disabled={busy || uploading}
+                  onChange={(e) => setHighlightMusicS3Key(e.target.value)}
+                >
+                  <option value="">— BGM 없음 —</option>
+                  {musicTracks.map((t) => (
+                    <option key={t.id} value={t.s3_key}>
+                      {t.name || t.s3_key}
+                      {Number.isFinite(Number(t.duration))
+                        ? ` (${Math.round(Number(t.duration))}초)`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="preset-field">
+                <span>음원 볼륨 ({bgmVolume.toFixed(2)})</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={bgmVolume}
+                  disabled={busy || uploading}
+                  onChange={(e) => setBgmVolume(Number(e.target.value))}
+                />
+              </label>
+              <label className="preset-field">
+                <span>음원 시작 위치 (초)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  value={bgmStartTime}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
+                  }
+                />
+              </label>
+              <label className="preset-field">
+                <span>끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={5}
+                  step={0.1}
+                  value={bgmFadeOut}
+                  disabled={busy || uploading}
+                  onChange={(e) => setBgmFadeOut(Number(e.target.value))}
+                />
+              </label>
+              <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
+                함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
+              </p>
+            </div>
+
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="primary primary-fill"
+                disabled={busy || uploading || uploadPhase !== "done"}
+                onClick={onGenerate}
+              >
+                {busy ? "처리 중…" : "영상 생성"}
+              </button>
+              {busy ? (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    cancelRef.current = true;
+                  }}
+                >
+                  취소
+                </button>
+              ) : null}
+            </div>
+
+            {busy ? (
+              <div style={{ marginTop: 16 }}>
+                <div className="video-export-progress-wrap">
+                  <div className="video-export-progress-bar">
+                    <div
+                      className="video-export-progress-fill"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    {progress}%
+                  </div>
+                </div>
+                <p className="video-export-message">{message}</p>
+              </div>
+            ) : message ? (
+              <div className="muted" style={{ marginTop: 12 }}>
+                {message}
+              </div>
+            ) : null}
+
+            {error ? (
+              <pre className="result-error-light" style={{ marginTop: 12 }}>
+                {error.message}
+              </pre>
+            ) : null}
+
+            {downloadUrl ? (
+              <div
+                style={{
+                  marginTop: 16,
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "nowrap",
+                  alignItems: "stretch",
+                  gap: 8,
+                }}
+              >
+                <a
+                  href={downloadUrl}
+                  download="highlight.mp4"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    textDecoration: "none",
+                    color: "#0b1a14",
+                    fontWeight: 800,
+                    background: "#0a8f6a",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  ⬇ mp4 다운로드
+                </a>
+                <button
+                  type="button"
+                  disabled={busy || uploading || uploadPhase !== "done" || !jobId}
+                  onClick={() => {
+                    setError(null);
+                    onGenerate();
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(19,199,154,0.5)",
+                    background: "rgba(19,199,154,0.4)",
+                    color: "#0b1a14",
+                    fontWeight: 800,
+                    fontFamily: "inherit",
+                    cursor:
+                      busy || uploading || uploadPhase !== "done" || !jobId
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      busy || uploading || uploadPhase !== "done" || !jobId
+                        ? 0.55
+                        : 1,
+                  }}
+                >
+                  ↺ 다시 생성
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
+        {/* 오른쪽 컬럼 */}
         <div
           style={{
-            flex: "1 1 320px",
+            flex: 1,
+            height: "calc(100vh - 620px)",
+            overflowY: "auto",
+            overflowX: "hidden",
             minWidth: 0,
-            minHeight: 120,
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.1)",
-            background: "rgba(255,255,255,0.02)",
-            padding: "12px 14px",
           }}
         >
+          <div className="label">
+            구간 #{selectedSegIndex + 1} · 세부 설정
+          </div>
+
+          {/* 1번 구간일 때만 상단 제목 텍스트 설정 */}
+          {selectedSegIndex === 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="label">상단 제목 텍스트</div>
+              <label className="preset-field" style={{ marginBottom: 12 }}>
+                <span>상단 제목 텍스트 (비우면 미표시)</span>
+                <input
+                  type="text"
+                  placeholder="예: 오늘의 하이라이트"
+                  value={topText}
+                  disabled={busy || uploading}
+                  onChange={(e) => setTopText(e.target.value)}
+                />
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  alignItems: "flex-end",
+                  marginBottom: 10,
+                }}
+              >
+                <label
+                  className="preset-field"
+                  style={{ flex: "1 1 200px", minWidth: 160 }}
+                >
+                  <span>폰트</span>
+                  <select
+                    value={normalizeFontSelectValue(topTextFont)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setTopTextFont(normalizeFontSelectValue(e.target.value))
+                    }
+                  >
+                    {FONTS.map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label
+                  className="muted"
+                  style={{
+                    flex: "2 1 220px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    minWidth: 160,
+                  }}
+                >
+                  폰트 크기 (
+                  {Math.round(
+                    Math.min(200, Math.max(20, Number(topTextSize) || 72))
+                  )}
+                  px)
+                  <input
+                    type="range"
+                    min={20}
+                    max={200}
+                    step={1}
+                    value={Math.min(
+                      200,
+                      Math.max(20, Number(topTextSize) || 72)
+                    )}
+                    disabled={busy || uploading}
+                    onChange={(e) => setTopTextSize(Number(e.target.value))}
+                    style={{ width: "100%" }}
+                  />
+                </label>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  alignItems: "center",
+                  marginBottom: 8,
+                }}
+              >
+                <div
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    flex: "1 1 200px",
+                    minWidth: 0,
+                  }}
+                >
+                  폰트 색상
+                  <TextColorPalette
+                    value={topTextColor}
+                    disabled={busy || uploading}
+                    onChange={setTopTextColor}
+                  />
+                </div>
+                <label
+                  className="muted"
+                  style={{
+                    flex: "1 1 200px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    minWidth: 160,
+                  }}
+                >
+                  투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={roundOpacity01(topTextOpacity)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setTopTextOpacity(roundOpacity01(e.target.value))
+                    }
+                    style={{ width: "100%" }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
           {segments.length === 0 ? (
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
               구간을 추가하면 여기에서 크롭·자막을 설정합니다.
@@ -2225,11 +2562,14 @@ export default function Shorts3Panel() {
                     display: "flex",
                     flexDirection: "column",
                     gap: 10,
+                    marginTop: 10,
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.02)",
+                    padding: "12px 14px",
                   }}
                 >
-                  <div className="muted" style={{ fontWeight: 700 }}>
-                    구간 #{index + 1} · 세부 설정
-                  </div>
+                  {/* 크롭 오프셋 */}
                   <div
                     style={{
                       display: "flex",
@@ -2263,6 +2603,8 @@ export default function Shorts3Panel() {
                       {formatCropOffsetLabel(seg.cropOffset ?? 0)}
                     </span>
                   </div>
+
+                  {/* 구간 재생 버튼 */}
                   <button
                     type="button"
                     className="primary"
@@ -2285,6 +2627,8 @@ export default function Shorts3Panel() {
                       ? "⏸ 일시정지"
                       : "▶ 구간 재생"}
                   </button>
+
+                  {/* 하단 텍스트 입력 */}
                   <label className="preset-field" style={{ marginTop: 4 }}>
                     <span>하단 텍스트 (비우면 해당 구간 미표시)</span>
                     <input
@@ -2301,6 +2645,8 @@ export default function Shorts3Panel() {
                       }
                     />
                   </label>
+
+                  {/* 폰트/색상/투명도/크기 */}
                   <div
                     style={{
                       display: "flex",
@@ -2433,6 +2779,8 @@ export default function Shorts3Panel() {
                       />
                     </label>
                   </div>
+
+                  {/* 텍스트 세로 위치 */}
                   <label
                     className="muted"
                     style={{
@@ -2461,7 +2809,10 @@ export default function Shorts3Panel() {
                       }
                       style={{ width: "100%" }}
                     />
-                    <span className="muted" style={{ fontWeight: 400, fontSize: 11 }}>
+                    <span
+                      className="muted"
+                      style={{ fontWeight: 400, fontSize: 11 }}
+                    >
                       0% = 최상단 · 100% = 최하단
                     </span>
                   </label>
@@ -2471,322 +2822,6 @@ export default function Shorts3Panel() {
           )}
         </div>
       </div>
-
-
-      <div style={{ marginTop: 20 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
-          텍스트 오버레이
-        </div>
-        <label className="preset-field" style={{ marginBottom: 12 }}>
-          <span>상단 제목 텍스트 (비우면 미표시)</span>
-          <input
-            type="text"
-            placeholder="예: 오늘의 하이라이트"
-            value={topText}
-            disabled={busy || uploading}
-            onChange={(e) => setTopText(e.target.value)}
-          />
-        </label>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "flex-end",
-            marginBottom: 10,
-          }}
-        >
-          <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
-            <span>폰트</span>
-            <select
-              value={normalizeFontSelectValue(topTextFont)}
-              disabled={busy || uploading}
-              onChange={(e) =>
-                setTopTextFont(normalizeFontSelectValue(e.target.value))
-              }
-            >
-              {FONTS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label
-            className="muted"
-            style={{
-              flex: "2 1 220px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              fontSize: 13,
-              fontWeight: 700,
-              minWidth: 160,
-            }}
-          >
-            폰트 크기 ({Math.round(
-              Math.min(200, Math.max(20, Number(topTextSize) || 72))
-            )}
-            px)
-            <input
-              type="range"
-              min={20}
-              max={200}
-              step={1}
-              value={Math.min(200, Math.max(20, Number(topTextSize) || 72))}
-              disabled={busy || uploading}
-              onChange={(e) => setTopTextSize(Number(e.target.value))}
-              style={{ width: "100%" }}
-            />
-          </label>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-            marginBottom: 8,
-          }}
-        >
-          <div
-            className="muted"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 700,
-              flex: "1 1 200px",
-              minWidth: 0,
-            }}
-          >
-            폰트 색상
-            <TextColorPalette
-              value={topTextColor}
-              disabled={busy || uploading}
-              onChange={setTopTextColor}
-            />
-          </div>
-          <label
-            className="muted"
-            style={{
-              flex: "1 1 200px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              fontSize: 13,
-              fontWeight: 700,
-              minWidth: 160,
-            }}
-          >
-            투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={roundOpacity01(topTextOpacity)}
-              disabled={busy || uploading}
-              onChange={(e) =>
-                setTopTextOpacity(roundOpacity01(e.target.value))
-              }
-              style={{ width: "100%" }}
-            />
-          </label>
-        </div>
-      </div>
-
-
-      <div style={{ marginTop: 20, maxWidth: 480 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
-          배경 음원 (BGM)
-        </div>
-        <label className="preset-field">
-          <span>음원 선택</span>
-          <select
-            value={highlightMusicS3Key}
-            disabled={busy || uploading}
-            onChange={(e) => setHighlightMusicS3Key(e.target.value)}
-          >
-            <option value="">— BGM 없음 —</option>
-            {musicTracks.map((t) => (
-              <option key={t.id} value={t.s3_key}>
-                {t.name || t.s3_key}
-                {Number.isFinite(Number(t.duration))
-                  ? ` (${Math.round(Number(t.duration))}초)`
-                  : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="preset-field">
-          <span>
-            음원 볼륨 ({bgmVolume.toFixed(2)})
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={bgmVolume}
-            disabled={busy || uploading}
-            onChange={(e) => setBgmVolume(Number(e.target.value))}
-          />
-        </label>
-        <label className="preset-field">
-          <span>음원 시작 위치 (초)</span>
-          <input
-            type="number"
-            min={0}
-            step={1}
-            inputMode="numeric"
-            value={bgmStartTime}
-            disabled={busy || uploading}
-            onChange={(e) =>
-              setBgmStartTime(Math.max(0, Number(e.target.value) || 0))
-            }
-          />
-        </label>
-        <label className="preset-field">
-          <span>
-            끝 페이드아웃 ({bgmFadeOut.toFixed(1)}초, 0~5)
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={5}
-            step={0.1}
-            value={bgmFadeOut}
-            disabled={busy || uploading}
-            onChange={(e) => setBgmFadeOut(Number(e.target.value))}
-          />
-        </label>
-        <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-          BGM 사용 시 &quot;원본 오디오 음소거&quot;를 끄면 원본과 배경 음원이
-          함께 섞입니다. 음소거를 켜면 BGM만 들립니다.
-        </p>
-      </div>
-
-      <div
-        style={{
-          marginTop: 20,
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          type="button"
-          className="primary primary-fill"
-          disabled={busy || uploading || uploadPhase !== "done"}
-          onClick={onGenerate}
-        >
-          {busy ? "처리 중…" : "영상 생성"}
-        </button>
-        {busy ? (
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              cancelRef.current = true;
-            }}
-          >
-            취소
-          </button>
-        ) : null}
-      </div>
-
-      {busy ? (
-        <div style={{ marginTop: 16 }}>
-          <div className="video-export-progress-wrap">
-            <div className="video-export-progress-bar">
-              <div
-                className="video-export-progress-fill"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="muted" style={{ marginTop: 8 }}>
-              {progress}%
-            </div>
-          </div>
-          <p className="video-export-message">{message}</p>
-        </div>
-      ) : message ? (
-        <div className="muted" style={{ marginTop: 12 }}>
-          {message}
-        </div>
-      ) : null}
-
-      {error ? (
-        <pre className="result-error-light" style={{ marginTop: 12 }}>
-          {error.message}
-        </pre>
-      ) : null}
-
-      {downloadUrl ? (
-        <div
-          style={{
-            marginTop: 16,
-            display: "flex",
-            flexDirection: "row",
-            flexWrap: "nowrap",
-            alignItems: "stretch",
-            gap: 8,
-          }}
-        >
-          <a
-            href={downloadUrl}
-            download="highlight.mp4"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "10px 16px",
-              borderRadius: 8,
-              textDecoration: "none",
-              color: "#0b1a14",
-              fontWeight: 800,
-              background: "#0a8f6a",
-              boxSizing: "border-box",
-            }}
-          >
-            ⬇ mp4 다운로드
-          </a>
-          <button
-            type="button"
-            disabled={busy || uploading || uploadPhase !== "done" || !jobId}
-            onClick={() => {
-              setError(null);
-              onGenerate();
-            }}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "10px 16px",
-              borderRadius: 8,
-              border: "1px solid rgba(19,199,154,0.5)",
-              background: "rgba(19,199,154,0.4)",
-              color: "#0b1a14",
-              fontWeight: 800,
-              fontFamily: "inherit",
-              cursor:
-                busy || uploading || uploadPhase !== "done" || !jobId
-                  ? "not-allowed"
-                  : "pointer",
-              opacity:
-                busy || uploading || uploadPhase !== "done" || !jobId
-                  ? 0.55
-                  : 1,
-            }}
-          >
-            ↺ 다시 생성
-          </button>
-        </div>
-      ) : null}
       </div>
     </div>
   );
