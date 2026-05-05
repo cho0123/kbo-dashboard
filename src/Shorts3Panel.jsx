@@ -379,6 +379,9 @@ export default function Shorts3Panel() {
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
 
+  const [isPlayingAll, setIsPlayingAll] = useState(false);
+  const playAllRef = useRef(false);
+
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
 
@@ -705,6 +708,74 @@ export default function Shorts3Panel() {
     },
     [segments, previewUrl]
   );
+
+  const segmentBoundarySeconds = useCallback((seg, field) => {
+    const key = field === "start" ? "start" : "end";
+    const fracKey = field === "start" ? "startMs" : "endMs";
+    const t = segmentBoundaryToSeconds(
+      String(seg?.[key] ?? "").trim(),
+      seg?.[fracKey]
+    );
+    return t == null || !Number.isFinite(t) ? null : Number(t);
+  }, []);
+
+  const playAllSegments = useCallback(async () => {
+    const video = previewVideoRef.current;
+    if (!video || isPlayingAll) return;
+
+    setIsPlayingAll(true);
+    playAllRef.current = true;
+
+    try {
+      for (let i = 0; i < segments.length; i++) {
+        if (!playAllRef.current) break;
+        const seg = segments[i];
+        if (!seg) continue;
+
+        const startSec = segmentBoundarySeconds(seg, "start");
+        const endSec = segmentBoundarySeconds(seg, "end");
+        if (
+          startSec == null ||
+          endSec == null ||
+          !Number.isFinite(startSec) ||
+          !Number.isFinite(endSec) ||
+          endSec <= startSec
+        ) {
+          continue;
+        }
+
+        setSelectedSegIndex(i);
+        setPreviewCropOverlay(computePreviewCropOverlay(video, seg.cropOffset ?? 0));
+        video.currentTime = startSec;
+
+        await new Promise((res) => {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            try {
+              video.pause();
+            } catch {
+              /* ignore */
+            }
+            video.removeEventListener("timeupdate", check);
+            res();
+          };
+          const check = () => {
+            if (!playAllRef.current) return finish();
+            if (video.currentTime >= endSec) return finish();
+          };
+          video.addEventListener("timeupdate", check);
+          video.play().catch(() => {});
+        });
+
+        await new Promise((res) => setTimeout(res, 100));
+      }
+    } finally {
+      playAllRef.current = false;
+      setIsPlayingAll(false);
+    }
+  }, [segments, isPlayingAll, segmentBoundarySeconds]);
 
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
@@ -1670,6 +1741,34 @@ export default function Shorts3Panel() {
                     }}
                   >
                     + 구간 추가
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isPlayingAll) {
+                        playAllRef.current = false;
+                        previewVideoRef.current?.pause();
+                        setIsPlayingAll(false);
+                      } else {
+                        playAllSegments();
+                      }
+                    }}
+                    disabled={busy || uploading || uploadPhase !== "done" || !previewUrl}
+                    style={{
+                      background: isPlayingAll ? "#ef4444" : "#2563eb",
+                      color: "#fff",
+                      border: "none",
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      ...(busy || uploading
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    {isPlayingAll ? "⏹ 중지" : "▶ 전체 재생"}
                   </button>
 
                   <select
