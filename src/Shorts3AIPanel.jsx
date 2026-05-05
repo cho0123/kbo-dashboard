@@ -107,6 +107,7 @@ export default function Shorts3AIPanel() {
 
   const [cards, setCards] = useState([]);
   const [savedFiles, setSavedFiles] = useState([]);
+  const [cardPreviews, setCardPreviews] = useState({});
 
   useEffect(() => {
     postKbo({ action: "highlight_list" })
@@ -291,10 +292,13 @@ export default function Shorts3AIPanel() {
                 {c.title ? (
                   <div
                     style={{
+                      color: "#4ade80",
+                      fontSize: 13,
                       fontWeight: "bold",
-                      fontSize: 14,
-                      color: "#fff",
-                      marginBottom: 6,
+                      marginBottom: 8,
+                      background: "#1a3a2a",
+                      padding: "4px 10px",
+                      borderRadius: 6,
                     }}
                   >
                     ⚾ {c.title}
@@ -359,6 +363,22 @@ export default function Shorts3AIPanel() {
                       fontSize: 12,
                     }}
                     defaultValue=""
+                    onChange={async (e) => {
+                      const jobId = e.target.value;
+                      if (!jobId) return;
+                      try {
+                        const res = await postKbo({
+                          action: "highlight_preview",
+                          jobId,
+                        });
+                        const url = res?.previewUrl || res?.url;
+                        if (url) {
+                          setCardPreviews((prev) => ({ ...prev, [idx]: url }));
+                        }
+                      } catch {
+                        // ignore
+                      }
+                    }}
                   >
                     <option value="">— 관련 영상 선택 —</option>
                     {savedFiles.map((f) => (
@@ -374,6 +394,14 @@ export default function Shorts3AIPanel() {
                       </option>
                     ))}
                   </select>
+
+                  {cardPreviews[idx] ? (
+                    <video
+                      src={cardPreviews[idx]}
+                      controls
+                      style={{ width: "100%", marginTop: 8, borderRadius: 6 }}
+                    />
+                  ) : null}
                 </div>
               </div>
             ))}
