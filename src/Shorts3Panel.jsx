@@ -1823,19 +1823,27 @@ export default function Shorts3Panel() {
                   overflow: "hidden",
                 }}
               >
-                {/* [수정1] 구간 박스 내부 가로 스크롤/슬라이더 제거 */}
+                {/* 1행: 시간 입력 / 2행: 미세조정 버튼 (시작/종료 분리 정렬) */}
                 <div
                   style={{
-                    display: "flex",
+                    display: "grid",
+                    gridTemplateColumns:
+                      "28px 52px 62px 10px 26px 12px 52px 62px 10px 26px 26px",
+                    columnGap: 6,
+                    rowGap: 6,
                     alignItems: "center",
-                    gap: 6,
-                    flexWrap: "wrap",
                     overflowX: "hidden",
                   }}
                 >
+                  {/* 1행 */}
                   <span
                     className="muted"
-                    style={{ fontWeight: 700, flexShrink: 0 }}
+                    style={{
+                      gridColumn: 1,
+                      gridRow: 1,
+                      fontWeight: 700,
+                      justifySelf: "start",
+                    }}
                   >
                     #{index + 1}
                   </span>
@@ -1847,6 +1855,8 @@ export default function Shorts3Panel() {
                       seekPreviewToSegmentBoundary(index, "start");
                     }}
                     style={{
+                      gridColumn: 2,
+                      gridRow: 1,
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
@@ -1854,7 +1864,6 @@ export default function Shorts3Panel() {
                       borderRadius: 4,
                       fontSize: 11,
                       cursor: "pointer",
-                      flexShrink: 0,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1872,13 +1881,18 @@ export default function Shorts3Panel() {
                     }
                     disabled={busy || uploading}
                     style={{
+                      gridColumn: 3,
+                      gridRow: 1,
                       padding: "4px 6px",
                       width: 62,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
-                  <span className="muted" style={{ userSelect: "none" }}>
+                  <span
+                    className="muted"
+                    style={{ gridColumn: 4, gridRow: 1, userSelect: "none" }}
+                  >
                     .
                   </span>
                   <input
@@ -1895,13 +1909,18 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     title="시작 소수 초 (0.01초 단위, 00~99)"
                     style={{
+                      gridColumn: 5,
+                      gridRow: 1,
                       padding: "4px 6px",
                       width: 26,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
-                  <span className="muted" style={{ flexShrink: 0 }}>
+                  <span
+                    className="muted"
+                    style={{ gridColumn: 6, gridRow: 1, justifySelf: "center" }}
+                  >
                     ~
                   </span>
                   <button
@@ -1912,6 +1931,8 @@ export default function Shorts3Panel() {
                       seekPreviewToSegmentBoundary(index, "end");
                     }}
                     style={{
+                      gridColumn: 7,
+                      gridRow: 1,
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
                       color: "#4ade80",
@@ -1919,7 +1940,6 @@ export default function Shorts3Panel() {
                       borderRadius: 4,
                       fontSize: 11,
                       cursor: "pointer",
-                      flexShrink: 0,
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -1937,13 +1957,18 @@ export default function Shorts3Panel() {
                     }
                     disabled={busy || uploading}
                     style={{
+                      gridColumn: 8,
+                      gridRow: 1,
                       padding: "4px 6px",
                       width: 62,
                       fontSize: 11,
                       boxSizing: "border-box",
                     }}
                   />
-                  <span className="muted" style={{ userSelect: "none" }}>
+                  <span
+                    className="muted"
+                    style={{ gridColumn: 9, gridRow: 1, userSelect: "none" }}
+                  >
                     .
                   </span>
                   <input
@@ -1960,6 +1985,8 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     title="종료 소수 초 (0.01초 단위, 00~99)"
                     style={{
+                      gridColumn: 10,
+                      gridRow: 1,
                       padding: "4px 6px",
                       width: 26,
                       fontSize: 11,
@@ -1976,26 +2003,28 @@ export default function Shorts3Panel() {
                     }}
                     title="삭제"
                     style={{
+                      gridColumn: 11,
+                      gridRow: 1,
                       padding: "2px 6px",
                       fontSize: 12,
                       lineHeight: 1,
-                      flexShrink: 0,
+                      justifySelf: "end",
                     }}
                   >
                     ✕
                   </button>
-                </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    overflowX: "hidden",
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  {/* 2행: 시작/종료 미세조정 */}
+                  <div
+                    style={{
+                      gridColumn: "2 / span 4",
+                      gridRow: 2,
+                      display: "flex",
+                      gap: 4,
+                      alignItems: "center",
+                      paddingLeft: 0,
+                    }}
+                  >
                     <button
                       type="button"
                       disabled={busy || uploading}
@@ -2074,7 +2103,15 @@ export default function Shorts3Panel() {
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <div
+                    style={{
+                      gridColumn: "7 / span 4",
+                      gridRow: 2,
+                      display: "flex",
+                      gap: 4,
+                      alignItems: "center",
+                    }}
+                  >
                     <button
                       type="button"
                       disabled={busy || uploading}
