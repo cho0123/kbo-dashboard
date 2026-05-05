@@ -1774,9 +1774,11 @@ export default function Shorts3Panel() {
           <div
             style={{
               marginTop: 10,
+              maxHeight: 400,
+              overflowY: "auto",
               display: "flex",
               flexDirection: "column",
-              gap: 10,
+              gap: 6,
             }}
           >
             {segments.map((seg, index) => (
