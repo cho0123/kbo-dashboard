@@ -84,9 +84,9 @@ export default function Shorts3AIPanel() {
       // 서버 구현에 따라 date 파라미터가 무시될 수도 있어서 둘 다 시도
       let res;
       try {
-        res = await postKbo({ action: "games", date: dateIso });
+        res = await postKbo({ action: "shorts_slides_data", date: dateIso });
       } catch {
-        res = await postKbo({ action: "games" });
+        res = await postKbo({ action: "shorts_slides_data" });
       }
       const list = Array.isArray(res?.games) ? res.games : [];
       setGames(list);
