@@ -181,6 +181,7 @@ function emptySegment() {
     endMs: 0,
     cropOffset: 0,
     text: "",
+    textShadow: false,
     textY: 85,
     textColor: TEXT_COLORS[0],
     textOpacity: 1,
@@ -355,6 +356,7 @@ export default function Shorts3Panel() {
   const [topTextSize, setTopTextSize] = useState(72);
   const [topTextOpacity, setTopTextOpacity] = useState(1);
   const [topTextFont, setTopTextFont] = useState(DEFAULT_TEXT_FONT);
+  const [topTextShadow, setTopTextShadow] = useState(false);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -731,6 +733,9 @@ export default function Shorts3Panel() {
             textFont: String(rawVal || "").trim() || DEFAULT_TEXT_FONT,
           };
         }
+        if (field === "textShadow") {
+          return { ...seg, textShadow: Boolean(rawVal) };
+        }
         return seg;
       })
     );
@@ -1016,6 +1021,7 @@ export default function Shorts3Panel() {
         topTextOpacity: roundOpacity01(topTextOpacity),
         topTextFont:
           String(topTextFont || "").trim() || DEFAULT_TEXT_FONT,
+        topTextShadow: Boolean(topTextShadow),
         segments: validSegments.map((s) => {
           const ty = Number(s.textY);
           const textY = Number.isFinite(ty)
@@ -1031,6 +1037,7 @@ export default function Shorts3Panel() {
                 ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
                 : 0,
             text: String(s.text ?? "").trim(),
+            textShadow: Boolean(s.textShadow),
             textY,
             textColor:
               String(s.textColor ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
@@ -1141,7 +1148,7 @@ export default function Shorts3Panel() {
     const topOp = roundOpacity01(topTextOpacity ?? 1);
     const topColor = hexToRgba(topColorRaw, topOp);
     const topLine = String(topText || "").trim();
-    const shadow = "2px 2px 2px rgba(0,0,0,0.85)";
+    const shadow = "1px 1px 3px rgba(0,0,0,0.6)";
     const topFontFamily = previewFontFamily(topTextFont);
 
     const segYRaw = Number(bottomSeg?.textY);
@@ -1187,7 +1194,7 @@ export default function Shorts3Panel() {
               fontFamily: topFontFamily,
               fontWeight: 700,
               lineHeight: 1.2,
-              textShadow: shadow,
+              textShadow: topTextShadow ? shadow : "none",
               padding: "0 8px",
               boxSizing: "border-box",
               wordBreak: "break-word",
@@ -1209,7 +1216,7 @@ export default function Shorts3Panel() {
               fontFamily: segFontFamily,
               fontWeight: 700,
               lineHeight: 1.2,
-              textShadow: shadow,
+              textShadow: bottomSeg?.textShadow ? shadow : "none",
               padding: "0 8px",
               boxSizing: "border-box",
               whiteSpace: "nowrap",
@@ -1229,6 +1236,7 @@ export default function Shorts3Panel() {
     topTextSize,
     topTextOpacity,
     topTextFont,
+    topTextShadow,
     segments,
   ]);
 
@@ -2604,6 +2612,24 @@ export default function Shorts3Panel() {
                     disabled={busy || uploading}
                     onChange={setTopTextColor}
                   />
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                      color: "#aaa",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={topTextShadow}
+                      disabled={busy || uploading}
+                      onChange={(e) => setTopTextShadow(e.target.checked)}
+                    />
+                    그림자
+                  </label>
                 </div>
                 <label
                   className="muted"
@@ -2840,6 +2866,30 @@ export default function Shorts3Panel() {
                           handleSegmentOverlayChange(index, "textColor", c)
                         }
                       />
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 12,
+                          color: "#aaa",
+                          fontWeight: 500,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={seg.textShadow || false}
+                          disabled={busy || uploading}
+                          onChange={(e) =>
+                            handleSegmentOverlayChange(
+                              index,
+                              "textShadow",
+                              e.target.checked
+                            )
+                          }
+                        />
+                        그림자
+                      </label>
                     </div>
                     <label
                       className="muted"

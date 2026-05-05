@@ -411,12 +411,14 @@ function normalizeHighlightTop(meta) {
     meta.topTextFont != null && String(meta.topTextFont).trim()
       ? String(meta.topTextFont).trim()
       : DEFAULT_FONT_FILE;
+  const topTextShadow = Boolean(meta.topTextShadow);
   return {
     topText,
     topTextSize,
     topTextColor,
     topTextOpacity,
     topTextFont,
+    topTextShadow,
   };
 }
 
@@ -439,7 +441,8 @@ function normalizeSegmentTextOverlay(seg) {
     seg?.textFont != null && String(seg.textFont).trim()
       ? String(seg.textFont).trim()
       : DEFAULT_FONT_FILE;
-  return { text, textY, textColor, textSize, textOpacity, textFont };
+  const textShadow = Boolean(seg?.textShadow);
+  return { text, textY, textColor, textSize, textOpacity, textFont, textShadow };
 }
 
 function normalizeThumbnailText(meta) {
@@ -478,6 +481,8 @@ function buildHighlightSegmentVf(opts) {
     topOpacity,
     bottomColor,
     bottomOpacity,
+    bottomShadow,
+    topShadow,
     textY,
     topFontPath,
     bottomFontPath,
@@ -491,13 +496,19 @@ function buildHighlightSegmentVf(opts) {
   const fsBottom = Math.round(bottomFontSize);
 
   if (bottomTextFile && bottomFontPath) {
+    const shadow = bottomShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
     parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100`
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
     );
   }
   if (topTextFile && topFontPath) {
+    const shadow = topShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
     parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105:shadowx=2:shadowy=2:shadowcolor=black`
+      `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105${shadow}`
     );
   }
   const chain = parts.join(",");
@@ -615,6 +626,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     topTextColor,
     topTextOpacity,
     topTextFont,
+    topTextShadow,
   } = normalizeHighlightTop(meta);
   const metaWantsText =
     Boolean(topText) ||
@@ -694,6 +706,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       textSize: bottomTextSize,
       textOpacity: bottomOpacity,
       textFont: bottomFontName,
+      textShadow: bottomShadow,
     } = bottomParsed;
     const bottomFontPath = resolveBundledFontPath(bottomFontName);
     let bottomPath = null;
@@ -713,6 +726,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topOpacity: topTextOpacity,
       bottomColor,
       bottomOpacity,
+      topShadow: Boolean(topTextShadow),
+      bottomShadow: Boolean(bottomShadow),
       textY,
       topFontPath,
       bottomFontPath,
