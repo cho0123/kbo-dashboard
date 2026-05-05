@@ -678,6 +678,13 @@ export default function Shorts3Panel() {
       if (!v || !previewUrl) return;
       const seg = segments[segIndex];
       if (!seg) return;
+
+      // ▶시작/▶종료 클릭 시: 해당 구간 선택 + 크롭 즉시 반영
+      setSelectedSegIndex(segIndex);
+      setPreviewCropOverlay(
+        computePreviewCropOverlay(v, seg?.cropOffset ?? 0)
+      );
+
       const key = field === "start" ? "start" : "end";
       const fracKey = field === "start" ? "startMs" : "endMs";
       const t = segmentBoundaryToSeconds(
