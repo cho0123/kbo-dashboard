@@ -1,0 +1,321 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { postKbo, seoulToday } from "./api.js";
+
+function safeJsonStringify(obj, maxLen = 120000) {
+  try {
+    const s = JSON.stringify(obj, null, 2);
+    return s.length > maxLen ? s.slice(0, maxLen) + "\n... (truncated)" : s;
+  } catch {
+    return "[]";
+  }
+}
+
+function parseClaudeBlocks(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  const blocks = raw.split(/\n(?=\[경기\])/g).map((s) => s.trim()).filter(Boolean);
+  return blocks.map((b) => {
+    const gameLine = (b.match(/^\[경기\]\s*(.+)$/m) || [])[1] || "";
+    const hot = (b.match(/^핫이슈:\s*(.+)$/m) || [])[1] || "";
+    const hi = (b.match(/^하이라이트 텍스트:\s*(.+)$/m) || [])[1] || "";
+    const th = (b.match(/^썸네일 텍스트:\s*(.+)$/m) || [])[1] || "";
+    return {
+      game: gameLine.trim(),
+      hot: hot.trim(),
+      highlight: hi.trim(),
+      thumbnail: th.trim(),
+      raw: b,
+    };
+  });
+}
+
+async function copyText(t) {
+  const s = String(t ?? "");
+  if (!s) return;
+  try {
+    await navigator.clipboard.writeText(s);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = s;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}
+
+export default function Shorts3AIPanel() {
+  const [dateIso, setDateIso] = useState(seoulToday());
+  const [games, setGames] = useState([]);
+  const [loadingGames, setLoadingGames] = useState(false);
+  const [gamesError, setGamesError] = useState(null);
+
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiRaw, setAiRaw] = useState("");
+
+  const [cards, setCards] = useState([]);
+
+  const gamesData = useMemo(() => {
+    // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
+    return (Array.isArray(games) ? games : []).map((g) => ({
+      game_id: g?.game_id || g?.gameId,
+      home_team: g?.home_team,
+      away_team: g?.away_team,
+      home_score: g?.home_score,
+      away_score: g?.away_score,
+      venue: g?.venue,
+      winning_pitcher: g?.winning_pitcher,
+      losing_pitcher: g?.losing_pitcher,
+      mvp_batters: g?.mvp_batters,
+    }));
+  }, [games]);
+
+  const loadGames = useCallback(async () => {
+    setLoadingGames(true);
+    setGamesError(null);
+    setAiError(null);
+    setAiRaw("");
+    setCards([]);
+    try {
+      // 서버 구현에 따라 date 파라미터가 무시될 수도 있어서 둘 다 시도
+      let res;
+      try {
+        res = await postKbo({ action: "games", date: dateIso });
+      } catch {
+        res = await postKbo({ action: "games" });
+      }
+      const list = Array.isArray(res?.games) ? res.games : [];
+      setGames(list);
+    } catch (e) {
+      setGamesError(e instanceof Error ? e.message : String(e));
+      setGames([]);
+    } finally {
+      setLoadingGames(false);
+    }
+  }, [dateIso]);
+
+  const runClaude = useCallback(async () => {
+    setAiBusy(true);
+    setAiError(null);
+    setAiRaw("");
+    setCards([]);
+    try {
+      // NOTE: 브라우저에서 직접 호출은 CORS/키 노출 문제가 생길 수 있음.
+      // 일단 요청하신 형태대로 구성하되, 키는 env로 받도록 함.
+      const apiKey =
+        (typeof import.meta !== "undefined" &&
+          import.meta.env &&
+          import.meta.env.VITE_ANTHROPIC_API_KEY) ||
+        "";
+      if (!apiKey) {
+        throw new Error(
+          "VITE_ANTHROPIC_API_KEY가 설정되어 있지 않습니다. (.env.local 등)"
+        );
+      }
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: `다음 KBO 경기 데이터를 분석해서 각 경기별로 아래 형식으로 답해줘.
+형식:
+[경기] 홈팀 vs 원정팀 (점수)
+핫이슈: (핵심 이슈 1줄)
+하이라이트 텍스트: (영상 하단 자막용 임팩트 있는 문구 10자 이내)
+썸네일 텍스트: (썸네일 메인 텍스트 8자 이내)
+
+경기 데이터:
+${safeJsonStringify(gamesData)}`,
+            },
+          ],
+        }),
+      });
+
+      const j = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(j?.error?.message || j?.error || `HTTP ${response.status}`);
+      }
+      const text =
+        Array.isArray(j?.content) && j.content[0]?.type === "text"
+          ? j.content.map((c) => c?.text || "").join("\n")
+          : j?.content?.text || j?.text || "";
+      setAiRaw(String(text || ""));
+      const parsed = parseClaudeBlocks(text);
+      setCards(parsed);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiBusy(false);
+    }
+  }, [gamesData]);
+
+  useEffect(() => {
+    loadGames();
+  }, [loadGames]);
+
+  useEffect(() => {
+    if (Array.isArray(games) && games.length > 0) {
+      runClaude();
+    }
+  }, [games, runClaude]);
+
+  return (
+    <div className="section soft" style={{ overflow: "visible" }}>
+      <div className="section-title">3. 쇼츠-하이라이트 · 🤖 AI 분석</div>
+      <p className="muted" style={{ marginTop: 6 }}>
+        오늘 경기 데이터를 불러온 뒤, 경기별 핫이슈/추천 문구를 생성합니다.
+      </p>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+        <label className="preset-field" style={{ minWidth: 220, margin: 0 }}>
+          <span>기준 날짜(Asia/Seoul)</span>
+          <input
+            type="date"
+            value={dateIso}
+            onChange={(e) => setDateIso(e.target.value)}
+            disabled={loadingGames || aiBusy}
+          />
+        </label>
+        <button
+          type="button"
+          className="primary"
+          disabled={loadingGames || aiBusy}
+          onClick={loadGames}
+        >
+          {loadingGames ? "불러오는 중…" : "경기 데이터 새로고침"}
+        </button>
+        <button
+          type="button"
+          className="primary primary-fill"
+          disabled={loadingGames || aiBusy || (games || []).length === 0}
+          onClick={runClaude}
+        >
+          {aiBusy ? "AI 분석 중…" : "AI 분석 다시 실행"}
+        </button>
+      </div>
+
+      {gamesError ? (
+        <pre className="result-error-light" style={{ marginTop: 12 }}>
+          {gamesError}
+        </pre>
+      ) : null}
+      {aiError ? (
+        <pre className="result-error-light" style={{ marginTop: 12 }}>
+          {aiError}
+        </pre>
+      ) : null}
+
+      <div style={{ marginTop: 14 }}>
+        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+          결과
+        </div>
+
+        {aiBusy && cards.length === 0 ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            AI가 분석 중입니다…
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="muted" style={{ fontSize: 14 }}>
+            표시할 결과가 없습니다.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {cards.map((c, idx) => (
+              <div
+                key={`${c.game}_${idx}`}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.03)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ fontWeight: 900, flex: "1 1 240px" }}>
+                    {c.game || `경기 #${idx + 1}`}
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => copyText(c.raw)}
+                  >
+                    전체 복사
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                  <div>
+                    <strong>핫이슈</strong>: {c.hot || "—"}
+                    <button
+                      type="button"
+                      className="ghost"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => copyText(c.hot)}
+                    >
+                      복사
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <strong>하이라이트 텍스트</strong>: {c.highlight || "—"}
+                    <button
+                      type="button"
+                      className="ghost"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => copyText(c.highlight)}
+                    >
+                      복사
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <strong>썸네일 텍스트</strong>: {c.thumbnail || "—"}
+                    <button
+                      type="button"
+                      className="ghost"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => copyText(c.thumbnail)}
+                    >
+                      복사
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {aiRaw ? (
+        <details style={{ marginTop: 14 }}>
+          <summary className="muted" style={{ cursor: "pointer" }}>
+            원문 보기
+          </summary>
+          <pre
+            style={{
+              marginTop: 8,
+              whiteSpace: "pre-wrap",
+              background: "rgba(0,0,0,0.35)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10,
+              padding: 12,
+            }}
+          >
+            {aiRaw}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+

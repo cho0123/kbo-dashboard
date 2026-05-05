@@ -7,6 +7,7 @@ import MusicLibraryPanel from "./MusicLibraryPanel.jsx";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import Shorts3Panel from "./Shorts3Panel.jsx";
 import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
+import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -4776,6 +4777,15 @@ export default function App() {
                   >
                     🖼️ 썸네일
                   </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("shorts3_ai");
+                    }}
+                  >
+                    🤖 AI 분석
+                  </button>
                 </div>
               </div>
 
@@ -5599,6 +5609,8 @@ export default function App() {
                     <Shorts3Panel />
                   ) : activeKey === "shorts3_thumbnail" ? (
                     <Shorts3ThumbnailPanel />
+                  ) : activeKey === "shorts3_ai" ? (
+                    <Shorts3AIPanel />
                   ) : activeKey === "video_presets" ? (
                     <VideoPresetsPanel />
                   ) : activeKey === "music_library" ? (
