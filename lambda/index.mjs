@@ -655,6 +655,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       duration = HIGHLIGHT_THUMBNAIL_DUR_SEC;
       endSec = startSec + duration;
     } else {
+      console.log("[seg] startMs:", seg.startMs, "endMs:", seg.endMs);
       startSec = segmentBoundarySeconds(seg, "start");
       endSec = segmentBoundarySeconds(seg, "end");
       duration = endSec - startSec;
