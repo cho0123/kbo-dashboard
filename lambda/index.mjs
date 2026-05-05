@@ -809,6 +809,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
       const videoDurForMux =
         videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+      console.log("[mux] videoDurForMux:", videoDurForMux);
       const afChain = buildMusicAf(videoDurForMux, musicOpts);
       const muxArgs = [
         "-y",
@@ -862,6 +863,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       const videoDurSec = probeFormatDurationSec(workDir, "cropped_va.mp4");
       const videoDurForMux =
         videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+      console.log("[mux] videoDurForMux:", videoDurForMux);
       const chain = buildMusicAf(videoDurForMux, musicOpts);
       const fc = `[1:a]${chain}[bm];[0:a][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
       runFfmpeg(
@@ -965,10 +967,12 @@ function buildMusicAf(videoDurSec, opts) {
   const fdRaw = opts.fadeOutDuration;
   const fd = Math.min(fdRaw, videoDurSec);
   const st = Math.max(0, videoDurSec - fd);
+  console.log("[musicAf] videoDurSec:", videoDurSec, "fdRaw:", fdRaw, "fd:", fd, "st:", st);
   const parts = [`volume=${vol}`];
   if (fd > 0.001) {
     parts.push(`afade=t=out:st=${st.toFixed(4)}:d=${fd.toFixed(4)}`);
   }
+  console.log("[musicAf] chain:", parts.join(","));
   return parts.join(",");
 }
 
