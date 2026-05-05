@@ -137,9 +137,6 @@ export default function Shorts3AIPanel() {
   const loadGames = useCallback(async () => {
     setLoadingGames(true);
     setGamesError(null);
-    setAiError(null);
-    setAiRaw("");
-    setCards([]);
     try {
       // 서버 구현에 따라 date 파라미터가 무시될 수도 있어서 둘 다 시도
       let res;
@@ -150,9 +147,11 @@ export default function Shorts3AIPanel() {
       }
       const list = Array.isArray(res?.games) ? res.games : [];
       setGames(list);
+      return list;
     } catch (e) {
       setGamesError(e instanceof Error ? e.message : String(e));
       setGames([]);
+      return [];
     } finally {
       setLoadingGames(false);
     }
@@ -179,15 +178,39 @@ export default function Shorts3AIPanel() {
     }
   }, [gamesData]);
 
-  useEffect(() => {
-    loadGames();
-  }, [loadGames]);
-
-  useEffect(() => {
-    if (Array.isArray(games) && games.length > 0) {
-      runClaude();
+  const runAiAnalysis = useCallback(async () => {
+    setAiError(null);
+    setAiRaw("");
+    setCards([]);
+    const list = await loadGames();
+    const minimal = (Array.isArray(list) ? list : []).map((g) => ({
+      game_id: g?.game_id || g?.gameId,
+      home_team: g?.home_team,
+      away_team: g?.away_team,
+      home_score: g?.home_score,
+      away_score: g?.away_score,
+      venue: g?.venue,
+      winning_pitcher: g?.winning_pitcher,
+      losing_pitcher: g?.losing_pitcher,
+      mvp_batters: g?.mvp_batters,
+    }));
+    if (minimal.length === 0) return;
+    setAiBusy(true);
+    try {
+      const res = await postKbo({
+        action: "ai_highlight_analysis",
+        games: minimal,
+      });
+      const text = String(res?.text || "");
+      setAiRaw(text);
+      const parsed = parseClaudeBlocks(text);
+      setCards(parsed);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiBusy(false);
     }
-  }, [games, runClaude]);
+  }, [loadGames]);
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -239,17 +262,9 @@ export default function Shorts3AIPanel() {
           type="button"
           className="primary"
           disabled={loadingGames || aiBusy}
-          onClick={loadGames}
+          onClick={runAiAnalysis}
         >
-          {loadingGames ? "불러오는 중…" : "경기 데이터 새로고침"}
-        </button>
-        <button
-          type="button"
-          className="primary primary-fill"
-          disabled={loadingGames || aiBusy || (games || []).length === 0}
-          onClick={runClaude}
-        >
-          {aiBusy ? "AI 분석 중…" : "AI 분석 다시 실행"}
+          {loadingGames || aiBusy ? "AI 분석 실행 중…" : "AI 분석 실행"}
         </button>
       </div>
 
