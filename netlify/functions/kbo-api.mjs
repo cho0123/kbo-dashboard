@@ -2807,7 +2807,7 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
         try {
-          const { s3, bucket } = videoEncodeAwsClients();
+          const { s3, bucket, lambda, lambdaName } = videoEncodeAwsClients();
           const sourceKey = `jobs/${jobId}/source.mp4`;
           try {
             await s3.send(
@@ -2825,30 +2825,78 @@ ${JSON.stringify(games, null, 2)}`;
             };
           }
 
-          const url = await getSignedUrl(
-            s3,
-            new GetObjectCommand({ Bucket: bucket, Key: sourceKey }),
-            { expiresIn: 300 }
+          const invokeOut = await lambda.send(
+            new InvokeCommand({
+              FunctionName: lambdaName,
+              InvocationType: "RequestResponse",
+              Payload: Buffer.from(
+                JSON.stringify({
+                  bucket,
+                  jobId,
+                  meta: { type: "extract_audio" },
+                })
+              ),
+            })
           );
-
-          const videoRes = await fetch(url);
-          if (!videoRes.ok) {
+          const lamRaw = invokeOut.Payload
+            ? Buffer.from(invokeOut.Payload).toString("utf8")
+            : "";
+          let lamResult;
+          try {
+            lamResult = lamRaw ? JSON.parse(lamRaw) : {};
+          } catch {
             return {
               statusCode: 502,
               headers: corsHeaders(),
               body: JSON.stringify({
                 ok: false,
-                error: `S3에서 영상을 받지 못했습니다 (HTTP ${videoRes.status}).`,
+                error: "Lambda 응답 JSON 파싱 실패",
               }),
             };
           }
-          const videoBuffer = await videoRes.arrayBuffer();
+          if (invokeOut.FunctionError) {
+            const msg =
+              lamResult?.errorMessage ||
+              lamResult?.error ||
+              lamRaw ||
+              "Lambda extract_audio 실패";
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: String(msg) }),
+            };
+          }
+          if (!lamResult?.ok || !lamResult?.presignedUrl) {
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error:
+                  lamResult?.error ||
+                  "오디오 추출(Lambda)에 실패했습니다.",
+              }),
+            };
+          }
+
+          const audioRes = await fetch(lamResult.presignedUrl);
+          if (!audioRes.ok) {
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: `S3에서 audio.mp3를 받지 못했습니다 (HTTP ${audioRes.status}).`,
+              }),
+            };
+          }
+          const audioBuffer = await audioRes.arrayBuffer();
 
           const formData = new FormData();
           formData.append(
             "file",
-            new Blob([videoBuffer], { type: "video/mp4" }),
-            "audio.mp4"
+            new Blob([audioBuffer], { type: "audio/mpeg" }),
+            "audio.mp3"
           );
           formData.append("model", "whisper-1");
           formData.append("language", "ko");

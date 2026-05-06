@@ -15,6 +15,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const region = process.env.AWS_REGION || "ap-northeast-2";
 const s3 = new S3Client({ region });
@@ -1035,6 +1036,53 @@ async function putOutputMp4(bucket, key, filePath) {
   );
 }
 
+const EXTRACT_AUDIO_PRESIGN_EXPIRES_SEC = 300;
+
+/** source.mp4 → audio.mp3 S3 업로드 후 presigned GET URL 반환 (Whisper 업로드 크기 완화용) */
+async function runExtractAudio(bucket, jobId, workDir) {
+  const sourceKey = `jobs/${jobId}/source.mp4`;
+  const sourceLocal = join(workDir, "source.mp4");
+  await getObjectFile(bucket, sourceKey, sourceLocal);
+  runFfmpeg(
+    [
+      "-y",
+      "-i",
+      "source.mp4",
+      "-vn",
+      "-acodec",
+      "libmp3lame",
+      "-b:a",
+      "128k",
+      "audio.mp3",
+    ],
+    workDir,
+    "extract_audio_mp3"
+  );
+  const audioLocal = join(workDir, "audio.mp3");
+  const audioKey = `jobs/${jobId}/audio.mp3`;
+  const mp3Body = readFileSync(audioLocal);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: audioKey,
+      Body: mp3Body,
+      ContentType: "audio/mpeg",
+    })
+  );
+  const presignedUrl = await getSignedUrl(
+    s3,
+    new GetObjectCommand({ Bucket: bucket, Key: audioKey }),
+    { expiresIn: EXTRACT_AUDIO_PRESIGN_EXPIRES_SEC }
+  );
+  return {
+    ok: true,
+    jobId,
+    audioKey,
+    presignedUrl,
+    expiresIn: EXTRACT_AUDIO_PRESIGN_EXPIRES_SEC,
+  };
+}
+
 function runFfmpeg(args, cwd, label) {
   const bin = ffmpegBin();
   const r = spawnSync(bin, args, {
@@ -1064,10 +1112,19 @@ export const handler = async (event) => {
   const workDir = join("/tmp", `job_${jobId}`);
   try {
     mkdirSync(workDir, { recursive: true });
-    await putStatus(bucket, jobId, { state: "processing", progress: 15 });
 
     const metaKey = `jobs/${jobId}/meta.json`;
-    const meta = await getJson(bucket, metaKey);
+    let meta;
+    if (event.meta && event.meta.type === "extract_audio") {
+      meta = event.meta;
+    } else {
+      await putStatus(bucket, jobId, { state: "processing", progress: 15 });
+      meta = await getJson(bucket, metaKey);
+    }
+
+    if (meta.type === "extract_audio") {
+      return await runExtractAudio(bucket, jobId, workDir);
+    }
 
     if (meta.type === "thumbnail") {
       const { safeBg, vf } = meta;
