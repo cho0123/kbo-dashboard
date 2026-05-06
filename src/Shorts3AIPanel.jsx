@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 
 function safeJsonStringify(obj, maxLen = 120000) {
@@ -131,6 +131,34 @@ export default function Shorts3AIPanel() {
   const [cardDownloadError, setCardDownloadError] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
   const [whisperByCard, setWhisperByCard] = useState({});
+  const [cardYoutubeResults, setCardYoutubeResults] = useState({});
+  const [cardYoutubeLoading, setCardYoutubeLoading] = useState({});
+
+  const fetchYoutubeSearch = useCallback(async (cardIndex, queryRaw) => {
+    const q = String(queryRaw ?? "").trim();
+    if (!q) return;
+    setCardYoutubeLoading((prev) => ({ ...prev, [cardIndex]: true }));
+    try {
+      const res = await postKbo({ action: "youtube_search", query: q });
+      setCardYoutubeResults((prev) => ({
+        ...prev,
+        [cardIndex]: Array.isArray(res?.items) ? res.items : [],
+      }));
+    } catch {
+      setCardYoutubeResults((prev) => ({ ...prev, [cardIndex]: [] }));
+    } finally {
+      setCardYoutubeLoading((prev) => ({ ...prev, [cardIndex]: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!cards.length) return;
+    cards.forEach((c, idx) => {
+      const q = String(c.title || "").trim();
+      if (!q) return;
+      fetchYoutubeSearch(idx, q);
+    });
+  }, [cards, fetchYoutubeSearch]);
 
   const gamesData = useMemo(() => {
     // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
@@ -385,15 +413,164 @@ export default function Shorts3AIPanel() {
                   </div>
 
                   <div
-                    className="muted"
                     style={{
                       marginTop: 10,
-                      fontWeight: 700,
-                      fontSize: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
                     }}
                   >
-                    영상 분석
+                    <span
+                      className="muted"
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 12,
+                      }}
+                    >
+                      영상 분석
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!String(c.title || "").trim() || cardYoutubeLoading[idx]}
+                      onClick={() =>
+                        fetchYoutubeSearch(idx, c.title)
+                      }
+                      style={{
+                        padding: "3px 10px",
+                        background: "#b91c1c",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        cursor: String(c.title || "").trim()
+                          ? "pointer"
+                          : "not-allowed",
+                        opacity: cardYoutubeLoading[idx] ? 0.7 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cardYoutubeLoading[idx]
+                        ? "YouTube 검색 중…"
+                        : "영상 찾기"}
+                    </button>
                   </div>
+
+                  {cardYoutubeLoading[idx] &&
+                  !(cardYoutubeResults[idx]?.length > 0) ? (
+                    <div
+                      className="muted"
+                      style={{ marginTop: 6, fontSize: 12 }}
+                    >
+                      YouTube에서 하이라이트 영상을 찾는 중…
+                    </div>
+                  ) : null}
+
+                  {(cardYoutubeResults[idx] || []).length > 0 ? (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      {(cardYoutubeResults[idx] || []).map((item) => (
+                        <div
+                          key={`${idx}-${item.videoId}`}
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "flex-start",
+                            padding: 8,
+                            background: "rgba(0,0,0,0.2)",
+                            borderRadius: 8,
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}
+                        >
+                          {item.thumbnail ? (
+                            <img
+                              src={item.thumbnail}
+                              alt=""
+                              width={120}
+                              height={68}
+                              style={{
+                                objectFit: "cover",
+                                borderRadius: 4,
+                                flexShrink: 0,
+                              }}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 120,
+                                height: 68,
+                                background: "#333",
+                                borderRadius: 4,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                lineHeight: 1.35,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {item.title}
+                            </div>
+                            <div className="muted" style={{ marginBottom: 6 }}>
+                              {item.channelTitle}
+                              {item.publishedAt ? (
+                                <span style={{ marginLeft: 8, opacity: 0.85 }}>
+                                  ·{" "}
+                                  {new Date(
+                                    item.publishedAt
+                                  ).toLocaleDateString("ko-KR", {
+                                    timeZone: "Asia/Seoul",
+                                  })}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                className="ghost"
+                                style={{ padding: "2px 8px", fontSize: 11 }}
+                                onClick={() => copyText(item.url)}
+                              >
+                                URL 복사
+                              </button>
+                              <button
+                                type="button"
+                                style={{
+                                  padding: "2px 8px",
+                                  fontSize: 11,
+                                  background: "#1d4ed8",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                }}
+                                onClick={() =>
+                                  setCardUrl((prev) => ({
+                                    ...prev,
+                                    [idx]: item.url,
+                                  }))
+                                }
+                              >
+                                ⬇️ 다운로드
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   <a
                     href={naverUrl}
                     target="_blank"

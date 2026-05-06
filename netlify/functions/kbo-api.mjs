@@ -2384,6 +2384,74 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "youtube_search": {
+        const query = String(payload.query ?? "").trim();
+        if (!query) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "검색어(query)가 필요합니다.",
+            }),
+          };
+        }
+        const apiKey = process.env.YOUTUBE_API_KEY;
+        if (!apiKey) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "YOUTUBE_API_KEY 없음",
+            }),
+          };
+        }
+        try {
+          const searchUrl =
+            `https://www.googleapis.com/youtube/v3/search?` +
+            `part=snippet&q=${encodeURIComponent(`${query} KBO 하이라이트`)}&` +
+            `type=video&maxResults=5&order=date&` +
+            `key=${encodeURIComponent(apiKey)}`;
+          const res = await fetch(searchUrl);
+          const data = await res.json();
+          if (!res.ok || data?.error) {
+            const msg =
+              data?.error?.message ||
+              `YouTube API 오류 (HTTP ${res.status})`;
+            return {
+              statusCode: res.status >= 400 && res.status < 600 ? res.status : 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: msg }),
+            };
+          }
+          const items = (data.items || [])
+            .filter((item) => item?.id?.videoId && item?.snippet)
+            .map((item) => ({
+              videoId: item.id.videoId,
+              title: item.snippet.title,
+              thumbnail:
+                item.snippet.thumbnails?.medium?.url ||
+                item.snippet.thumbnails?.default?.url ||
+                "",
+              channelTitle: item.snippet.channelTitle,
+              publishedAt: item.snippet.publishedAt,
+              url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+            }));
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, items }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "thumbnail_upload_url": {
         try {
           const { jobId } = payload;
