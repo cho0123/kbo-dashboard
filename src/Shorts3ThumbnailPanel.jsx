@@ -215,7 +215,7 @@ export default function Shorts3ThumbnailPanel() {
   const [debouncedThumbTime, setDebouncedThumbTime] = useState(0);
   const [cropOffset, setCropOffset] = useState(0);
 
-  const [team, setTeam] = useState("KIA");
+  const [team, setTeam] = useState("삼성");
   const [text1, setText1] = useState("");
   const [text2, setText2] = useState("");
   const [font1, setFont1] = useState("NotoSansKR-Bold");
