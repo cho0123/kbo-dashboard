@@ -2408,18 +2408,21 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
         try {
-          const datePart = String(payload.date ?? "").trim();
-          const qFull = datePart
-            ? `${query} ${datePart} 하이라이트`
+          const dateStr = payload.date ? String(payload.date).trim() : "";
+          const qFull = dateStr
+            ? `${query} ${dateStr} 하이라이트`
             : `${query} 하이라이트`;
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const publishedAfter = today.toISOString();
+          const targetDate = dateStr ? new Date(dateStr) : new Date();
+          targetDate.setHours(0, 0, 0, 0);
+          const publishedAfter = targetDate.toISOString();
+          const publishedBefore = new Date(targetDate);
+          publishedBefore.setDate(publishedBefore.getDate() + 1);
           const searchUrl =
             `https://www.googleapis.com/youtube/v3/search?` +
             `part=snippet&q=${encodeURIComponent(qFull)}&` +
             `type=video&maxResults=5&order=viewCount&` +
             `publishedAfter=${encodeURIComponent(publishedAfter)}&` +
+            `publishedBefore=${encodeURIComponent(publishedBefore.toISOString())}&` +
             `key=${encodeURIComponent(apiKey)}`;
           const res = await fetch(searchUrl);
           const data = await res.json();

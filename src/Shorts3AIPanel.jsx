@@ -134,15 +134,14 @@ export default function Shorts3AIPanel() {
   const [cardYoutubeResults, setCardYoutubeResults] = useState({});
   const [cardYoutubeLoading, setCardYoutubeLoading] = useState({});
 
-  const fetchYoutubeSearch = useCallback(async (cardIndex, queryRaw, dateStr) => {
-    const q = String(queryRaw ?? "").trim();
-    if (!q) return;
+  const fetchYoutubeSearch = useCallback(async (cardIndex, card, selectedDate) => {
+    if (!String(card?.title ?? "").trim()) return;
     setCardYoutubeLoading((prev) => ({ ...prev, [cardIndex]: true }));
     try {
       const res = await postKbo({
         action: "youtube_search",
-        query: q,
-        date: dateStr,
+        query: card.title,
+        date: selectedDate,
       });
       setCardYoutubeResults((prev) => ({
         ...prev,
@@ -158,9 +157,8 @@ export default function Shorts3AIPanel() {
   useEffect(() => {
     if (!cards.length) return;
     cards.forEach((c, idx) => {
-      const q = String(c.title || "").trim();
-      if (!q) return;
-      fetchYoutubeSearch(idx, q, targetDate);
+      if (!String(c.title || "").trim()) return;
+      fetchYoutubeSearch(idx, c, targetDate);
     });
   }, [cards, fetchYoutubeSearch, targetDate]);
 
@@ -438,7 +436,7 @@ export default function Shorts3AIPanel() {
                       type="button"
                       disabled={!String(c.title || "").trim() || cardYoutubeLoading[idx]}
                       onClick={() =>
-                        fetchYoutubeSearch(idx, c.title, targetDate)
+                        fetchYoutubeSearch(idx, c, targetDate)
                       }
                       style={{
                         padding: "3px 10px",
