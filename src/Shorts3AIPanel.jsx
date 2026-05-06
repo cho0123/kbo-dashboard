@@ -796,8 +796,16 @@ export default function Shorts3AIPanel() {
                   {String(cardJobId[idx] || "").trim() ? (
                   <button
                     type="button"
-                    className="ghost"
-                    style={{ marginTop: 8 }}
+                    style={{
+                      background: "#2563eb",
+                      color: "#fff",
+                      border: "none",
+                      padding: "6px 14px",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      marginTop: 8,
+                    }}
                     disabled={aiBusy}
                     onClick={async () => {
                       const jobId = String(cardJobId[idx] || "").trim();
@@ -852,6 +860,7 @@ export default function Shorts3AIPanel() {
                         marginTop: 8,
                         fontSize: 12,
                         whiteSpace: "pre-wrap",
+                        color: "#ef4444",
                       }}
                     >
                       {whisperByCard[idx].error}
@@ -887,13 +896,18 @@ export default function Shorts3AIPanel() {
                             <li key={si}>
                               <button
                                 type="button"
-                                className="ghost"
                                 style={{
                                   width: "100%",
                                   textAlign: "left",
                                   whiteSpace: "pre-wrap",
-                                  fontSize: 12,
                                   lineHeight: 1.45,
+                                  color: "#e2e8f0",
+                                  background: "#1e1e1e",
+                                  border: "1px solid #333",
+                                  padding: "4px 8px",
+                                  borderRadius: 4,
+                                  fontSize: 12,
+                                  cursor: "pointer",
                                 }}
                                 onClick={() => copyText(line)}
                               >
