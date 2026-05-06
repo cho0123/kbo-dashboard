@@ -12,6 +12,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+  [functions.kbo-api]
+    timeout = 300
+
 [[redirects]]
   from = "/api/kbo"
   to = "/.netlify/functions/kbo-api"
