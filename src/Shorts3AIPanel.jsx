@@ -166,6 +166,10 @@ export default function Shorts3AIPanel() {
     });
   }, [cards, fetchYoutubeSearch, targetDate]);
 
+  useEffect(() => {
+    console.log("[youtube] results:", cardYoutubeResults);
+  }, [cardYoutubeResults]);
+
   const samsungGames = useMemo(() => {
     return (Array.isArray(games) ? games : []).filter(
       (g) => g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성")
