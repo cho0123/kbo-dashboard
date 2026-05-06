@@ -326,7 +326,7 @@ function parseHhMmSsToSeconds(t, fracMs) {
   return base + clampSegmentFracMs(fracMs) / 100;
 }
 
-export default function Shorts3Panel() {
+export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed }) {
   const [segments, setSegments] = useState([emptySegment()]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -347,6 +347,32 @@ export default function Shorts3Panel() {
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
+
+  useEffect(() => {
+    if (!Array.isArray(pendingSegments) || pendingSegments.length < 1) return;
+    const newSegs = pendingSegments.map((seg) => {
+      const st = Number(seg?.start ?? 0);
+      const en = Number(seg?.end ?? 0);
+      const startSec = Number.isFinite(st) ? Math.max(0, st) : 0;
+      const endSec = Number.isFinite(en) ? Math.max(0, en) : 0;
+      const startWhole = Math.floor(startSec + 1e-9);
+      const endWhole = Math.floor(endSec + 1e-9);
+      const startMs = clampSegmentFracMs(
+        Math.round((startSec - startWhole) * 100)
+      );
+      const endMs = clampSegmentFracMs(Math.round((endSec - endWhole) * 100));
+      return {
+        ...emptySegment(),
+        start: secondsToHhMmSs(startWhole),
+        startMs,
+        end: secondsToHhMmSs(endWhole),
+        endMs,
+        text: String(seg?.text || "").slice(0, 20) || "",
+      };
+    });
+    setSegments((prev) => [...prev, ...newSegs]);
+    onPendingSegmentsUsed?.();
+  }, [pendingSegments, onPendingSegmentsUsed]);
   const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);

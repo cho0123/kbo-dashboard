@@ -3804,6 +3804,7 @@ export default function App() {
 
   const [tab, setTab] = useState("shorts");
   const [activeKey, setActiveKey] = useState("shorts_slides");
+  const [pendingSegments, setPendingSegments] = useState([]);
 
   /* --- Analysis --- */
   const [mvpDate, setMvpDate] = useState(today);
@@ -5610,11 +5611,19 @@ export default function App() {
                       pending={pending("predict_form_7")}
                     />
                   ) : activeKey === "shorts3_highlight" ? (
-                    <Shorts3Panel />
+                    <Shorts3Panel
+                      pendingSegments={pendingSegments}
+                      onPendingSegmentsUsed={() => setPendingSegments([])}
+                    />
                   ) : activeKey === "shorts3_thumbnail" ? (
                     <Shorts3ThumbnailPanel />
                   ) : activeKey === "shorts3_ai" ? (
-                    <Shorts3AIPanel />
+                    <Shorts3AIPanel
+                      onAddSegments={(segs) => {
+                        setPendingSegments(Array.isArray(segs) ? segs : []);
+                        setActiveKey("shorts3_highlight");
+                      }}
+                    />
                   ) : activeKey === "video_presets" ? (
                     <VideoPresetsPanel />
                   ) : activeKey === "music_library" ? (

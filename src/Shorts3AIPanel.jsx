@@ -114,7 +114,7 @@ function naverSearchQueryFromCard(title, gameFallback) {
     .trim();
 }
 
-export default function Shorts3AIPanel() {
+export default function Shorts3AIPanel({ onAddSegments }) {
   const [dateMode, setDateMode] = useState("today");
   const targetDate = dateMode === "today" ? seoulToday() : seoulYesterday();
   const [showAll, setShowAll] = useState(false);
@@ -135,6 +135,7 @@ export default function Shorts3AIPanel() {
   const [whisperByCard, setWhisperByCard] = useState({});
   const [cardYoutubeResults, setCardYoutubeResults] = useState({});
   const [cardYoutubeLoading, setCardYoutubeLoading] = useState({});
+  const [selectedTimestamps, setSelectedTimestamps] = useState({});
 
   const fileInputRefs = useMemo(
     () => Array.from({ length: cards.length }, () => createRef()),
@@ -876,6 +877,36 @@ export default function Shorts3AIPanel() {
                       >
                         구간 타임스탬프 (클릭 시 복사)
                       </div>
+                      {(() => {
+                        const segs = whisperByCard[idx]?.segments || [];
+                        const selectedCount = segs.reduce((acc, _seg, i) => {
+                          return acc + (selectedTimestamps[`${idx}-${i}`] ? 1 : 0);
+                        }, 0);
+                        if (selectedCount < 1) return null;
+                        return (
+                          <button
+                            type="button"
+                            style={{
+                              marginBottom: 8,
+                              background: "#0f172a",
+                              color: "#fff",
+                              border: "1px solid rgba(255,255,255,0.15)",
+                              padding: "6px 12px",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                              fontSize: 12,
+                            }}
+                            onClick={() => {
+                              const selected = segs.filter(
+                                (_s, i) => selectedTimestamps[`${idx}-${i}`]
+                              );
+                              onAddSegments?.(selected);
+                            }}
+                          >
+                            ✂️ 선택한 구간으로 편집 ({selectedCount}개)
+                          </button>
+                        );
+                      })()}
                       <ul
                         style={{
                           margin: 0,
@@ -894,11 +925,12 @@ export default function Shorts3AIPanel() {
                           const line = `[${formatTimestampSec(start)} – ${formatTimestampSec(end)}] ${String(seg?.text || "").trim()}`;
                           return (
                             <li key={si}>
-                              <button
-                                type="button"
+                              <label
                                 style={{
                                   width: "100%",
-                                  textAlign: "left",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
                                   whiteSpace: "pre-wrap",
                                   lineHeight: 1.45,
                                   color: "#e2e8f0",
@@ -908,11 +940,26 @@ export default function Shorts3AIPanel() {
                                   borderRadius: 4,
                                   fontSize: 12,
                                   cursor: "pointer",
+                                  userSelect: "none",
                                 }}
-                                onClick={() => copyText(line)}
                               >
-                                {line}
-                              </button>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedTimestamps[`${idx}-${si}`] || false}
+                                  onChange={(e) =>
+                                    setSelectedTimestamps((prev) => ({
+                                      ...prev,
+                                      [`${idx}-${si}`]: e.target.checked,
+                                    }))
+                                  }
+                                />
+                                <span
+                                  style={{ flex: 1, minWidth: 0 }}
+                                  onClick={() => copyText(line)}
+                                >
+                                  {line}
+                                </span>
+                              </label>
                             </li>
                           );
                         })}
