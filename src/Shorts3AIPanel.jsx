@@ -140,6 +140,7 @@ export default function Shorts3AIPanel() {
 
   const fetchYoutubeSearch = useCallback(async (cardIndex, card, selectedDate) => {
     if (!String(card?.title ?? "").trim()) return;
+    console.log("[debug] fetchYoutubeSearch called:", cardIndex, card?.title);
     setCardYoutubeLoading((prev) => ({ ...prev, [cardIndex]: true }));
     try {
       const res = await postKbo({
@@ -160,6 +161,11 @@ export default function Shorts3AIPanel() {
 
   useEffect(() => {
     if (!cards.length) return;
+    console.log(
+      "[debug] cards changed:",
+      cards.length,
+      cards.map((c) => c.title)
+    );
     cards.forEach((c, idx) => {
       if (!String(c.title || "").trim()) return;
       fetchYoutubeSearch(idx, c, targetDate);
