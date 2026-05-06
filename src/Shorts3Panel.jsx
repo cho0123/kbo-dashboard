@@ -61,6 +61,19 @@ const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
 
+const TEAM_LIST = [
+  { id: "삼성", name: "삼성 라이온즈" },
+  { id: "KIA", name: "KIA 타이거즈" },
+  { id: "LG", name: "LG 트윈스" },
+  { id: "두산", name: "두산 베어스" },
+  { id: "KT", name: "kt wiz" },
+  { id: "SSG", name: "SSG 랜더스" },
+  { id: "롯데", name: "롯데 자이언츠" },
+  { id: "한화", name: "한화 이글스" },
+  { id: "NC", name: "NC 다이노스" },
+  { id: "키움", name: "키움 히어로즈" },
+];
+
 const TEXT_COLORS = [
   "#FFFFFF",
   "#F5F0E8",
@@ -376,6 +389,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [selectedTeam, setSelectedTeam] = useState("삼성");
   /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
   const [previewPlayheadSec, setPreviewPlayheadSec] = useState(0);
 
@@ -1128,6 +1142,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       const payload = {
         action: "highlight_video_create",
         jobId,
+        team: selectedTeam,
         topText: topText.trim(),
         topTextColor,
         topTextSize: sizeClamp,
@@ -2363,27 +2378,47 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           </div>
 
           {/* 구간 추가 버튼 */}
-          <button
-            type="button"
-            onClick={addSegment}
-            disabled={busy || uploading}
-            style={{
-              background: "#4ade80",
-              color: "#000",
-              fontWeight: "bold",
-              padding: "6px 10px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 12,
-              alignSelf: "flex-start",
-              ...(busy || uploading
-                ? { opacity: 0.6, cursor: "not-allowed" }
-                : {}),
-            }}
-          >
-            + 구간 추가
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              style={{
+                padding: "3px 8px",
+                borderRadius: 6,
+                background: "#1e1e1e",
+                color: "#fff",
+                border: "1px solid #444",
+                fontSize: 12,
+              }}
+            >
+              {TEAM_LIST.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addSegment}
+              disabled={busy || uploading}
+              style={{
+                background: "#4ade80",
+                color: "#000",
+                fontWeight: "bold",
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                alignSelf: "flex-start",
+                ...(busy || uploading
+                  ? { opacity: 0.6, cursor: "not-allowed" }
+                  : {}),
+              }}
+            >
+              + 구간 추가
+            </button>
+          </div>
 
           {/* 총 구간 합계 + 원본 음소거 */}
           <div

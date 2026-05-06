@@ -482,6 +482,7 @@ function buildHighlightSegmentVf(opts) {
     cw,
     ih,
     cx,
+    borderColorPrimary,
     topTextFile,
     bottomTextFile,
     topFontSize,
@@ -501,6 +502,15 @@ function buildHighlightSegmentVf(opts) {
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
   ];
+  if (borderColorPrimary) {
+    const c = `${borderColorPrimary}@1`;
+    parts.push(
+      `drawbox=x=0:y=0:w=iw:h=10:color=${c}:t=fill`,
+      `drawbox=x=0:y=ih-10:w=iw:h=10:color=${c}:t=fill`,
+      `drawbox=x=0:y=0:w=10:h=ih:color=${c}:t=fill`,
+      `drawbox=x=iw-10:y=0:w=10:h=ih:color=${c}:t=fill`
+    );
+  }
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
 
@@ -527,6 +537,21 @@ function buildHighlightSegmentVf(opts) {
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   let segments = Array.isArray(meta.segments) ? [...meta.segments] : [];
   if (segments.length < 1) throw new Error("구간 없음");
+
+  const TEAM_COLORS = {
+    삼성: { primary: "#074CA1", secondary: "#C0C0C0" },
+    KIA: { primary: "#EA0029", secondary: "#05141F" },
+    LG: { primary: "#C30452", secondary: "#000000" },
+    두산: { primary: "#131230", secondary: "#D00F31" },
+    KT: { primary: "#000000", secondary: "#EB1F23" },
+    SSG: { primary: "#CE0E2D", secondary: "#FFB81C" },
+    롯데: { primary: "#002B5B", secondary: "#D00F31" },
+    한화: { primary: "#FF6600", secondary: "#000000" },
+    NC: { primary: "#071D36", secondary: "#BFA253" },
+    키움: { primary: "#570514", secondary: "#CBAB6D" },
+  };
+  const teamKey = String(meta?.team || "").trim();
+  const borderColorPrimary = TEAM_COLORS[teamKey]?.primary || null;
 
   const thumbRaw = meta.thumbnailTime;
   const thumbAt =
@@ -727,6 +752,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       cw,
       ih,
       cx,
+      borderColorPrimary,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
       topFontSize: topTextSize,
