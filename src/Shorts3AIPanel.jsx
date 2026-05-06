@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 
 function safeJsonStringify(obj, maxLen = 120000) {
@@ -102,6 +102,17 @@ function formatTimestampSec(sec) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+/** 카드 title(팀명·점수 등)에서 검색용 문자열을 만듭니다 */
+function naverSearchQueryFromCard(title, gameFallback) {
+  const raw = String(title || gameFallback || "").trim();
+  if (!raw) return "";
+  return raw
+    .replace(/\d+\s*[:-]\s*\d+/g, " ")
+    .replace(/\[경기\s*\d+\]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function Shorts3AIPanel() {
   const [dateMode, setDateMode] = useState("today");
   const targetDate = dateMode === "today" ? seoulToday() : seoulYesterday();
@@ -114,22 +125,12 @@ export default function Shorts3AIPanel() {
   const [aiRaw, setAiRaw] = useState("");
 
   const [cards, setCards] = useState([]);
-  const [savedFiles, setSavedFiles] = useState([]);
-  const [cardPreviews, setCardPreviews] = useState({});
-  /** 카드 인덱스 → 선택한 하이라이트 jobId */
+  const [cardUrl, setCardUrl] = useState({});
+  const [cardDownloading, setCardDownloading] = useState({});
   const [cardJobId, setCardJobId] = useState({});
+  const [cardDownloadError, setCardDownloadError] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
   const [whisperByCard, setWhisperByCard] = useState({});
-
-  useEffect(() => {
-    postKbo({ action: "highlight_list" })
-      .then((res) => {
-        setSavedFiles(Array.isArray(res?.items) ? res.items : []);
-      })
-      .catch(() => {
-        setSavedFiles([]);
-      });
-  }, []);
 
   const gamesData = useMemo(() => {
     // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
@@ -306,7 +307,12 @@ export default function Shorts3AIPanel() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {cards.map((c, idx) => (
+            {cards.map((c, idx) => {
+              const searchQuery = naverSearchQueryFromCard(c.title, c.game);
+              const naverUrl = searchQuery
+                ? `https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=${encodeURIComponent(searchQuery)}`
+                : `https://sports.naver.com/baseball/schedule/index`;
+              return (
               <div
                 key={`${c.game}_${idx}`}
                 style={{
@@ -388,65 +394,123 @@ export default function Shorts3AIPanel() {
                   >
                     영상 분석
                   </div>
-                  <select
+                  <a
+                    href={naverUrl}
+                    target="_blank"
+                    rel="noreferrer"
                     style={{
-                      width: "100%",
-                      marginTop: 6,
-                      padding: "4px",
-                      background: "#1e1e1e",
-                      color: "#aaa",
-                      border: "1px solid #444",
-                      borderRadius: 4,
+                      display: "inline-block",
+                      padding: "4px 10px",
+                      background: "#03C75A",
+                      color: "#fff",
+                      borderRadius: 6,
                       fontSize: 12,
+                      textDecoration: "none",
+                      marginBottom: 8,
                     }}
-                    value={cardJobId[idx] ?? ""}
-                    onChange={async (e) => {
-                      const jobId = e.target.value;
-                      setCardJobId((prev) => ({ ...prev, [idx]: jobId }));
-                      if (!jobId) {
-                        setCardPreviews((prev) => {
+                  >
+                    🔍 네이버 야구에서 찾기
+                  </a>
+
+                  <div
+                    style={{ display: "flex", gap: 6, marginTop: 6 }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="영상 URL 붙여넣기 (유튜브/네이버)"
+                      value={cardUrl[idx] || ""}
+                      onChange={(e) =>
+                        setCardUrl((prev) => ({
+                          ...prev,
+                          [idx]: e.target.value,
+                        }))
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "4px 8px",
+                        fontSize: 12,
+                        background: "#1e1e1e",
+                        color: "#fff",
+                        border: "1px solid #444",
+                        borderRadius: 4,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = cardUrl[idx];
+                        if (!url?.trim()) return;
+                        setCardDownloadError((prev) => {
                           const next = { ...prev };
                           delete next[idx];
                           return next;
                         });
-                        return;
-                      }
-                      try {
-                        const res = await postKbo({
-                          action: "highlight_preview",
-                          jobId,
-                        });
-                        const url = res?.previewUrl || res?.url;
-                        if (url) {
-                          setCardPreviews((prev) => ({ ...prev, [idx]: url }));
+                        setCardDownloading((prev) => ({
+                          ...prev,
+                          [idx]: true,
+                        }));
+                        try {
+                          const res = await postKbo({
+                            action: "highlight_upload_url_from_url",
+                            sourceUrl: url.trim(),
+                          });
+                          if (res?.jobId) {
+                            setCardJobId((prev) => ({
+                              ...prev,
+                              [idx]: res.jobId,
+                            }));
+                          }
+                        } catch (e) {
+                          setCardDownloadError((prev) => ({
+                            ...prev,
+                            [idx]:
+                              e instanceof Error
+                                ? e.message
+                                : String(e),
+                          }));
+                        } finally {
+                          setCardDownloading((prev) => ({
+                            ...prev,
+                            [idx]: false,
+                          }));
                         }
-                      } catch {
-                        // ignore
-                      }
-                    }}
-                  >
-                    <option value="">— 관련 영상 선택 —</option>
-                    {savedFiles.map((f) => (
-                      <option key={f.jobId} value={f.jobId}>
-                        {String(f.jobId || "").slice(0, 8)} ·{" "}
-                        {f.lastModified
-                          ? new Date(f.lastModified).toLocaleString("ko-KR", {
-                              timeZone: "Asia/Seoul",
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            })
-                          : "—"}
-                      </option>
-                    ))}
-                  </select>
+                      }}
+                      style={{
+                        padding: "4px 10px",
+                        background: "#2563eb",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cardDownloading[idx]
+                        ? "⏳ 다운로드 중..."
+                        : "⬇️ 다운로드"}
+                    </button>
+                  </div>
 
+                  {cardDownloadError[idx] ? (
+                    <pre
+                      className="result-error-light"
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {cardDownloadError[idx]}
+                    </pre>
+                  ) : null}
+
+                  {String(cardJobId[idx] || "").trim() ? (
                   <button
                     type="button"
                     className="ghost"
                     style={{ marginTop: 8 }}
-                    disabled={
-                      aiBusy || !String(cardJobId[idx] || "").trim()
-                    }
+                    disabled={aiBusy}
                     onClick={async () => {
                       const jobId = String(cardJobId[idx] || "").trim();
                       if (!jobId) return;
@@ -491,6 +555,7 @@ export default function Shorts3AIPanel() {
                       ? "음성 분석 중…"
                       : "🎙️ 음성 분석"}
                   </button>
+                  ) : null}
 
                   {whisperByCard[idx]?.error ? (
                     <pre
@@ -553,16 +618,10 @@ export default function Shorts3AIPanel() {
                     </div>
                   ) : null}
 
-                  {cardPreviews[idx] ? (
-                    <video
-                      src={cardPreviews[idx]}
-                      controls
-                      style={{ width: "100%", marginTop: 8, borderRadius: 6 }}
-                    />
-                  ) : null}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

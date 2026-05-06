@@ -43,6 +43,14 @@ function ffmpegBin() {
   return "ffmpeg";
 }
 
+function ytdlpBin() {
+  const bundled = "/var/task/bin/yt-dlp";
+  if (existsSync(bundled)) return bundled;
+  const local = join(__dirname, "bin", "yt-dlp");
+  if (existsSync(local)) return local;
+  return bundled;
+}
+
 function ffprobeBin() {
   const bundled = "/var/task/bin/ffprobe";
   if (existsSync(bundled)) return bundled;
@@ -1083,6 +1091,72 @@ async function runExtractAudio(bucket, jobId, workDir) {
   };
 }
 
+/** yt-dlp로 URL에서 받아 jobs/{jobId}/source.mp4 로 저장 */
+async function runDownloadUrl(bucket, jobId, workDir, sourceUrl) {
+  const trimmed = String(sourceUrl || "").trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) {
+    return { ok: false, error: "유효한 http(s) URL이 필요합니다." };
+  }
+  const bin = ytdlpBin();
+  if (!existsSync(bin)) {
+    return { ok: false, error: "yt-dlp 바이너리를 찾을 수 없습니다." };
+  }
+  const r = spawnSync(
+    bin,
+    [
+      "--no-playlist",
+      "--no-warnings",
+      "-f",
+      "bv*+ba/bestvideo+bestaudio/best/b",
+      "--merge-output-format",
+      "mp4",
+      "-o",
+      "source.%(ext)s",
+      trimmed,
+    ],
+    {
+      cwd: workDir,
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PATH: `/var/task/bin:/opt/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ""}`,
+      },
+    }
+  );
+  if (r.status !== 0) {
+    const errTail = (r.stderr || r.stdout || "").slice(-1200);
+    return {
+      ok: false,
+      error: `yt-dlp 실패 (exit ${r.status}): ${errTail}`,
+    };
+  }
+  const names = readdirSync(workDir).filter((n) => n.startsWith("source."));
+  if (!names.length) {
+    return { ok: false, error: "yt-dlp 후 출력 파일이 없습니다." };
+  }
+  const mp4Name = names.find((n) => n === "source.mp4") || names.find((n) => n.endsWith(".mp4"));
+  const picked = mp4Name || names[0];
+  const finalPath = join(workDir, "source.mp4");
+  if (picked === "source.mp4") {
+    // already target name
+  } else if (picked.endsWith(".mp4")) {
+    copyFileSync(join(workDir, picked), finalPath);
+  } else {
+    runFfmpeg(
+      ["-y", "-i", picked, "-c", "copy", "source.mp4"],
+      workDir,
+      "ytdlp_remux_mp4"
+    );
+  }
+  if (!existsSync(finalPath)) {
+    return { ok: false, error: "source.mp4 생성에 실패했습니다." };
+  }
+  const outputKey = `jobs/${jobId}/source.mp4`;
+  await putOutputMp4(bucket, outputKey, finalPath);
+  return { ok: true, jobId, outputKey };
+}
+
 function runFfmpeg(args, cwd, label) {
   const bin = ffmpegBin();
   const r = spawnSync(bin, args, {
@@ -1117,6 +1191,8 @@ export const handler = async (event) => {
     let meta;
     if (event.meta && event.meta.type === "extract_audio") {
       meta = event.meta;
+    } else if (event.meta && event.meta.type === "download_url") {
+      meta = event.meta;
     } else {
       await putStatus(bucket, jobId, { state: "processing", progress: 15 });
       meta = await getJson(bucket, metaKey);
@@ -1124,6 +1200,15 @@ export const handler = async (event) => {
 
     if (meta.type === "extract_audio") {
       return await runExtractAudio(bucket, jobId, workDir);
+    }
+
+    if (meta.type === "download_url") {
+      return await runDownloadUrl(
+        bucket,
+        jobId,
+        workDir,
+        String(meta.sourceUrl || "").trim()
+      );
     }
 
     if (meta.type === "thumbnail") {

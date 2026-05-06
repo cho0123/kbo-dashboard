@@ -2298,6 +2298,92 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "highlight_upload_url_from_url": {
+        const sourceUrl = String(payload.sourceUrl || "").trim();
+        if (!/^https?:\/\//i.test(sourceUrl)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "http(s) URL을 입력하세요.",
+            }),
+          };
+        }
+        const jobId = randomUUID();
+        try {
+          const { lambda, bucket, lambdaName } = videoEncodeAwsClients();
+          const invokeOut = await lambda.send(
+            new InvokeCommand({
+              FunctionName: lambdaName,
+              InvocationType: "RequestResponse",
+              Payload: Buffer.from(
+                JSON.stringify({
+                  bucket,
+                  jobId,
+                  meta: { type: "download_url", sourceUrl },
+                })
+              ),
+            })
+          );
+          const lamRaw = invokeOut.Payload
+            ? Buffer.from(invokeOut.Payload).toString("utf8")
+            : "";
+          let lamResult;
+          try {
+            lamResult = lamRaw ? JSON.parse(lamRaw) : {};
+          } catch {
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "Lambda 응답 JSON 파싱 실패",
+              }),
+            };
+          }
+          if (invokeOut.FunctionError) {
+            const msg =
+              lamResult?.errorMessage ||
+              lamResult?.error ||
+              lamRaw ||
+              "Lambda download_url 실패";
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: String(msg) }),
+            };
+          }
+          if (!lamResult?.ok || !lamResult?.jobId) {
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error:
+                  lamResult?.error ||
+                  "URL 다운로드(Lambda)에 실패했습니다.",
+              }),
+            };
+          }
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              jobId: lamResult.jobId,
+              outputKey: lamResult.outputKey,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "thumbnail_upload_url": {
         try {
           const { jobId } = payload;
