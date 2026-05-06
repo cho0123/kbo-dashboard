@@ -1878,6 +1878,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     // 쇼츠2(tomorrow_preview)와 동일한 필드명
     const home_starter = String(obj?.home_starter ?? obj?.homeStarter ?? "").trim();
     const away_starter = String(obj?.away_starter ?? obj?.awayStarter ?? "").trim();
+    const home_starter_era = Number(obj?.home_starter_era ?? obj?.homeStarterEra);
+    const away_starter_era = Number(obj?.away_starter_era ?? obj?.awayStarterEra);
     return {
       team,
       teamKey: tKey,
@@ -1889,6 +1891,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
       isHome,
       home_starter,
       away_starter,
+      home_starter_era: Number.isFinite(home_starter_era) ? home_starter_era : null,
+      away_starter_era: Number.isFinite(away_starter_era) ? away_starter_era : null,
       next_h2h: obj?.next_h2h ?? null,
     };
   };
@@ -2031,26 +2035,42 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
   const cx = w / 2;
+  const fmtEra = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(2) : "";
+  };
   const topTeamPitcher = cleanName(top.isHome ? top.home_starter : top.away_starter);
   const topOppPitcher = cleanName(top.isHome ? top.away_starter : top.home_starter);
-  const topPitcherText = `예상선발 : ${topTeamPitcher || "미정"} vs ${topOppPitcher || "미정"}`;
+  const topTeamEra = fmtEra(top.isHome ? top.home_starter_era : top.away_starter_era);
+  const topOppEra = fmtEra(top.isHome ? top.away_starter_era : top.home_starter_era);
+  const topTeamText = topTeamPitcher
+    ? topTeamEra
+      ? `${topTeamPitcher}(${topTeamEra})`
+      : topTeamPitcher
+    : "미정";
+  const topOppText = topOppPitcher
+    ? topOppEra
+      ? `${topOppPitcher}(${topOppEra})`
+      : topOppPitcher
+    : "미정";
+  const topPitcherText = `예상선발 : ${topTeamText} vs ${topOppText}`;
 
   // 예상선발 검은 라운드박스 강조 (박스 → 텍스트)
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.font = '700 26px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
+  ctx.font = '700 34px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "rgba(0,0,0,0.75)";
-  const topBoxW = ctx.measureText(topPitcherText).width + 40;
-  const topBoxH = 44;
+  const topBoxW = ctx.measureText(topPitcherText).width + 60;
+  const topBoxH = 56;
   const topBoxX = cx - topBoxW / 2;
-  const topBoxY = topInfoY - 30;
+  const topBoxY = topInfoY - 42;
   ctx.beginPath();
-  ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 14);
+  ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 18);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillText(topPitcherText, cx, topInfoY);
@@ -2102,24 +2122,36 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.shadowOffsetY = 1;
   const botTeamPitcher = cleanName(bot.isHome ? bot.home_starter : bot.away_starter);
   const botOppPitcher = cleanName(bot.isHome ? bot.away_starter : bot.home_starter);
-  const botPitcherText = `예상선발 : ${botTeamPitcher || "미정"} vs ${botOppPitcher || "미정"}`;
+  const botTeamEra = fmtEra(bot.isHome ? bot.home_starter_era : bot.away_starter_era);
+  const botOppEra = fmtEra(bot.isHome ? bot.away_starter_era : bot.home_starter_era);
+  const botTeamText = botTeamPitcher
+    ? botTeamEra
+      ? `${botTeamPitcher}(${botTeamEra})`
+      : botTeamPitcher
+    : "미정";
+  const botOppText = botOppPitcher
+    ? botOppEra
+      ? `${botOppPitcher}(${botOppEra})`
+      : botOppPitcher
+    : "미정";
+  const botPitcherText = `예상선발 : ${botTeamText} vs ${botOppText}`;
 
   // 예상선발 검은 라운드박스 강조 (박스 → 텍스트)
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.font = '700 26px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
+  ctx.font = '700 34px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "rgba(0,0,0,0.75)";
-  const botBoxW = ctx.measureText(botPitcherText).width + 40;
-  const botBoxH = 44;
+  const botBoxW = ctx.measureText(botPitcherText).width + 60;
+  const botBoxH = 56;
   const botBoxX = cx - botBoxW / 2;
-  const botBoxY = botInfoY - 30;
+  const botBoxY = botInfoY - 42;
   ctx.beginPath();
-  ctx.roundRect(botBoxX, botBoxY, botBoxW, botBoxH, 14);
+  ctx.roundRect(botBoxX, botBoxY, botBoxW, botBoxH, 18);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillText(botPitcherText, cx, botInfoY);
