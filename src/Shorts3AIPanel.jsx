@@ -116,6 +116,7 @@ function naverSearchQueryFromCard(title, gameFallback) {
 export default function Shorts3AIPanel() {
   const [dateMode, setDateMode] = useState("today");
   const targetDate = dateMode === "today" ? seoulToday() : seoulYesterday();
+  const [showAll, setShowAll] = useState(false);
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
   const [gamesError, setGamesError] = useState(null);
@@ -127,6 +128,9 @@ export default function Shorts3AIPanel() {
   const [cards, setCards] = useState([]);
   const [cardUrl, setCardUrl] = useState({});
   const [cardDownloading, setCardDownloading] = useState({});
+  const [cardDownloaded, setCardDownloaded] = useState({});
+  const [cardLocalPath, setCardLocalPath] = useState({});
+  const [cardUploading, setCardUploading] = useState({});
   const [cardJobId, setCardJobId] = useState({});
   const [cardDownloadError, setCardDownloadError] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
@@ -162,9 +166,17 @@ export default function Shorts3AIPanel() {
     });
   }, [cards, fetchYoutubeSearch, targetDate]);
 
+  const samsungGames = useMemo(() => {
+    return (Array.isArray(games) ? games : []).filter(
+      (g) => g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성")
+    );
+  }, [games]);
+
+  const targetGames = showAll ? games : samsungGames;
+
   const gamesData = useMemo(() => {
     // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
-    return (Array.isArray(games) ? games : []).map((g) => ({
+    return (Array.isArray(targetGames) ? targetGames : []).map((g) => ({
       game_id: g?.game_id || g?.gameId,
       home_team: g?.home_team,
       away_team: g?.away_team,
@@ -175,7 +187,7 @@ export default function Shorts3AIPanel() {
       losing_pitcher: g?.losing_pitcher,
       mvp_batters: g?.mvp_batters,
     }));
-  }, [games]);
+  }, [targetGames]);
 
   const loadGames = useCallback(async () => {
     setLoadingGames(true);
@@ -226,7 +238,12 @@ export default function Shorts3AIPanel() {
     setAiRaw("");
     setCards([]);
     const list = await loadGames();
-    const minimal = (Array.isArray(list) ? list : []).map((g) => ({
+    const filtered = showAll
+      ? list
+      : (Array.isArray(list) ? list : []).filter(
+          (g) => g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성")
+        );
+    const minimal = (Array.isArray(filtered) ? filtered : []).map((g) => ({
       game_id: g?.game_id || g?.gameId,
       home_team: g?.home_team,
       away_team: g?.away_team,
@@ -253,7 +270,7 @@ export default function Shorts3AIPanel() {
     } finally {
       setAiBusy(false);
     }
-  }, [loadGames]);
+  }, [loadGames, showAll]);
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -308,6 +325,23 @@ export default function Shorts3AIPanel() {
           onClick={runAiAnalysis}
         >
           {loadingGames || aiBusy ? "AI 분석 실행 중…" : "AI 분석 실행"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAll(!showAll)}
+          style={{
+            background: showAll ? "#ef4444" : "#374151",
+            color: "#fff",
+            border: "none",
+            padding: "4px 12px",
+            borderRadius: 6,
+            fontSize: 12,
+            cursor: "pointer",
+            opacity: loadingGames || aiBusy ? 0.7 : 1,
+          }}
+          disabled={loadingGames || aiBusy}
+        >
+          {showAll ? "삼성 경기만" : "모든 경기 분석"}
         </button>
       </div>
 
@@ -646,6 +680,12 @@ export default function Shorts3AIPanel() {
                           ...prev,
                           [idx]: true,
                         }));
+                        setCardDownloaded((prev) => ({ ...prev, [idx]: false }));
+                        setCardLocalPath((prev) => {
+                          const next = { ...prev };
+                          delete next[idx];
+                          return next;
+                        });
                         try {
                           const localRes = await fetch(
                             "http://localhost:3838/download",
@@ -662,11 +702,14 @@ export default function Shorts3AIPanel() {
                                 `로컬 서버 오류 (HTTP ${localRes.status})`
                             );
                           }
-                          if (localData?.jobId) {
-                            setCardJobId((prev) => ({
+                          if (localData?.localPath) {
+                            setCardDownloaded((prev) => ({ ...prev, [idx]: true }));
+                            setCardLocalPath((prev) => ({
                               ...prev,
-                              [idx]: localData.jobId,
+                              [idx]: localData.localPath,
                             }));
+                          } else {
+                            throw new Error("로컬 다운로드 결과(localPath)가 없습니다.");
                           }
                         } catch (e) {
                           const msg = e instanceof Error ? e.message : String(e);
@@ -702,6 +745,66 @@ export default function Shorts3AIPanel() {
                         : "⬇️ 다운로드"}
                     </button>
                   </div>
+
+                  {cardDownloaded[idx] ? (
+                    <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                      ✅ 다운로드 완료
+                    </div>
+                  ) : null}
+
+                  {cardDownloaded[idx] && String(cardJobId[idx] || "").trim() === "" ? (
+                    <button
+                      type="button"
+                      style={{
+                        marginTop: 8,
+                        padding: "4px 10px",
+                        background: "#111827",
+                        color: "#fff",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        opacity: cardUploading[idx] ? 0.7 : 1,
+                      }}
+                      disabled={cardUploading[idx] || !cardLocalPath[idx]}
+                      onClick={async () => {
+                        const localPath = String(cardLocalPath[idx] || "").trim();
+                        if (!localPath) return;
+                        setCardUploading((prev) => ({ ...prev, [idx]: true }));
+                        try {
+                          const upRes = await fetch("http://localhost:3838/upload", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ localPath }),
+                          });
+                          const upData = await upRes.json();
+                          if (!upRes.ok || upData?.ok === false) {
+                            throw new Error(
+                              upData?.error || `로컬 업로드 오류 (HTTP ${upRes.status})`
+                            );
+                          }
+                          if (upData?.jobId) {
+                            setCardJobId((prev) => ({ ...prev, [idx]: upData.jobId }));
+                          }
+                        } catch (e) {
+                          const msg = e instanceof Error ? e.message : String(e);
+                          setCardDownloadError((prev) => ({
+                            ...prev,
+                            [idx]:
+                              /fetch/i.test(msg) ||
+                              /ECONNREFUSED/i.test(msg) ||
+                              /Failed to fetch/i.test(msg)
+                                ? "로컬 서버가 켜져있지 않습니다. 서버시작.bat을 실행해주세요."
+                                : msg,
+                          }));
+                        } finally {
+                          setCardUploading((prev) => ({ ...prev, [idx]: false }));
+                        }
+                      }}
+                    >
+                      {cardUploading[idx] ? "☁️ 업로드 중..." : "☁️ S3 업로드"}
+                    </button>
+                  ) : null}
 
                   {cardDownloadError[idx] ? (
                     <pre

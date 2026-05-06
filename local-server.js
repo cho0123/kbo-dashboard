@@ -7,7 +7,7 @@ import {
   readFileSync,
   statSync,
 } from "fs";
-import { basename, dirname, join } from "path";
+import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import express from "express";
@@ -193,41 +193,52 @@ app.post("/download", (req, res) => {
       );
     }
 
-    (async () => {
-      try {
-        const jobId = randomUUID();
-        const { s3, bucket } = videoEncodeAwsClients();
-        const key = `jobs/${jobId}/source.mp4`;
-        const bodyBuf = readFileSync(filePath);
-        await s3.send(
-          new PutObjectCommand({
-            Bucket: bucket,
-            Key: key,
-            Body: bodyBuf,
-            ContentType: "video/mp4",
-          })
-        );
-        sendOnce(() =>
-          res.json({
-            ok: true,
-            jobId,
-            bucket,
-            key,
-            fileName,
-            outputDir: safeSub,
-          })
-        );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        sendOnce(() =>
-          res.status(500).json({
-            ok: false,
-            error: `S3 업로드 실패: ${msg}`,
-          })
-        );
-      }
-    })();
+    sendOnce(() =>
+      res.json({
+        ok: true,
+        fileName,
+        outputDir: safeSub,
+        localPath: filePath,
+      })
+    );
   });
+});
+
+app.post("/upload", async (req, res) => {
+  const body = req.body || {};
+  const localPath = typeof body.localPath === "string" ? body.localPath : "";
+  if (!localPath) {
+    return res.status(400).json({ ok: false, error: "localPath가 필요합니다." });
+  }
+
+  // 안전: downloads/ 하위만 업로드 허용
+  const downloadsRoot = resolve(join(__dirname, "downloads")) + "\\";
+  const resolved = resolve(localPath);
+  if (!resolved.startsWith(downloadsRoot) || !existsSync(resolved)) {
+    return res.status(400).json({
+      ok: false,
+      error: "허용되지 않은 경로이거나 파일이 없습니다.",
+    });
+  }
+
+  try {
+    const jobId = randomUUID();
+    const { s3, bucket } = videoEncodeAwsClients();
+    const key = `jobs/${jobId}/source.mp4`;
+    const bodyBuf = readFileSync(resolved);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: bodyBuf,
+        ContentType: "video/mp4",
+      })
+    );
+    return res.json({ ok: true, jobId, bucket, key });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: `S3 업로드 실패: ${msg}` });
+  }
 });
 
 app.listen(PORT, () => {
