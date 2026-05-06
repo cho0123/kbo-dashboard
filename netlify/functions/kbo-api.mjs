@@ -2438,13 +2438,16 @@ ${JSON.stringify(games, null, 2)}`;
           const results = [];
           const seen = new Set();
           for (const fmt of dateFormats) {
-            const qFull = `${query} ${fmt} 하이라이트`;
+            const searchQuery = `${query} ${fmt} 하이라이트`;
             const searchUrl =
               `https://www.googleapis.com/youtube/v3/search?` +
-              `part=snippet&q=${encodeURIComponent(qFull)}&` +
+              `part=snippet&q=${encodeURIComponent(searchQuery)}&` +
               `type=video&maxResults=5&order=relevance&` +
               `publishedAfter=${encodeURIComponent(yearStart)}&` +
               `key=${encodeURIComponent(apiKey)}`;
+
+            console.log("[youtube] searchUrl:", searchUrl);
+            console.log("[youtube] query:", searchQuery);
 
             const res = await fetch(searchUrl);
             const data = await res.json();
