@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createRef, useCallback, useEffect, useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 
 function safeJsonStringify(obj, maxLen = 120000) {
@@ -128,16 +128,17 @@ export default function Shorts3AIPanel() {
 
   const [cards, setCards] = useState([]);
   const [cardUrl, setCardUrl] = useState({});
-  const [cardDownloading, setCardDownloading] = useState({});
-  const [cardDownloaded, setCardDownloaded] = useState({});
-  const [cardLocalPath, setCardLocalPath] = useState({});
   const [cardUploading, setCardUploading] = useState({});
   const [cardJobId, setCardJobId] = useState({});
-  const [cardDownloadError, setCardDownloadError] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
   const [whisperByCard, setWhisperByCard] = useState({});
   const [cardYoutubeResults, setCardYoutubeResults] = useState({});
   const [cardYoutubeLoading, setCardYoutubeLoading] = useState({});
+
+  const fileInputRefs = useMemo(
+    () => Array.from({ length: cards.length }, () => createRef()),
+    [cards.length]
+  );
 
   const fetchYoutubeSearch = useCallback(async (cardIndex, card, selectedDate) => {
     if (!String(card?.title ?? "").trim()) return;
@@ -696,72 +697,13 @@ export default function Shorts3AIPanel() {
                       onClick={async () => {
                         const url = cardUrl[idx];
                         if (!url?.trim()) return;
-                        setCardDownloadError((prev) => {
-                          const next = { ...prev };
-                          delete next[idx];
-                          return next;
-                        });
-                        setCardDownloading((prev) => ({
-                          ...prev,
-                          [idx]: true,
-                        }));
-                        setCardDownloaded((prev) => ({ ...prev, [idx]: false }));
-                        setCardLocalPath((prev) => {
-                          const next = { ...prev };
-                          delete next[idx];
-                          return next;
-                        });
                         try {
-                          const localRes = await fetch(
-                            "http://localhost:3838/download",
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ url: url.trim() }),
-                            }
-                          );
-                          const localData = await localRes.json();
-                          console.log(
-                            "[download] response:",
-                            JSON.stringify(localData)
-                          );
-                          if (!localRes.ok || localData?.ok === false) {
-                            throw new Error(
-                              localData?.error ||
-                                `로컬 서버 오류 (HTTP ${localRes.status})`
-                            );
-                          }
-                          const localPath =
-                            localData?.localPath ||
-                            (localData?.fileName
-                              ? `E:\\짱구코딩작업\\유튜브_컨텐츠관련\\kbo_project\\kbo-dashboard\\${localData.outputDir}\\${localData.fileName}`
-                              : null);
-                          if (localPath) {
-                            setCardDownloaded((prev) => ({ ...prev, [idx]: true }));
-                            setCardLocalPath((prev) => ({
-                              ...prev,
-                              [idx]: localPath,
-                            }));
-                          } else {
-                            throw new Error("로컬 다운로드 결과가 없습니다.");
-                          }
-                        } catch (e) {
-                          const msg = e instanceof Error ? e.message : String(e);
-                          setCardDownloadError((prev) => ({
-                            ...prev,
-                            [idx]:
-                              /fetch/i.test(msg) ||
-                              /ECONNREFUSED/i.test(msg) ||
-                              /Failed to fetch/i.test(msg)
-                                ? "로컬 서버가 켜져있지 않습니다. 서버시작.bat을 실행해주세요."
-                                : msg,
-                          }));
-                        } finally {
-                          setCardDownloading((prev) => ({
-                            ...prev,
-                            [idx]: false,
-                          }));
-                        }
+                          await fetch("http://localhost:3838/download", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ url: url.trim() }),
+                          });
+                        } catch {}
                       }}
                       style={{
                         padding: "4px 10px",
@@ -774,84 +716,63 @@ export default function Shorts3AIPanel() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {cardDownloading[idx]
-                        ? "⏳ 다운로드 중..."
-                        : "⬇️ 다운로드"}
+                      ⬇️ 다운로드
                     </button>
-                  </div>
 
-                  {cardDownloaded[idx] ? (
-                    <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                      ✅ 다운로드 완료
-                    </div>
-                  ) : null}
+                    <input
+                      type="file"
+                      accept=".mp4,.mov,.avi"
+                      style={{ display: "none" }}
+                      ref={fileInputRefs[idx]}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
 
-                  {cardDownloaded[idx] && String(cardJobId[idx] || "").trim() === "" ? (
-                    <button
-                      type="button"
-                      style={{
-                        marginTop: 8,
-                        padding: "4px 10px",
-                        background: "#111827",
-                        color: "#fff",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        borderRadius: 6,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        opacity: cardUploading[idx] ? 0.7 : 1,
-                      }}
-                      disabled={cardUploading[idx] || !cardLocalPath[idx]}
-                      onClick={async () => {
-                        const localPath = String(cardLocalPath[idx] || "").trim();
-                        if (!localPath) return;
                         setCardUploading((prev) => ({ ...prev, [idx]: true }));
                         try {
-                          const upRes = await fetch("http://localhost:3838/upload", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ localPath }),
+                          const prep = await postKbo({ action: "highlight_upload" });
+                          const putUrl = prep?.presignedPutUrl;
+                          const jobId = prep?.jobId;
+                          if (!putUrl || !jobId) {
+                            throw new Error("highlight_upload 응답 오류");
+                          }
+
+                          const putRes = await fetch(putUrl, {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type":
+                                String(file.type || "").trim() || "application/octet-stream",
+                            },
+                            body: file,
                           });
-                          const upData = await upRes.json();
-                          if (!upRes.ok || upData?.ok === false) {
-                            throw new Error(
-                              upData?.error || `로컬 업로드 오류 (HTTP ${upRes.status})`
-                            );
-                          }
-                          if (upData?.jobId) {
-                            setCardJobId((prev) => ({ ...prev, [idx]: upData.jobId }));
-                          }
-                        } catch (e) {
-                          const msg = e instanceof Error ? e.message : String(e);
-                          setCardDownloadError((prev) => ({
-                            ...prev,
-                            [idx]:
-                              /fetch/i.test(msg) ||
-                              /ECONNREFUSED/i.test(msg) ||
-                              /Failed to fetch/i.test(msg)
-                                ? "로컬 서버가 켜져있지 않습니다. 서버시작.bat을 실행해주세요."
-                                : msg,
-                          }));
+                          if (!putRes.ok) throw new Error(`S3 업로드 실패 (HTTP ${putRes.status})`);
+
+                          setCardJobId((prev) => ({ ...prev, [idx]: jobId }));
                         } finally {
                           setCardUploading((prev) => ({ ...prev, [idx]: false }));
                         }
                       }}
-                    >
-                      {cardUploading[idx] ? "☁️ 업로드 중..." : "☁️ S3 업로드"}
-                    </button>
-                  ) : null}
-
-                  {cardDownloadError[idx] ? (
-                    <pre
-                      className="result-error-light"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRefs[idx]?.current?.click()}
                       style={{
-                        marginTop: 6,
+                        padding: "4px 10px",
+                        background: "#111827",
+                        color: "#fff",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: 4,
                         fontSize: 12,
-                        whiteSpace: "pre-wrap",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        opacity: cardUploading[idx] ? 0.7 : 1,
                       }}
+                      disabled={cardUploading[idx]}
                     >
-                      {cardDownloadError[idx]}
-                    </pre>
-                  ) : null}
+                      📁 파일 선택
+                    </button>
+                  </div>
 
                   {String(cardJobId[idx] || "").trim() ? (
                   <button
