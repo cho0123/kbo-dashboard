@@ -167,9 +167,12 @@ export default function Shorts3AIPanel() {
       cards.length,
       cards.map((c) => c.title)
     );
+    console.log("[debug] youtube search dispatch count:", cards.length);
     cards.forEach((c, idx) => {
-      if (!String(c.title || "").trim()) return;
-      fetchYoutubeSearch(idx, c, targetDate);
+      const title = String(c.title || c.game || "").trim();
+      if (!title) return;
+      // title이 비어있는 카드가 있어도 검색은 최대한 수행
+      fetchYoutubeSearch(idx, { ...c, title }, targetDate);
     });
   }, [cards, fetchYoutubeSearch, targetDate]);
 
