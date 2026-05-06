@@ -899,6 +899,15 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
     5: "#FFD700", // Fri - 유지
     6: "#FF6B00", // Sat - 유지
   };
+  const KBO_COLORS = {
+    0: "#FF4081", // 일 - 핑크
+    1: "#00E5FF", // 월 - 시안
+    2: "#00E5FF", // 화 - 시안
+    3: "#00E676", // 수 - 라임그린
+    4: "#FFD700", // 목 - 골드
+    5: "#FF4081", // 금 - 핑크
+    6: "#69FF47", // 토 - 라임
+  };
   const iso = String(date || "").slice(0, 10);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
   ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
@@ -914,7 +923,8 @@ function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGam
   ctx.shadowOffsetY = 0;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = KBO_COLORS[day] || "#FF4081";
   const kboText = "KBO";
   let kboSize = 520;
   ctx.font = `italic 900 ${kboSize}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
