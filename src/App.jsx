@@ -1173,11 +1173,6 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   // 1080x1920 layout
   const homeTeam = String(g?.home_team || "").trim();
   const awayTeam = String(g?.away_team || "").trim();
-  const mainTeamRaw = String(g?.mainTeam || g?.main_team || "").trim();
-  const mainTeam = mainTeamRaw || homeTeam || awayTeam;
-  const mainIsHome =
-    teamKeyword(mainTeam) && teamKeyword(mainTeam) === teamKeyword(homeTeam);
-  const opponentTeam = mainIsHome ? awayTeam : homeTeam;
 
   ctx.clearRect(0, 0, w, h);
   // Background: home(top) / away(bottom) diagonal split + baseball watermark
@@ -1273,7 +1268,18 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
   ctx.stroke();
   ctx.restore();
 
-  // --- Bottom info cards ---
+  // Venue below divider (right aligned)
+  ctx.save();
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(venueText || "—", w - 80, 750 + 50);
+  resetShadow(ctx);
+  ctx.restore();
+
+  // --- Bottom text block (y: 65% of 1920 = 1248) ---
   const head = g?.head_to_head || null;
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
@@ -1285,67 +1291,135 @@ function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIn
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
-  const probableHome = String(g?.probable_pitcher_home || "").trim();
-  const probableAway = String(g?.probable_pitcher_away || "").trim();
-  const mainPitcher = mainIsHome ? probableHome || hsp : probableAway || asp;
-  const oppPitcher = mainIsHome ? probableAway || asp : probableHome || hsp;
+  const aEraNum = Number(g?.away_starter_era);
+  const hEraNum = Number(g?.home_starter_era);
+  const aEra = Number.isFinite(aEraNum) ? aEraNum.toFixed(2) : null;
+  const hEra = Number.isFinite(hEraNum) ? hEraNum.toFixed(2) : null;
+  const aspText = aEra ? `${asp}(${aEra})` : asp;
+  const hspText = hEra ? `${hsp}(${hEra})` : hsp;
+  const spText = `예상선발 : ${aspText} vs ${hspText}`;
 
-  const CARD_SHIFT_Y = -150;
+  const fmtWdl = (rec) => {
+    const wv = Number.isFinite(Number(rec?.win)) ? Number(rec.win) : 0;
+    const dv = Number.isFinite(Number(rec?.draw)) ? Number(rec.draw) : 0;
+    const lv = Number.isFinite(Number(rec?.lose)) ? Number(rec.lose) : 0;
+    return `${wv}승 ${dv}무 ${lv}패`;
+  };
+  const homeLast5 = Array.isArray(g?.home_last5) ? g.home_last5.filter(Boolean).slice(0, 5) : [];
+  const awayLast5 = Array.isArray(g?.away_last5) ? g.away_last5.filter(Boolean).slice(0, 5) : [];
+  // Display order: past -> recent (5 games ago -> 1 game ago)
+  const homeLast5Disp = [...homeLast5].reverse();
+  const awayLast5Disp = [...awayLast5].reverse();
+  const homeRecText = `${homeTeam || "홈팀"}(홈경기) : ${fmtWdl(g?.home_record)}`;
+  const awayRecText = `${awayTeam || "원정팀"}(원정경기) : ${fmtWdl(g?.away_record)}`;
+  const homeLast5Text = `${homeTeam || "홈팀"} : ${homeLast5Disp.length ? homeLast5Disp.join("") : "—"}`;
+  const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5Disp.length ? awayLast5Disp.join("") : "—"}`;
+  const last5Line = `${homeLast5Text}  |  ${awayLast5Text}`;
+
+  // Starter highlight box: auto background based on away team color (TEAM_GRAD second color)
+  const avgRgbFromHex = (hex) => {
+    const h = String(hex || "").trim().replace("#", "");
+    if (h.length !== 6) return null;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (![r, g, b].every((n) => Number.isFinite(n))) return null;
+    return (r + g + b) / 3;
+  };
+  const awayHex2 = teamGrad(awayTeam)?.[1] || "";
+  const awayAvg = avgRgbFromHex(awayHex2);
+  const isAwayBgBright = typeof awayAvg === "number" ? awayAvg >= 128 : false;
+  const starterBoxBg = isAwayBgBright ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.15)";
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#ffffff";
+  // Match rank font size (45px)
+  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
   const x0 = 80;
-  const lineGap = 70;
-  let y0 = 1198 + CARD_SHIFT_Y;
+  const lineGap = 95;
+  let y0 = 1198;
 
-  const drawInfoBox = (text, x, yBaseline) => {
+  // Bottom text shadow: same as drawGameSlide bottom block
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // Page-wise progressive disclosure (1..5)
+  const baseFont = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
+
+  // 1) 예상선발
+  if (pageIndex >= 1) {
+    const spLine = `- ${spText}`;
+
+    const padX = 36; // 2x horizontal padding vs previous 18
+    const padY = Math.round(14 * 1.5); // 1.5x vertical padding (was 14)
+    const r = 26; // rounder corners (was 18)
+    const maxFontSize = 50;
+    const minFontSize = 46; // 다른 항목과 동일, 이보다 작아지지 않게
+    const maxTextW = w - 64 - x0; // keep right safe margin similar to other blocks
+    let spSize = maxFontSize;
+    ctx.font = `900 ${spSize}px "${FONT_BODY}", system-ui, sans-serif`;
+    while (spSize > minFontSize && ctx.measureText(spLine).width > maxTextW) {
+      spSize -= 1;
+      ctx.font = `900 ${spSize}px "${FONT_BODY}", system-ui, sans-serif`;
+    }
+    const tw = ctx.measureText(spLine).width;
+    const boxX = x0 - padX;
+    const boxY = y0 - spSize + 6 - padY; // approx baseline-to-top for spSize
+    const boxW = tw + padX * 2;
+    const boxH = spSize + padY * 2;
+
     ctx.save();
-    ctx.font = `700 22px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
-
-    const tw = ctx.measureText(text).width;
-    const fs = 22;
     ctx.beginPath();
-    ctx.roundRect(
-      x - 16,
-      yBaseline - fs + 6 - 6,
-      tw + 16 * 2,
-      fs + 6 * 2,
-      12
-    );
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.roundRect(boxX, boxY, boxW, boxH, r);
+    ctx.fillStyle = starterBoxBg;
     ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
 
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 6;
+    // restore bottom shadow for text readability
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 1;
     ctx.shadowOffsetY = 1;
-    ctx.fillStyle = "#fff";
-    ctx.fillText(text, x, yBaseline);
-    ctx.restore();
-  };
-
-  // 1. 예상선발 (mainTeam 기준)
-  if (pageIndex >= 1) {
-    drawInfoBox(
-      `${mainTeam || "—"} 선발  ${mainPitcher || "미정"} vs ${opponentTeam || "—"} 선발  ${oppPitcher || "미정"}`,
-      x0,
-      y0
-    );
+    ctx.fillStyle = "#FFE87C";
+    ctx.fillText(spLine, x0, y0);
+    ctx.fillStyle = "#ffffff";
   }
 
-  // 2. 구장
+  // 2) 상대전적
   if (pageIndex >= 2) {
     y0 += lineGap;
-    drawInfoBox(`구장  ${venueText || "—"}`, x0, y0);
+    ctx.font = baseFont;
+    ctx.fillText(`- ${h2hText}`, x0, y0);
   }
 
-  // 3. 시즌 상대전적
+  // 3) 홈 성적
   if (pageIndex >= 3) {
     y0 += lineGap;
-    drawInfoBox(h2hText, x0, y0);
+    ctx.font = baseFont;
+    ctx.fillText(`- ${homeRecText}`, x0, y0);
+  }
+  if (pageIndex >= 4) {
+    y0 += lineGap;
+    ctx.font = baseFont;
+    ctx.fillText(`- ${awayRecText}`, x0, y0);
+  }
+  if (pageIndex >= 5) {
+    y0 += lineGap;
+    ctx.font = baseFont;
+    ctx.fillText(`- 최근 5경기 결과`, x0, y0);
+    y0 += lineGap;
+    ctx.font = baseFont;
+    ctx.fillText(`  ${last5Line}`, x0, y0);
   }
 
   // reset shadow for other drawing
@@ -1807,6 +1881,9 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
       dateIso,
       time,
       venue,
+      isHome,
+      probable_pitcher_home: String(obj?.probable_pitcher_home || "").trim(),
+      probable_pitcher_away: String(obj?.probable_pitcher_away || "").trim(),
       next_h2h: obj?.next_h2h ?? null,
     };
   };
@@ -1911,11 +1988,11 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const topOppY = topMainY + Math.round((mainLogoH - oppLogoH) / 2);
 
   // 하단(원정팀): 캔버스 하단에서 300px 위 근처로 정보까지 포함해 배치
-  // info2(상대전적) baseline이 (h - 300) 근처가 되도록 역산
+  // info3(상대전적) baseline이 (h - 300) 근처가 되도록 역산
   const bottomInfo2YTarget = h - 300;
   const botMainY = Math.max(
     DIVIDER_Y + 120,
-    bottomInfo2YTarget - (mainLogoH + 70 + 70)
+    bottomInfo2YTarget - (mainLogoH + 70 + 70 + 70)
   );
   const botOppY = botMainY + Math.round((mainLogoH - oppLogoH) / 2);
   const topTeamImg = logosByTeamKey?.[top.teamKey] || null;
@@ -1949,12 +2026,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY);
+  const topTeamPitcher = cleanName(
+    top.isHome ? top.probable_pitcher_home : top.probable_pitcher_away
+  );
+  const topOppPitcher = cleanName(
+    top.isHome ? top.probable_pitcher_away : top.probable_pitcher_home
+  );
+  ctx.fillText(
+    `예상선발 : ${topTeamPitcher || "미정"} vs ${topOppPitcher || "미정"}`,
+    w / 2,
+    topInfoY
+  );
+  ctx.fillText(`${venueFullName(top.venue)}`, w / 2, topInfoY + 70);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const topH2h = top?.next_h2h
     ? `시즌 상대전적 : ${Number(top.next_h2h.win ?? 0) || 0}승 ${Number(top.next_h2h.draw ?? 0) || 0}무 ${Number(top.next_h2h.lose ?? 0) || 0}패`
     : `시즌 상대전적 : 데이터 없음`;
-  ctx.fillText(topH2h, w / 2, topInfoY + 70);
+  ctx.fillText(topH2h, w / 2, topInfoY + 140);
   // 그림자 초기화
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
@@ -1993,12 +2081,23 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
   ctx.font = `800 52px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY);
+  const botTeamPitcher = cleanName(
+    bot.isHome ? bot.probable_pitcher_home : bot.probable_pitcher_away
+  );
+  const botOppPitcher = cleanName(
+    bot.isHome ? bot.probable_pitcher_away : bot.probable_pitcher_home
+  );
+  ctx.fillText(
+    `예상선발 : ${botTeamPitcher || "미정"} vs ${botOppPitcher || "미정"}`,
+    w / 2,
+    botInfoY
+  );
+  ctx.fillText(`${venueFullName(bot.venue)}`, w / 2, botInfoY + 70);
   ctx.font = `700 48px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
   const botH2h = bot?.next_h2h
     ? `시즌 상대전적 : ${Number(bot.next_h2h.win ?? 0) || 0}승 ${Number(bot.next_h2h.draw ?? 0) || 0}무 ${Number(bot.next_h2h.lose ?? 0) || 0}패`
     : `시즌 상대전적 : 데이터 없음`;
-  ctx.fillText(botH2h, w / 2, botInfoY + 70);
+  ctx.fillText(botH2h, w / 2, botInfoY + 140);
   // 그림자 초기화
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
