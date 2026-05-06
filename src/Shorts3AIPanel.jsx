@@ -39,8 +39,8 @@ function parseClaudeBlocks(text) {
   };
 
   return blocks.map((b) => {
-    const titleMatch = b.match(/##\s*\[경기\s*\d+\]\s*(.+)/);
-    const title = titleMatch ? String(titleMatch[1] || "").trim() : "";
+    const titleMatch = b.match(/##\s*\[경기\s*\d+\]\s*(.*)/);
+    const titleRaw = titleMatch ? String(titleMatch[1] || "").trim() : "";
     const header = (b.match(/^##\s*(\[경기\s*\d+\].*)$/m) || [])[1] || "";
     const gameLine = pickLineAfterHeader(b);
     const hot = (b.match(/\*\*핫이슈:\*\*\s*(.+)$/m) || [])[1] || "";
@@ -48,6 +48,7 @@ function parseClaudeBlocks(text) {
       (b.match(/\*\*하이라이트\s*텍스트:\*\*\s*(.+)$/m) || [])[1] || "";
     const th =
       (b.match(/\*\*썸네일\s*텍스트:\*\*\s*(.+)$/m) || [])[1] || "";
+    const title = titleRaw || String(gameLine || header || "").trim();
     return {
       title,
       game: (gameLine || header).trim(),
@@ -235,6 +236,10 @@ export default function Shorts3AIPanel() {
       const text = String(res?.text || "");
       setAiRaw(text);
       const parsed = parseClaudeBlocks(text);
+      console.log(
+        "[debug] parsed cards:",
+        JSON.stringify(parsed.map((c) => ({ title: c.title, hotIssue: c.hot })))
+      );
       setCards(parsed);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : String(e));
@@ -274,6 +279,10 @@ export default function Shorts3AIPanel() {
       const text = String(res?.text || "");
       setAiRaw(text);
       const parsed = parseClaudeBlocks(text);
+      console.log(
+        "[debug] parsed cards:",
+        JSON.stringify(parsed.map((c) => ({ title: c.title, hotIssue: c.hot })))
+      );
       setCards(parsed);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : String(e));
