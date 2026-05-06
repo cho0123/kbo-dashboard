@@ -1878,8 +1878,20 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
     // 쇼츠2(tomorrow_preview)와 동일한 필드명
     const home_starter = String(obj?.home_starter ?? obj?.homeStarter ?? "").trim();
     const away_starter = String(obj?.away_starter ?? obj?.awayStarter ?? "").trim();
-    const home_starter_era = Number(obj?.home_starter_era ?? obj?.homeStarterEra);
-    const away_starter_era = Number(obj?.away_starter_era ?? obj?.awayStarterEra);
+    // ERA 필드명은 쇼츠2(tomorrow_preview)와 동일하게 home_starter_era/away_starter_era 우선
+    // (데이터 소스에 따라 다른 이름이 섞일 수 있어 호환용 후보도 같이 체크)
+    const home_starter_era = Number(
+      obj?.home_starter_era ??
+        obj?.homeStarterEra ??
+        obj?.probable_pitcher_home_era ??
+        obj?.probablePitcherHomeEra
+    );
+    const away_starter_era = Number(
+      obj?.away_starter_era ??
+        obj?.awayStarterEra ??
+        obj?.probable_pitcher_away_era ??
+        obj?.probablePitcherAwayEra
+    );
     return {
       team,
       teamKey: tKey,
@@ -2059,18 +2071,18 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.font = '700 34px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
+  ctx.font = '700 42px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "rgba(0,0,0,0.75)";
-  const topBoxW = ctx.measureText(topPitcherText).width + 60;
-  const topBoxH = 56;
+  const topBoxW = ctx.measureText(topPitcherText).width + 80;
+  const topBoxH = 70;
   const topBoxX = cx - topBoxW / 2;
-  const topBoxY = topInfoY - 42;
+  const topBoxY = topInfoY - 52;
   ctx.beginPath();
-  ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 18);
+  ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 20);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillText(topPitcherText, cx, topInfoY);
@@ -2140,18 +2152,18 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.font = '700 34px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
+  ctx.font = '700 42px "Gmarket Sans", "Gmarket Sans", system-ui, sans-serif';
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = "rgba(0,0,0,0.75)";
-  const botBoxW = ctx.measureText(botPitcherText).width + 60;
-  const botBoxH = 56;
+  const botBoxW = ctx.measureText(botPitcherText).width + 80;
+  const botBoxH = 70;
   const botBoxX = cx - botBoxW / 2;
-  const botBoxY = botInfoY - 42;
+  const botBoxY = botInfoY - 52;
   ctx.beginPath();
-  ctx.roundRect(botBoxX, botBoxY, botBoxW, botBoxH, 18);
+  ctx.roundRect(botBoxX, botBoxY, botBoxW, botBoxH, 20);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillText(botPitcherText, cx, botInfoY);
