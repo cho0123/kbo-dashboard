@@ -373,7 +373,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
-  const animFrameRef = useRef(null);
+  const previewRafIdRef = useRef(null);
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
 
   useEffect(() => {
@@ -451,7 +451,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     if (!vw || !vh) {
-      animFrameRef.current = requestAnimationFrame(renderPreviewFrame);
+      requestAnimationFrame(renderPreviewFrame);
       return;
     }
 
@@ -472,10 +472,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       srcX = Math.max(0, Math.min(vw - srcW, srcX));
     }
 
-    const cw = Math.max(1, canvas.offsetWidth || 0);
-    const ch = Math.max(1, canvas.offsetHeight || 0);
-    canvas.width = cw;
-    canvas.height = ch;
+    const cw = canvas.width || 160;
+    const ch = canvas.height || 284;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -500,18 +498,25 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       ctx.textBaseline = "middle";
       ctx.fillText(selectedSeg.text, cw / 2, ch * 0.94);
     }
-
-    animFrameRef.current = requestAnimationFrame(renderPreviewFrame);
   }, [segments, selectedSegIndex, teamColor]);
 
-  useEffect(() => {
-    return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-    };
+  const stopPreviewLoop = useCallback(() => {
+    if (previewRafIdRef.current) {
+      cancelAnimationFrame(previewRafIdRef.current);
+      previewRafIdRef.current = null;
+    }
   }, []);
+
+  const startPreviewLoop = useCallback(() => {
+    stopPreviewLoop();
+    const step = () => {
+      renderPreviewFrame();
+      previewRafIdRef.current = requestAnimationFrame(step);
+    };
+    previewRafIdRef.current = requestAnimationFrame(step);
+  }, [renderPreviewFrame, stopPreviewLoop]);
+
+  useEffect(() => stopPreviewLoop, [stopPreviewLoop]);
 
   const refreshSavedFiles = useCallback(async () => {
     setSavedFilesLoading(true);
@@ -1827,102 +1832,90 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   boxSizing: "border-box",
                 }}
               >
-                <canvas
-                  ref={previewCanvasRef}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    zIndex: 2,
-                  }}
-                />
-                <video
-                  ref={previewVideoRef}
-                  src={previewUrl}
-                  controls
-                  playsInline
-                  onPlay={() => {
-                    if (animFrameRef.current) {
-                      cancelAnimationFrame(animFrameRef.current);
-                      animFrameRef.current = null;
-                    }
-                    renderPreviewFrame();
-                  }}
-                  onPause={() => {
-                    if (animFrameRef.current) {
-                      cancelAnimationFrame(animFrameRef.current);
-                      animFrameRef.current = null;
-                    }
-                  }}
-                  onEnded={() => {
-                    if (animFrameRef.current) {
-                      cancelAnimationFrame(animFrameRef.current);
-                      animFrameRef.current = null;
-                    }
-                  }}
-                  onSeeked={() => {
-                    if (animFrameRef.current) {
-                      cancelAnimationFrame(animFrameRef.current);
-                      animFrameRef.current = null;
-                    }
-                    renderPreviewFrame();
-                  }}
-                  style={{
-                    position: "relative",
-                    zIndex: 0,
-                    width: "100%",
-                    height: "auto",
-                    maxHeight: "70vh",
-                    display: "block",
-                    objectFit: "contain",
-                    background: "#000",
-                  }}
-                />
-                  {previewCropOverlay ? (
-                    <div
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {/* 원본 영상 */}
+                  <div style={{ flex: 1, position: "relative" }}>
+                    <video
+                      ref={previewVideoRef}
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      onPlay={() => startPreviewLoop()}
+                      onPause={() => stopPreviewLoop()}
+                      onEnded={() => stopPreviewLoop()}
+                      onSeeked={() => renderPreviewFrame()}
                       style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
+                        position: "relative",
+                        zIndex: 0,
                         width: "100%",
-                        height: "100%",
-                        zIndex: 3,
-                        pointerEvents: "none",
+                        height: "auto",
+                        maxHeight: "70vh",
+                        display: "block",
+                        objectFit: "contain",
+                        background: "#000",
                       }}
-                    >
-                      {previewCropOverlay.darkRects.map((r, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            position: "absolute",
-                            left: r.left,
-                            top: r.top,
-                            width: r.width,
-                            height: r.height,
-                            background: "rgba(0,0,0,0.5)",
-                          }}
-                        />
-                      ))}
+                    />
+                    {previewCropOverlay ? (
                       <div
                         style={{
                           position: "absolute",
-                          left: previewCropOverlay.border.left,
-                          top: previewCropOverlay.border.top,
-                          width: previewCropOverlay.border.width,
-                          height: previewCropOverlay.border.height,
-                          boxSizing: "border-box",
-                          border: "2px solid rgba(255,255,255,0.92)",
-                          borderRadius: 2,
-                          background: "transparent",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
                           zIndex: 2,
+                          pointerEvents: "none",
                         }}
-                      />
-                      {previewCropTextOverlayEl}
+                      >
+                        {previewCropOverlay.darkRects.map((r, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              position: "absolute",
+                              left: r.left,
+                              top: r.top,
+                              width: r.width,
+                              height: r.height,
+                              background: "rgba(0,0,0,0.5)",
+                            }}
+                          />
+                        ))}
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: previewCropOverlay.border.left,
+                            top: previewCropOverlay.border.top,
+                            width: previewCropOverlay.border.width,
+                            height: previewCropOverlay.border.height,
+                            boxSizing: "border-box",
+                            border: "2px solid rgba(255,255,255,0.92)",
+                            borderRadius: 2,
+                            background: "transparent",
+                            zIndex: 2,
+                          }}
+                        />
+                        {previewCropTextOverlayEl}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* 9:16 미리보기 Canvas */}
+                  <div style={{ width: 160, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>
+                      미리보기
                     </div>
-                  ) : null}
+                    <canvas
+                      ref={previewCanvasRef}
+                      width={160}
+                      height={284}
+                      style={{
+                        borderRadius: 6,
+                        background: "#000",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                </div>
                 </div>
                 <div
                   style={{
