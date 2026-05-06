@@ -372,6 +372,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
+  const previewCanvasRef = useRef(null);
+  const animFrameRef = useRef(null);
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
 
   useEffect(() => {
@@ -440,6 +442,76 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
+
+  const renderPreviewFrame = useCallback(() => {
+    const video = previewVideoRef.current;
+    const canvas = previewCanvasRef.current;
+    if (!canvas || !video) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) {
+      animFrameRef.current = requestAnimationFrame(renderPreviewFrame);
+      return;
+    }
+
+    // 9:16 크롭 계산
+    const targetAspect = 9 / 16;
+    const videoAspect = vw / vh;
+    let srcX = 0;
+    let srcW = vw;
+    const selectedSeg = segments[selectedSegIndex];
+    if (videoAspect > targetAspect) {
+      srcW = vh * targetAspect;
+      const offsetPct = Math.max(
+        -50,
+        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+      );
+      const cropOffsetPx = (offsetPct / 100) * (vw - srcW);
+      srcX = (vw - srcW) / 2 + cropOffsetPx;
+      srcX = Math.max(0, Math.min(vw - srcW, srcX));
+    }
+
+    const cw = Math.max(1, canvas.offsetWidth || 0);
+    const ch = Math.max(1, canvas.offsetHeight || 0);
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, cw, ch);
+
+    // 영상 그리기
+    ctx.drawImage(video, srcX, 0, srcW, vh, 0, 0, cw, ch);
+
+    // 팀컬러 테두리
+    const borderW = Math.max(2, Math.round(cw * 0.012));
+    ctx.strokeStyle = teamColor;
+    ctx.lineWidth = borderW * 2;
+    ctx.strokeRect(0, 0, cw, ch);
+
+    // 하단 텍스트 (선택된 구간)
+    if (selectedSeg?.text) {
+      ctx.font = `bold ${Math.round(ch * 0.045)}px sans-serif`;
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(0, ch * 0.88, cw, ch * 0.12);
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(selectedSeg.text, cw / 2, ch * 0.94);
+    }
+
+    animFrameRef.current = requestAnimationFrame(renderPreviewFrame);
+  }, [segments, selectedSegIndex, teamColor]);
+
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    };
+  }, []);
 
   const refreshSavedFiles = useCallback(async () => {
     setSavedFilesLoading(true);
@@ -1752,15 +1824,52 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   borderRadius: 8,
                   overflow: "hidden",
                   background: "#000",
-                  border: `3px solid ${teamColor}`,
                   boxSizing: "border-box",
                 }}
               >
+                <canvas
+                  ref={previewCanvasRef}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                  }}
+                />
                 <video
                   ref={previewVideoRef}
                   src={previewUrl}
                   controls
                   playsInline
+                  onPlay={() => {
+                    if (animFrameRef.current) {
+                      cancelAnimationFrame(animFrameRef.current);
+                      animFrameRef.current = null;
+                    }
+                    renderPreviewFrame();
+                  }}
+                  onPause={() => {
+                    if (animFrameRef.current) {
+                      cancelAnimationFrame(animFrameRef.current);
+                      animFrameRef.current = null;
+                    }
+                  }}
+                  onEnded={() => {
+                    if (animFrameRef.current) {
+                      cancelAnimationFrame(animFrameRef.current);
+                      animFrameRef.current = null;
+                    }
+                  }}
+                  onSeeked={() => {
+                    if (animFrameRef.current) {
+                      cancelAnimationFrame(animFrameRef.current);
+                      animFrameRef.current = null;
+                    }
+                    renderPreviewFrame();
+                  }}
                   style={{
                     position: "relative",
                     zIndex: 0,
@@ -1780,7 +1889,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                         left: 0,
                         width: "100%",
                         height: "100%",
-                        zIndex: 2,
+                        zIndex: 3,
                         pointerEvents: "none",
                       }}
                     >
