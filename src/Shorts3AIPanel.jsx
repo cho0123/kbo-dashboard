@@ -840,8 +840,8 @@ export default function Shorts3AIPanel() {
                     }}
                   >
                     {whisperByCard[idx]?.loading
-                      ? "음성 분석 중…"
-                      : "🎙️ 음성 분석"}
+                      ? "⏳ 음성 분석 중…"
+                      : "▶ 음성 분석"}
                   </button>
                   ) : null}
 
