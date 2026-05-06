@@ -559,12 +559,12 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     // 4) 팀명 배지 (상단 캡슐형)
     const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
     ctx.save();
-    const labelFontPx = Math.max(9, Math.round(H * 0.07));
-    ctx.font = `700 ${labelFontPx}px "Noto Sans KR", system-ui, sans-serif`;
-    const labelW = Math.min(W * 0.92, ctx.measureText(teamLabel).width + Math.round(W * 0.18));
-    const labelH = Math.max(14, Math.round(H * 0.085));
+    ctx.font = `bold ${Math.round(W * 0.1)}px "Noto Sans KR", system-ui, sans-serif`;
+    const labelW =
+      ctx.measureText(teamLabel).width + Math.round(W * 0.3);
+    const labelH = Math.round(W * 0.15);
     const labelX = W / 2 - labelW / 2;
-    const labelY = Math.max(4, Math.round(H * 0.0625));
+    const labelY = Math.round(H * 0.04);
     const labelR = labelH / 2;
     ctx.fillStyle = accent;
     ctx.beginPath();
