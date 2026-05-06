@@ -403,7 +403,9 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
-  const teamColor = TEAM_COLORS[selectedTeam]?.primary || "#4ade80";
+  const [teamColor, setTeamColor] = useState(
+    TEAM_COLORS["삼성"]?.primary || "#074CA1"
+  );
   /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
   const [previewPlayheadSec, setPreviewPlayheadSec] = useState(0);
 
@@ -1699,7 +1701,11 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <select
               value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSelectedTeam(next);
+                setTeamColor(TEAM_COLORS[next]?.primary || "#4ade80");
+              }}
               style={{
                 padding: "3px 8px",
                 borderRadius: 6,
