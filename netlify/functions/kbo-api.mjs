@@ -2420,6 +2420,32 @@ ${JSON.stringify(games, null, 2)}`;
           // 검색은 두 형식으로 시도
           const dateFormats = [`${m}.${day}`, `${m}/${day}`];
 
+          // 쿼리 간소화: 점수/팀종류명 제거 → 팀명만
+          const cleanQuery = query
+            .replace(/\s*\(\d+-\d+\)\s*/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          const teamSuffixes = [
+            "타이거즈",
+            "라이온즈",
+            "트윈스",
+            "베어스",
+            "위즈",
+            "랜더스",
+            "자이언츠",
+            "이글스",
+            "다이노스",
+            "히어로즈",
+          ];
+          let shortQuery = cleanQuery;
+          for (const s of teamSuffixes) {
+            shortQuery = shortQuery.replaceAll(s, " ");
+          }
+          shortQuery = shortQuery
+            .replace(/\bvs\b/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
           const parseItems = (data) =>
             (data?.items || [])
               .filter((item) => item?.id?.videoId && item?.snippet)
@@ -2438,7 +2464,7 @@ ${JSON.stringify(games, null, 2)}`;
           const results = [];
           const seen = new Set();
           for (const fmt of dateFormats) {
-            const searchQuery = `${query} ${fmt} 하이라이트`;
+            const searchQuery = `${shortQuery} ${fmt} 하이라이트`;
             const searchUrl =
               `https://www.googleapis.com/youtube/v3/search?` +
               `part=snippet&q=${encodeURIComponent(searchQuery)}&` +
