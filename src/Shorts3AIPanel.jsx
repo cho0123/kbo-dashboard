@@ -731,14 +731,19 @@ export default function Shorts3AIPanel() {
                                 `로컬 서버 오류 (HTTP ${localRes.status})`
                             );
                           }
-                          if (localData?.localPath) {
+                          const localPath =
+                            localData?.localPath ||
+                            (localData?.fileName
+                              ? `E:\\짱구코딩작업\\유튜브_컨텐츠관련\\kbo_project\\kbo-dashboard\\${localData.outputDir}\\${localData.fileName}`
+                              : null);
+                          if (localPath) {
                             setCardDownloaded((prev) => ({ ...prev, [idx]: true }));
                             setCardLocalPath((prev) => ({
                               ...prev,
-                              [idx]: localData.localPath,
+                              [idx]: localPath,
                             }));
                           } else {
-                            throw new Error("로컬 다운로드 결과(localPath)가 없습니다.");
+                            throw new Error("로컬 다운로드 결과가 없습니다.");
                           }
                         } catch (e) {
                           const msg = e instanceof Error ? e.message : String(e);

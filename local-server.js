@@ -193,13 +193,17 @@ app.post("/download", (req, res) => {
       );
     }
 
+    const result = {
+      ok: true,
+      fileName,
+      outputDir: safeSub,
+      localPath: filePath,
+    };
+    console.log("[download] yt-dlp result:", result);
+    console.log("[download] localPath:", filePath);
+
     sendOnce(() =>
-      res.json({
-        ok: true,
-        fileName,
-        outputDir: safeSub,
-        localPath: filePath,
-      })
+      res.json(result)
     );
   });
 });
