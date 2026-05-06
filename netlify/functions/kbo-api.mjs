@@ -2426,6 +2426,8 @@ ${JSON.stringify(games, null, 2)}`;
             `key=${encodeURIComponent(apiKey)}`;
           const res = await fetch(searchUrl);
           const data = await res.json();
+          console.log("[youtube] response status:", res.status);
+          console.log("[youtube] response data:", JSON.stringify(data));
           if (!res.ok || data?.error) {
             const msg =
               data?.error?.message ||
