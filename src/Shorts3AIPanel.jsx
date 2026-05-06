@@ -169,7 +169,10 @@ export default function Shorts3AIPanel() {
     );
     console.log("[debug] youtube search dispatch count:", cards.length);
     cards.forEach((c, idx) => {
-      const title = String(c.title || c.game || "").trim();
+      const cleanTitle = String(c.title || c.game || "")
+        .replace(/\[경기\s*\d*\]\s*/g, "")
+        .trim();
+      const title = cleanTitle;
       if (!title) return;
       // title이 비어있는 카드가 있어도 검색은 최대한 수행
       fetchYoutubeSearch(idx, { ...c, title }, targetDate);
@@ -718,6 +721,10 @@ export default function Shorts3AIPanel() {
                             }
                           );
                           const localData = await localRes.json();
+                          console.log(
+                            "[download] response:",
+                            JSON.stringify(localData)
+                          );
                           if (!localRes.ok || localData?.ok === false) {
                             throw new Error(
                               localData?.error ||
