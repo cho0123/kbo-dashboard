@@ -2422,9 +2422,11 @@ ${JSON.stringify(games, null, 2)}`;
 
           // 쿼리 간소화: 점수/팀종류명 제거 → 팀명만
           const cleanQuery = query
+            .replace(/\[경기\s*\d*\]\s*/g, "")
             .replace(/\s*\(\d+-\d+\)\s*/g, " ")
             .replace(/\s+/g, " ")
             .trim();
+          console.log("[youtube] final query:", cleanQuery);
           const teamSuffixes = [
             "타이거즈",
             "라이온즈",
