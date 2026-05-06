@@ -2409,48 +2409,69 @@ ${JSON.stringify(games, null, 2)}`;
         }
         try {
           const dateStr = payload.date ? String(payload.date).trim() : "";
-          const qFull = dateStr
-            ? `${query} ${dateStr} 하이라이트`
-            : `${query} 하이라이트`;
-          const targetDate = dateStr ? new Date(dateStr) : new Date();
-          targetDate.setHours(0, 0, 0, 0);
-          const publishedAfter = targetDate.toISOString();
-          const publishedBefore = new Date(targetDate);
-          publishedBefore.setDate(publishedBefore.getDate() + 1);
-          const searchUrl =
-            `https://www.googleapis.com/youtube/v3/search?` +
-            `part=snippet&q=${encodeURIComponent(qFull)}&` +
-            `type=video&maxResults=5&order=viewCount&` +
-            `publishedAfter=${encodeURIComponent(publishedAfter)}&` +
-            `publishedBefore=${encodeURIComponent(publishedBefore.toISOString())}&` +
-            `key=${encodeURIComponent(apiKey)}`;
-          const res = await fetch(searchUrl);
-          const data = await res.json();
-          console.log("[youtube] response status:", res.status);
-          console.log("[youtube] response data:", JSON.stringify(data));
-          if (!res.ok || data?.error) {
-            const msg =
-              data?.error?.message ||
-              `YouTube API 오류 (HTTP ${res.status})`;
-            return {
-              statusCode: res.status >= 400 && res.status < 600 ? res.status : 502,
-              headers: corsHeaders(),
-              body: JSON.stringify({ ok: false, error: msg }),
-            };
+          const d = dateStr ? new Date(dateStr) : new Date();
+          const m = d.getMonth() + 1;
+          const day = d.getDate();
+          const year = d.getFullYear();
+
+          // 올해 1월 1일
+          const yearStart = new Date(year, 0, 1).toISOString();
+
+          // 검색은 두 형식으로 시도
+          const dateFormats = [`${m}.${day}`, `${m}/${day}`];
+
+          const parseItems = (data) =>
+            (data?.items || [])
+              .filter((item) => item?.id?.videoId && item?.snippet)
+              .map((item) => ({
+                videoId: item.id.videoId,
+                title: item.snippet.title,
+                thumbnail:
+                  item.snippet.thumbnails?.medium?.url ||
+                  item.snippet.thumbnails?.default?.url ||
+                  "",
+                channelTitle: item.snippet.channelTitle,
+                publishedAt: item.snippet.publishedAt,
+                url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+              }));
+
+          const results = [];
+          const seen = new Set();
+          for (const fmt of dateFormats) {
+            const qFull = `${query} ${fmt} 하이라이트`;
+            const searchUrl =
+              `https://www.googleapis.com/youtube/v3/search?` +
+              `part=snippet&q=${encodeURIComponent(qFull)}&` +
+              `type=video&maxResults=5&order=relevance&` +
+              `publishedAfter=${encodeURIComponent(yearStart)}&` +
+              `key=${encodeURIComponent(apiKey)}`;
+
+            const res = await fetch(searchUrl);
+            const data = await res.json();
+            console.log("[youtube] response status:", res.status);
+            console.log("[youtube] response data:", JSON.stringify(data));
+
+            if (!res.ok || data?.error) {
+              const msg =
+                data?.error?.message || `YouTube API 오류 (HTTP ${res.status})`;
+              return {
+                statusCode:
+                  res.status >= 400 && res.status < 600 ? res.status : 502,
+                headers: corsHeaders(),
+                body: JSON.stringify({ ok: false, error: msg }),
+              };
+            }
+
+            for (const it of parseItems(data)) {
+              if (seen.has(it.videoId)) continue;
+              seen.add(it.videoId);
+              results.push(it);
+              if (results.length >= 5) break;
+            }
+            if (results.length >= 5) break;
           }
-          const items = (data.items || [])
-            .filter((item) => item?.id?.videoId && item?.snippet)
-            .map((item) => ({
-              videoId: item.id.videoId,
-              title: item.snippet.title,
-              thumbnail:
-                item.snippet.thumbnails?.medium?.url ||
-                item.snippet.thumbnails?.default?.url ||
-                "",
-              channelTitle: item.snippet.channelTitle,
-              publishedAt: item.snippet.publishedAt,
-              url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-            }));
+
+          const items = results;
           return {
             statusCode: 200,
             headers: corsHeaders(),
