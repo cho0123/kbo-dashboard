@@ -87,6 +87,32 @@ const TEAM_COLORS = {
   키움: { primary: "#570514", secondary: "#CBAB6D" },
 };
 
+const TEAM_LOGO_PATH = {
+  KIA: "/logos/kia.svg",
+  삼성: "/logos/samsung.svg",
+  LG: "/logos/lg.svg",
+  두산: "/logos/doosan.svg",
+  KT: "/logos/kt.svg",
+  SSG: "/logos/ssg.svg",
+  롯데: "/logos/lotte.svg",
+  한화: "/logos/hanwha.svg",
+  NC: "/logos/nc.svg",
+  키움: "/logos/kiwoom.svg",
+};
+
+const TEAM_LABELS = {
+  KIA: "KIA 타이거즈",
+  삼성: "삼성 라이온즈",
+  LG: "LG 트윈스",
+  두산: "두산 베어스",
+  KT: "kt wiz",
+  SSG: "SSG 랜더스",
+  롯데: "롯데 자이언츠",
+  한화: "한화 이글스",
+  NC: "NC 다이노스",
+  키움: "키움 히어로즈",
+};
+
 const TEXT_COLORS = [
   "#FFFFFF",
   "#F5F0E8",
@@ -374,6 +400,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
   const previewRafIdRef = useRef(null);
+  const teamLogoImgRef = useRef({});
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
 
   useEffect(() => {
@@ -482,11 +509,66 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     // 영상 그리기
     ctx.drawImage(video, srcX, 0, srcW, vh, 0, 0, cw, ch);
 
-    // 팀컬러 테두리
-    const borderW = Math.max(2, Math.round(cw * 0.012));
-    ctx.strokeStyle = teamColor;
-    ctx.lineWidth = borderW * 2;
-    ctx.strokeRect(0, 0, cw, ch);
+    const tc = TEAM_COLORS[selectedTeam] || { primary: teamColor, secondary: "#ffffff" };
+    const primary = tc.primary || teamColor;
+    const secondary = tc.secondary || "#ffffff";
+
+    // 팀컬러 테두리 (상하좌우)
+    const borderW = Math.max(4, Math.round(cw * 0.06));
+    ctx.fillStyle = primary;
+    ctx.fillRect(0, 0, cw, borderW);
+    ctx.fillRect(0, ch - borderW, cw, borderW);
+    ctx.fillRect(0, 0, borderW, ch);
+    ctx.fillRect(cw - borderW, 0, borderW, ch);
+
+    // 팀명 배지 (상단)
+    const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
+    ctx.save();
+    ctx.font = `700 ${Math.round(ch * 0.07)}px "Noto Sans KR", system-ui, sans-serif`;
+    const textW = ctx.measureText(teamLabel).width;
+    const padX = Math.round(cw * 0.07);
+    const badgeW = Math.min(cw - borderW * 2 - 6, textW + padX * 2);
+    const badgeH = Math.round(ch * 0.12);
+    const badgeX = cw / 2 - badgeW / 2;
+    const badgeY = borderW + 6;
+    const r = Math.round(badgeH / 2);
+    ctx.fillStyle = secondary;
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, r);
+    ctx.fill();
+    ctx.fillStyle = primary;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(teamLabel, cw / 2, badgeY + badgeH / 2);
+    ctx.restore();
+
+    // 팀 로고 (하단)
+    const logoSrc = TEAM_LOGO_PATH[selectedTeam];
+    if (logoSrc) {
+      const existing = teamLogoImgRef.current[selectedTeam];
+      if (existing == null) {
+        const img = new Image();
+        img.onload = () => {
+          teamLogoImgRef.current[selectedTeam] = img;
+        };
+        img.onerror = () => {
+          teamLogoImgRef.current[selectedTeam] = false;
+        };
+        img.src = logoSrc;
+        teamLogoImgRef.current[selectedTeam] = false; // loading sentinel
+      } else if (existing && existing !== false) {
+        const img = existing;
+        const max = Math.round(cw * 0.28);
+        const iw = img.naturalWidth || img.width || 1;
+        const ih = img.naturalHeight || img.height || 1;
+        const scale = Math.min(max / iw, max / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        const x = borderW + 6;
+        const y = ch - borderW - dh - 6;
+        ctx.drawImage(img, x, y, dw, dh);
+      }
+    }
 
     // 하단 텍스트 (선택된 구간)
     if (selectedSeg?.text) {
