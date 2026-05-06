@@ -74,6 +74,19 @@ const TEAM_LIST = [
   { id: "키움", name: "키움 히어로즈" },
 ];
 
+const TEAM_COLORS = {
+  삼성: { primary: "#074CA1", secondary: "#C0C0C0" },
+  KIA: { primary: "#EA0029", secondary: "#05141F" },
+  LG: { primary: "#C30452", secondary: "#000000" },
+  두산: { primary: "#131230", secondary: "#D00F31" },
+  KT: { primary: "#000000", secondary: "#EB1F23" },
+  SSG: { primary: "#CE0E2D", secondary: "#FFB81C" },
+  롯데: { primary: "#002B5B", secondary: "#D00F31" },
+  한화: { primary: "#FF6600", secondary: "#000000" },
+  NC: { primary: "#071D36", secondary: "#BFA253" },
+  키움: { primary: "#570514", secondary: "#CBAB6D" },
+};
+
 const TEXT_COLORS = [
   "#FFFFFF",
   "#F5F0E8",
@@ -390,6 +403,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
+  const teamColor = TEAM_COLORS[selectedTeam]?.primary || "#4ade80";
   /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
   const [previewPlayheadSec, setPreviewPlayheadSec] = useState(0);
 
@@ -1682,6 +1696,46 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              style={{
+                padding: "3px 8px",
+                borderRadius: 6,
+                background: "#1e1e1e",
+                color: "#fff",
+                border: "1px solid #444",
+                fontSize: 12,
+              }}
+            >
+              {TEAM_LIST.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addSegment}
+              disabled={busy || uploading}
+              style={{
+                background: "#4ade80",
+                color: "#000",
+                fontWeight: "bold",
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                ...(busy || uploading
+                  ? { opacity: 0.6, cursor: "not-allowed" }
+                  : {}),
+              }}
+            >
+              + 구간 추가
+            </button>
+          </div>
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div
@@ -1692,6 +1746,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   borderRadius: 8,
                   overflow: "hidden",
                   background: "#000",
+                  border: `3px solid ${teamColor}`,
+                  boxSizing: "border-box",
                 }}
               >
                 <video
@@ -2378,47 +2434,9 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           </div>
 
           {/* 구간 추가 버튼 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <select
-              value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              style={{
-                padding: "3px 8px",
-                borderRadius: 6,
-                background: "#1e1e1e",
-                color: "#fff",
-                border: "1px solid #444",
-                fontSize: 12,
-              }}
-            >
-              {TEAM_LIST.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={addSegment}
-              disabled={busy || uploading}
-              style={{
-                background: "#4ade80",
-                color: "#000",
-                fontWeight: "bold",
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 12,
-                alignSelf: "flex-start",
-                ...(busy || uploading
-                  ? { opacity: 0.6, cursor: "not-allowed" }
-                  : {}),
-              }}
-            >
-              + 구간 추가
-            </button>
-          </div>
+          {/*
+            팀 선택/구간 추가는 상단 sticky 컨트롤바로 이동됨
+          */}
 
           {/* 총 구간 합계 + 원본 음소거 */}
           <div
