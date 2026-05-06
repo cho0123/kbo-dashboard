@@ -647,23 +647,37 @@ export default function Shorts3AIPanel() {
                           [idx]: true,
                         }));
                         try {
-                          const res = await postKbo({
-                            action: "highlight_upload_url_from_url",
-                            sourceUrl: url.trim(),
-                          });
-                          if (res?.jobId) {
+                          const localRes = await fetch(
+                            "http://localhost:3838/download",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ url: url.trim() }),
+                            }
+                          );
+                          const localData = await localRes.json();
+                          if (!localRes.ok || localData?.ok === false) {
+                            throw new Error(
+                              localData?.error ||
+                                `로컬 서버 오류 (HTTP ${localRes.status})`
+                            );
+                          }
+                          if (localData?.jobId) {
                             setCardJobId((prev) => ({
                               ...prev,
-                              [idx]: res.jobId,
+                              [idx]: localData.jobId,
                             }));
                           }
                         } catch (e) {
+                          const msg = e instanceof Error ? e.message : String(e);
                           setCardDownloadError((prev) => ({
                             ...prev,
                             [idx]:
-                              e instanceof Error
-                                ? e.message
-                                : String(e),
+                              /fetch/i.test(msg) ||
+                              /ECONNREFUSED/i.test(msg) ||
+                              /Failed to fetch/i.test(msg)
+                                ? "로컬 서버가 켜져있지 않습니다. 서버시작.bat을 실행해주세요."
+                                : msg,
                           }));
                         } finally {
                           setCardDownloading((prev) => ({

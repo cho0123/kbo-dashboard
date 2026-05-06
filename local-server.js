@@ -1,20 +1,39 @@
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
 } from "fs";
 import { basename, dirname, join } from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import express from "express";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3838;
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+
+function videoEncodeAwsClients() {
+  const region = process.env.KBO_AWS_REGION || "ap-northeast-2";
+  const kboAccessKeyId = process.env.KBO_AWS_ACCESS_KEY_ID;
+  const kboSecretAccessKey = process.env.KBO_AWS_SECRET_ACCESS_KEY;
+  const credentials =
+    kboAccessKeyId && kboSecretAccessKey
+      ? { accessKeyId: kboAccessKeyId, secretAccessKey: kboSecretAccessKey }
+      : undefined;
+  const cfg = { region, ...(credentials ? { credentials } : {}) };
+  return {
+    region,
+    bucket: process.env.S3_VIDEO_BUCKET || "kbo-video-export",
+    s3: new S3Client(cfg),
+  };
+}
 
 app.use(
   cors({
@@ -164,13 +183,50 @@ app.post("/download", (req, res) => {
       fileName = entries[0]?.name ?? null;
     }
 
-    sendOnce(() =>
-      res.json({
-        ok: true,
-        fileName,
-        outputDir: safeSub,
-      })
-    );
+    const filePath = fileName ? join(targetDir, fileName) : null;
+    if (!filePath || !existsSync(filePath)) {
+      return sendOnce(() =>
+        res.status(500).json({
+          ok: false,
+          error: "다운로드 파일을 찾지 못했습니다.",
+        })
+      );
+    }
+
+    (async () => {
+      try {
+        const jobId = randomUUID();
+        const { s3, bucket } = videoEncodeAwsClients();
+        const key = `jobs/${jobId}/source.mp4`;
+        const bodyBuf = readFileSync(filePath);
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: bodyBuf,
+            ContentType: "video/mp4",
+          })
+        );
+        sendOnce(() =>
+          res.json({
+            ok: true,
+            jobId,
+            bucket,
+            key,
+            fileName,
+            outputDir: safeSub,
+          })
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        sendOnce(() =>
+          res.status(500).json({
+            ok: false,
+            error: `S3 업로드 실패: ${msg}`,
+          })
+        );
+      }
+    })();
   });
 });
 
