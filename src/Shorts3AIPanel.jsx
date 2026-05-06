@@ -491,18 +491,25 @@ export default function Shorts3AIPanel() {
                           }}
                         >
                           {item.thumbnail ? (
-                            <img
-                              src={item.thumbnail}
-                              alt=""
-                              width={120}
-                              height={68}
-                              style={{
-                                objectFit: "cover",
-                                borderRadius: 4,
-                                flexShrink: 0,
-                              }}
-                              loading="lazy"
-                            />
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ flexShrink: 0, display: "inline-block" }}
+                            >
+                              <img
+                                src={item.thumbnail}
+                                alt=""
+                                width={120}
+                                height={68}
+                                style={{
+                                  objectFit: "cover",
+                                  borderRadius: 4,
+                                  display: "block",
+                                }}
+                                loading="lazy"
+                              />
+                            </a>
                           ) : (
                             <div
                               style={{
@@ -522,7 +529,18 @@ export default function Shorts3AIPanel() {
                                 marginBottom: 4,
                               }}
                             >
-                              {item.title}
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: "#60a5fa",
+                                  textDecoration: "none",
+                                  fontSize: 13,
+                                }}
+                              >
+                                {item.title}
+                              </a>
                             </div>
                             <div className="muted" style={{ marginBottom: 6 }}>
                               {item.channelTitle}
