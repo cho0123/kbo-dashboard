@@ -489,74 +489,36 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     const TOP_BAR = Math.round(H * 0.146); // ~280/1920
     const SIDE_BAR = Math.round(W * 0.037); // ~40/1080
     const BOT_BAR = Math.round(H * 0.083); // ~160/1920
-    const RADIUS = 4;
 
-    const holeX = SIDE_BAR;
-    const holeY = TOP_BAR;
-    const holeW = W - SIDE_BAR * 2;
-    const holeH = H - TOP_BAR - BOT_BAR;
-
-    // 1) 팀색 배경 fill
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
-
-    // 2) 중앙 홀 파기 (destination-out) — 상단 직각, 하단 라운드
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.moveTo(holeX, holeY);
-    ctx.lineTo(holeX + holeW, holeY);
-    ctx.lineTo(holeX + holeW, holeY + holeH - RADIUS);
-    ctx.arcTo(
-      holeX + holeW,
-      holeY + holeH,
-      holeX + holeW - RADIUS,
-      holeY + holeH,
-      RADIUS
-    );
-    ctx.lineTo(holeX + RADIUS, holeY + holeH);
-    ctx.arcTo(holeX, holeY + holeH, holeX, holeY + holeH - RADIUS, RADIUS);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // 3) 영상 프레임을 홀 안에 그리기 (cropOffset 반영)
-    const targetAspect = 9 / 16;
-    const videoAspect = vw / vh;
-    let srcX = 0;
-    let srcW = vw;
     const selectedSeg = segments[selectedSegIndex];
-    if (videoAspect > targetAspect) {
-      srcW = vh * targetAspect;
-      const offsetPct = Math.max(
-        -50,
-        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
-      );
-      const cropOffsetPx = (offsetPct / 100) * (vw - srcW);
-      srcX = (vw - srcW) / 2 + cropOffsetPx;
-      srcX = Math.max(0, Math.min(vw - srcW, srcX));
-    }
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(holeX, holeY);
-    ctx.lineTo(holeX + holeW, holeY);
-    ctx.lineTo(holeX + holeW, holeY + holeH - RADIUS);
-    ctx.arcTo(
-      holeX + holeW,
-      holeY + holeH,
-      holeX + holeW - RADIUS,
-      holeY + holeH,
-      RADIUS
+    const cropOffset = Math.max(
+      -50,
+      Math.min(50, Number(selectedSeg?.cropOffset) || 0)
     );
-    ctx.lineTo(holeX + RADIUS, holeY + holeH);
-    ctx.arcTo(holeX, holeY + holeH, holeX, holeY + holeH - RADIUS, RADIUS);
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(video, srcX, 0, srcW, vh, holeX, holeY, holeW, holeH);
-    ctx.restore();
 
-    // 4) 팀명 배지 (상단 캡슐형)
+    // 1) 9:16 크롭 영상 → 캔버스 전체
+    const cropW = Math.round((vh * 9) / 16);
+    const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
+    let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
+    srcX = Math.max(0, Math.min(vw - cropW, srcX));
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(video, srcX, 0, cropW, vh, 0, 0, W, H);
+
+    // 2) 팀컬러 상단바
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, TOP_BAR);
+
+    // 3) 하단바
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
+
+    // 4) 좌우 사이드바
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+    ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+
+    // 5) 팀명 배지 (상단 캡슐형)
     const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
     ctx.save();
     ctx.font = `bold ${Math.round(W * 0.1)}px "Noto Sans KR", system-ui, sans-serif`;
@@ -576,7 +538,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     ctx.fillText(teamLabel, W / 2, labelY + labelH / 2);
     ctx.restore();
 
-    // 5) 팀 로고 (하단 좌측) — 캐시 로드
+    // 6) 팀 로고 (하단 좌측) — 캐시 로드
     const logoSrc = TEAM_LOGO_PATH[selectedTeam];
     if (logoSrc) {
       const existing = teamLogoImgRef.current[selectedTeam];
