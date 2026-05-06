@@ -911,9 +911,6 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                         style={{
                           maxHeight: 300,
                           overflowY: "auto",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
                           marginTop: 8,
                           background: "#111",
                           padding: 8,
@@ -929,21 +926,27 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                               <label
                                 style={{
                                   display: "flex",
+                                  flexDirection: "row",
                                   alignItems: "flex-start",
                                   gap: 8,
                                   padding: "6px 8px",
                                   background: "#1e1e1e",
                                   borderRadius: 4,
                                   cursor: "pointer",
-                                  color: "#e2e8f0",
-                                  fontSize: 12,
                                   marginBottom: 4,
+                                  width: "100%",
+                                  boxSizing: "border-box",
                                   userSelect: "none",
                                 }}
                               >
                                 <input
                                   type="checkbox"
-                                  style={{ marginTop: 2, flexShrink: 0 }}
+                                  style={{
+                                    flexShrink: 0,
+                                    width: 16,
+                                    height: 16,
+                                    marginTop: 2,
+                                  }}
                                   checked={selectedTimestamps[`${idx}-${si}`] || false}
                                   onChange={(e) =>
                                     setSelectedTimestamps((prev) => ({
@@ -953,7 +956,13 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                   }
                                 />
                                 <span
-                                  style={{ color: "#e2e8f0" }}
+                                  style={{
+                                    color: "#e2e8f0",
+                                    fontSize: 12,
+                                    flex: 1,
+                                    wordBreak: "break-word",
+                                    lineHeight: 1.5,
+                                  }}
                                   onClick={() => copyText(line)}
                                 >
                                   {line}
