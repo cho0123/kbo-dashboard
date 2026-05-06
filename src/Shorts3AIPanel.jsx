@@ -909,14 +909,15 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       })()}
                       <ul
                         style={{
-                          margin: 0,
-                          padding: 0,
-                          listStyle: "none",
+                          maxHeight: 300,
+                          overflowY: "auto",
                           display: "flex",
                           flexDirection: "column",
-                          gap: 6,
-                          maxHeight: 280,
-                          overflowY: "auto",
+                          gap: 2,
+                          marginTop: 8,
+                          background: "#111",
+                          padding: 8,
+                          borderRadius: 6,
                         }}
                       >
                         {whisperByCard[idx].segments.map((seg, si) => {
@@ -927,24 +928,22 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                             <li key={si}>
                               <label
                                 style={{
-                                  width: "100%",
                                   display: "flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  whiteSpace: "pre-wrap",
-                                  lineHeight: 1.45,
-                                  color: "#e2e8f0",
+                                  alignItems: "flex-start",
+                                  gap: 8,
+                                  padding: "6px 8px",
                                   background: "#1e1e1e",
-                                  border: "1px solid #333",
-                                  padding: "4px 8px",
                                   borderRadius: 4,
-                                  fontSize: 12,
                                   cursor: "pointer",
+                                  color: "#e2e8f0",
+                                  fontSize: 12,
+                                  marginBottom: 4,
                                   userSelect: "none",
                                 }}
                               >
                                 <input
                                   type="checkbox"
+                                  style={{ marginTop: 2, flexShrink: 0 }}
                                   checked={selectedTimestamps[`${idx}-${si}`] || false}
                                   onChange={(e) =>
                                     setSelectedTimestamps((prev) => ({
@@ -954,7 +953,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                   }
                                 />
                                 <span
-                                  style={{ flex: 1, minWidth: 0 }}
+                                  style={{ color: "#e2e8f0" }}
                                   onClick={() => copyText(line)}
                                 >
                                   {line}
