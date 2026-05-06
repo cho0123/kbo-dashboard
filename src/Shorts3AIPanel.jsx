@@ -128,6 +128,7 @@ export default function Shorts3AIPanel() {
 
   const [cards, setCards] = useState([]);
   const [cardUrl, setCardUrl] = useState({});
+  const [cardDownloading, setCardDownloading] = useState({});
   const [cardUploading, setCardUploading] = useState({});
   const [cardJobId, setCardJobId] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
@@ -697,6 +698,7 @@ export default function Shorts3AIPanel() {
                       onClick={async () => {
                         const url = cardUrl[idx];
                         if (!url?.trim()) return;
+                        setCardDownloading((prev) => ({ ...prev, [idx]: true }));
                         try {
                           await fetch("http://localhost:3838/download", {
                             method: "POST",
@@ -704,6 +706,9 @@ export default function Shorts3AIPanel() {
                             body: JSON.stringify({ url: url.trim() }),
                           });
                         } catch {}
+                        finally {
+                          setCardDownloading((prev) => ({ ...prev, [idx]: false }));
+                        }
                       }}
                       style={{
                         padding: "4px 10px",
@@ -716,7 +721,7 @@ export default function Shorts3AIPanel() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      ⬇️ 다운로드
+                      {cardDownloading[idx] ? "⏳ 다운로드 중..." : "⬇️ 다운로드"}
                     </button>
 
                     <input
@@ -730,6 +735,11 @@ export default function Shorts3AIPanel() {
                         if (!file) return;
 
                         setCardUploading((prev) => ({ ...prev, [idx]: true }));
+                        setCardJobId((prev) => {
+                          const next = { ...prev };
+                          delete next[idx];
+                          return next;
+                        });
                         try {
                           const prep = await postKbo({ action: "highlight_upload" });
                           const putUrl = prep?.presignedPutUrl;
@@ -770,9 +780,18 @@ export default function Shorts3AIPanel() {
                       }}
                       disabled={cardUploading[idx]}
                     >
-                      📁 파일 선택
+                      ☁️ S3 업로드
                     </button>
+                    <span style={{ color: "#aaa", fontSize: 11 }}>
+                      다운로드된 파일을 선택해서 S3에 업로드
+                    </span>
                   </div>
+
+                  {String(cardJobId[idx] || "").trim() ? (
+                    <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                      ✅ 업로드 완료
+                    </div>
+                  ) : null}
 
                   {String(cardJobId[idx] || "").trim() ? (
                   <button
