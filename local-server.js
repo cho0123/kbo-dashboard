@@ -118,7 +118,7 @@ app.post("/download", (req, res) => {
     "--ffmpeg-location",
     ".",
     "-o",
-    join(targetDir, "%(title)s.mp4"),
+    join(targetDir, "%(title).20s_%(upload_date)s.%(ext)s"),
     "--no-playlist",
     "--newline",
     url,
