@@ -134,12 +134,16 @@ export default function Shorts3AIPanel() {
   const [cardYoutubeResults, setCardYoutubeResults] = useState({});
   const [cardYoutubeLoading, setCardYoutubeLoading] = useState({});
 
-  const fetchYoutubeSearch = useCallback(async (cardIndex, queryRaw) => {
+  const fetchYoutubeSearch = useCallback(async (cardIndex, queryRaw, dateStr) => {
     const q = String(queryRaw ?? "").trim();
     if (!q) return;
     setCardYoutubeLoading((prev) => ({ ...prev, [cardIndex]: true }));
     try {
-      const res = await postKbo({ action: "youtube_search", query: q });
+      const res = await postKbo({
+        action: "youtube_search",
+        query: q,
+        date: dateStr,
+      });
       setCardYoutubeResults((prev) => ({
         ...prev,
         [cardIndex]: Array.isArray(res?.items) ? res.items : [],
@@ -156,9 +160,9 @@ export default function Shorts3AIPanel() {
     cards.forEach((c, idx) => {
       const q = String(c.title || "").trim();
       if (!q) return;
-      fetchYoutubeSearch(idx, q);
+      fetchYoutubeSearch(idx, q, targetDate);
     });
-  }, [cards, fetchYoutubeSearch]);
+  }, [cards, fetchYoutubeSearch, targetDate]);
 
   const gamesData = useMemo(() => {
     // Claude로 보내는 데이터는 너무 크지 않게 최소 형태만
@@ -434,7 +438,7 @@ export default function Shorts3AIPanel() {
                       type="button"
                       disabled={!String(c.title || "").trim() || cardYoutubeLoading[idx]}
                       onClick={() =>
-                        fetchYoutubeSearch(idx, c.title)
+                        fetchYoutubeSearch(idx, c.title, targetDate)
                       }
                       style={{
                         padding: "3px 10px",

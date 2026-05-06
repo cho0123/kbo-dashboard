@@ -2408,10 +2408,18 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
         try {
+          const datePart = String(payload.date ?? "").trim();
+          const qFull = datePart
+            ? `${query} ${datePart} 하이라이트`
+            : `${query} 하이라이트`;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const publishedAfter = today.toISOString();
           const searchUrl =
             `https://www.googleapis.com/youtube/v3/search?` +
-            `part=snippet&q=${encodeURIComponent(`${query} KBO 하이라이트`)}&` +
-            `type=video&maxResults=5&order=date&` +
+            `part=snippet&q=${encodeURIComponent(qFull)}&` +
+            `type=video&maxResults=5&order=viewCount&` +
+            `publishedAfter=${encodeURIComponent(publishedAfter)}&` +
             `key=${encodeURIComponent(apiKey)}`;
           const res = await fetch(searchUrl);
           const data = await res.json();
