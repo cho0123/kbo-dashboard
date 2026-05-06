@@ -94,6 +94,14 @@ async function copyText(t) {
   }
 }
 
+function formatTimestampSec(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n < 0) return "0:00";
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function Shorts3AIPanel() {
   const [dateMode, setDateMode] = useState("today");
   const targetDate = dateMode === "today" ? seoulToday() : seoulYesterday();
@@ -108,6 +116,10 @@ export default function Shorts3AIPanel() {
   const [cards, setCards] = useState([]);
   const [savedFiles, setSavedFiles] = useState([]);
   const [cardPreviews, setCardPreviews] = useState({});
+  /** 카드 인덱스 → 선택한 하이라이트 jobId */
+  const [cardJobId, setCardJobId] = useState({});
+  /** 카드 인덱스 → Whisper 결과·로딩 */
+  const [whisperByCard, setWhisperByCard] = useState({});
 
   useEffect(() => {
     postKbo({ action: "highlight_list" })
@@ -366,10 +378,20 @@ export default function Shorts3AIPanel() {
                     </button>
                   </div>
 
+                  <div
+                    className="muted"
+                    style={{
+                      marginTop: 10,
+                      fontWeight: 700,
+                      fontSize: 12,
+                    }}
+                  >
+                    영상 분석
+                  </div>
                   <select
                     style={{
                       width: "100%",
-                      marginTop: 8,
+                      marginTop: 6,
                       padding: "4px",
                       background: "#1e1e1e",
                       color: "#aaa",
@@ -377,10 +399,18 @@ export default function Shorts3AIPanel() {
                       borderRadius: 4,
                       fontSize: 12,
                     }}
-                    defaultValue=""
+                    value={cardJobId[idx] ?? ""}
                     onChange={async (e) => {
                       const jobId = e.target.value;
-                      if (!jobId) return;
+                      setCardJobId((prev) => ({ ...prev, [idx]: jobId }));
+                      if (!jobId) {
+                        setCardPreviews((prev) => {
+                          const next = { ...prev };
+                          delete next[idx];
+                          return next;
+                        });
+                        return;
+                      }
                       try {
                         const res = await postKbo({
                           action: "highlight_preview",
@@ -409,6 +439,119 @@ export default function Shorts3AIPanel() {
                       </option>
                     ))}
                   </select>
+
+                  <button
+                    type="button"
+                    className="ghost"
+                    style={{ marginTop: 8 }}
+                    disabled={
+                      aiBusy || !String(cardJobId[idx] || "").trim()
+                    }
+                    onClick={async () => {
+                      const jobId = String(cardJobId[idx] || "").trim();
+                      if (!jobId) return;
+                      setWhisperByCard((prev) => ({
+                        ...prev,
+                        [idx]: {
+                          ...prev[idx],
+                          loading: true,
+                          error: null,
+                        },
+                      }));
+                      try {
+                        const res = await postKbo({
+                          action: "whisper_analyze",
+                          jobId,
+                        });
+                        setWhisperByCard((prev) => ({
+                          ...prev,
+                          [idx]: {
+                            loading: false,
+                            segments: Array.isArray(res?.segments)
+                              ? res.segments
+                              : [],
+                            text: String(res?.text || ""),
+                            error: null,
+                          },
+                        }));
+                      } catch (e) {
+                        setWhisperByCard((prev) => ({
+                          ...prev,
+                          [idx]: {
+                            ...prev[idx],
+                            loading: false,
+                            error:
+                              e instanceof Error ? e.message : String(e),
+                          },
+                        }));
+                      }
+                    }}
+                  >
+                    {whisperByCard[idx]?.loading
+                      ? "음성 분석 중…"
+                      : "🎙️ 음성 분석"}
+                  </button>
+
+                  {whisperByCard[idx]?.error ? (
+                    <pre
+                      className="result-error-light"
+                      style={{
+                        marginTop: 8,
+                        fontSize: 12,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {whisperByCard[idx].error}
+                    </pre>
+                  ) : null}
+
+                  {Array.isArray(whisperByCard[idx]?.segments) &&
+                  whisperByCard[idx].segments.length > 0 ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div
+                        className="muted"
+                        style={{ fontSize: 12, marginBottom: 6 }}
+                      >
+                        구간 타임스탬프 (클릭 시 복사)
+                      </div>
+                      <ul
+                        style={{
+                          margin: 0,
+                          padding: 0,
+                          listStyle: "none",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                          maxHeight: 280,
+                          overflowY: "auto",
+                        }}
+                      >
+                        {whisperByCard[idx].segments.map((seg, si) => {
+                          const start = seg?.start ?? 0;
+                          const end = seg?.end ?? 0;
+                          const line = `[${formatTimestampSec(start)} – ${formatTimestampSec(end)}] ${String(seg?.text || "").trim()}`;
+                          return (
+                            <li key={si}>
+                              <button
+                                type="button"
+                                className="ghost"
+                                style={{
+                                  width: "100%",
+                                  textAlign: "left",
+                                  whiteSpace: "pre-wrap",
+                                  fontSize: 12,
+                                  lineHeight: 1.45,
+                                }}
+                                onClick={() => copyText(line)}
+                              >
+                                {line}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   {cardPreviews[idx] ? (
                     <video

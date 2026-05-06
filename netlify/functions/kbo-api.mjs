@@ -2786,6 +2786,116 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "whisper_analyze": {
+        const jobId = String(payload.jobId || "").trim();
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
+          };
+        }
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "OPENAI_API_KEY가 설정되어 있지 않습니다.",
+            }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const sourceKey = `jobs/${jobId}/source.mp4`;
+          try {
+            await s3.send(
+              new HeadObjectCommand({ Bucket: bucket, Key: sourceKey })
+            );
+          } catch {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error:
+                  "원본 영상이 S3에 없습니다. 먼저 하이라이트 업로드를 완료하세요.",
+              }),
+            };
+          }
+
+          const url = await getSignedUrl(
+            s3,
+            new GetObjectCommand({ Bucket: bucket, Key: sourceKey }),
+            { expiresIn: 300 }
+          );
+
+          const videoRes = await fetch(url);
+          if (!videoRes.ok) {
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: `S3에서 영상을 받지 못했습니다 (HTTP ${videoRes.status}).`,
+              }),
+            };
+          }
+          const videoBuffer = await videoRes.arrayBuffer();
+
+          const formData = new FormData();
+          formData.append(
+            "file",
+            new Blob([videoBuffer], { type: "video/mp4" }),
+            "audio.mp4"
+          );
+          formData.append("model", "whisper-1");
+          formData.append("language", "ko");
+          formData.append("response_format", "verbose_json");
+          formData.append("timestamp_granularities[]", "segment");
+
+          const whisperRes = await fetch(
+            "https://api.openai.com/v1/audio/transcriptions",
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${apiKey}` },
+              body: formData,
+            }
+          );
+          const whisperData = await whisperRes.json();
+          if (!whisperRes.ok) {
+            const errMsg =
+              whisperData?.error?.message ||
+              whisperData?.message ||
+              `Whisper API 오류 (HTTP ${whisperRes.status})`;
+            return {
+              statusCode: whisperRes.status >= 400 && whisperRes.status < 500
+                ? whisperRes.status
+                : 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false, error: errMsg }),
+            };
+          }
+
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              segments: whisperData.segments,
+              text: whisperData.text,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "cookie_upload": {
         try {
           const { s3, bucket } = videoEncodeAwsClients();
