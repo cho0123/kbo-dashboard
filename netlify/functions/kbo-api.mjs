@@ -3232,6 +3232,7 @@ ${JSON.stringify(games, null, 2)}`;
 
         const __h2hCache = new Map();
         const __nextGameCache = new Map();
+        const __starterEraCache = new Map();
         const scheduleRows = await fetchScheduleFromDate(db, dateStr);
 
         const games = [];
@@ -3396,6 +3397,33 @@ ${JSON.stringify(games, null, 2)}`;
               "",
               dateStr
             );
+            if (homeNextGame) {
+              const hs = String(homeNextGame?.home_starter || "").trim();
+              const as = String(homeNextGame?.away_starter || "").trim();
+              const home_starter_era =
+                hs && hs !== "미정"
+                  ? await fetchLatestSeasonEraByPitcherName(
+                      db,
+                      2026,
+                      hs,
+                      __starterEraCache
+                    )
+                  : null;
+              const away_starter_era =
+                as && as !== "미정"
+                  ? await fetchLatestSeasonEraByPitcherName(
+                      db,
+                      2026,
+                      as,
+                      __starterEraCache
+                    )
+                  : null;
+              homeNextGame = {
+                ...homeNextGame,
+                home_starter_era,
+                away_starter_era,
+              };
+            }
             __nextGameCache.set(homeKey, homeNextGame ?? null);
           }
 
@@ -3407,6 +3435,33 @@ ${JSON.stringify(games, null, 2)}`;
               "",
               dateStr
             );
+            if (awayNextGame) {
+              const hs = String(awayNextGame?.home_starter || "").trim();
+              const as = String(awayNextGame?.away_starter || "").trim();
+              const home_starter_era =
+                hs && hs !== "미정"
+                  ? await fetchLatestSeasonEraByPitcherName(
+                      db,
+                      2026,
+                      hs,
+                      __starterEraCache
+                    )
+                  : null;
+              const away_starter_era =
+                as && as !== "미정"
+                  ? await fetchLatestSeasonEraByPitcherName(
+                      db,
+                      2026,
+                      as,
+                      __starterEraCache
+                    )
+                  : null;
+              awayNextGame = {
+                ...awayNextGame,
+                home_starter_era,
+                away_starter_era,
+              };
+            }
             __nextGameCache.set(awayKey, awayNextGame ?? null);
           }
 
