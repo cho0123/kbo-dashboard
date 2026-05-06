@@ -208,28 +208,27 @@ function isoSeoulTomorrow() {
   return t.toISOString().slice(0, 10);
 }
 
-async function fetchScheduleRowsForDate(db, dateStr, collectionName = "schedule") {
+async function fetchScheduleRowsForDate(db, dateStr) {
   const rows = [];
-  const coll = collectionName || "schedule";
   for (const field of ["game_date", "gameDate"]) {
     try {
-      const snap = await db.collection(coll).where(field, "==", dateStr).get();
+      const snap = await db.collection("schedule").where(field, "==", dateStr).get();
       snap.docs.forEach((d) => rows.push(docSnap(d)));
       if (rows.length) break;
     } catch (e) {
-      console.warn(`[fetchScheduleRowsForDate] ${coll} ${field}:`, e?.message || e);
+      console.warn(`[fetchScheduleRowsForDate] ${field}:`, e?.message || e);
     }
   }
   if (rows.length) return rows;
   try {
-    const snap = await db.collection(coll).limit(3000).get();
+    const snap = await db.collection("schedule").limit(3000).get();
     for (const d of snap.docs) {
       const r = docSnap(d);
       const gd = String(r?.game_date ?? r?.gameDate ?? "").slice(0, 10);
       if (gd === dateStr) rows.push(r);
     }
   } catch (e) {
-    console.warn(`[fetchScheduleRowsForDate] ${coll} scan:`, e?.message || e);
+    console.warn("[fetchScheduleRowsForDate] scan:", e?.message || e);
   }
   return rows;
 }
@@ -3648,11 +3647,8 @@ ${JSON.stringify(games, null, 2)}`;
           };
         };
 
-        // schedule에서 내일 경기만 (비어 있으면 직전 스냅샷 schedule_prev)
-        let rawRows = await fetchScheduleRowsForDate(db, dateStr);
-        if (!rawRows?.length) {
-          rawRows = await fetchScheduleRowsForDate(db, dateStr, "schedule_prev");
-        }
+        // schedule에서 내일 경기만
+        const rawRows = await fetchScheduleRowsForDate(db, dateStr);
         const byId = new Map();
         for (const r of rawRows || []) {
           const gid = String(r?.game_id ?? r?.gameId ?? "").trim();
