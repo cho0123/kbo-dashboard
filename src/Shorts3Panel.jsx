@@ -2467,16 +2467,31 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>
                       미리보기
                     </div>
-                    <canvas
-                      ref={previewCanvasRef}
-                      width={160}
-                      height={284}
-                      style={{
-                        borderRadius: 6,
-                        background: "#000",
-                        display: "block",
-                      }}
-                    />
+                    {thumbnailSelected ? (
+                      <canvas
+                        ref={thumbnailPreviewCanvasRef}
+                        width={1080}
+                        height={1920}
+                        style={{
+                          borderRadius: 6,
+                          background: "transparent",
+                          display: "block",
+                          width: 160,
+                          height: 284,
+                        }}
+                      />
+                    ) : (
+                      <canvas
+                        ref={previewCanvasRef}
+                        width={160}
+                        height={284}
+                        style={{
+                          borderRadius: 6,
+                          background: "#000",
+                          display: "block",
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
                 </div>
@@ -3659,49 +3674,31 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: 10,
                     fontSize: 13,
                     fontWeight: 700,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(thumbnailSegment.enabled)}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({
-                        ...v,
-                        enabled: e.target.checked,
-                      }))
-                    }
-                  />
-                  활성화
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(thumbnailSegment.enabled)}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailSegment((v) => ({
+                          ...v,
+                          enabled: e.target.checked,
+                        }))
+                      }
+                    />
+                    활성화
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#aaa" }}>
+                    시작: {thumbnailSegment.start}.
+                    {String(thumbnailSegment.startMs).padStart(2, "0")}
+                  </span>
                 </label>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  시작: {thumbnailSegment.start}.
-                  {String(thumbnailSegment.startMs).padStart(2, "0")} · 종료:
-                  {thumbnailSegment.start}.
-                  {String(thumbnailSegment.endMs ?? 0).padStart(2, "0")} (+1프레임)
-                </span>
-              </div>
-
-              {/* 썸네일 오버레이 미리보기 */}
-              <div style={{ marginBottom: 12 }}>
-                <div className="label">썸네일 오버레이 미리보기</div>
-                <canvas
-                  ref={thumbnailPreviewCanvasRef}
-                  width={1080}
-                  height={1920}
-                  style={{
-                    marginTop: 6,
-                    width: 180,
-                    height: 320,
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "transparent",
-                    display: "block",
-                  }}
-                />
               </div>
 
               {/* 크롭 오프셋 (썸네일 전용) */}
