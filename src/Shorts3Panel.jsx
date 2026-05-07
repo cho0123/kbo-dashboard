@@ -3689,6 +3689,30 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   시작: {thumbnailSegment.start}.
                   {String(thumbnailSegment.startMs).padStart(2, "0")}
                 </span>
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    whiteSpace: "nowrap",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(thumbnailSegment.showLine)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({
+                        ...v,
+                        showLine: e.target.checked,
+                      }))
+                    }
+                  />
+                  가로선 표시
+                </label>
               </div>
 
               {/* 크롭 오프셋 (썸네일 전용) */}
@@ -3732,29 +3756,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   {formatCropOffsetLabel(thumbnailSegment.cropOffset ?? 0)}
                 </span>
               </div>
-
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  whiteSpace: "nowrap",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  marginBottom: 10,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(thumbnailSegment.showLine)}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    setThumbnailSegment((v) => ({ ...v, showLine: e.target.checked }))
-                  }
-                />
-                가로선 표시
-              </label>
 
               <div className="label">텍스트 1</div>
               <label className="preset-field" style={{ marginBottom: 10 }}>
