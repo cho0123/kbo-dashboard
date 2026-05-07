@@ -478,7 +478,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
-  const thumbnailPreviewCanvasRef = useRef(null);
   const previewRafIdRef = useRef(null);
   const teamLogoImgRef = useRef({});
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
@@ -674,13 +673,14 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   }, [segments, selectedSegIndex, selectedTeam, teamColor]);
 
   useEffect(() => {
-    const canvas = thumbnailPreviewCanvasRef.current;
+    if (!thumbnailSelected) return;
+    const canvas = previewCanvasRef.current;
     if (!canvas) return;
     let cancelled = false;
     (async () => {
       try {
         const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-        await drawThumbnail({
+        const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
           tc: { bg: tc.bg, accent: tc.accent },
           text1: String(thumbnailSegment.text1 || "").trim(),
@@ -702,17 +702,20 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
             Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
           ),
           showLine: Boolean(thumbnailSegment.showLine),
-          canvas,
         });
+        if (cancelled) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height);
       } catch (e) {
         console.warn("[thumbnail preview]", e);
       }
-      if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam, thumbnailSegment]);
+  }, [thumbnailSelected, thumbnailSegment, selectedTeam]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
@@ -2467,31 +2470,16 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>
                       미리보기
                     </div>
-                    {thumbnailSelected ? (
-                      <canvas
-                        ref={thumbnailPreviewCanvasRef}
-                        width={1080}
-                        height={1920}
-                        style={{
-                          borderRadius: 6,
-                          background: "transparent",
-                          display: "block",
-                          width: 160,
-                          height: 284,
-                        }}
-                      />
-                    ) : (
-                      <canvas
-                        ref={previewCanvasRef}
-                        width={160}
-                        height={284}
-                        style={{
-                          borderRadius: 6,
-                          background: "#000",
-                          display: "block",
-                        }}
-                      />
-                    )}
+                    <canvas
+                      ref={previewCanvasRef}
+                      width={160}
+                      height={284}
+                      style={{
+                        borderRadius: 6,
+                        background: thumbnailSelected ? "transparent" : "#000",
+                        display: "block",
+                      }}
+                    />
                   </div>
                 </div>
                 </div>
@@ -3665,7 +3653,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   display: "flex",
                   gap: 10,
                   alignItems: "center",
-                  flexWrap: "wrap",
+                  flexWrap: "nowrap",
                   marginBottom: 12,
                 }}
               >
@@ -3674,31 +3662,29 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 10,
+                    gap: 8,
+                    whiteSpace: "nowrap",
                     fontSize: 13,
                     fontWeight: 700,
-                    flexWrap: "wrap",
                   }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(thumbnailSegment.enabled)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          enabled: e.target.checked,
-                        }))
-                      }
-                    />
-                    활성화
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#aaa" }}>
-                    시작: {thumbnailSegment.start}.
-                    {String(thumbnailSegment.startMs).padStart(2, "0")}
-                  </span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(thumbnailSegment.enabled)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({
+                        ...v,
+                        enabled: e.target.checked,
+                      }))
+                    }
+                  />
+                  활성화
                 </label>
+                <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                  시작: {thumbnailSegment.start}.
+                  {String(thumbnailSegment.startMs).padStart(2, "0")}
+                </span>
               </div>
 
               {/* 크롭 오프셋 (썸네일 전용) */}
