@@ -554,99 +554,26 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const teamKey = String(meta?.team || "").trim();
   const borderColorPrimary = TEAM_COLORS[teamKey]?.primary || null;
 
-  const thumbRaw = meta.thumbnailTime;
-  const thumbAt =
-    thumbRaw !== undefined && thumbRaw !== null && thumbRaw !== ""
-      ? Number(thumbRaw)
-      : NaN;
-
-  // thumbnail.png S3에 있으면 PNG → 0.3초 클립으로 변환
-  const thumbPngKey = `jobs/${jobId}/thumbnail.png`;
-  const thumbPngLocal = join(workDir, "thumbnail.png");
-  let hasThumbnailPng = false;
-  try {
-    await getObjectFile(bucket, thumbPngKey, thumbPngLocal);
-    hasThumbnailPng = true;
-    console.log("[highlight] thumbnail.png found, will prepend as 0.3s clip");
-  } catch (e) {
-    console.log("[highlight] no thumbnail.png, skipping");
-  }
-
-  // thumbnail.png 있으면 PNG 클립 사용, 없으면 기존 thumbnailTime 방식
-  if (hasThumbnailPng) {
-    // PNG → 0.3초 mp4 클립 생성
-    const thumbClipLocal = join(workDir, "thumb_clip.mp4");
-    await runFfmpeg(
-      [
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "anullsrc=r=48000:cl=stereo",
-        "-loop",
-        "1",
-        "-framerate",
-        "30",
-        "-t",
-        String(HIGHLIGHT_THUMBNAIL_DUR_SEC),
-        "-i",
-        thumbPngLocal,
-        "-map",
-        "1:v",
-        "-map",
-        "0:a",
-        "-vf",
-        `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30`,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-crf",
-        "18",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "320k",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "-shortest",
-        thumbClipLocal,
-      ],
-      workDir,
-      "thumb_png_clip"
-    );
-
-    // segments 앞에 PNG 클립 마커 추가
-    segments = [
-      { _pngThumbClip: true, localPath: thumbClipLocal },
-      ...segments,
-    ];
-  } else if (Number.isFinite(thumbAt) && thumbAt >= 0) {
-    // 기존 thumbnailTime 방식 유지
-    const first = segments[0];
-    const thumbSeg = {
-      ...first,
-      start: thumbAt,
-      end: thumbAt + HIGHLIGHT_THUMBNAIL_DUR_SEC,
-      startMs: 0,
-      endMs: 0,
-      [THUMB_SEG_FLAG]: true,
-    };
-    segments = [thumbSeg, ...segments];
-  }
-
   await putStatus(bucket, jobId, { state: "processing", progress: 18 });
   const sourceKey = `jobs/${jobId}/source.mp4`;
   const sourceLocal = join(workDir, "source.mp4");
   await getObjectFile(bucket, sourceKey, sourceLocal);
   console.log("[highlight] source from S3", sourceKey, "->", sourceLocal);
   const sourceFileName = "source.mp4";
+
+  // thumbnail.png를 0.3초 prepend 하지 않고, 있으면 각 구간에 오버레이로 합성한다.
+  const thumbPngKey = `jobs/${jobId}/thumbnail.png`;
+  const thumbPngLocal = join(workDir, "thumbnail.png");
+  let hasThumbnailPng = false;
+  try {
+    await getObjectFile(bucket, thumbPngKey, thumbPngLocal);
+    hasThumbnailPng = existsSync(thumbPngLocal);
+    if (hasThumbnailPng) {
+      console.log("[highlight] thumbnail.png found, will overlay per segment");
+    }
+  } catch {
+    hasThumbnailPng = false;
+  }
 
   const overlayKeyRaw =
     meta.overlay_s3_key != null ? String(meta.overlay_s3_key).trim() : "";
@@ -707,12 +634,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const numSeg = segments.length;
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
-    if (seg._pngThumbClip === true) {
-      // 이미 thumb_clip.mp4 생성됨 → seg_i.mp4 로 복사
-      const segOut = join(workDir, `seg_${i}.mp4`);
-      copyFileSync(seg.localPath, segOut);
-      continue;
-    }
     let startSec;
     let endSec;
     let duration;
@@ -778,7 +699,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       ih,
       cx,
       borderColorPrimary,
-      skipTeamBorderBoxes: hasOverlayPng,
+      skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
       topFontSize: topTextSize,
@@ -797,7 +718,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    if (hasOverlayPng) {
+    const overlayPngFile = hasOverlayPng
+      ? "overlay.png"
+      : hasThumbnailPng
+        ? "thumbnail.png"
+        : null;
+    if (overlayPngFile) {
       const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
       runFfmpeg(
         [
@@ -811,7 +737,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "-loop",
           "1",
           "-i",
-          "overlay.png",
+          overlayPngFile,
           "-filter_complex",
           fc,
           "-map",
