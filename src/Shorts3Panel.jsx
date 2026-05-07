@@ -475,6 +475,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     fontSize2: 52,
   });
   const [thumbnailSelected, setThumbnailSelected] = useState(false);
+  const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -507,6 +508,10 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
+
+  useEffect(() => {
+    thumbnailSegmentRef.current = thumbnailSegment;
+  }, [thumbnailSegment]);
 
   useEffect(() => {
     if (uploadPhase !== "done") return;
@@ -591,7 +596,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       // 1) 영상 프레임 먼저 그리기 (기존 crop 로직 동일)
       const cropOffset = Math.max(
         -50,
-        Math.min(50, Number(thumbnailSegment?.cropOffset) || 0)
+        Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
       );
       const cropW = Math.round((vh * 9) / 16);
       const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
@@ -698,9 +703,12 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     selectedSegIndex,
     selectedTeam,
     teamColor,
-    thumbnailSegment,
     thumbnailSelected,
   ]);
+
+  useEffect(() => {
+    renderPreviewFrame();
+  }, [selectedSegIndex, thumbnailSelected, renderPreviewFrame]);
 
   useEffect(() => {
     if (!thumbnailSelected || !thumbnailSegment.enabled) {
