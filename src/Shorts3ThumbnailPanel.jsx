@@ -141,6 +141,7 @@ export default function Shorts3ThumbnailPanel() {
               marginTop: 6,
               width: 180,
               height: 320,
+              background: "transparent",
               borderRadius: 10,
               border: `2px solid ${tc.accent}`,
               display: "block",
