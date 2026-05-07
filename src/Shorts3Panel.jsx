@@ -586,6 +586,27 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     const SIDE_BAR = Math.round(W * 0.037); // ~40/1080
     const BOT_BAR = Math.round(H * 0.083); // ~160/1920
 
+    // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
+    if (thumbnailSelected) {
+      // 1) 영상 프레임 먼저 그리기 (기존 crop 로직 동일)
+      const cropOffset = Math.max(
+        -50,
+        Math.min(50, Number(thumbnailSegment?.cropOffset) || 0)
+      );
+      const cropW = Math.round((vh * 9) / 16);
+      const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
+      let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
+      srcX = Math.max(0, Math.min(vw - cropW, srcX));
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(video, srcX, 0, cropW, vh, 0, 0, W, H);
+      // 2) 썸네일 오버레이 덮기
+      const overlayCanvas = thumbnailOverlayCanvasRef.current;
+      if (overlayCanvas) {
+        ctx.drawImage(overlayCanvas, 0, 0, W, H);
+      }
+      return;
+    }
+
     const selectedSeg = segments[selectedSegIndex];
     const cropOffset = Math.max(
       -50,
@@ -600,15 +621,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
 
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(video, srcX, 0, cropW, vh, 0, 0, W, H);
-
-    // 썸네일 선택 시: 영상 프레임 위에 썸네일 오버레이만 덮기
-    if (thumbnailSelected) {
-      const overlayCanvas = thumbnailOverlayCanvasRef.current;
-      if (overlayCanvas) {
-        ctx.drawImage(overlayCanvas, 0, 0, W, H);
-      }
-      return;
-    }
 
     // 2) 팀컬러 상단바
     ctx.fillStyle = bg;
