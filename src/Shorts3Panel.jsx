@@ -1555,6 +1555,10 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           .trim()
           .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
 
+      /*
+        thumbnailSegment 관련 기능은 일시 비활성화.
+        (thumbnail.png 수동 S3 업로드 흐름은 별도로 유지)
+
       if (thumbnailSegment.enabled) {
         const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
@@ -1605,6 +1609,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
         }
       }
+      */
 
       const payload = {
         action: "highlight_video_create",
@@ -1655,6 +1660,10 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           fadeOutDuration: bgmFadeOut,
         },
       };
+      /*
+        thumbnailSegment/thumbnailTime 관련 payload 전달은 비활성화.
+        (thumbnail.png를 S3에 업로드하는 경우, Lambda에서 이를 overlay로 사용)
+
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
@@ -1668,6 +1677,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         payload.thumbnailTextFont = DEFAULT_TEXT_FONT;
       }
       payload.thumbnailCropOffset = 0;
+      */
       if (highlightMusicS3Key.trim()) {
         payload.music_s3_key = highlightMusicS3Key.trim();
       }
