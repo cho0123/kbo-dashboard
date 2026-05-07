@@ -2616,6 +2616,8 @@ ${JSON.stringify(games, null, 2)}`;
           : 72;
         const topTextOpacity = clamp01(payload.topTextOpacity);
         const topTextFont = sanitizeHighlightFont(payload.topTextFont);
+        const team =
+          payload.team != null ? String(payload.team).trim() : "";
 
         const segments = [];
         for (const s of segmentsIn) {
@@ -2828,6 +2830,7 @@ ${JSON.stringify(games, null, 2)}`;
           topTextSize,
           topTextOpacity,
           topTextFont,
+          team,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
