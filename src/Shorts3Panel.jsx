@@ -1483,8 +1483,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
       }
 
-      const OVERLAY_S3_KEY = `jobs/${jobId}/overlay.png`;
-
       const payload = {
         action: "highlight_video_create",
         jobId,
@@ -1533,7 +1531,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           startTime: bgmStartTime,
           fadeOutDuration: bgmFadeOut,
         },
-        overlay_s3_key: OVERLAY_S3_KEY,
       };
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
