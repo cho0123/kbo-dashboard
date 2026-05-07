@@ -693,7 +693,14 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       ctx.textBaseline = "middle";
       ctx.fillText(selectedSeg.text, cw / 2, ch * 0.94);
     }
-  }, [segments, selectedSegIndex, selectedTeam, teamColor, thumbnailSelected]);
+  }, [
+    segments,
+    selectedSegIndex,
+    selectedTeam,
+    teamColor,
+    thumbnailSegment,
+    thumbnailSelected,
+  ]);
 
   useEffect(() => {
     if (!thumbnailSelected || !thumbnailSegment.enabled) {
@@ -729,6 +736,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         });
         if (cancelled) return;
         thumbnailOverlayCanvasRef.current = overlayCanvas;
+        renderPreviewFrame();
       } catch (e) {
         console.warn("[thumbnail preview]", e);
       }
