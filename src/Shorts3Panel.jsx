@@ -1442,8 +1442,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       const overlayCanvas = await drawThumbnail({
         team: selectedTeam,
         tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
-        text1: topText.trim(),
-        text2: String(segOverlay?.text ?? "").trim(),
+        text1: "",
+        text2: "",
         font1: stripFontForOverlay(topTextFont),
         font2: stripFontForOverlay(
           segOverlay?.textFont || DEFAULT_TEXT_FONT
