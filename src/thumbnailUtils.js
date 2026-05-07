@@ -63,11 +63,6 @@ export async function drawThumbnail({
   const TOP_BAR = 280;
   const SIDE_BAR = 40;
   const BOT_BAR = 160;
-  const RADIUS = 48;
-
-  const holeX = SIDE_BAR;
-  const holeY = TOP_BAR;
-  const holeW = W - SIDE_BAR * 2;
   const holeH = H - TOP_BAR - BOT_BAR;
 
   const innerFontFamilyMap = {
@@ -91,29 +86,17 @@ export async function drawThumbnail({
     키움: "키움 히어로즈",
   };
 
+  // 중앙 영상 영역은 처음부터 그리지 않아 투명 픽셀을 유지한다.
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = tc.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.beginPath();
-  ctx.moveTo(holeX, holeY);
-  ctx.lineTo(holeX + holeW, holeY);
-  ctx.lineTo(holeX + holeW, holeY + holeH - RADIUS);
-  ctx.arcTo(
-    holeX + holeW,
-    holeY + holeH,
-    holeX + holeW - RADIUS,
-    holeY + holeH,
-    RADIUS
-  );
-  ctx.lineTo(holeX + RADIUS, holeY + holeH);
-  ctx.arcTo(holeX, holeY + holeH, holeX, holeY + holeH - RADIUS, RADIUS);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
-  ctx.restore();
+  // 상단바
+  ctx.fillRect(0, 0, W, TOP_BAR);
+  // 하단바
+  ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
+  // 좌측바
+  ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+  // 우측바
+  ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
 
   const teamLabel = teamLabels[team] || team;
   ctx.font = `bold 52px 'Noto Sans KR', sans-serif`;
