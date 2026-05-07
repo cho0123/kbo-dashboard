@@ -930,6 +930,20 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setSegments((s) => (s.length <= 1 ? s : s.filter((_, i) => i !== idx)));
   }, []);
 
+  const deleteSelectedSegment = useCallback(() => {
+    const idx = selectedSegIndex;
+    setPlayingSegmentIndex((cur) =>
+      cur === idx ? null : cur != null && idx < cur ? cur - 1 : cur
+    );
+    setSelectedSegIndex(() => Math.max(0, idx - 1));
+    setSegments((s) => {
+      if (s.length <= 1) return s;
+      const filtered = s.filter((_, i) => i !== idx);
+      if (filtered.length === 0) return [emptySegment()];
+      return filtered;
+    });
+  }, [selectedSegIndex]);
+
   const segmentPlaybackTimesValid = useCallback((seg) => {
     const st = String(seg?.start ?? "").trim();
     const en = String(seg?.end ?? "").trim();
@@ -2499,6 +2513,38 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     }}
                   >
                     ✂️ 종료점 설정
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      busy ||
+                      uploading ||
+                      segments.length <= 1
+                    }
+                    onClick={deleteSelectedSegment}
+                    title={
+                      segments.length <= 1
+                        ? "구간은 최소 1개 필요합니다"
+                        : "현재 선택 구간 삭제"
+                    }
+                    style={{
+                      background: "#3d1518",
+                      color: "#fecaca",
+                      border: "1px solid rgba(248, 113, 113, 0.55)",
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      cursor:
+                        busy || uploading || segments.length <= 1
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: 12,
+                      ...(busy || uploading || segments.length <= 1
+                        ? { opacity: 0.55 }
+                        : {}),
+                    }}
+                  >
+                    🗑 구간 삭제
                   </button>
 
                   <span
