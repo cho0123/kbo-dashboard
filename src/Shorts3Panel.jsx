@@ -711,6 +711,23 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   }, [selectedSegIndex, thumbnailSelected, renderPreviewFrame]);
 
   useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video) return;
+    if (thumbnailSelected) {
+      const sec = segmentBoundaryToSeconds(
+        thumbnailSegment.start,
+        thumbnailSegment.startMs
+      );
+      if (Number.isFinite(sec)) video.currentTime = sec;
+    } else {
+      const seg = segments[selectedSegIndex];
+      if (!seg) return;
+      const sec = segmentBoundaryToSeconds(seg.start, seg.startMs);
+      if (Number.isFinite(sec)) video.currentTime = sec;
+    }
+  }, [selectedSegIndex, thumbnailSelected]);
+
+  useEffect(() => {
     if (!thumbnailSelected || !thumbnailSegment.enabled) {
       thumbnailOverlayCanvasRef.current = null;
       return;
