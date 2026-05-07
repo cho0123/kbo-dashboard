@@ -483,6 +483,7 @@ function buildHighlightSegmentVf(opts) {
     ih,
     cx,
     borderColorPrimary,
+    skipTeamBorderBoxes,
     topTextFile,
     bottomTextFile,
     topFontSize,
@@ -502,7 +503,7 @@ function buildHighlightSegmentVf(opts) {
     `scale=1080:1920:flags=lanczos`,
     "format=yuv420p",
   ];
-  if (borderColorPrimary) {
+  if (borderColorPrimary && !skipTeamBorderBoxes) {
     const c = `${borderColorPrimary}@1`;
     parts.push(
       `drawbox=x=0:y=0:w=iw:h=10:color=${c}:t=fill`,
@@ -647,6 +648,30 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   console.log("[highlight] source from S3", sourceKey, "->", sourceLocal);
   const sourceFileName = "source.mp4";
 
+  const overlayKeyRaw =
+    meta.overlay_s3_key != null ? String(meta.overlay_s3_key).trim() : "";
+  const overlayLocal = join(workDir, "overlay.png");
+  let hasOverlayPng = false;
+  if (overlayKeyRaw) {
+    try {
+      await getObjectFile(bucket, overlayKeyRaw, overlayLocal);
+      if (existsSync(overlayLocal)) {
+        hasOverlayPng = true;
+        console.log(
+          "[highlight] overlay from S3",
+          overlayKeyRaw,
+          "->",
+          overlayLocal
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[highlight] overlay download failed, using drawbox path:",
+        e?.message || e
+      );
+    }
+  }
+
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
@@ -753,6 +778,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       ih,
       cx,
       borderColorPrimary,
+      skipTeamBorderBoxes: hasOverlayPng,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
       topFontSize: topTextSize,
@@ -771,34 +797,75 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    runFfmpeg(
-      [
-        "-y",
-        "-ss",
-        String(startSec),
-        "-i",
-        sourceFileName,
-        "-t",
-        String(duration),
-        "-vf",
-        vfSeg,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
-        "-c:a",
-        "aac",
-        `seg_${i}.mp4`,
-      ],
-      workDir,
-      `highlight_seg_${i}`
-    );
+    if (hasOverlayPng) {
+      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+      runFfmpeg(
+        [
+          "-y",
+          "-ss",
+          String(startSec),
+          "-i",
+          sourceFileName,
+          "-t",
+          String(duration),
+          "-loop",
+          "1",
+          "-i",
+          "overlay.png",
+          "-filter_complex",
+          fc,
+          "-map",
+          "[out]",
+          "-map",
+          "0:a?",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          "-shortest",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_seg_${i}_overlay`
+      );
+    } else {
+      runFfmpeg(
+        [
+          "-y",
+          "-ss",
+          String(startSec),
+          "-i",
+          sourceFileName,
+          "-t",
+          String(duration),
+          "-vf",
+          vfSeg,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_seg_${i}`
+      );
+    }
   }
 
   let concatBody = "ffconcat version 1.0\n";
