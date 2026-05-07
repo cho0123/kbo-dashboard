@@ -146,7 +146,7 @@ export async function drawThumbnail({
 
   if (showLine) {
     const lineY = holeCenterY + 20;
-    ctx.strokeStyle = tc.accent;
+    ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.moveTo(W * 0.25, lineY);

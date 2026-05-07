@@ -3881,6 +3881,9 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
+                  justifyContent: "flex-start",
+                  alignSelf: "flex-start",
+                  whiteSpace: "nowrap",
                   fontSize: 13,
                   fontWeight: 700,
                 }}
@@ -3901,11 +3904,11 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
             </div>
           ) : null}
 
-          {segments.length === 0 ? (
+          {!thumbnailSelected && segments.length === 0 ? (
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
               구간을 추가하면 여기에서 크롭·자막을 설정합니다.
             </p>
-          ) : (
+          ) : !thumbnailSelected ? (
             (() => {
               const seg = segments[selectedSegIndex];
               if (!seg) {
@@ -4208,7 +4211,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                 </div>
               );
             })()
-          )}
+          ) : null}
         </div>
       </div>
       </div>
