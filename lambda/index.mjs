@@ -666,9 +666,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    const overlayPngFile =
-      i === 0
-        ? (hasOverlayPng ? "overlay.png" : hasThumbnailPng ? "thumbnail.png" : null)
+    const overlayPngFile = hasOverlayPng
+      ? "overlay.png"
+      : hasThumbnailPng
+        ? "thumbnail.png"
         : null;
     if (overlayPngFile) {
       const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
