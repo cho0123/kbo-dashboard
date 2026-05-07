@@ -446,9 +446,9 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   /** idle | uploading | done */
   const [uploadPhase, setUploadPhase] = useState("idle");
   const [panelOpen, setPanelOpen] = useState({
-    download: true,
-    upload: true,
-    saved: false,
+    download: false,
+    upload: false,
+    saved: true,
     whisper: false,
   });
   const togglePanel = (key) =>
@@ -458,6 +458,21 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [previewUrl, setPreviewUrl] = useState(null);
   /** 구간 카드 선택 → 오른쪽 세부 설정 */
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
+  const [thumbnailSegment, setThumbnailSegment] = useState({
+    enabled: false,
+    start: "00:00:00",
+    startMs: 0,
+    text1: "",
+    text2: "",
+    showLine: false,
+    font1: "NotoSansKR-Bold",
+    font2: "NotoSansKR-Bold",
+    textColor1: "#FFFFFF",
+    textColor2: "#FFFFFF",
+    fontSize1: 88,
+    fontSize2: 52,
+  });
+  const [thumbnailSelected, setThumbnailSelected] = useState(false);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -890,6 +905,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       if (s.length >= MAX_SEGMENTS) return s;
       const next = [...s, emptySegment()];
       const ni = next.length - 1;
+      setThumbnailSelected(false);
       setSelectedSegIndex(ni);
       return next;
     });
@@ -1004,6 +1020,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   }, [segments.length]);
 
   const selectSegment = useCallback((index) => {
+    setThumbnailSelected(false);
     setSelectedSegIndex(index);
   }, []);
 
@@ -1437,50 +1454,55 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           .trim()
           .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
 
-      const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-      const segOverlay = segments[selectedSegIndex];
-      const overlayCanvas = await drawThumbnail({
-        team: selectedTeam,
-        tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
-        text1: "",
-        text2: "",
-        font1: stripFontForOverlay(topTextFont),
-        font2: stripFontForOverlay(
-          segOverlay?.textFont || DEFAULT_TEXT_FONT
-        ),
-        textColor1: topTextColor,
-        textColor2:
-          String(segOverlay?.textColor ?? TEXT_COLORS[0]).trim() ||
-          TEXT_COLORS[0],
-        fontSize1: sizeClamp,
-        fontSize2: Math.min(
-          200,
-          Math.max(20, Math.round(Number(segOverlay?.textSize)) || 48)
-        ),
-      });
+      if (thumbnailSegment.enabled) {
+        const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
+        const overlayCanvas = await drawThumbnail({
+          team: selectedTeam,
+          tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
+          text1: String(thumbnailSegment.text1 || "").trim(),
+          text2: String(thumbnailSegment.text2 || "").trim(),
+          font1: stripFontForOverlay(thumbnailSegment.font1),
+          font2: stripFontForOverlay(thumbnailSegment.font2),
+          textColor1:
+            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          textColor2:
+            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          fontSize1: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+          ),
+          fontSize2: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+          ),
+          showLine: Boolean(thumbnailSegment.showLine),
+        });
 
-      const overlayBlob = await new Promise((resolve, reject) => {
-        overlayCanvas.toBlob(
-          (b) =>
-            b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
-          "image/png"
-        );
-      });
+        const overlayBlob = await new Promise((resolve, reject) => {
+          overlayCanvas.toBlob(
+            (b) =>
+              b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
+            "image/png"
+          );
+        });
 
-      const overlayUp = await postKbo({
-        action: "overlay_upload_url",
-        jobId,
-      });
-      if (!overlayUp?.putUrl) {
-        throw new Error("overlay_upload_url 응답 오류");
-      }
-      const overlayPut = await fetch(overlayUp.putUrl, {
-        method: "PUT",
-        body: overlayBlob,
-        headers: { "Content-Type": "image/png" },
-      });
-      if (!overlayPut.ok) {
-        throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
+        const overlayUp = await postKbo({
+          action: "overlay_upload_url",
+          jobId,
+        });
+        if (!overlayUp?.putUrl) {
+          throw new Error("overlay_upload_url 응답 오류");
+        }
+        const overlayPut = await fetch(overlayUp.putUrl, {
+          method: "PUT",
+          body: overlayBlob,
+          headers: { "Content-Type": "image/png" },
+        });
+        if (!overlayPut.ok) {
+          throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
+        }
       }
 
       const payload = {
@@ -2474,10 +2496,16 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                   </button>
 
                   <select
-                    value={selectedSegIndex}
-                    onChange={(e) =>
-                      setSelectedSegIndex(Number(e.target.value) || 0)
-                    }
+                    value={thumbnailSelected ? -1 : selectedSegIndex}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (v === -1) {
+                        setThumbnailSelected(true);
+                      } else {
+                        setThumbnailSelected(false);
+                        setSelectedSegIndex(Number.isFinite(v) ? v : 0);
+                      }
+                    }}
                     disabled={busy || uploading}
                     style={{
                       padding: "3px 8px",
@@ -2492,6 +2520,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                         : {}),
                     }}
                   >
+                    <option value={-1}>썸네일</option>
                     {segments.map((_, i) => (
                       <option key={i} value={i}>
                         구간 #{i + 1}
@@ -2508,13 +2537,21 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      setSegments((prev) =>
-                        prev.map((s, i) =>
-                          i === selectedSegIndex
-                            ? { ...s, start: secondsToHhMmSs(whole), startMs: frac }
-                            : s
-                        )
-                      );
+                      if (thumbnailSelected) {
+                        setThumbnailSegment((v) => ({
+                          ...v,
+                          start: secondsToHhMmSs(whole),
+                          startMs: frac,
+                        }));
+                      } else {
+                        setSegments((prev) =>
+                          prev.map((s, i) =>
+                            i === selectedSegIndex
+                              ? { ...s, start: secondsToHhMmSs(whole), startMs: frac }
+                              : s
+                          )
+                        );
+                      }
                     }}
                     style={{
                       background: "#1a3a2a",
@@ -2534,7 +2571,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
 
                   <button
                     type="button"
-                    disabled={busy || uploading}
+                    disabled={busy || uploading || thumbnailSelected}
                     onClick={() => {
                       const t = previewVideoRef.current?.currentTime ?? 0;
                       const whole = Math.floor(t);
@@ -2570,7 +2607,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     disabled={
                       busy ||
                       uploading ||
-                      segments.length <= 1
+                      segments.length <= 1 ||
+                      thumbnailSelected
                     }
                     onClick={deleteSelectedSegment}
                     title={
@@ -2650,6 +2688,67 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
               gap: 6,
             }}
           >
+            {/* 썸네일 특수 구간 */}
+            <div
+              role="presentation"
+              onClick={(e) => {
+                const t = e.target;
+                if (
+                  t &&
+                  typeof t.closest === "function" &&
+                  t.closest("button, input, select, textarea")
+                ) {
+                  return;
+                }
+                setThumbnailSelected(true);
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                padding: "10px",
+                borderRadius: 10,
+                border: thumbnailSelected
+                  ? "2px solid rgba(96,165,250,1)"
+                  : "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.02)",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: "rgba(96,165,250,0.18)",
+                    border: "1px solid rgba(96,165,250,0.35)",
+                    color: "#93c5fd",
+                  }}
+                >
+                  썸네일
+                </span>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  시작: {thumbnailSegment.start}.{String(thumbnailSegment.startMs).padStart(2, "0")}
+                </span>
+                <span
+                  className="muted"
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 12,
+                    color: thumbnailSegment.enabled ? "#4ade80" : "#aaa",
+                    fontWeight: 700,
+                  }}
+                >
+                  {thumbnailSegment.enabled ? "활성" : "비활성"}
+                </span>
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                텍스트는 오른쪽에서 설정 (0.3초 기준 프레임 오버레이)
+              </div>
+            </div>
+
             {segments.map((seg, index) => (
               <div
                 key={seg?.id || index}
@@ -3339,11 +3438,13 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           }}
         >
           <div className="label">
-            구간 #{selectedSegIndex + 1} · 세부 설정
+            {thumbnailSelected
+              ? "썸네일 · 세부 설정"
+              : `구간 #${selectedSegIndex + 1} · 세부 설정`}
           </div>
 
           {/* 1번 구간일 때만 상단 제목 텍스트 설정 */}
-          {selectedSegIndex === 0 && (
+          {!thumbnailSelected && selectedSegIndex === 0 && (
             <div style={{ marginBottom: 12 }}>
               <div className="label">상단 제목 텍스트</div>
               <label className="preset-field" style={{ marginBottom: 12 }}>
@@ -3496,6 +3597,209 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
               </div>
             </div>
           )}
+
+          {thumbnailSelected ? (
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  marginBottom: 12,
+                }}
+              >
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(thumbnailSegment.enabled)}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({
+                        ...v,
+                        enabled: e.target.checked,
+                      }))
+                    }
+                  />
+                  썸네일 오버레이 활성화
+                </label>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  시작: {thumbnailSegment.start}.
+                  {String(thumbnailSegment.startMs).padStart(2, "0")} (종료는
+                  시작+0.3초)
+                </span>
+              </div>
+
+              <div className="label">텍스트 1</div>
+              <label className="preset-field" style={{ marginBottom: 10 }}>
+                <span>텍스트 1 (비우면 미표시)</span>
+                <input
+                  type="text"
+                  value={thumbnailSegment.text1}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setThumbnailSegment((v) => ({ ...v, text1: e.target.value }))
+                  }
+                />
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
+                  <span>폰트</span>
+                  <select
+                    value={thumbnailSegment.font1}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, font1: e.target.value }))
+                    }
+                  >
+                    <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
+                    <option value="BlackHanSans-Regular">BlackHanSans</option>
+                    <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
+                  </select>
+                </label>
+                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
+                  크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88)))}px)
+                  <input
+                    type="range"
+                    min={20}
+                    max={200}
+                    step={1}
+                    value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, fontSize1: Number(e.target.value) }))
+                    }
+                    style={{ width: "100%" }}
+                  />
+                </label>
+                <label className="preset-field" style={{ flex: "1 1 160px", minWidth: 140 }}>
+                  <span>색상</span>
+                  <select
+                    value={thumbnailSegment.textColor1}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, textColor1: e.target.value }))
+                    }
+                  >
+                    {TEXT_COLORS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="label">텍스트 2</div>
+              <label className="preset-field" style={{ marginBottom: 10 }}>
+                <span>텍스트 2 (비우면 미표시)</span>
+                <input
+                  type="text"
+                  value={thumbnailSegment.text2}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setThumbnailSegment((v) => ({ ...v, text2: e.target.value }))
+                  }
+                />
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
+                  <span>폰트</span>
+                  <select
+                    value={thumbnailSegment.font2}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, font2: e.target.value }))
+                    }
+                  >
+                    <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
+                    <option value="BlackHanSans-Regular">BlackHanSans</option>
+                    <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
+                  </select>
+                </label>
+                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
+                  크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52)))}px)
+                  <input
+                    type="range"
+                    min={20}
+                    max={200}
+                    step={1}
+                    value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, fontSize2: Number(e.target.value) }))
+                    }
+                    style={{ width: "100%" }}
+                  />
+                </label>
+                <label className="preset-field" style={{ flex: "1 1 160px", minWidth: 140 }}>
+                  <span>색상</span>
+                  <select
+                    value={thumbnailSegment.textColor2}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      setThumbnailSegment((v) => ({ ...v, textColor2: e.target.value }))
+                    }
+                  >
+                    {TEXT_COLORS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(thumbnailSegment.showLine)}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setThumbnailSegment((v) => ({
+                      ...v,
+                      showLine: e.target.checked,
+                    }))
+                  }
+                />
+                가로선 표시
+              </label>
+            </div>
+          ) : null}
 
           {segments.length === 0 ? (
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>

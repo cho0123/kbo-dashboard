@@ -38,6 +38,7 @@ export const TEAM_LOGO_PATH = {
  * @param {string} opts.textColor2
  * @param {number} opts.fontSize1
  * @param {number} opts.fontSize2
+ * @param {boolean} [opts.showLine]
  * @param {HTMLCanvasElement} [opts.canvas]
  */
 export async function drawThumbnail({
@@ -51,6 +52,7 @@ export async function drawThumbnail({
   textColor2,
   fontSize1,
   fontSize2,
+  showLine,
   canvas: existingCanvas,
 }) {
   const W = 1080;
@@ -141,6 +143,16 @@ export async function drawThumbnail({
   ctx.shadowBlur = 8;
   ctx.fillText(text1 || "", W / 2, holeCenterY - fontSize1 / 2 - 30);
   ctx.shadowBlur = 0;
+
+  if (showLine) {
+    const lineY = holeCenterY + 20;
+    ctx.strokeStyle = tc.accent;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.25, lineY);
+    ctx.lineTo(W * 0.75, lineY);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = textColor2;
   ctx.font = `${fontSize2}px ${ff(font2)}`;
