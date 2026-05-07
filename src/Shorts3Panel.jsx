@@ -462,9 +462,11 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     enabled: false,
     start: "00:00:00",
     startMs: 0,
+    endMs: 3,
     text1: "",
     text2: "",
     showLine: false,
+    cropOffset: 0,
     font1: "NotoSansKR-Bold",
     font2: "NotoSansKR-Bold",
     textColor1: "#FFFFFF",
@@ -476,6 +478,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
+  const thumbnailPreviewCanvasRef = useRef(null);
   const previewRafIdRef = useRef(null);
   const teamLogoImgRef = useRef({});
   /** 미리보기 래퍼와 동일 너비로 타임라인 바 맞춤 */
@@ -669,6 +672,47 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       ctx.fillText(selectedSeg.text, cw / 2, ch * 0.94);
     }
   }, [segments, selectedSegIndex, selectedTeam, teamColor]);
+
+  useEffect(() => {
+    const canvas = thumbnailPreviewCanvasRef.current;
+    if (!canvas) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
+        await drawThumbnail({
+          team: selectedTeam,
+          tc: { bg: tc.bg, accent: tc.accent },
+          text1: String(thumbnailSegment.text1 || "").trim(),
+          text2: String(thumbnailSegment.text2 || "").trim(),
+          font1: String(thumbnailSegment.font1 || "NotoSansKR-Bold").trim(),
+          font2: String(thumbnailSegment.font2 || "NotoSansKR-Bold").trim(),
+          textColor1:
+            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          textColor2:
+            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          fontSize1: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+          ),
+          fontSize2: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+          ),
+          showLine: Boolean(thumbnailSegment.showLine),
+          canvas,
+        });
+      } catch (e) {
+        console.warn("[thumbnail preview]", e);
+      }
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTeam, thumbnailSegment]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
@@ -2542,6 +2586,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                           ...v,
                           start: secondsToHhMmSs(whole),
                           startMs: frac,
+                          endMs: clampSegmentFracMs(frac + 3),
                         }));
                       } else {
                         setSegments((prev) =>
@@ -3630,12 +3675,74 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                       }))
                     }
                   />
-                  썸네일 오버레이 활성화
+                  활성화
                 </label>
                 <span className="muted" style={{ fontSize: 12 }}>
                   시작: {thumbnailSegment.start}.
-                  {String(thumbnailSegment.startMs).padStart(2, "0")} (종료는
-                  시작+0.3초)
+                  {String(thumbnailSegment.startMs).padStart(2, "0")} · 종료:
+                  {thumbnailSegment.start}.
+                  {String(thumbnailSegment.endMs ?? 0).padStart(2, "0")} (+1프레임)
+                </span>
+              </div>
+
+              {/* 썸네일 오버레이 미리보기 */}
+              <div style={{ marginBottom: 12 }}>
+                <div className="label">썸네일 오버레이 미리보기</div>
+                <canvas
+                  ref={thumbnailPreviewCanvasRef}
+                  width={1080}
+                  height={1920}
+                  style={{
+                    marginTop: 6,
+                    width: 180,
+                    height: 320,
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "transparent",
+                    display: "block",
+                  }}
+                />
+              </div>
+
+              {/* 크롭 오프셋 (썸네일 전용) */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  marginBottom: 12,
+                }}
+              >
+                <span
+                  className="muted"
+                  style={{ fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                >
+                  크롭 오프셋
+                </span>
+                <input
+                  type="range"
+                  min={-50}
+                  max={50}
+                  step={1}
+                  value={thumbnailSegment.cropOffset ?? 0}
+                  disabled={busy || uploading}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    const v = Number.isFinite(n)
+                      ? Math.min(50, Math.max(-50, Math.round(n)))
+                      : 0;
+                    setThumbnailSegment((cur) => ({ ...cur, cropOffset: v }));
+                    const vid = previewVideoRef.current;
+                    if (vid) setPreviewCropOverlay(computePreviewCropOverlay(vid, v));
+                  }}
+                  style={{ flex: 1, minWidth: 140 }}
+                />
+                <span
+                  className="muted"
+                  style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                >
+                  {formatCropOffsetLabel(thumbnailSegment.cropOffset ?? 0)}
                 </span>
               </div>
 
@@ -3689,22 +3796,27 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     style={{ width: "100%" }}
                   />
                 </label>
-                <label className="preset-field" style={{ flex: "1 1 160px", minWidth: 140 }}>
-                  <span>색상</span>
-                  <select
+                <div
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    flex: "1 1 200px",
+                    minWidth: 160,
+                  }}
+                >
+                  폰트 색상
+                  <TextColorPalette
                     value={thumbnailSegment.textColor1}
                     disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, textColor1: e.target.value }))
+                    onChange={(c) =>
+                      setThumbnailSegment((v) => ({ ...v, textColor1: c }))
                     }
-                  >
-                    {TEXT_COLORS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
               </div>
 
               <div className="label">텍스트 2</div>
@@ -3757,22 +3869,27 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                     style={{ width: "100%" }}
                   />
                 </label>
-                <label className="preset-field" style={{ flex: "1 1 160px", minWidth: 140 }}>
-                  <span>색상</span>
-                  <select
+                <div
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    flex: "1 1 200px",
+                    minWidth: 160,
+                  }}
+                >
+                  폰트 색상
+                  <TextColorPalette
                     value={thumbnailSegment.textColor2}
                     disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, textColor2: e.target.value }))
+                    onChange={(c) =>
+                      setThumbnailSegment((v) => ({ ...v, textColor2: c }))
                     }
-                  >
-                    {TEXT_COLORS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  />
+                </div>
               </div>
 
               <label
