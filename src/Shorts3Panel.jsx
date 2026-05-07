@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { postKbo } from "./api.js";
+import { drawThumbnail } from "./thumbnailUtils.js";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
 function putPresignedWithProgress(url, body, onProgress) {
@@ -1430,6 +1431,60 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         200,
         Math.max(20, Math.round(Number(topTextSize) || 72))
       );
+
+      const stripFontForOverlay = (f) =>
+        String(f || "")
+          .trim()
+          .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
+
+      const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
+      const segOverlay = segments[selectedSegIndex];
+      const overlayCanvas = await drawThumbnail({
+        team: selectedTeam,
+        tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
+        text1: topText.trim(),
+        text2: String(segOverlay?.text ?? "").trim(),
+        font1: stripFontForOverlay(topTextFont),
+        font2: stripFontForOverlay(
+          segOverlay?.textFont || DEFAULT_TEXT_FONT
+        ),
+        textColor1: topTextColor,
+        textColor2:
+          String(segOverlay?.textColor ?? TEXT_COLORS[0]).trim() ||
+          TEXT_COLORS[0],
+        fontSize1: sizeClamp,
+        fontSize2: Math.min(
+          200,
+          Math.max(20, Math.round(Number(segOverlay?.textSize)) || 48)
+        ),
+      });
+
+      const overlayBlob = await new Promise((resolve, reject) => {
+        overlayCanvas.toBlob(
+          (b) =>
+            b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
+          "image/png"
+        );
+      });
+
+      const overlayUp = await postKbo({
+        action: "overlay_upload_url",
+        jobId,
+      });
+      if (!overlayUp?.putUrl) {
+        throw new Error("overlay_upload_url 응답 오류");
+      }
+      const overlayPut = await fetch(overlayUp.putUrl, {
+        method: "PUT",
+        body: overlayBlob,
+        headers: { "Content-Type": "image/png" },
+      });
+      if (!overlayPut.ok) {
+        throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
+      }
+
+      const OVERLAY_S3_KEY = `jobs/${jobId}/overlay.png`;
+
       const payload = {
         action: "highlight_video_create",
         jobId,
@@ -1478,6 +1533,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           startTime: bgmStartTime,
           fadeOutDuration: bgmFadeOut,
         },
+        overlay_s3_key: OVERLAY_S3_KEY,
       };
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;

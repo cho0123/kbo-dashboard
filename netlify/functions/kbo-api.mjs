@@ -2551,6 +2551,43 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "overlay_upload_url": {
+        try {
+          const oid = String(payload.jobId || "").trim();
+          if (!oid || !UUID_V4_RE.test(oid)) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "유효한 jobId가 필요합니다.",
+              }),
+            };
+          }
+          const { s3, bucket } = videoEncodeAwsClients();
+          const key = `jobs/${oid}/overlay.png`;
+          const cmd = new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ContentType: "image/png",
+          });
+          const putUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, jobId: oid, key, putUrl }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "highlight_video_create": {
         const HIGHLIGHT_FONT_FILES = new Set([
           "NotoSansKR-Bold.ttf",
@@ -2843,6 +2880,25 @@ ${JSON.stringify(games, null, 2)}`;
         }
         if (thumbnailTextMeta) {
           Object.assign(meta, thumbnailTextMeta);
+        }
+
+        const overlay_s3_key =
+          payload.overlay_s3_key != null
+            ? String(payload.overlay_s3_key).trim()
+            : "";
+        if (overlay_s3_key) {
+          const expected = `jobs/${jobId}/overlay.png`;
+          if (overlay_s3_key !== expected) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: `overlay_s3_key는 ${expected} 여야 합니다.`,
+              }),
+            };
+          }
+          meta.overlay_s3_key = overlay_s3_key;
         }
 
         await s3.send(
