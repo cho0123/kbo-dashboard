@@ -1751,21 +1751,22 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     : `• 상대전적 데이터 없음`;
 
   const drawCount = Number(g?.draws ?? g?.draw ?? g?.DRAW ?? 0) || 0;
-  const hasWinnerPitcher = Boolean(String(g?.winning_pitcher ?? "").trim());
   const isDrawGame =
-    (Number.isFinite(hsNum) &&
-      Number.isFinite(asNum) &&
-      hsNum === asNum) ||
-    drawCount > 0 ||
-    !hasWinnerPitcher;
+    (Number.isFinite(hsNum) && Number.isFinite(asNum) && hsNum === asNum) ||
+    drawCount > 0;
 
   const winNameRaw = String(g?.winning_pitcher || winTeam || "—");
   const loseNameRaw = String(g?.losing_pitcher || loseTeam || "—");
   const winEra = g?.winning_pitcher_era ?? null;
   const loseEra = g?.losing_pitcher_era ?? null;
-  const pitcherLine = isDrawGame
-    ? "• 연장전 무승부 종료"
-    : `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
+  const isCancelled =
+    (g?.home_score === undefined || g?.home_score === null) &&
+    (g?.away_score === undefined || g?.away_score === null);
+  const pitcherLine = isCancelled
+    ? "• 경기 취소"
+    : isDrawGame
+      ? "• 연장전 무승부 종료"
+      : `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
   const fmtMvpLineStat = (h, hr) =>
     h == null && hr == null ? "" : ` (${h ?? "—"}H ${hr ?? "—"}HR)`;
   const mvpRows =
