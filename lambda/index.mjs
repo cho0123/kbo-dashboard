@@ -306,7 +306,10 @@ function segmentBoundarySeconds(seg, key) {
   return t;
 }
 
-// NOTE: thumbnailTime / _thumbnailClip 로직은 제거됨.
+const HIGHLIGHT_THUMBNAIL_DUR_SEC = 0.3;
+
+/** 썸네일 0.3초 클립 — duration 고정, 일반 구간과 구분 */
+const THUMB_SEG_FLAG = "_thumbnailClip";
 
 function probeVideoDimensions(workDir, fileName) {
   const bin = ffprobeBin();
@@ -449,6 +452,29 @@ function normalizeSegmentTextOverlay(seg) {
       : DEFAULT_FONT_FILE;
   const textShadow = Boolean(seg?.textShadow);
   return { text, textY, textColor, textSize, textOpacity, textFont, textShadow };
+}
+
+function normalizeThumbnailText(meta) {
+  const text =
+    meta.thumbnailText != null ? String(meta.thumbnailText).trim() : "";
+  const ty = Number(meta.thumbnailTextY);
+  const textY = Number.isFinite(ty)
+    ? Math.min(100, Math.max(0, Math.round(ty)))
+    : 85;
+  const textColor = normalizeHexColor(meta.thumbnailTextColor, "#ffffff");
+  const tsRaw = Number(meta.thumbnailTextSize);
+  const textSize = Number.isFinite(tsRaw)
+    ? Math.min(200, Math.max(20, Math.round(tsRaw)))
+    : 72;
+  const opacityRaw = Number(meta.thumbnailTextOpacity);
+  const textOpacity = Number.isFinite(opacityRaw)
+    ? Math.min(1, Math.max(0, opacityRaw))
+    : 1;
+  const textFont =
+    meta.thumbnailTextFont != null && String(meta.thumbnailTextFont).trim()
+      ? String(meta.thumbnailTextFont).trim()
+      : DEFAULT_FONT_FILE;
+  return { text, textY, textColor, textSize, textOpacity, textFont };
 }
 
 function buildHighlightSegmentVf(opts) {
@@ -611,11 +637,22 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     let startSec;
     let endSec;
     let duration;
-    console.log("[seg] startMs:", seg.startMs, "endMs:", seg.endMs);
-    startSec = segmentBoundarySeconds(seg, "start");
-    endSec = segmentBoundarySeconds(seg, "end");
-    duration = endSec - startSec;
-    if (duration <= 0) duration = HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
+    if (seg[THUMB_SEG_FLAG] === true) {
+      const rawStart =
+        typeof seg.start === "number" && Number.isFinite(seg.start)
+          ? seg.start
+          : Number(seg.start);
+      startSec =
+        Number.isFinite(rawStart) && rawStart >= 0 ? rawStart : 0;
+      duration = HIGHLIGHT_THUMBNAIL_DUR_SEC;
+      endSec = startSec + duration;
+    } else {
+      console.log("[seg] startMs:", seg.startMs, "endMs:", seg.endMs);
+      startSec = segmentBoundarySeconds(seg, "start");
+      endSec = segmentBoundarySeconds(seg, "end");
+      duration = endSec - startSec;
+      if (duration <= 0) duration = HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
+    }
     console.log(
       "[seg] start:",
       startSec,
@@ -624,9 +661,24 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       "duration:",
       duration
     );
-    const cropRaw = seg?.cropOffset;
+    const cropRaw =
+      seg[THUMB_SEG_FLAG] === true
+        ? (() => {
+            const tr = meta.thumbnailCropOffset;
+            if (tr !== undefined && tr !== null && tr !== "") {
+              const n = Number(tr);
+              if (Number.isFinite(n)) return n;
+            }
+            return seg?.cropOffset;
+          })()
+        : seg?.cropOffset;
     const cx = highlightCropXFromOffset(iw, cw, cropRaw);
-    const bottomParsed = normalizeSegmentTextOverlay(seg);
+    let bottomParsed;
+    if (seg[THUMB_SEG_FLAG] === true) {
+      bottomParsed = normalizeThumbnailText(meta);
+    } else {
+      bottomParsed = normalizeSegmentTextOverlay(seg);
+    }
     const {
       text: bottomTxt,
       textY,

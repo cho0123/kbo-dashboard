@@ -1555,43 +1555,55 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           .trim()
           .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
 
-      // 팀프레임 overlay PNG는 항상 업로드 (text 없이 프레임만)
-      const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-      const overlayCanvas = await drawThumbnail({
-        team: selectedTeam,
-        tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
-        text1: "",
-        text2: "",
-        font1: stripFontForOverlay(thumbnailSegment?.font1),
-        font2: stripFontForOverlay(thumbnailSegment?.font2),
-        textColor1: "#FFFFFF",
-        textColor2: "#FFFFFF",
-        fontSize1: 88,
-        fontSize2: 52,
-        showLine: false,
-      });
+      if (thumbnailSegment.enabled) {
+        const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
+        const overlayCanvas = await drawThumbnail({
+          team: selectedTeam,
+          tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
+          text1: String(thumbnailSegment.text1 || "").trim(),
+          text2: String(thumbnailSegment.text2 || "").trim(),
+          font1: stripFontForOverlay(thumbnailSegment.font1),
+          font2: stripFontForOverlay(thumbnailSegment.font2),
+          textColor1:
+            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          textColor2:
+            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
+            "#FFFFFF",
+          fontSize1: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+          ),
+          fontSize2: Math.min(
+            200,
+            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+          ),
+          showLine: Boolean(thumbnailSegment.showLine),
+        });
 
-      const overlayBlob = await new Promise((resolve, reject) => {
-        overlayCanvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패"))),
-          "image/png"
-        );
-      });
+        const overlayBlob = await new Promise((resolve, reject) => {
+          overlayCanvas.toBlob(
+            (b) =>
+              b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
+            "image/png"
+          );
+        });
 
-      const overlayUp = await postKbo({
-        action: "overlay_upload_url",
-        jobId,
-      });
-      if (!overlayUp?.putUrl) {
-        throw new Error("overlay_upload_url 응답 오류");
-      }
-      const overlayPut = await fetch(overlayUp.putUrl, {
-        method: "PUT",
-        body: overlayBlob,
-        headers: { "Content-Type": "image/png" },
-      });
-      if (!overlayPut.ok) {
-        throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
+        const overlayUp = await postKbo({
+          action: "overlay_upload_url",
+          jobId,
+        });
+        if (!overlayUp?.putUrl) {
+          throw new Error("overlay_upload_url 응답 오류");
+        }
+        const overlayPut = await fetch(overlayUp.putUrl, {
+          method: "PUT",
+          body: overlayBlob,
+          headers: { "Content-Type": "image/png" },
+        });
+        if (!overlayPut.ok) {
+          throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
+        }
       }
 
       const payload = {
@@ -1643,10 +1655,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
           fadeOutDuration: bgmFadeOut,
         },
       };
-      /*
-        thumbnailSegment/thumbnailTime 관련 payload 전달은 비활성화.
-        (thumbnail.png를 S3에 업로드하는 경우, Lambda에서 이를 overlay로 사용)
-
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
@@ -1660,7 +1668,6 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         payload.thumbnailTextFont = DEFAULT_TEXT_FONT;
       }
       payload.thumbnailCropOffset = 0;
-      */
       if (highlightMusicS3Key.trim()) {
         payload.music_s3_key = highlightMusicS3Key.trim();
       }
