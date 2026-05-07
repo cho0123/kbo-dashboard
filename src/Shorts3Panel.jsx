@@ -369,6 +369,66 @@ function parseHhMmSsToSeconds(t, fracMs) {
   return base + clampSegmentFracMs(fracMs) / 100;
 }
 
+/** Whisper 구간 목록 표시용 (MM:SS) */
+function formatTimestampSec(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n < 0) return "0:00";
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function mapApiSegmentToPanelSegment(seg) {
+  const st = Number(seg?.start ?? 0);
+  const en = Number(seg?.end ?? 0);
+  const startSec = Number.isFinite(st) ? Math.max(0, st) : 0;
+  const endSec = Number.isFinite(en) ? Math.max(0, en) : 0;
+  const startWhole = Math.floor(startSec + 1e-9);
+  const endWhole = Math.floor(endSec + 1e-9);
+  const startMs = clampSegmentFracMs(
+    Math.round((startSec - startWhole) * 100)
+  );
+  const endMs = clampSegmentFracMs(Math.round((endSec - endWhole) * 100));
+  return {
+    ...emptySegment(),
+    start: secondsToHhMmSs(startWhole),
+    startMs,
+    end: secondsToHhMmSs(endWhole),
+    endMs,
+    text: String(seg?.text || "").slice(0, 20) || "",
+  };
+}
+
+function copyTimestampLine(text) {
+  const s = String(text ?? "");
+  if (!s || !navigator.clipboard?.writeText) return;
+  void navigator.clipboard.writeText(s);
+}
+
+const accordionHeaderStyle = {
+  width: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 12px",
+  borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.05)",
+  cursor: "pointer",
+  fontWeight: 700,
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  fontSize: 14,
+  color: "inherit",
+};
+
+const accordionBodyStyle = {
+  marginTop: 10,
+  paddingLeft: 2,
+  paddingRight: 2,
+};
+
 export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed }) {
   const [segments, setSegments] = useState([emptySegment()]);
   const [status, setStatus] = useState("idle");
@@ -384,6 +444,16 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [uploadProgress, setUploadProgress] = useState(0);
   /** idle | uploading | done */
   const [uploadPhase, setUploadPhase] = useState("idle");
+  const [panelOpen, setPanelOpen] = useState({
+    download: true,
+    upload: true,
+    saved: false,
+    whisper: false,
+  });
+  const togglePanel = (key) =>
+    setPanelOpen((v) => ({ ...v, [key]: !v[key] }));
+  const [whisperData, setWhisperData] = useState(null);
+  const [selectedTimestamps, setSelectedTimestamps] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
   /** 구간 카드 선택 → 오른쪽 세부 설정 */
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
@@ -419,6 +489,12 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
+
+  useEffect(() => {
+    if (uploadPhase !== "done") return;
+    setPanelOpen((v) => ({ ...v, upload: false, saved: true }));
+  }, [uploadPhase]);
+
   const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
@@ -818,6 +894,20 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     });
   }, []);
 
+  const appendWhisperSegmentsToEditor = useCallback((apiSegs) => {
+    const mapped = apiSegs.map((seg) => mapApiSegmentToPanelSegment(seg));
+    setSegments((prev) => {
+      if (mapped.length === 0) return prev;
+      const room = MAX_SEGMENTS - prev.length;
+      if (room <= 0) return prev;
+      const toAdd = mapped.slice(0, room);
+      const next = [...prev, ...toAdd];
+      setSelectedSegIndex(next.length - 1);
+      return next;
+    });
+    setSelectedTimestamps({});
+  }, []);
+
   const removeSegment = useCallback((idx) => {
     setPlayingSegmentIndex((cur) =>
       cur === idx ? null : cur != null && idx < cur ? cur - 1 : cur
@@ -1085,6 +1175,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setUploadProgress(0);
     setPreviewUrl(null);
     setError(null);
+    setWhisperData(null);
+    setSelectedTimestamps({});
   };
 
   const resetUploadState = useCallback(() => {
@@ -1099,6 +1191,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setMessage("");
     setProgress(0);
     setError(null);
+    setWhisperData(null);
+    setSelectedTimestamps({});
   }, []);
 
   const applyVideoTimeToSegment = useCallback((field) => {
@@ -1174,10 +1268,13 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     setDownloadUrl(null);
     setStatus("idle");
     setProgress(0);
+    setWhisperData(null);
+    setSelectedTimestamps({});
     await fetchPreviewUrl(id);
     setMessage(
       "저장된 원본을 불러왔습니다. 구간을 입력한 뒤 영상 생성을 누르세요."
     );
+    setPanelOpen((v) => ({ ...v, whisper: true }));
   };
 
   const onDeleteSavedJob = async (id) => {
@@ -1234,6 +1331,8 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
       await putPresignedWithProgress(putUrl, videoFile, setUploadProgress);
       setUploadPhase("done");
       setMessage("원본 업로드 완료 — 구간을 입력한 뒤 영상 생성을 누르세요.");
+      setWhisperData(null);
+      setSelectedTimestamps({});
       await fetchPreviewUrl(id);
       await refreshSavedFiles();
     } catch (e) {
@@ -1558,284 +1657,530 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
         }}
       >
         <div style={{ width: "100%", marginTop: 16 }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-          로컬 다운로드
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 10,
-            alignItems: "center",
-          }}
-        >
-          <span
-            className="muted"
-            style={{
-              fontSize: 13,
-              whiteSpace: "nowrap",
-              flex: "0 0 auto",
-              maxWidth: "100%",
-            }}
-          >
-            {localServerOk === null ? (
-              "서버 상태 확인 중…"
-            ) : localServerOk ? (
-              <span>🟢 연결됨</span>
-            ) : (
-              <span>
-                🔴 연결 안 됨 —{" "}
-                <strong style={{ color: "#ffb347" }}>
-                  서버시작.bat를 실행해주세요
-                </strong>
-              </span>
-            )}
-          </span>
-          <input
-            type="url"
-            placeholder="https://..."
-            value={localYtdlpUrl}
-            onChange={(e) => setLocalYtdlpUrl(e.target.value)}
-            disabled={busy || uploading || localDownloadBusy}
-            style={{
-              flex: "1 1 160px",
-              minWidth: 120,
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "#0f141d",
-              color: "var(--text, #e9edf5)",
-              fontFamily: "inherit",
-              fontSize: 13,
-            }}
-          />
           <button
             type="button"
-            className="primary primary-fill"
-            disabled={
-              busy ||
-              uploading ||
-              localDownloadBusy ||
-              localServerOk === false
-            }
-            onClick={onLocalDownload}
-            style={{ flex: "0 0 auto" }}
+            className="muted"
+            onClick={() => togglePanel("download")}
+            style={accordionHeaderStyle}
+            aria-expanded={panelOpen.download}
           >
-            {localDownloadBusy ? "다운로드 중…" : "⬇ 로컬 다운로드"}
+            <span>1단계: 로컬 다운로드</span>
+            <span aria-hidden style={{ opacity: 0.65, fontSize: 12 }}>
+              {panelOpen.download ? "▼" : "▶"}
+            </span>
           </button>
-        </div>
-        {localDownloadBusy ? (
-          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
-            yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
-          </div>
-        ) : null}
-      </div>
-
-      <div style={{ marginTop: 16, width: "100%" }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-          저장된 파일 목록
-        </div>
-        {savedFilesLoading ? (
-          <div className="muted" style={{ fontSize: 14 }}>
-            목록 불러오는 중…
-          </div>
-        ) : savedFilesError ? (
-          <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
-            {savedFilesError}
-          </div>
-        ) : savedFiles.length === 0 ? (
-          <div className="muted" style={{ fontSize: 14 }}>
-            저장된 원본이 없습니다.
-          </div>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            {savedFiles.map((row) => {
-              const jid = row.jobId || "";
-              const shortName = jid.slice(0, 8) || "—";
-              const when = row.lastModified
-                ? new Date(row.lastModified).toLocaleString("ko-KR", {
-                    timeZone: "Asia/Seoul",
-                    dateStyle: "short",
-                    timeStyle: "medium",
-                  })
-                : "—";
-              return (
-                <li
-                  key={jid}
+          {panelOpen.download ? (
+            <div style={accordionBodyStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  className="muted"
                   style={{
+                    fontSize: 13,
+                    whiteSpace: "nowrap",
+                    flex: "0 0 auto",
+                    maxWidth: "100%",
+                  }}
+                >
+                  {localServerOk === null ? (
+                    "서버 상태 확인 중…"
+                  ) : localServerOk ? (
+                    <span>🟢 연결됨</span>
+                  ) : (
+                    <span>
+                      🔴 연결 안 됨 —{" "}
+                      <strong style={{ color: "#ffb347" }}>
+                        서버시작.bat를 실행해주세요
+                      </strong>
+                    </span>
+                  )}
+                </span>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={localYtdlpUrl}
+                  onChange={(e) => setLocalYtdlpUrl(e.target.value)}
+                  disabled={busy || uploading || localDownloadBusy}
+                  style={{
+                    flex: "1 1 160px",
+                    minWidth: 120,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "#0f141d",
+                    color: "var(--text, #e9edf5)",
+                    fontFamily: "inherit",
+                    fontSize: 13,
+                  }}
+                />
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  disabled={
+                    busy ||
+                    uploading ||
+                    localDownloadBusy ||
+                    localServerOk === false
+                  }
+                  onClick={onLocalDownload}
+                  style={{ flex: "0 0 auto" }}
+                >
+                  {localDownloadBusy ? "다운로드 중…" : "⬇ 로컬 다운로드"}
+                </button>
+              </div>
+              {localDownloadBusy ? (
+                <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                  yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <button
+            type="button"
+            className="muted"
+            onClick={() => togglePanel("upload")}
+            style={accordionHeaderStyle}
+            aria-expanded={panelOpen.upload}
+          >
+            <span>2단계: S3 업로드</span>
+            <span aria-hidden style={{ opacity: 0.65, fontSize: 12 }}>
+              {panelOpen.upload ? "▼" : "▶"}
+            </span>
+          </button>
+          {panelOpen.upload ? (
+            <div style={accordionBodyStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept={VIDEO_ACCEPT}
+                  style={{ display: "none" }}
+                  onChange={onVideoFileChange}
+                />
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy || uploading}
+                  onClick={() => videoInputRef.current?.click()}
+                  style={{ flex: "0 0 auto", padding: "8px 12px" }}
+                >
+                  파일 선택
+                </button>
+                <span
+                  className="muted"
+                  style={{
+                    fontSize: 12,
+                    flex: "1 1 140px",
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={
+                    videoFile
+                      ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
+                      : ""
+                  }
+                >
+                  {videoFile
+                    ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
+                    : "선택 없음 — mp4 · mov · avi"}
+                </span>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  disabled={busy || uploading || !videoFile}
+                  onClick={onUploadSource}
+                  style={{ flex: "0 0 auto", padding: "8px 12px" }}
+                >
+                  {uploading ? "업로드 중…" : "S3에 업로드"}
+                </button>
+              </div>
+
+              {uploading ? (
+                <div style={{ marginTop: 12 }}>
+                  <div
+                    className="muted"
+                    style={{ fontWeight: 700, marginBottom: 6 }}
+                  >
+                    업로드 진행
+                  </div>
+                  <div className="video-export-progress-wrap">
+                    <div className="video-export-progress-bar">
+                      <div
+                        className="video-export-progress-fill"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                    <div className="muted" style={{ marginTop: 8 }}>
+                      {uploadProgress}%
+                    </div>
+                  </div>
+                </div>
+              ) : uploadPhase === "done" ? (
+                <div
+                  style={{
+                    marginTop: 12,
                     display: "flex",
                     flexWrap: "wrap",
                     alignItems: "center",
-                    gap: 8,
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.03)",
+                    gap: 10,
                   }}
                 >
-                  <span style={{ fontWeight: 700 }}>{shortName}</span>
-                  <span className="muted" style={{ fontSize: 13 }}>
-                    {when}
+                  <span className="muted" style={{ fontWeight: 700 }}>
+                    업로드 완료 (jobId 저장됨)
                   </span>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    {typeof row.size === "number"
-                      ? `${Math.round(row.size / 1024)} KB`
-                      : ""}
-                  </span>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={busy || uploading}
+                    onClick={onDeleteSource}
+                  >
+                    파일 삭제
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <button
+            type="button"
+            className="muted"
+            onClick={() => togglePanel("saved")}
+            style={accordionHeaderStyle}
+            aria-expanded={panelOpen.saved}
+          >
+            <span>3단계: 저장된 파일 불러오기</span>
+            <span aria-hidden style={{ opacity: 0.65, fontSize: 12 }}>
+              {panelOpen.saved ? "▼" : "▶"}
+            </span>
+          </button>
+          {panelOpen.saved ? (
+            <div style={accordionBodyStyle}>
+              {savedFilesLoading ? (
+                <div className="muted" style={{ fontSize: 14 }}>
+                  목록 불러오는 중…
+                </div>
+              ) : savedFilesError ? (
+                <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
+                  {savedFilesError}
+                </div>
+              ) : savedFiles.length === 0 ? (
+                <div className="muted" style={{ fontSize: 14 }}>
+                  저장된 원본이 없습니다.
+                </div>
+              ) : (
+                <ul
+                  style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {savedFiles.map((row) => {
+                    const jid = row.jobId || "";
+                    const shortName = jid.slice(0, 8) || "—";
+                    const when = row.lastModified
+                      ? new Date(row.lastModified).toLocaleString("ko-KR", {
+                          timeZone: "Asia/Seoul",
+                          dateStyle: "short",
+                          timeStyle: "medium",
+                        })
+                      : "—";
+                    return (
+                      <li
+                        key={jid}
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "rgba(255,255,255,0.03)",
+                        }}
+                      >
+                        <span style={{ fontWeight: 700 }}>{shortName}</span>
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          {when}
+                        </span>
+                        <span className="muted" style={{ fontSize: 12 }}>
+                          {typeof row.size === "number"
+                            ? `${Math.round(row.size / 1024)} KB`
+                            : ""}
+                        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 8,
+                            marginLeft: "auto",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={busy || uploading}
+                            onClick={() => onLoadSavedJob(jid)}
+                          >
+                            불러오기
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || uploading}
+                            onClick={() => onDeleteSavedJob(jid)}
+                            style={{
+                              padding: "10px 14px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255, 107, 138, 0.55)",
+                              background:
+                                "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
+                              color: "#ffd0dc",
+                              fontWeight: 700,
+                              fontFamily: "inherit",
+                              cursor:
+                                busy || uploading ? "not-allowed" : "pointer",
+                              opacity: busy || uploading ? 0.55 : 1,
+                            }}
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <button
+            type="button"
+            className="muted"
+            onClick={() => togglePanel("whisper")}
+            style={accordionHeaderStyle}
+            aria-expanded={panelOpen.whisper}
+          >
+            <span>4단계 · AI 음성분석</span>
+            <span aria-hidden style={{ opacity: 0.65, fontSize: 12 }}>
+              {panelOpen.whisper ? "▼" : "▶"}
+            </span>
+          </button>
+          {panelOpen.whisper ? (
+            <div style={accordionBodyStyle}>
+              {String(jobId || "").trim() ? (
+                <button
+                  type="button"
+                  style={{
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    cursor:
+                      busy || uploading || whisperData?.loading
+                        ? "not-allowed"
+                        : "pointer",
+                    fontSize: 13,
+                    opacity:
+                      busy || uploading || whisperData?.loading ? 0.65 : 1,
+                  }}
+                  disabled={busy || uploading || whisperData?.loading}
+                  onClick={async () => {
+                    const id = String(jobId || "").trim();
+                    if (!id) return;
+                    setWhisperData({
+                      loading: true,
+                      segments: [],
+                      text: "",
+                      error: null,
+                    });
+                    setSelectedTimestamps({});
+                    try {
+                      const res = await postKbo({
+                        action: "whisper_analyze",
+                        jobId: id,
+                      });
+                      setWhisperData({
+                        loading: false,
+                        segments: Array.isArray(res?.segments)
+                          ? res.segments
+                          : [],
+                        text: String(res?.text || ""),
+                        error: null,
+                      });
+                    } catch (e) {
+                      setWhisperData({
+                        loading: false,
+                        segments: [],
+                        text: "",
+                        error:
+                          e instanceof Error ? e.message : String(e),
+                      });
+                    }
+                  }}
+                >
+                  {whisperData?.loading
+                    ? "⏳ 음성 분석 중…"
+                    : "▶ 음성 분석"}
+                </button>
+              ) : (
+                <div className="muted" style={{ fontSize: 13 }}>
+                  원본이 S3에 업로드되거나 저장된 job을 불러온 뒤 음성 분석을
+                  실행할 수 있습니다.
+                </div>
+              )}
+
+              {whisperData?.error ? (
+                <pre
+                  className="result-error-light"
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    whiteSpace: "pre-wrap",
+                    color: "#ef4444",
+                  }}
+                >
+                  {whisperData.error}
+                </pre>
+              ) : null}
+
+              {Array.isArray(whisperData?.segments) &&
+              whisperData.segments.length > 0 ? (
+                <div style={{ marginTop: 10 }}>
                   <div
+                    className="muted"
+                    style={{ fontSize: 12, marginBottom: 6 }}
+                  >
+                    구간 타임스탬프 (클릭 시 복사)
+                  </div>
+                  {(() => {
+                    const wsegs = whisperData.segments;
+                    const selectedCount = wsegs.reduce((acc, _s, i) => {
+                      return acc + (selectedTimestamps[String(i)] ? 1 : 0);
+                    }, 0);
+                    if (selectedCount < 1) return null;
+                    return (
+                      <button
+                        type="button"
+                        style={{
+                          marginBottom: 8,
+                          background: "#0f172a",
+                          color: "#fff",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: 12,
+                        }}
+                        onClick={() => {
+                          const picked = wsegs.filter(
+                            (_seg, i) => selectedTimestamps[String(i)]
+                          );
+                          appendWhisperSegmentsToEditor(picked);
+                        }}
+                      >
+                        ✂️ 선택한 구간으로 편집 ({selectedCount}개)
+                      </button>
+                    );
+                  })()}
+                  <ul
                     style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                      gap: 8,
-                      marginLeft: "auto",
+                      maxHeight: 300,
+                      overflowY: "auto",
+                      marginTop: 8,
+                      background: "#111",
+                      padding: 8,
+                      borderRadius: 6,
                     }}
                   >
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={busy || uploading}
-                      onClick={() => onLoadSavedJob(jid)}
-                    >
-                      불러오기
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || uploading}
-                      onClick={() => onDeleteSavedJob(jid)}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        border: "1px solid rgba(255, 107, 138, 0.55)",
-                        background:
-                          "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
-                        color: "#ffd0dc",
-                        fontWeight: 700,
-                        fontFamily: "inherit",
-                        cursor:
-                          busy || uploading ? "not-allowed" : "pointer",
-                        opacity: busy || uploading ? 0.55 : 1,
-                      }}
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div style={{ marginTop: 14, width: "100%" }}>
-        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-          원본 영상 파일
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            alignItems: "center",
-          }}
-        >
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept={VIDEO_ACCEPT}
-            style={{ display: "none" }}
-            onChange={onVideoFileChange}
-          />
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || uploading}
-            onClick={() => videoInputRef.current?.click()}
-            style={{ flex: "0 0 auto", padding: "8px 12px" }}
-          >
-            파일 선택
-          </button>
-          <span
-            className="muted"
-            style={{
-              fontSize: 12,
-              flex: "1 1 140px",
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            title={
-              videoFile
-                ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
-                : ""
-            }
-          >
-            {videoFile
-              ? `${videoFile.name} (${Math.round(videoFile.size / 1024)} KB)`
-              : "선택 없음 — mp4 · mov · avi"}
-          </span>
-          <button
-            type="button"
-            className="primary primary-fill"
-            disabled={busy || uploading || !videoFile}
-            onClick={onUploadSource}
-            style={{ flex: "0 0 auto", padding: "8px 12px" }}
-          >
-            {uploading ? "업로드 중…" : "S3에 업로드"}
-          </button>
-        </div>
-
-        {uploading ? (
-          <div style={{ marginTop: 12 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-              업로드 진행
+                    {whisperData.segments.map((seg, si) => {
+                      const start = seg?.start ?? 0;
+                      const end = seg?.end ?? 0;
+                      const line = `[${formatTimestampSec(start)} – ${formatTimestampSec(end)}] ${String(seg?.text || "").trim()}`;
+                      return (
+                        <li key={si}>
+                          <label
+                            style={{
+                              display: "flex",
+                              flexDirection: "row",
+                              alignItems: "flex-start",
+                              gap: 8,
+                              padding: "6px 8px",
+                              background: "#1e1e1e",
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              marginBottom: 4,
+                              width: "100%",
+                              boxSizing: "border-box",
+                              userSelect: "none",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              style={{
+                                flexShrink: 0,
+                                width: 16,
+                                height: 16,
+                                marginTop: 2,
+                              }}
+                              checked={
+                                selectedTimestamps[String(si)] || false
+                              }
+                              onChange={(e) =>
+                                setSelectedTimestamps((prev) => ({
+                                  ...prev,
+                                  [String(si)]: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span
+                              style={{
+                                color: "#e2e8f0",
+                                fontSize: 12,
+                                flex: 1,
+                                wordBreak: "break-word",
+                                lineHeight: 1.5,
+                              }}
+                              onClick={() => copyTimestampLine(line)}
+                            >
+                              {line}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
             </div>
-            <div className="video-export-progress-wrap">
-              <div className="video-export-progress-bar">
-                <div
-                  className="video-export-progress-fill"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <div className="muted" style={{ marginTop: 8 }}>
-                {uploadProgress}%
-              </div>
-            </div>
-          </div>
-        ) : uploadPhase === "done" ? (
-          <div
-            style={{
-              marginTop: 12,
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <span className="muted" style={{ fontWeight: 700 }}>
-              업로드 완료 (jobId 저장됨)
-            </span>
-            <button
-              type="button"
-              className="ghost"
-              disabled={busy || uploading}
-              onClick={onDeleteSource}
-            >
-              파일 삭제
-            </button>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
 
         <div
           style={{
