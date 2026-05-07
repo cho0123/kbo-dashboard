@@ -378,13 +378,6 @@ function formatTimestampSec(sec) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** start가 00:00:00이고 자막 텍스트가 없는 기본 빈 구간 */
-function isBlankDefaultSegment(seg) {
-  const start = String(seg?.start ?? "").trim();
-  const text = String(seg?.text ?? "").trim();
-  return start === "00:00:00" && text === "";
-}
-
 function mapApiSegmentToPanelSegment(seg) {
   const st = Number(seg?.start ?? 0);
   const en = Number(seg?.end ?? 0);
@@ -905,13 +898,17 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
     const mapped = apiSegs.map((seg) => mapApiSegmentToPanelSegment(seg));
     setSegments((prev) => {
       if (mapped.length === 0) return prev;
-      const cleaned = prev.filter((seg) => !isBlankDefaultSegment(seg));
-      const room = MAX_SEGMENTS - cleaned.length;
-      if (room <= 0) {
-        return cleaned.length < prev.length ? cleaned : prev;
-      }
+      const filtered = prev.filter((s) => {
+        const isEmpty =
+          (!s.start || s.start === "00:00:00") &&
+          (!s.end || s.end === "00:00:00") &&
+          (!s.text || s.text.trim() === "");
+        return !isEmpty;
+      });
+      const room = MAX_SEGMENTS - filtered.length;
+      if (room <= 0) return prev;
       const toAdd = mapped.slice(0, room);
-      const next = [...cleaned, ...toAdd];
+      const next = [...filtered, ...toAdd];
       setSelectedSegIndex(next.length - 1);
       return next;
     });
