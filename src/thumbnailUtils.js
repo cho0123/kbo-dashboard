@@ -59,6 +59,7 @@ export async function drawThumbnail({
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
 
   const TOP_BAR = 280;
   const SIDE_BAR = 40;
@@ -157,21 +158,17 @@ export async function drawThumbnail({
   ctx.fillText(text1 || "", W / 2, holeCenterY - fontSize1 / 2 - 30);
   ctx.shadowBlur = 0;
 
-  const lineY = holeCenterY + 20;
-  ctx.strokeStyle = tc.accent;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(W * 0.25, lineY);
-  ctx.lineTo(W * 0.75, lineY);
-  ctx.stroke();
-
   ctx.fillStyle = textColor2;
   ctx.font = `${fontSize2}px ${ff(font2)}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 6;
-  ctx.fillText(text2 || "", W / 2, lineY + fontSize2 / 2 + 30);
+  ctx.fillText(
+    text2 || "",
+    W / 2,
+    holeCenterY + fontSize2 / 2 + 50
+  );
   ctx.shadowBlur = 0;
 
   try {
