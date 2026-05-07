@@ -58,8 +58,7 @@ export async function drawThumbnail({
   const canvas = existingCanvas || document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, W, H);
+  const ctx = canvas.getContext("2d", { alpha: true });
 
   const TOP_BAR = 280;
   const SIDE_BAR = 40;
@@ -92,6 +91,7 @@ export async function drawThumbnail({
     키움: "키움 히어로즈",
   };
 
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = tc.bg;
   ctx.fillRect(0, 0, W, H);
 
@@ -112,6 +112,7 @@ export async function drawThumbnail({
   ctx.arcTo(holeX, holeY + holeH, holeX, holeY + holeH - RADIUS, RADIUS);
   ctx.closePath();
   ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
   ctx.restore();
 
   const teamLabel = teamLabels[team] || team;
