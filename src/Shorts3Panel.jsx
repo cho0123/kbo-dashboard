@@ -673,16 +673,20 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   }, [segments, selectedSegIndex, selectedTeam, teamColor]);
 
   useEffect(() => {
-    if (!thumbnailSelected) return;
     const canvas = previewCanvasRef.current;
     if (!canvas) return;
+    if (!thumbnailSelected || !thumbnailSegment.enabled) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
         const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
-          tc: { bg: tc.bg, accent: tc.accent },
+          tc,
           text1: String(thumbnailSegment.text1 || "").trim(),
           text2: String(thumbnailSegment.text2 || "").trim(),
           font1: String(thumbnailSegment.font1 || "NotoSansKR-Bold").trim(),
@@ -3729,6 +3733,30 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                 </span>
               </div>
 
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 10,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(thumbnailSegment.showLine)}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setThumbnailSegment((v) => ({
+                      ...v,
+                      showLine: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="muted" style={{ fontSize: 13, fontWeight: 700 }}>
+                  가로선 표시
+                </span>
+              </label>
+
               <div className="label">텍스트 1</div>
               <label className="preset-field" style={{ marginBottom: 10 }}>
                 <span>텍스트 1 (비우면 미표시)</span>
@@ -3875,32 +3903,7 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
                 </div>
               </div>
 
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  justifyContent: "flex-start",
-                  alignSelf: "flex-start",
-                  whiteSpace: "nowrap",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(thumbnailSegment.showLine)}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    setThumbnailSegment((v) => ({
-                      ...v,
-                      showLine: e.target.checked,
-                    }))
-                  }
-                />
-                가로선 표시
-              </label>
+              {/* (moved) 가로선 체크박스는 텍스트1 위로 이동 */}
             </div>
           ) : null}
 
