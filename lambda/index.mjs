@@ -562,7 +562,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const sourceFileName = "source.mp4";
 
   // thumbnail.png를 0.3초 prepend 하지 않고, 있으면 각 구간에 오버레이로 합성한다.
-  const thumbPngKey = `jobs/${jobId}/thumbnail.png`;
+  const thumbPngKey = "overlay/thumbnail.png";
   const thumbPngLocal = join(workDir, "thumbnail.png");
   let hasThumbnailPng = false;
   try {
