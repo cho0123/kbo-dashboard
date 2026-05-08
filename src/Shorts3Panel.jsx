@@ -1671,9 +1671,9 @@ export default function Shorts3Panel({
         );
         const thumbSegPayload = {
           start: thumbnailSegment.start,
-          end: secondsToHhMmSs(Math.floor(thumbSec) + 0),
+          end: secondsToHhMmSs(Math.floor(thumbSec + 0.5)),
           startMs: thumbnailSegment.startMs,
-          endMs: clampSegmentFracMs(thumbnailSegment.startMs + 3),
+          endMs: 0,
           cropOffset: thumbnailSegment.cropOffset ?? 0,
           text: thumbnailSegment.text1 || "",
           textFont: thumbnailSegment.font1 || DEFAULT_TEXT_FONT,
