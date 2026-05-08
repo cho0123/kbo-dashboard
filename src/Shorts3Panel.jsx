@@ -466,7 +466,7 @@ export default function Shorts3Panel({
     start: "00:00:00",
     end: "00:00:00",
     startMs: 0,
-    endMs: 3,
+    endMs: 10, // 0.1초 = Lambda 최소 구간
     text1: "",
     text2: "",
     showLine: false,
@@ -2774,7 +2774,7 @@ export default function Shorts3Panel({
                         Math.round((t - whole) * 100)
                       );
                       if (thumbnailSelected) {
-                        const endFrac = frac + 3;
+                        const endFrac = frac + 10;
                         const endWhole = endFrac > 99 ? whole + 1 : whole;
                         const endMs = clampSegmentFracMs(
                           endFrac > 99 ? endFrac - 100 : endFrac
