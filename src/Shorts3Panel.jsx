@@ -465,6 +465,7 @@ export default function Shorts3Panel({
   const [thumbnailSegment, setThumbnailSegment] = useState({
     enabled: false,
     start: "00:00:00",
+    end: "00:00:00",
     startMs: 0,
     endMs: 3,
     text1: "",
@@ -1314,6 +1315,76 @@ export default function Shorts3Panel({
       )
     );
   };
+
+  const handleThumbnailTimeChange = (field, rawVal) => {
+    const digits = rawVal.replace(/\D/g, "").slice(0, 9);
+    let formatted = digits;
+    const n = digits.length;
+    if (n <= 2) {
+      formatted = digits;
+    } else if (n <= 4) {
+      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
+    } else if (n === 5) {
+      formatted =
+        digits.slice(0, 1) + ":" + digits.slice(1, 3) + ":" + digits.slice(3, 5);
+    } else {
+      formatted =
+        digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
+    }
+    setThumbnailSegment((prev) => ({ ...prev, [field]: formatted }));
+  };
+
+  const handleThumbnailFracMsChange = (field, rawVal) => {
+    const digits = rawVal.replace(/\D/g, "");
+    let n = 0;
+    if (digits !== "") {
+      const use = digits.length > 2 ? digits.slice(-2) : digits;
+      const parsed = parseInt(use, 10);
+      n = Number.isFinite(parsed) ? parsed : 0;
+    }
+    n = clampSegmentFracMs(n);
+    setThumbnailSegment((prev) => ({ ...prev, [field]: n }));
+  };
+
+  const seekPreviewToThumbnailBoundary = useCallback(
+    (field) => {
+      const v = previewVideoRef.current;
+      if (!v || !previewUrl) return;
+      setThumbnailSelected(true);
+      const key = field === "start" ? "start" : "end";
+      const fracKey = field === "start" ? "startMs" : "endMs";
+      const t = segmentBoundaryToSeconds(
+        String(thumbnailSegmentRef.current?.[key] ?? "").trim(),
+        thumbnailSegmentRef.current?.[fracKey]
+      );
+      if (t == null || !Number.isFinite(t)) return;
+      v.currentTime = t;
+    },
+    [previewUrl]
+  );
+
+  const adjustThumbnailFieldTime = useCallback((field, deltaSec) => {
+    let seekSec = null;
+    setThumbnailSegment((prev) => {
+      const fracField = field === "start" ? "startMs" : "endMs";
+      const cur =
+        parseHhMmSsToSeconds(prev[field], prev[fracField]) ??
+        (String(prev[field] ?? "").trim() === "" ? 0 : null);
+      if (cur == null) return prev;
+      const next = Math.max(0, cur + deltaSec);
+      seekSec = next;
+      const whole = Math.floor(next + 1e-9);
+      const frac = clampSegmentFracMs(Math.round((next - whole) * 100));
+      const hms = secondsToHhMmSs(whole);
+      return { ...prev, [field]: hms, [fracField]: frac };
+    });
+    if (seekSec == null) return;
+    setThumbnailSelected(true);
+    queueMicrotask(() => {
+      const v = previewVideoRef.current;
+      if (v) v.currentTime = seekSec;
+    });
+  }, []);
 
   const onVideoFileChange = (e) => {
     const f = e.target.files?.[0] ?? null;
@@ -2647,11 +2718,17 @@ export default function Shorts3Panel({
                         Math.round((t - whole) * 100)
                       );
                       if (thumbnailSelected) {
+                        const endFrac = frac + 3;
+                        const endWhole = endFrac > 99 ? whole + 1 : whole;
+                        const endMs = clampSegmentFracMs(
+                          endFrac > 99 ? endFrac - 100 : endFrac
+                        );
                         setThumbnailSegment((v) => ({
                           ...v,
                           start: secondsToHhMmSs(whole),
                           startMs: frac,
-                          endMs: clampSegmentFracMs(frac + 3),
+                          end: secondsToHhMmSs(endWhole),
+                          endMs,
                         }));
                       } else {
                         setSegments((prev) =>
@@ -2681,20 +2758,28 @@ export default function Shorts3Panel({
 
                   <button
                     type="button"
-                    disabled={busy || uploading || thumbnailSelected}
+                    disabled={busy || uploading}
                     onClick={() => {
                       const t = previewVideoRef.current?.currentTime ?? 0;
                       const whole = Math.floor(t);
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      setSegments((prev) =>
-                        prev.map((s, i) =>
-                          i === selectedSegIndex
-                            ? { ...s, end: secondsToHhMmSs(whole), endMs: frac }
-                            : s
-                        )
-                      );
+                      if (thumbnailSelected) {
+                        setThumbnailSegment((v) => ({
+                          ...v,
+                          end: secondsToHhMmSs(whole),
+                          endMs: frac,
+                        }));
+                      } else {
+                        setSegments((prev) =>
+                          prev.map((s, i) =>
+                            i === selectedSegIndex
+                              ? { ...s, end: secondsToHhMmSs(whole), endMs: frac }
+                              : s
+                          )
+                        );
+                      }
                     }}
                     style={{
                       background: "#1a2a3a",
@@ -2816,46 +2901,382 @@ export default function Shorts3Panel({
                 display: "flex",
                 flexDirection: "column",
                 gap: 6,
-                padding: "10px",
-                borderRadius: 10,
+                padding: "8px",
+                borderRadius: 8,
                 border: thumbnailSelected
                   ? "2px solid rgba(96,165,250,1)"
                   : "1px solid rgba(255,255,255,0.1)",
                 background: "rgba(255,255,255,0.02)",
                 cursor: "pointer",
+                overflow: "hidden",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* 1행: 시간 입력 / 2행: 미세조정 버튼 (일반 구간과 동일 구조) */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "16px 44px 58px 6px 30px 8px 44px 58px 6px 30px 18px",
+                  columnGap: 4,
+                  rowGap: 6,
+                  alignItems: "center",
+                  overflowX: "hidden",
+                }}
+              >
+                {/* 1행 */}
                 <span
                   style={{
-                    fontSize: 11,
+                    gridColumn: 1,
+                    gridRow: 1,
                     fontWeight: 800,
-                    padding: "2px 8px",
+                    minWidth: 16,
+                    fontSize: 11,
+                    justifySelf: "start",
+                    padding: "2px 6px",
                     borderRadius: 999,
                     background: "rgba(96,165,250,0.18)",
                     border: "1px solid rgba(96,165,250,0.35)",
                     color: "#93c5fd",
+                    lineHeight: 1.2,
                   }}
                 >
-                  썸네일
+                  썸
                 </span>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  시작: {thumbnailSegment.start}.{String(thumbnailSegment.startMs).padStart(2, "0")}
-                </span>
+
+                <button
+                  type="button"
+                  disabled={busy || uploading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    seekPreviewToThumbnailBoundary("start");
+                  }}
+                  style={{
+                    gridColumn: 2,
+                    gridRow: 1,
+                    background: "#1a3a2a",
+                    border: "1px solid #4ade80",
+                    color: "#4ade80",
+                    padding: "2px 4px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    cursor: "pointer",
+                    ...(busy || uploading
+                      ? { opacity: 0.6, cursor: "not-allowed" }
+                      : {}),
+                  }}
+                >
+                  ▶시작
+                </button>
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00:00"
+                  value={thumbnailSegment.start}
+                  onChange={(e) => handleThumbnailTimeChange("start", e.target.value)}
+                  disabled={busy || uploading}
+                  style={{
+                    gridColumn: 3,
+                    gridRow: 1,
+                    padding: "4px 6px",
+                    width: 58,
+                    fontSize: 11,
+                    boxSizing: "border-box",
+                  }}
+                />
                 <span
                   className="muted"
                   style={{
-                    marginLeft: "auto",
-                    fontSize: 12,
-                    color: thumbnailSegment.enabled ? "#4ade80" : "#aaa",
-                    fontWeight: 700,
+                    gridColumn: 4,
+                    gridRow: 1,
+                    userSelect: "none",
+                    margin: "0 2px",
+                    justifySelf: "center",
                   }}
                 >
-                  {thumbnailSegment.enabled ? "활성" : "비활성"}
+                  .
                 </span>
-              </div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                텍스트는 오른쪽에서 설정 (0.3초 기준 프레임 오버레이)
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder=".00"
+                  value={String(clampSegmentFracMs(thumbnailSegment.startMs ?? 0)).padStart(
+                    2,
+                    "0"
+                  )}
+                  onChange={(e) => handleThumbnailFracMsChange("startMs", e.target.value)}
+                  disabled={busy || uploading}
+                  title="시작 소수 초 (0.01초 단위, 00~99)"
+                  style={{
+                    gridColumn: 5,
+                    gridRow: 1,
+                    padding: "4px 6px",
+                    width: 30,
+                    fontSize: 11,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span
+                  className="muted"
+                  style={{
+                    gridColumn: 6,
+                    gridRow: 1,
+                    justifySelf: "center",
+                    margin: "0 3px",
+                  }}
+                >
+                  ~
+                </span>
+
+                <button
+                  type="button"
+                  disabled={busy || uploading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    seekPreviewToThumbnailBoundary("end");
+                  }}
+                  style={{
+                    gridColumn: 7,
+                    gridRow: 1,
+                    background: "#1a3a2a",
+                    border: "1px solid #4ade80",
+                    color: "#4ade80",
+                    padding: "2px 4px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    cursor: "pointer",
+                    ...(busy || uploading
+                      ? { opacity: 0.6, cursor: "not-allowed" }
+                      : {}),
+                  }}
+                >
+                  ▶종료
+                </button>
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00:00:00"
+                  value={thumbnailSegment.end}
+                  onChange={(e) => handleThumbnailTimeChange("end", e.target.value)}
+                  disabled={busy || uploading}
+                  style={{
+                    gridColumn: 8,
+                    gridRow: 1,
+                    padding: "4px 6px",
+                    width: 58,
+                    fontSize: 11,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span
+                  className="muted"
+                  style={{
+                    gridColumn: 9,
+                    gridRow: 1,
+                    userSelect: "none",
+                    margin: "0 2px",
+                    justifySelf: "center",
+                  }}
+                >
+                  .
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder=".00"
+                  value={String(clampSegmentFracMs(thumbnailSegment.endMs ?? 0)).padStart(
+                    2,
+                    "0"
+                  )}
+                  onChange={(e) => handleThumbnailFracMsChange("endMs", e.target.value)}
+                  disabled={busy || uploading}
+                  title="종료 소수 초 (0.01초 단위, 00~99)"
+                  style={{
+                    gridColumn: 10,
+                    gridRow: 1,
+                    padding: "4px 6px",
+                    width: 30,
+                    fontSize: 11,
+                    boxSizing: "border-box",
+                  }}
+                />
+
+                <span
+                  className="muted"
+                  style={{
+                    gridColumn: 11,
+                    gridRow: 1,
+                    fontSize: 10,
+                    lineHeight: 1,
+                    justifySelf: "end",
+                    color: thumbnailSegment.enabled ? "#4ade80" : "#aaa",
+                    fontWeight: 800,
+                  }}
+                  title="썸네일 배지"
+                >
+                  {thumbnailSegment.enabled ? "ON" : "OFF"}
+                </span>
+
+                {/* 2행: 시작/종료 미세조정 */}
+                <div
+                  style={{
+                    gridColumn: "2 / span 4",
+                    gridRow: 2,
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                    paddingLeft: 0,
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 -1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("start", -ONE_FRAME_30_FPS_SEC);
+                    }}
+                  >
+                    -1f
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 -0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("start", -TENTH_SEC);
+                    }}
+                  >
+                    -0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 +0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("start", TENTH_SEC);
+                    }}
+                  >
+                    +0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="시작 +1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("start", ONE_FRAME_30_FPS_SEC);
+                    }}
+                  >
+                    +1f
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    gridColumn: "7 / span 4",
+                    gridRow: 2,
+                    display: "flex",
+                    gap: 4,
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 -1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("end", -ONE_FRAME_30_FPS_SEC);
+                    }}
+                  >
+                    -1f
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 -0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("end", -TENTH_SEC);
+                    }}
+                  >
+                    -0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 +0.1초"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("end", TENTH_SEC);
+                    }}
+                  >
+                    +0.1s
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || uploading}
+                    title="종료 +1프레임 (30fps)"
+                    style={{
+                      ...SEGMENT_NUDGE_BTN_STYLE,
+                      ...(busy || uploading
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      adjustThumbnailFieldTime("end", ONE_FRAME_30_FPS_SEC);
+                    }}
+                  >
+                    +1f
+                  </button>
+                </div>
               </div>
             </div>
 
