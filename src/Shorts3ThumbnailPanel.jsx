@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import { postKbo } from "./api.js";
 import { TEAM_COLORS, drawThumbnail } from "./thumbnailUtils.js";
 
 /** drawThumbnail이 요구하는 폰트 키·크기·색 (문구는 빈 문자열로 그리지 않음) */
 const OVERLAY_FONT = "NotoSansKR-Bold";
 
-export default function Shorts3ThumbnailPanel() {
+export default function Shorts3ThumbnailPanel({ jobId }) {
   const [team, setTeam] = useState("삼성");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+
   const canvasRef = useRef(null);
 
   const tc = TEAM_COLORS[team];
+  const effectiveJobId = String(jobId || "").trim();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,21 +46,43 @@ export default function Shorts3ThumbnailPanel() {
     };
   }, [team]);
 
-  const handleSavePng = () => {
+  const handleSavePng = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const a = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        a.href = url;
-        a.download = `thumbnail-${team}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      },
-      "image/png"
+    setError(null);
+
+    const blob = await new Promise((res) =>
+      canvas.toBlob((b) => res(b), "image/png")
     );
+    if (!blob) return;
+
+    if (effectiveJobId) {
+      setUploading(true);
+      try {
+        const uploadRes = await postKbo({
+          action: "thumbnail_upload_url",
+          jobId: effectiveJobId,
+        });
+        if (uploadRes?.putUrl) {
+          await fetch(uploadRes.putUrl, {
+            method: "PUT",
+            body: blob,
+            headers: { "Content-Type": "image/png" },
+          });
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e : new Error(String(e)));
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    const a = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = `thumbnail-${team}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -75,7 +102,14 @@ export default function Shorts3ThumbnailPanel() {
           alignItems: "flex-start",
         }}
       >
-        <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          style={{
+            flex: "1 1 280px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
           <div>
             <div className="label">팀 선택</div>
             <div
@@ -115,20 +149,27 @@ export default function Shorts3ThumbnailPanel() {
           <button
             type="button"
             onClick={handleSavePng}
+            disabled={uploading}
             style={{
               padding: "12px 18px",
               borderRadius: 8,
-              background: "#4ade80",
+              background: uploading ? "#444" : "#4ade80",
               color: "#000",
               fontWeight: "bold",
               fontSize: 15,
-              cursor: "pointer",
+              cursor: uploading ? "not-allowed" : "pointer",
               border: "none",
               alignSelf: "flex-start",
             }}
           >
-            PNG 저장
+            {uploading ? "S3 업로드 중..." : "PNG 저장"}
           </button>
+
+          {error ? (
+            <div className="muted" style={{ color: "#ffb347", fontSize: 13 }}>
+              {error.message}
+            </div>
+          ) : null}
         </div>
 
         <div style={{ flex: "0 0 auto" }}>
@@ -150,6 +191,11 @@ export default function Shorts3ThumbnailPanel() {
           <div style={{ color: "#888", fontSize: 11, marginTop: 6 }}>
             1080×1920px · 텍스트 슬롯은 비어 있음
           </div>
+          {effectiveJobId ? (
+            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              S3 저장 대상 jobId: {effectiveJobId.slice(0, 8)}…
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

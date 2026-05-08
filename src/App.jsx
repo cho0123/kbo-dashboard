@@ -3919,6 +3919,7 @@ export default function App() {
   const [tab, setTab] = useState("shorts");
   const [activeKey, setActiveKey] = useState("shorts_slides");
   const [pendingSegments, setPendingSegments] = useState([]);
+  const [shorts3JobId, setShorts3JobId] = useState("");
 
   /* --- Analysis --- */
   const [mvpDate, setMvpDate] = useState(today);
@@ -5728,9 +5729,10 @@ export default function App() {
                     <Shorts3Panel
                       pendingSegments={pendingSegments}
                       onPendingSegmentsUsed={() => setPendingSegments([])}
+                      onJobIdChange={setShorts3JobId}
                     />
                   ) : activeKey === "shorts3_thumbnail" ? (
-                    <Shorts3ThumbnailPanel />
+                    <Shorts3ThumbnailPanel jobId={shorts3JobId} />
                   ) : activeKey === "shorts3_ai" ? (
                     <Shorts3AIPanel
                       onAddSegments={(segs) => {

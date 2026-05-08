@@ -430,7 +430,11 @@ const accordionBodyStyle = {
   paddingRight: 2,
 };
 
-export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed }) {
+export default function Shorts3Panel({
+  pendingSegments,
+  onPendingSegmentsUsed,
+  onJobIdChange,
+}) {
   const [segments, setSegments] = useState([emptySegment()]);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -549,6 +553,10 @@ export default function Shorts3Panel({ pendingSegments, onPendingSegmentsUsed })
   const [localServerOk, setLocalServerOk] = useState(null);
   const [localYtdlpUrl, setLocalYtdlpUrl] = useState("");
   const [localDownloadBusy, setLocalDownloadBusy] = useState(false);
+
+  useEffect(() => {
+    onJobIdChange?.(jobId || "");
+  }, [jobId, onJobIdChange]);
 
   /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
