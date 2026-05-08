@@ -1663,6 +1663,30 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
+
+      if (thumbnailSegment.enabled) {
+        const thumbSec = segmentBoundaryToSeconds(
+          thumbnailSegment.start,
+          thumbnailSegment.startMs
+        );
+        const thumbSegPayload = {
+          start: thumbnailSegment.start,
+          end: secondsToHhMmSs(Math.floor(thumbSec) + 0),
+          startMs: thumbnailSegment.startMs,
+          endMs: clampSegmentFracMs(thumbnailSegment.startMs + 3),
+          cropOffset: thumbnailSegment.cropOffset ?? 0,
+          text: thumbnailSegment.text1 || "",
+          textFont: thumbnailSegment.font1 || DEFAULT_TEXT_FONT,
+          textColor: thumbnailSegment.textColor1 || "#ffffff",
+          textSize: thumbnailSegment.fontSize1 || 88,
+          textOpacity: 1,
+          textShadow: false,
+          textY: 50,
+          isThumbnailSegment: true,
+        };
+
+        payload.segments = [thumbSegPayload, ...payload.segments];
+      }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
