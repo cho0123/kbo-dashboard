@@ -1646,11 +1646,11 @@ export default function Shorts3Panel({
           .trim()
           .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
 
-      const thumbStart = segmentBoundaryToSeconds(
+      let thumbStart = segmentBoundaryToSeconds(
         thumbnailSegment.start,
         thumbnailSegment.startMs
       );
-      const thumbEnd = segmentBoundaryToSeconds(
+      let thumbEnd = segmentBoundaryToSeconds(
         thumbnailSegment.end,
         thumbnailSegment.endMs
       );
@@ -1760,11 +1760,11 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
-      const thumbStart = segmentBoundaryToSeconds(
+      thumbStart = segmentBoundaryToSeconds(
         thumbnailSegment.start,
         thumbnailSegment.startMs
       );
-      const thumbEnd = segmentBoundaryToSeconds(
+      thumbEnd = segmentBoundaryToSeconds(
         thumbnailSegment.end,
         thumbnailSegment.endMs
       );
