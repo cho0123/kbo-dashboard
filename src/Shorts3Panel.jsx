@@ -463,7 +463,6 @@ export default function Shorts3Panel({
   /** 구간 카드 선택 → 오른쪽 세부 설정 */
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
   const [thumbnailSegment, setThumbnailSegment] = useState({
-    enabled: false,
     start: "00:00:00",
     end: "00:00:00",
     startMs: 0,
@@ -737,7 +736,20 @@ export default function Shorts3Panel({
   }, [selectedSegIndex, thumbnailSelected]);
 
   useEffect(() => {
-    if (!thumbnailSelected || !thumbnailSegment.enabled) {
+    const thumbStart = segmentBoundaryToSeconds(
+      thumbnailSegment.start,
+      thumbnailSegment.startMs
+    );
+    const thumbEnd = segmentBoundaryToSeconds(
+      thumbnailSegment.end,
+      thumbnailSegment.endMs
+    );
+    const valid =
+      String(thumbnailSegment.end || "").trim() !== "" &&
+      Number.isFinite(thumbStart) &&
+      Number.isFinite(thumbEnd) &&
+      thumbEnd > thumbStart;
+    if (!thumbnailSelected || !valid) {
       thumbnailOverlayCanvasRef.current = null;
       return;
     }
@@ -1634,7 +1646,21 @@ export default function Shorts3Panel({
           .trim()
           .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
 
-      if (thumbnailSegment.enabled) {
+      const thumbStart = segmentBoundaryToSeconds(
+        thumbnailSegment.start,
+        thumbnailSegment.startMs
+      );
+      const thumbEnd = segmentBoundaryToSeconds(
+        thumbnailSegment.end,
+        thumbnailSegment.endMs
+      );
+      const thumbValid =
+        String(thumbnailSegment.end || "").trim() !== "" &&
+        Number.isFinite(thumbStart) &&
+        Number.isFinite(thumbEnd) &&
+        thumbEnd > thumbStart;
+
+      if (thumbValid) {
         const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
@@ -1734,6 +1760,36 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
+      const thumbStart = segmentBoundaryToSeconds(
+        thumbnailSegment.start,
+        thumbnailSegment.startMs
+      );
+      const thumbEnd = segmentBoundaryToSeconds(
+        thumbnailSegment.end,
+        thumbnailSegment.endMs
+      );
+      if (
+        String(thumbnailSegment.end || "").trim() !== "" &&
+        Number.isFinite(thumbStart) &&
+        Number.isFinite(thumbEnd) &&
+        thumbEnd > thumbStart
+      ) {
+        const thumbSegPayload = {
+          start: thumbnailSegment.start,
+          startMs: thumbnailSegment.startMs,
+          end: thumbnailSegment.end,
+          endMs: thumbnailSegment.endMs,
+          cropOffset: thumbnailSegment.cropOffset ?? 0,
+          text: thumbnailSegment.text1 || "",
+          textFont: thumbnailSegment.font1 || DEFAULT_TEXT_FONT,
+          textColor: thumbnailSegment.textColor1 || "#ffffff",
+          textSize: thumbnailSegment.fontSize1 || 88,
+          textOpacity: 1,
+          textShadow: false,
+          textY: 50,
+        };
+        payload.segments = [thumbSegPayload, ...payload.segments];
+      }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
@@ -3110,12 +3166,12 @@ export default function Shorts3Panel({
                     fontSize: 10,
                     lineHeight: 1,
                     justifySelf: "end",
-                    color: thumbnailSegment.enabled ? "#4ade80" : "#aaa",
+                    color: "#93c5fd",
                     fontWeight: 800,
                   }}
                   title="썸네일 배지"
                 >
-                  {thumbnailSegment.enabled ? "ON" : "OFF"}
+                  썸
                 </span>
 
                 {/* 2행: 시작/종료 미세조정 */}
@@ -4140,30 +4196,6 @@ export default function Shorts3Panel({
                   marginBottom: 12,
                 }}
               >
-                <label
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    whiteSpace: "nowrap",
-                    fontSize: 13,
-                    fontWeight: 700,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(thumbnailSegment.enabled)}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({
-                        ...v,
-                        enabled: e.target.checked,
-                      }))
-                    }
-                  />
-                  활성화
-                </label>
                 <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                   시작: {thumbnailSegment.start}.
                   {String(thumbnailSegment.startMs).padStart(2, "0")}
