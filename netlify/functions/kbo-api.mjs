@@ -2519,16 +2519,8 @@ ${JSON.stringify(games, null, 2)}`;
       }
       case "thumbnail_upload_url": {
         try {
-          const { jobId } = payload;
-          if (!jobId) {
-            return {
-              statusCode: 400,
-              headers: corsHeaders(),
-              body: JSON.stringify({ ok: false, error: "Missing jobId" }),
-            };
-          }
           const { s3, bucket } = videoEncodeAwsClients();
-          const key = `jobs/${jobId}/thumbnail.png`;
+          const key = "overlay/thumbnail.png";
           const cmd = new PutObjectCommand({
             Bucket: bucket,
             Key: key,
@@ -2540,7 +2532,7 @@ ${JSON.stringify(games, null, 2)}`;
           return {
             statusCode: 200,
             headers: corsHeaders(),
-            body: JSON.stringify({ ok: true, jobId, key, putUrl }),
+            body: JSON.stringify({ ok: true, key, putUrl }),
           };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);

@@ -56,25 +56,22 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     );
     if (!blob) return;
 
-    if (effectiveJobId) {
-      setUploading(true);
-      try {
-        const uploadRes = await postKbo({
-          action: "thumbnail_upload_url",
-          jobId: effectiveJobId,
+    setUploading(true);
+    try {
+      const uploadRes = await postKbo({
+        action: "thumbnail_upload_url",
+      });
+      if (uploadRes?.putUrl) {
+        await fetch(uploadRes.putUrl, {
+          method: "PUT",
+          body: blob,
+          headers: { "Content-Type": "image/png" },
         });
-        if (uploadRes?.putUrl) {
-          await fetch(uploadRes.putUrl, {
-            method: "PUT",
-            body: blob,
-            headers: { "Content-Type": "image/png" },
-          });
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e : new Error(String(e)));
-      } finally {
-        setUploading(false);
       }
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setUploading(false);
     }
 
     const a = document.createElement("a");
