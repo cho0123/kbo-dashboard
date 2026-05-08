@@ -465,7 +465,6 @@ export default function Shorts3Panel({
   const [thumbnailSegment, setThumbnailSegment] = useState({
     enabled: false,
     start: "00:00:00",
-    end: "00:00:00",
     startMs: 0,
     endMs: 3,
     text1: "",
@@ -1664,24 +1663,6 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
-      if (thumbnailSegment.enabled) {
-        const thumbSegPayload = {
-          start: thumbnailSegment.start,
-          startMs: thumbnailSegment.startMs,
-          end: thumbnailSegment.end,
-          endMs: thumbnailSegment.endMs,
-          cropOffset: thumbnailSegment.cropOffset ?? 0,
-          text: thumbnailSegment.text1 || "",
-          textFont: thumbnailSegment.font1 || DEFAULT_TEXT_FONT,
-          textColor: thumbnailSegment.textColor1 || "#ffffff",
-          textSize: thumbnailSegment.fontSize1 || 88,
-          textOpacity: 1,
-          textShadow: false,
-          textY: 50,
-        };
-
-        payload.segments = [thumbSegPayload, ...payload.segments];
-      }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
@@ -2666,17 +2647,11 @@ export default function Shorts3Panel({
                         Math.round((t - whole) * 100)
                       );
                       if (thumbnailSelected) {
-                        const endFrac = frac + 3;
-                        const endWhole = endFrac > 99 ? whole + 1 : whole;
-                        const endMs = clampSegmentFracMs(
-                          endFrac > 99 ? endFrac - 100 : endFrac
-                        );
                         setThumbnailSegment((v) => ({
                           ...v,
                           start: secondsToHhMmSs(whole),
                           startMs: frac,
-                          end: secondsToHhMmSs(endWhole),
-                          endMs,
+                          endMs: clampSegmentFracMs(frac + 3),
                         }));
                       } else {
                         setSegments((prev) =>
