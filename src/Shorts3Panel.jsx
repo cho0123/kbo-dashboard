@@ -135,6 +135,12 @@ const FONTS = [
 
 const DEFAULT_TEXT_FONT = "NotoSansKR-Bold.ttf";
 
+const ensureTtf = (f) => {
+  const s = String(f || "").trim();
+  if (!s) return "NotoSansKR-Bold.ttf";
+  return /\.(ttf|otf)$/i.test(s) ? s : s + ".ttf";
+};
+
 /** Lambda TTF 파일명 → 미리보기 CSS font-family (Google / 시스템 글꼴에 대응) */
 function previewFontFamily(fontFile) {
   const f = String(fontFile || "").trim();
@@ -270,8 +276,8 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   text2: "",
   showLine: false,
   cropOffset: 0,
-  font1: "NotoSansKR-Bold",
-  font2: "NotoSansKR-Bold",
+  font1: ensureTtf("NotoSansKR-Bold"),
+  font2: ensureTtf("NotoSansKR-Bold"),
   textColor1: "#FFFFFF",
   textColor2: "#FFFFFF",
   fontSize1: 88,
@@ -2087,10 +2093,12 @@ export default function Shorts3Panel({
               String(s.textColor2 ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
             textOpacity: roundOpacity01(s.textOpacity ?? 1),
             textOpacity2: roundOpacity01(s.textOpacity2 ?? 1),
-            textFont:
-              String(s.textFont || "").trim() || DEFAULT_TEXT_FONT,
-            textFont2:
-              String(s.textFont2 || "").trim() || DEFAULT_TEXT_FONT,
+            textFont: ensureTtf(
+              String(s.textFont || "").trim() || DEFAULT_TEXT_FONT
+            ),
+            textFont2: ensureTtf(
+              String(s.textFont2 || "").trim() || DEFAULT_TEXT_FONT
+            ),
             textSize: Math.min(
               200,
               Math.max(
@@ -2135,14 +2143,14 @@ export default function Shorts3Panel({
           endMs: thumbnailSegment.endMs,
           cropOffset: thumbnailSegment.cropOffset ?? 0,
           text: thumbnailSegment.text1 || "",
-          textFont: thumbnailSegment.font1 || DEFAULT_TEXT_FONT,
+          textFont: ensureTtf(thumbnailSegment.font1 || ""),
           textColor: thumbnailSegment.textColor1 || "#ffffff",
           textSize: thumbnailSegment.fontSize1 || 88,
           textOpacity: 1,
           textShadow: false,
           textY: 50,
           text2: thumbnailSegment.text2 || "",
-          textFont2: thumbnailSegment.font2 || DEFAULT_TEXT_FONT,
+          textFont2: ensureTtf(thumbnailSegment.font2 || ""),
           textColor2: thumbnailSegment.textColor2 || "#ffffff",
           textSize2: thumbnailSegment.fontSize2 || 52,
           textOpacity2: 1,
