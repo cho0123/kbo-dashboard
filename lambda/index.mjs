@@ -451,7 +451,43 @@ function normalizeSegmentTextOverlay(seg) {
       ? String(seg.textFont).trim()
       : DEFAULT_FONT_FILE;
   const textShadow = Boolean(seg?.textShadow);
-  return { text, textY, textColor, textSize, textOpacity, textFont, textShadow };
+
+  const text2 = seg?.text2 != null ? String(seg.text2).trim() : "";
+  const ty2 = Number(seg?.textY2);
+  const textY2 = Number.isFinite(ty2)
+    ? Math.min(100, Math.max(0, Math.round(ty2)))
+    : 85;
+  const textColor2 = normalizeHexColor(seg?.textColor2, "#ffffff");
+  const tsRaw2 = Number(seg?.textSize2);
+  const textSize2 = Number.isFinite(tsRaw2)
+    ? Math.min(200, Math.max(20, Math.round(tsRaw2)))
+    : 48;
+  const opacityRaw2 = Number(seg?.textOpacity2);
+  const textOpacity2 = Number.isFinite(opacityRaw2)
+    ? Math.min(1, Math.max(0, opacityRaw2))
+    : 1;
+  const textFont2 =
+    seg?.textFont2 != null && String(seg.textFont2).trim()
+      ? String(seg.textFont2).trim()
+      : DEFAULT_FONT_FILE;
+  const textShadow2 = Boolean(seg?.textShadow2);
+
+  return {
+    text,
+    textY,
+    textColor,
+    textSize,
+    textOpacity,
+    textFont,
+    textShadow,
+    text2,
+    textY2,
+    textColor2,
+    textSize2,
+    textOpacity2,
+    textFont2,
+    textShadow2,
+  };
 }
 
 function normalizeThumbnailText(meta) {
@@ -486,17 +522,24 @@ function buildHighlightSegmentVf(opts) {
     skipTeamBorderBoxes,
     topTextFile,
     bottomTextFile,
+    bottomTextFile2,
     topFontSize,
     bottomFontSize,
+    bottomFontSize2,
     topColor,
     topOpacity,
     bottomColor,
+    bottomColor2,
     bottomOpacity,
+    bottomOpacity2,
     bottomShadow,
+    bottomShadow2,
     topShadow,
     textY,
+    textY2,
     topFontPath,
     bottomFontPath,
+    bottomFontPath2,
   } = opts;
   const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
@@ -522,6 +565,21 @@ function buildHighlightSegmentVf(opts) {
       : "";
     parts.push(
       `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
+    );
+  }
+  const fsBottom2 = Math.round(
+    Number.isFinite(Number(bottomFontSize2))
+      ? Number(bottomFontSize2)
+      : fsBottom
+  );
+  if (bottomTextFile2 && bottomFontPath2) {
+    const shadow2 = bottomShadow2
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    const y2 =
+      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
     );
   }
   if (topTextFile && topFontPath) {
@@ -617,7 +675,11 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   } = normalizeHighlightTop(meta);
   const metaWantsText =
     Boolean(topText) ||
-    segments.some((s) => s?.text != null && String(s.text).trim() !== "") ||
+    segments.some((s) => {
+      const t1 = s?.text != null ? String(s.text).trim() : "";
+      const t2 = s?.text2 != null ? String(s.text2).trim() : "";
+      return t1 !== "" || t2 !== "";
+    }) ||
     Boolean(String(meta.thumbnailText || "").trim());
   const topFontPath = resolveBundledFontPath(topTextFont);
   if (metaWantsText && !resolveBundledFontPath(DEFAULT_FONT_FILE)) {
@@ -682,18 +744,31 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
     const {
       text: bottomTxt,
+      text2: bottomTxt2,
       textY,
+      textY2,
       textColor: bottomColor,
+      textColor2: bottomColor2,
       textSize: bottomTextSize,
+      textSize2: bottomTextSize2,
       textOpacity: bottomOpacity,
+      textOpacity2: bottomOpacity2,
       textFont: bottomFontName,
+      textFont2: bottomFontName2,
       textShadow: bottomShadow,
+      textShadow2: bottomShadow2,
     } = bottomParsed;
     const bottomFontPath = resolveBundledFontPath(bottomFontName);
     let bottomPath = null;
     if (bottomTxt && bottomFontPath) {
       bottomPath = join(workDir, `hi_bottom_${i}.txt`);
       writeFileSync(bottomPath, bottomTxt, "utf8");
+    }
+    const bottomFontPath2 = resolveBundledFontPath(bottomFontName2);
+    let bottomPath2 = null;
+    if (bottomTxt2 && bottomFontPath2) {
+      bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
+      writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
     const vfSeg = buildHighlightSegmentVf({
       cw,
@@ -703,17 +778,24 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
+      bottomTextFile2: bottomPath2,
       topFontSize: topTextSize,
       bottomFontSize: bottomTextSize,
+      bottomFontSize2: bottomTextSize2,
       topColor: topTextColor,
       topOpacity: topTextOpacity,
       bottomColor,
+      bottomColor2,
       bottomOpacity,
+      bottomOpacity2,
       topShadow: Boolean(topTextShadow),
       bottomShadow: Boolean(bottomShadow),
+      bottomShadow2: Boolean(bottomShadow2),
       textY,
+      textY2,
       topFontPath,
       bottomFontPath,
+      bottomFontPath2,
     });
     await putStatus(bucket, jobId, {
       state: "processing",

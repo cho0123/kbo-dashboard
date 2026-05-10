@@ -248,6 +248,13 @@ function emptySegment() {
     textOpacity: 1,
     textSize: 48,
     textFont: DEFAULT_TEXT_FONT,
+    text2: "",
+    textShadow2: false,
+    textY2: 85,
+    textColor2: TEXT_COLORS[0],
+    textOpacity2: 1,
+    textSize2: 48,
+    textFont2: DEFAULT_TEXT_FONT,
   };
 }
 
@@ -777,15 +784,40 @@ export default function Shorts3Panel({
       }
     }
 
-    // 하단 텍스트 (선택된 구간)
-    if (selectedSeg?.text) {
-      ctx.font = `bold ${Math.round(ch * 0.045)}px sans-serif`;
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillRect(0, ch * 0.88, cw, ch * 0.12);
-      ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(selectedSeg.text, cw / 2, ch * 0.94);
+    // 하단 텍스트 (선택된 구간 · 텍스트 1 / 2)
+    const t1 = String(selectedSeg?.text ?? "").trim();
+    const t2 = String(selectedSeg?.text2 ?? "").trim();
+    const fs1 = Math.max(
+      8,
+      Math.round(((Number(selectedSeg?.textSize) || 48) * ch) / 1920)
+    );
+    const fs2 = Math.max(
+      8,
+      Math.round(((Number(selectedSeg?.textSize2) || 48) * ch) / 1920)
+    );
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (t1) {
+      const textYPos = ch * (Number(selectedSeg.textY ?? 85) / 100);
+      ctx.font = `bold ${fs1}px sans-serif`;
+      ctx.fillStyle = hexToRgba(
+        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor || "").trim())
+          ? selectedSeg.textColor
+          : TEXT_COLORS[0],
+        roundOpacity01(selectedSeg.textOpacity ?? 1)
+      );
+      ctx.fillText(t1, cw / 2, textYPos);
+    }
+    if (t2) {
+      const textY2Pos = ch * (Number(selectedSeg.textY2 ?? 85) / 100);
+      ctx.font = `bold ${fs2}px sans-serif`;
+      ctx.fillStyle = hexToRgba(
+        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor2 || "").trim())
+          ? selectedSeg.textColor2
+          : TEXT_COLORS[0],
+        roundOpacity01(selectedSeg.textOpacity2 ?? 1)
+      );
+      ctx.fillText(t2, cw / 2, textY2Pos);
     }
   }, [
     segments,
@@ -1094,8 +1126,25 @@ export default function Shorts3Panel({
       if (b <= a) continue;
       sum += b - a;
     }
+    const thumbStart = segmentBoundaryToSeconds(
+      String(thumbnailSegment.start ?? "").trim(),
+      thumbnailSegment.startMs
+    );
+    const thumbEnd = segmentBoundaryToSeconds(
+      String(thumbnailSegment.end ?? "").trim(),
+      thumbnailSegment.endMs
+    );
+    if (
+      thumbStart != null &&
+      thumbEnd != null &&
+      Number.isFinite(thumbStart) &&
+      Number.isFinite(thumbEnd) &&
+      thumbEnd > thumbStart
+    ) {
+      sum += thumbEnd - thumbStart;
+    }
     return sum;
-  }, [segments]);
+  }, [segments, thumbnailSegment]);
 
   const segmentTotalWarnStyle = useMemo(() => {
     if (segmentTotalSec > 300) return { color: "#ff6b8a" };
@@ -1391,6 +1440,38 @@ export default function Shorts3Panel({
         }
         if (field === "textShadow") {
           return { ...seg, textShadow: Boolean(rawVal) };
+        }
+        if (field === "textY2") {
+          const n = Number(rawVal);
+          const v = Number.isFinite(n)
+            ? Math.min(100, Math.max(0, Math.round(n)))
+            : 85;
+          return { ...seg, textY2: v };
+        }
+        if (field === "textColor2") {
+          return { ...seg, textColor2: String(rawVal || TEXT_COLORS[0]) };
+        }
+        if (field === "text2") {
+          return { ...seg, text2: rawVal };
+        }
+        if (field === "textSize2") {
+          const n = Number(rawVal);
+          const v = Number.isFinite(n)
+            ? Math.min(200, Math.max(20, Math.round(n)))
+            : 48;
+          return { ...seg, textSize2: v };
+        }
+        if (field === "textOpacity2") {
+          return { ...seg, textOpacity2: roundOpacity01(rawVal) };
+        }
+        if (field === "textFont2") {
+          return {
+            ...seg,
+            textFont2: String(rawVal || "").trim() || DEFAULT_TEXT_FONT,
+          };
+        }
+        if (field === "textShadow2") {
+          return { ...seg, textShadow2: Boolean(rawVal) };
         }
         return seg;
       })
@@ -1929,6 +2010,10 @@ export default function Shorts3Panel({
           const textY = Number.isFinite(ty)
             ? Math.min(100, Math.max(0, Math.round(ty)))
             : 85;
+          const ty2 = Number(s.textY2);
+          const textY2 = Number.isFinite(ty2)
+            ? Math.min(100, Math.max(0, Math.round(ty2)))
+            : 85;
           return {
             start: String(s.start).trim(),
             end: String(s.end).trim(),
@@ -1939,18 +2024,33 @@ export default function Shorts3Panel({
                 ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
                 : 0,
             text: String(s.text ?? "").trim(),
+            text2: String(s.text2 ?? "").trim(),
             textShadow: Boolean(s.textShadow),
+            textShadow2: Boolean(s.textShadow2),
             textY,
+            textY2,
             textColor:
               String(s.textColor ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
+            textColor2:
+              String(s.textColor2 ?? TEXT_COLORS[0]).trim() || TEXT_COLORS[0],
             textOpacity: roundOpacity01(s.textOpacity ?? 1),
+            textOpacity2: roundOpacity01(s.textOpacity2 ?? 1),
             textFont:
               String(s.textFont || "").trim() || DEFAULT_TEXT_FONT,
+            textFont2:
+              String(s.textFont2 || "").trim() || DEFAULT_TEXT_FONT,
             textSize: Math.min(
               200,
               Math.max(
                 20,
                 Math.round(Number(s.textSize)) || 48
+              )
+            ),
+            textSize2: Math.min(
+              200,
+              Math.max(
+                20,
+                Math.round(Number(s.textSize2)) || 48
               )
             ),
           };
@@ -2067,25 +2167,26 @@ export default function Shorts3Panel({
     const ct = previewPlayheadSec;
     const bottomSeg = findSegmentAtPreviewTime(ct, segments);
     const segmentBottomLine = String(bottomSeg?.text ?? "").trim();
+    const segmentBottomLine2 = String(bottomSeg?.text2 ?? "").trim();
 
-    const previewTopPx = Math.max(8, (Number(topTextSize) || 72) * scale);
     const segBottomPx = Math.max(
       8,
       (Number(bottomSeg?.textSize) || 48) * scale
     );
+    const segBottomPx2 = Math.max(
+      8,
+      (Number(bottomSeg?.textSize2) || 48) * scale
+    );
 
-    const topColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(String(topTextColor || ""))
-      ? topTextColor
-      : TEXT_COLORS[0];
-    const topOp = roundOpacity01(topTextOpacity ?? 1);
-    const topColor = hexToRgba(topColorRaw, topOp);
-    const topLine = String(topText || "").trim();
     const shadow = "1px 1px 3px rgba(0,0,0,0.6)";
-    const topFontFamily = previewFontFamily(topTextFont);
 
     const segYRaw = Number(bottomSeg?.textY);
     const segYpct = Number.isFinite(segYRaw)
       ? Math.min(100, Math.max(0, segYRaw))
+      : 85;
+    const segY2Raw = Number(bottomSeg?.textY2);
+    const segY2pct = Number.isFinite(segY2Raw)
+      ? Math.min(100, Math.max(0, segY2Raw))
       : 85;
     const segColorRaw = /^#[0-9A-Fa-f]{6}$/i.test(
       String(bottomSeg?.textColor || "")
@@ -2098,6 +2199,18 @@ export default function Shorts3Panel({
     );
     const segFontFamily = previewFontFamily(
       bottomSeg?.textFont || DEFAULT_TEXT_FONT
+    );
+    const segColor2Raw = /^#[0-9A-Fa-f]{6}$/i.test(
+      String(bottomSeg?.textColor2 || "")
+    )
+      ? bottomSeg.textColor2
+      : TEXT_COLORS[0];
+    const segColor2 = hexToRgba(
+      segColor2Raw,
+      roundOpacity01(bottomSeg?.textOpacity2 ?? 1)
+    );
+    const segFontFamily2 = previewFontFamily(
+      bottomSeg?.textFont2 || DEFAULT_TEXT_FONT
     );
 
     return (
@@ -2113,28 +2226,6 @@ export default function Shorts3Panel({
           overflow: "visible",
         }}
       >
-        {topLine ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              top: 30,
-              textAlign: "center",
-              fontSize: previewTopPx,
-              color: topColor,
-              fontFamily: topFontFamily,
-              fontWeight: 700,
-              lineHeight: 1.2,
-              textShadow: topTextShadow ? shadow : "none",
-              padding: "0 8px",
-              boxSizing: "border-box",
-              wordBreak: "break-word",
-            }}
-          >
-            {topLine}
-          </div>
-        ) : null}
         {segmentBottomLine ? (
           <div
             style={{
@@ -2158,19 +2249,32 @@ export default function Shorts3Panel({
             {segmentBottomLine}
           </div>
         ) : null}
+        {segmentBottomLine2 ? (
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: `${segY2pct}%`,
+              transform: "translate(-50%, -50%)",
+              textAlign: "center",
+              fontSize: segBottomPx2,
+              color: segColor2,
+              fontFamily: segFontFamily2,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              textShadow: bottomSeg?.textShadow2 ? shadow : "none",
+              padding: "0 8px",
+              boxSizing: "border-box",
+              whiteSpace: "nowrap",
+              overflow: "visible",
+            }}
+          >
+            {segmentBottomLine2}
+          </div>
+        ) : null}
       </div>
     );
-  }, [
-    previewCropOverlay,
-    previewPlayheadSec,
-    topText,
-    topTextColor,
-    topTextSize,
-    topTextOpacity,
-    topTextFont,
-    topTextShadow,
-    segments,
-  ]);
+  }, [previewCropOverlay, previewPlayheadSec, segments]);
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -4277,161 +4381,6 @@ export default function Shorts3Panel({
             </p>
           ) : null}
 
-          {/* 1번 구간일 때만 상단 제목 텍스트 설정 */}
-          {!thumbnailSelected && selectedSegIndex === 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div className="label">상단 제목 텍스트</div>
-              <label className="preset-field" style={{ marginBottom: 12 }}>
-                <span>상단 제목 텍스트 (비우면 미표시)</span>
-                <input
-                  type="text"
-                  placeholder="예: 오늘의 하이라이트"
-                  value={topText}
-                  disabled={busy || uploading}
-                  onChange={(e) => setTopText(e.target.value)}
-                />
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  alignItems: "flex-end",
-                  marginBottom: 10,
-                }}
-              >
-                <label
-                  className="preset-field"
-                  style={{ flex: "1 1 200px", minWidth: 160 }}
-                >
-                  <span>폰트</span>
-                  <select
-                    value={normalizeFontSelectValue(topTextFont)}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setTopTextFont(normalizeFontSelectValue(e.target.value))
-                    }
-                  >
-                    {FONTS.map((f) => (
-                      <option key={f.value} value={f.value}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label
-                  className="muted"
-                  style={{
-                    flex: "2 1 220px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    minWidth: 160,
-                  }}
-                >
-                  폰트 크기 (
-                  {Math.round(
-                    Math.min(200, Math.max(20, Number(topTextSize) || 72))
-                  )}
-                  px)
-                  <input
-                    type="range"
-                    min={20}
-                    max={200}
-                    step={1}
-                    value={Math.min(
-                      200,
-                      Math.max(20, Number(topTextSize) || 72)
-                    )}
-                    disabled={busy || uploading}
-                    onChange={(e) => setTopTextSize(Number(e.target.value))}
-                    style={{ width: "100%" }}
-                  />
-                </label>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <div
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    flex: "1 1 200px",
-                    minWidth: 0,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    폰트 색상
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 12,
-                        color: "#aaa",
-                        cursor: "pointer",
-                        marginLeft: 8,
-                        whiteSpace: "nowrap",
-                        fontWeight: 500,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={topTextShadow}
-                        disabled={busy || uploading}
-                        onChange={(e) => setTopTextShadow(e.target.checked)}
-                      />
-                      그림자
-                    </label>
-                  </div>
-                  <TextColorPalette
-                    value={topTextColor}
-                    disabled={busy || uploading}
-                    onChange={setTopTextColor}
-                  />
-                </div>
-                <label
-                  className="muted"
-                  style={{
-                    flex: "1 1 200px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    minWidth: 160,
-                  }}
-                >
-                  투명도 ({Math.round(roundOpacity01(topTextOpacity) * 100)}%)
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    value={roundOpacity01(topTextOpacity)}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setTopTextOpacity(roundOpacity01(e.target.value))
-                    }
-                    style={{ width: "100%" }}
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
           {thumbnailSelected ? (
             <div style={{ marginBottom: 12 }}>
               <div
@@ -4752,9 +4701,11 @@ export default function Shorts3Panel({
                       : "▶ 구간 재생"}
                   </button>
 
-                  {/* 하단 텍스트 입력 */}
+                  <div className="label" style={{ marginTop: 8 }}>
+                    텍스트 1
+                  </div>
                   <label className="preset-field" style={{ marginTop: 4 }}>
-                    <span>하단 텍스트 (비우면 해당 구간 미표시)</span>
+                    <span>텍스트 1 (비우면 미표시)</span>
                     <input
                       type="text"
                       placeholder="구간별 자막"
@@ -4769,8 +4720,6 @@ export default function Shorts3Panel({
                       }
                     />
                   </label>
-
-                  {/* 폰트/색상/투명도/크기 */}
                   <div
                     style={{
                       display: "flex",
@@ -4932,8 +4881,6 @@ export default function Shorts3Panel({
                       />
                     </label>
                   </div>
-
-                  {/* 텍스트 세로 위치 */}
                   <label
                     className="muted"
                     style={{
@@ -4945,7 +4892,7 @@ export default function Shorts3Panel({
                       marginTop: 6,
                     }}
                   >
-                    세로 위치: {seg.textY ?? 85}%
+                    세로 위치 (텍스트 1): {seg.textY ?? 85}%
                     <input
                       type="range"
                       min={0}
@@ -4957,6 +4904,228 @@ export default function Shorts3Panel({
                         handleSegmentOverlayChange(
                           index,
                           "textY",
+                          e.target.value
+                        )
+                      }
+                      style={{ width: "100%" }}
+                    />
+                    <span
+                      className="muted"
+                      style={{ fontWeight: 400, fontSize: 11 }}
+                    >
+                      0% = 최상단 · 100% = 최하단
+                    </span>
+                  </label>
+
+                  <div className="label" style={{ marginTop: 14 }}>
+                    텍스트 2
+                  </div>
+                  <label className="preset-field" style={{ marginTop: 4 }}>
+                    <span>텍스트 2 (비우면 미표시)</span>
+                    <input
+                      type="text"
+                      placeholder="추가 자막"
+                      value={seg.text2 ?? ""}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        handleSegmentOverlayChange(
+                          index,
+                          "text2",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      alignItems: "flex-end",
+                      marginTop: 6,
+                    }}
+                  >
+                    <label
+                      className="preset-field"
+                      style={{ flex: "1 1 180px", minWidth: 140 }}
+                    >
+                      <span>폰트</span>
+                      <select
+                        value={normalizeFontSelectValue(seg.textFont2)}
+                        disabled={busy || uploading}
+                        onChange={(e) =>
+                          handleSegmentOverlayChange(
+                            index,
+                            "textFont2",
+                            normalizeFontSelectValue(e.target.value)
+                          )
+                        }
+                      >
+                        {FONTS.map((f) => (
+                          <option key={f.value} value={f.value}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label
+                      className="muted"
+                      style={{
+                        flex: "2 1 200px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        minWidth: 140,
+                      }}
+                    >
+                      폰트 크기 (
+                      {Math.round(
+                        Math.min(
+                          200,
+                          Math.max(20, Number(seg.textSize2) || 48)
+                        )
+                      )}
+                      px)
+                      <input
+                        type="range"
+                        min={20}
+                        max={200}
+                        step={1}
+                        value={Math.min(
+                          200,
+                          Math.max(20, Number(seg.textSize2) || 48)
+                        )}
+                        disabled={busy || uploading}
+                        onChange={(e) =>
+                          handleSegmentOverlayChange(
+                            index,
+                            "textSize2",
+                            e.target.value
+                          )
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      alignItems: "center",
+                      marginTop: 6,
+                    }}
+                  >
+                    <div
+                      className="muted"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        flex: "1 1 180px",
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        폰트 색상
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            fontSize: 12,
+                            color: "#aaa",
+                            cursor: "pointer",
+                            marginLeft: 8,
+                            whiteSpace: "nowrap",
+                            fontWeight: 500,
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={seg.textShadow2 || false}
+                            disabled={busy || uploading}
+                            onChange={(e) =>
+                              handleSegmentOverlayChange(
+                                index,
+                                "textShadow2",
+                                e.target.checked
+                              )
+                            }
+                          />
+                          그림자
+                        </label>
+                      </div>
+                      <TextColorPalette
+                        value={seg.textColor2}
+                        disabled={busy || uploading}
+                        onChange={(c) =>
+                          handleSegmentOverlayChange(index, "textColor2", c)
+                        }
+                      />
+                    </div>
+                    <label
+                      className="muted"
+                      style={{
+                        flex: "1 1 180px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        minWidth: 140,
+                      }}
+                    >
+                      투명도 (
+                      {Math.round(
+                        roundOpacity01(seg.textOpacity2 ?? 1) * 100
+                      )}
+                      %)
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={roundOpacity01(seg.textOpacity2 ?? 1)}
+                        disabled={busy || uploading}
+                        onChange={(e) =>
+                          handleSegmentOverlayChange(
+                            index,
+                            "textOpacity2",
+                            e.target.value
+                          )
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+                  </div>
+                  <label
+                    className="muted"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      marginTop: 6,
+                    }}
+                  >
+                    세로 위치 (텍스트 2): {seg.textY2 ?? 85}%
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={seg.textY2 ?? 85}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        handleSegmentOverlayChange(
+                          index,
+                          "textY2",
                           e.target.value
                         )
                       }
