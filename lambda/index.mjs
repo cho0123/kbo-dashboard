@@ -766,6 +766,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       textShadow: bottomShadow,
       textShadow2: bottomShadow2,
     } = bottomParsed;
+    console.log("[seg text2]", i, "text2:", seg?.text2, "bottomTxt2:", bottomTxt2);
     const bottomFontPath = resolveBundledFontPath(bottomFontName);
     let bottomPath = null;
     if (bottomTxt && bottomFontPath) {
