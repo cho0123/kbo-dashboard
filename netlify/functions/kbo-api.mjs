@@ -2681,9 +2681,24 @@ ${JSON.stringify(games, null, 2)}`;
               }),
             };
           }
+          const text2 = s.text2 != null ? String(s.text2).trim() : "";
+          if (text2.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "하단 텍스트 2는 구간당 500자 이하로 입력하세요.",
+              }),
+            };
+          }
           const ty = Number(s.textY);
           const textY = Number.isFinite(ty)
             ? Math.min(100, Math.max(0, Math.round(ty)))
+            : 85;
+          const ty2 = Number(s.textY2);
+          const textY2 = Number.isFinite(ty2)
+            ? Math.min(100, Math.max(0, Math.round(ty2)))
             : 85;
           let textColor = "#ffffff";
           if (s.textColor != null) {
@@ -2692,12 +2707,25 @@ ${JSON.stringify(games, null, 2)}`;
               textColor = c.toLowerCase();
             }
           }
+          let textColor2 = "#ffffff";
+          if (s.textColor2 != null) {
+            const c2 = String(s.textColor2).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c2)) {
+              textColor2 = c2.toLowerCase();
+            }
+          }
           const textSizeRaw = Number(s.textSize);
           const textSize = Number.isFinite(textSizeRaw)
             ? Math.min(200, Math.max(20, Math.round(textSizeRaw)))
             : 48;
+          const textSize2Raw = Number(s.textSize2);
+          const textSize2 = Number.isFinite(textSize2Raw)
+            ? Math.min(200, Math.max(20, Math.round(textSize2Raw)))
+            : 48;
           const textOpacity = clamp01(s.textOpacity);
+          const textOpacity2 = clamp01(s.textOpacity2);
           const textFont = sanitizeHighlightFont(s.textFont);
+          const textFont2 = sanitizeHighlightFont(s.textFont2);
           const startMsRaw = Number(s.startMs);
           const endMsRaw = Number(s.endMs);
           const startMs = Number.isFinite(startMsRaw)
@@ -2718,6 +2746,14 @@ ${JSON.stringify(games, null, 2)}`;
             textSize,
             textOpacity,
             textFont,
+            textShadow: Boolean(s.textShadow),
+            text2,
+            textY2,
+            textColor2,
+            textSize2,
+            textOpacity2,
+            textFont2,
+            textShadow2: Boolean(s.textShadow2),
           });
         }
         if (segments.length < 1) {
