@@ -766,7 +766,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       textShadow: bottomShadow,
       textShadow2: bottomShadow2,
     } = bottomParsed;
-    console.log("[seg text2]", i, "text2:", seg?.text2, "bottomTxt2:", bottomTxt2);
     const bottomFontPath = resolveBundledFontPath(bottomFontName);
     let bottomPath = null;
     if (bottomTxt && bottomFontPath) {
@@ -779,6 +778,16 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
       writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
+    console.log(
+      "[seg text2 debug]",
+      i,
+      JSON.stringify({
+        text2: seg?.text2,
+        bottomTxt2,
+        bottomFontPath2,
+        bottomPath2,
+      })
+    );
     const vfSeg = buildHighlightSegmentVf({
       cw,
       ih,
