@@ -275,8 +275,8 @@ function findSegmentAtPreviewTime(ct, segments) {
 }
 
 /**
- * video.offsetWidth / offsetHeight 기준 9:16 크롭 박스(오버레이 좌표, px).
- * cropWidth = displayHeight * 9/16,
+ * video.offsetWidth / offsetHeight 기준 hole 비율(1000:1480) 크롭 박스(오버레이 좌표, px).
+ * cropWidth = displayHeight * 1000/1480,
  * cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100 (클램프)
  */
 function computePreviewCropOverlay(videoEl, cropOffsetPct) {
@@ -286,7 +286,7 @@ function computePreviewCropOverlay(videoEl, cropOffsetPct) {
   if (dispW < 2 || dispH < 2) return null;
 
   const pct = Math.min(50, Math.max(-50, Number(cropOffsetPct) || 0));
-  let cropW = dispH * (9 / 16);
+  let cropW = dispH * (1000 / 1480);
   let cropX = (dispW - cropW) / 2 + (dispW * pct) / 100;
   cropX = Math.max(0, Math.min(cropX, dispW - cropW));
   if (cropW > dispW) {
@@ -602,11 +602,10 @@ export default function Shorts3Panel({
     const holeY = TOP_BAR;
     const holeW = W - SIDE_BAR * 2;
     const holeH = H - TOP_BAR - BOT_BAR;
-    const holeAspect = holeW / holeH;
 
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
     if (thumbnailSelected) {
-      // 1) 영상 프레임 먼저 그리기 — 9:16 크롭 후 hole 비율에 맞춰 hole 영역에만 매핑
+      // 1) 영상 프레임 — 9:16 세로 스트립 → 미리보기 hole 영역
       const cropOffset = Math.max(
         -50,
         Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
@@ -615,16 +614,8 @@ export default function Shorts3Panel({
       const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
       let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
       srcX = Math.max(0, Math.min(vw - cropW, srcX));
-      let cropH = Math.round(cropW / holeAspect);
-      let cropY = Math.round((vh - cropH) / 2);
-      if (cropH > vh) {
-        cropH = vh;
-        cropY = 0;
-      } else {
-        cropY = Math.max(0, Math.min(vh - cropH, cropY));
-      }
       ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(video, srcX, cropY, cropW, cropH, holeX, holeY, holeW, holeH);
+      ctx.drawImage(video, srcX, 0, cropW, vh, holeX, holeY, holeW, holeH);
       // 2) 썸네일 오버레이 덮기
       const overlayCanvas = thumbnailOverlayCanvasRef.current;
       if (overlayCanvas) {
@@ -639,23 +630,14 @@ export default function Shorts3Panel({
       Math.min(50, Number(selectedSeg?.cropOffset) || 0)
     );
 
-    // 1) 9:16 크롭 영상 → 캔버스 전체
+    // 1) 9:16 크롭 영상 → hole 영역
     const cropW = Math.round((vh * 9) / 16);
     const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
     let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
     srcX = Math.max(0, Math.min(vw - cropW, srcX));
 
-    let cropH = Math.round(cropW / holeAspect);
-    let cropY = Math.round((vh - cropH) / 2);
-    if (cropH > vh) {
-      cropH = vh;
-      cropY = 0;
-    } else {
-      cropY = Math.max(0, Math.min(vh - cropH, cropY));
-    }
-
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(video, srcX, cropY, cropW, cropH, holeX, holeY, holeW, holeH);
+    ctx.drawImage(video, srcX, 0, cropW, vh, holeX, holeY, holeW, holeH);
 
     // 2) 팀컬러 상단바
     ctx.fillStyle = bg;
