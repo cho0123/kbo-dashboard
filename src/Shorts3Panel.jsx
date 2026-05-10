@@ -1269,7 +1269,51 @@ export default function Shorts3Panel({
     setIsPlayingAll(true);
     playAllRef.current = true;
 
+    const playRange = (startSec, endSec) =>
+      new Promise((res) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          try {
+            video.pause();
+          } catch {
+            /* ignore */
+          }
+          video.removeEventListener("timeupdate", check);
+          res();
+        };
+        const check = () => {
+          if (!playAllRef.current) return finish();
+          if (video.currentTime >= endSec) return finish();
+        };
+        video.addEventListener("timeupdate", check);
+        video.play().catch(() => {});
+      });
+
     try {
+      const thumbStart = segmentBoundarySeconds(thumbnailSegment, "start");
+      if (thumbStart != null && Number.isFinite(thumbStart)) {
+        let thumbEnd = segmentBoundarySeconds(thumbnailSegment, "end");
+        if (
+          thumbEnd == null ||
+          !Number.isFinite(thumbEnd) ||
+          thumbEnd <= thumbStart
+        ) {
+          thumbEnd = thumbStart + 0.1;
+        }
+        setThumbnailSelected(true);
+        setPreviewCropOverlay(
+          computePreviewCropOverlay(
+            video,
+            thumbnailSegment.cropOffset ?? 0
+          )
+        );
+        video.currentTime = thumbStart;
+        await playRange(thumbStart, thumbEnd);
+        await new Promise((res) => setTimeout(res, 100));
+      }
+
       for (let i = 0; i < segments.length; i++) {
         if (!playAllRef.current) break;
         const seg = segments[i];
@@ -1287,30 +1331,12 @@ export default function Shorts3Panel({
           continue;
         }
 
+        setThumbnailSelected(false);
         setSelectedSegIndex(i);
         setPreviewCropOverlay(computePreviewCropOverlay(video, seg.cropOffset ?? 0));
         video.currentTime = startSec;
 
-        await new Promise((res) => {
-          let done = false;
-          const finish = () => {
-            if (done) return;
-            done = true;
-            try {
-              video.pause();
-            } catch {
-              /* ignore */
-            }
-            video.removeEventListener("timeupdate", check);
-            res();
-          };
-          const check = () => {
-            if (!playAllRef.current) return finish();
-            if (video.currentTime >= endSec) return finish();
-          };
-          video.addEventListener("timeupdate", check);
-          video.play().catch(() => {});
-        });
+        await playRange(startSec, endSec);
 
         await new Promise((res) => setTimeout(res, 100));
       }
@@ -1318,7 +1344,7 @@ export default function Shorts3Panel({
       playAllRef.current = false;
       setIsPlayingAll(false);
     }
-  }, [segments, isPlayingAll, segmentBoundarySeconds]);
+  }, [segments, isPlayingAll, segmentBoundarySeconds, thumbnailSegment]);
 
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
@@ -2964,17 +2990,10 @@ export default function Shorts3Panel({
                         Math.round((t - whole) * 100)
                       );
                       if (thumbnailSelected) {
-                        const endFrac = frac + 10;
-                        const endWhole = endFrac > 99 ? whole + 1 : whole;
-                        const endMs = clampSegmentFracMs(
-                          endFrac > 99 ? endFrac - 100 : endFrac
-                        );
                         setThumbnailSegment((v) => ({
                           ...v,
                           start: secondsToHhMmSs(whole),
                           startMs: frac,
-                          end: secondsToHhMmSs(endWhole),
-                          endMs,
                         }));
                       } else {
                         setSegments((prev) =>
@@ -4244,6 +4263,19 @@ export default function Shorts3Panel({
               ? "썸네일 · 세부 설정"
               : `구간 #${selectedSegIndex + 1} · 세부 설정`}
           </div>
+          {thumbnailSelected ? (
+            <p
+              className="muted"
+              style={{
+                fontSize: 12,
+                marginTop: 6,
+                marginBottom: 12,
+                lineHeight: 1.45,
+              }}
+            >
+              썸네일로 사용하려면 종료점을 시작점+최소 0.1초로 설정하세요
+            </p>
+          ) : null}
 
           {/* 1번 구간일 때만 상단 제목 텍스트 설정 */}
           {!thumbnailSelected && selectedSegIndex === 0 && (
