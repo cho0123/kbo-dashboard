@@ -669,7 +669,7 @@ export default function Shorts3Panel({
       );
       const srcCropX =
         Math.round((vw - srcCropW) / 2) +
-        Math.round((cropOffset / 100) * (vw - srcCropW));
+        Math.round((cropOffset / 100) * vw);
       const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
       ctx.clearRect(0, 0, W, H);
       ctx.drawImage(
@@ -699,7 +699,7 @@ export default function Shorts3Panel({
 
     const srcCropX =
       Math.round((vw - srcCropW) / 2) +
-      Math.round((cropOffset / 100) * (vw - srcCropW));
+      Math.round((cropOffset / 100) * vw);
     const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
 
     ctx.clearRect(0, 0, W, H);
