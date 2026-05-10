@@ -531,17 +531,7 @@ export default function Shorts3Panel({
         text: String(seg?.text || "").slice(0, 20) || "",
       };
     });
-    setSegments((prev) => {
-      const next = [...prev, ...newSegs];
-      console.log(
-        "[setSegments] from: useEffect pendingSegments",
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+    setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
 
@@ -1167,23 +1157,9 @@ export default function Shorts3Panel({
   const addSegment = useCallback(() => {
     setSegments((s) => {
       if (s.length >= MAX_SEGMENTS) {
-        console.log(
-          "[setSegments] from: addSegment (max reached)",
-          "prev length:",
-          s?.length,
-          "next:",
-          s
-        );
         return s;
       }
       const next = [...s, emptySegment()];
-      console.log(
-        "[setSegments] from: addSegment",
-        "prev length:",
-        s?.length,
-        "next:",
-        next
-      );
       const ni = next.length - 1;
       setThumbnailSelected(false);
       setSelectedSegIndex(ni);
@@ -1195,13 +1171,6 @@ export default function Shorts3Panel({
     const mapped = apiSegs.map((seg) => mapApiSegmentToPanelSegment(seg));
     setSegments((prev) => {
       if (mapped.length === 0) {
-        console.log(
-          "[setSegments] from: appendWhisperSegmentsToEditor (no mapped)",
-          "prev length:",
-          prev?.length,
-          "next:",
-          prev
-        );
         return prev;
       }
       const filtered = prev.filter((s) => {
@@ -1213,50 +1182,14 @@ export default function Shorts3Panel({
       });
       const room = MAX_SEGMENTS - filtered.length;
       if (room <= 0) {
-        console.log(
-          "[setSegments] from: appendWhisperSegmentsToEditor (no room)",
-          "prev length:",
-          prev?.length,
-          "next:",
-          prev
-        );
         return prev;
       }
       const toAdd = mapped.slice(0, room);
       const next = [...filtered, ...toAdd];
-      console.log(
-        "[setSegments] from: appendWhisperSegmentsToEditor",
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
       setSelectedSegIndex(next.length - 1);
       return next;
     });
     setSelectedTimestamps({});
-  }, []);
-
-  const removeSegment = useCallback((idx) => {
-    setPlayingSegmentIndex((cur) =>
-      cur === idx ? null : cur != null && idx < cur ? cur - 1 : cur
-    );
-    setSelectedSegIndex((sel) => {
-      if (sel === idx) return Math.max(0, idx - 1);
-      if (sel > idx) return sel - 1;
-      return sel;
-    });
-    setSegments((s) => {
-      const next = s.length <= 1 ? s : s.filter((_, i) => i !== idx);
-      console.log(
-        "[setSegments] from: removeSegment",
-        "prev length:",
-        s?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
   }, []);
 
   const deleteSelectedSegment = useCallback(() => {
@@ -1267,25 +1200,11 @@ export default function Shorts3Panel({
     setSelectedSegIndex(() => Math.max(0, idx - 1));
     setSegments((s) => {
       if (s.length <= 1) {
-        console.log(
-          "[setSegments] from: deleteSelectedSegment (skip len<=1)",
-          "prev length:",
-          s?.length,
-          "next:",
-          s
-        );
         return s;
       }
       const filtered = s.filter((_, i) => i !== idx);
       const next =
         filtered.length === 0 ? [emptySegment()] : filtered;
-      console.log(
-        "[setSegments] from: deleteSelectedSegment",
-        "prev length:",
-        s?.length,
-        "next:",
-        next
-      );
       return next;
     });
   }, [selectedSegIndex]);
@@ -1478,19 +1397,11 @@ export default function Shorts3Panel({
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
     const v = Number.isFinite(n) ? Math.min(50, Math.max(-50, Math.round(n))) : 0;
-    setSegments((prev) => {
-      const next = prev.map((seg, i) =>
+    setSegments((prev) =>
+      prev.map((seg, i) =>
         i === segIndex ? { ...seg, cropOffset: v } : seg
-      );
-      console.log(
-        "[setSegments] from: handleCropOffsetChange",
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+      )
+    );
   };
 
   const handleSegmentOverlayChange = (segIndex, field, rawVal) => {
@@ -1563,14 +1474,6 @@ export default function Shorts3Panel({
         }
         return seg;
       });
-      console.log(
-        "[setSegments] from: handleSegmentOverlayChange",
-        `field:${field}`,
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
       return next;
     });
   };
@@ -1590,20 +1493,11 @@ export default function Shorts3Panel({
       formatted =
         digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
     }
-    setSegments((prev) => {
-      const next = prev.map((seg, i) =>
+    setSegments((prev) =>
+      prev.map((seg, i) =>
         i === segIndex ? { ...seg, [field]: formatted } : seg
-      );
-      console.log(
-        "[setSegments] from: handleTimeChange",
-        `field:${field}`,
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+      )
+    );
   };
 
   const handleFracMsChange = (segIndex, field, rawVal) => {
@@ -1615,20 +1509,11 @@ export default function Shorts3Panel({
       n = Number.isFinite(parsed) ? parsed : 0;
     }
     n = clampSegmentFracMs(n);
-    setSegments((prev) => {
-      const next = prev.map((seg, i) =>
+    setSegments((prev) =>
+      prev.map((seg, i) =>
         i === segIndex ? { ...seg, [field]: n } : seg
-      );
-      console.log(
-        "[setSegments] from: handleFracMsChange",
-        `field:${field}`,
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+      )
+    );
   };
 
   const handleThumbnailTimeChange = (field, rawVal) => {
@@ -1737,22 +1622,13 @@ export default function Shorts3Panel({
     const frac = clampSegmentFracMs(Math.round((ct - whole) * 100));
     const hms = secondsToHhMmSs(whole);
     const fracField = field === "start" ? "startMs" : "endMs";
-    setSegments((prev) => {
-      const next = prev.map((seg, i) =>
+    setSegments((prev) =>
+      prev.map((seg, i) =>
         i === selectedSegIndex
           ? { ...seg, [field]: hms, [fracField]: frac }
           : seg
-      );
-      console.log(
-        "[setSegments] from: applyVideoTimeToSegment",
-        `field:${field}`,
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+      )
+    );
   }, [selectedSegIndex]);
 
   const adjustSegmentFieldTime = useCallback((segIndex, field, deltaSec) => {
@@ -1760,13 +1636,6 @@ export default function Shorts3Panel({
     setSegments((prev) => {
       const seg = prev[segIndex];
       if (!seg) {
-        console.log(
-          "[setSegments] from: adjustSegmentFieldTime (no seg)",
-          "prev length:",
-          prev?.length,
-          "next:",
-          prev
-        );
         return prev;
       }
       const fracField = field === "start" ? "startMs" : "endMs";
@@ -1774,13 +1643,6 @@ export default function Shorts3Panel({
         parseHhMmSsToSeconds(seg[field], seg[fracField]) ??
         (String(seg[field] ?? "").trim() === "" ? 0 : null);
       if (cur == null) {
-        console.log(
-          "[setSegments] from: adjustSegmentFieldTime (cur null)",
-          "prev length:",
-          prev?.length,
-          "next:",
-          prev
-        );
         return prev;
       }
       const nextSec = Math.max(0, cur + deltaSec);
@@ -1788,18 +1650,9 @@ export default function Shorts3Panel({
       const whole = Math.floor(nextSec + 1e-9);
       const frac = clampSegmentFracMs(Math.round((nextSec - whole) * 100));
       const hms = secondsToHhMmSs(whole);
-      const next = prev.map((s, i) =>
+      return prev.map((s, i) =>
         i === segIndex ? { ...s, [field]: hms, [fracField]: frac } : s
       );
-      console.log(
-        "[setSegments] from: adjustSegmentFieldTime",
-        `seg:${segIndex} field:${field}`,
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
     });
     if (seekSec == null) return;
     setSelectedSegIndex(segIndex);
@@ -1824,17 +1677,7 @@ export default function Shorts3Panel({
       console.warn("[kbo draft remove]", e);
     }
     restoringDraftRef.current = true;
-    setSegments((prev) => {
-      const next = [emptySegment()];
-      console.log(
-        "[setSegments] from: onResetDraft",
-        "prev length:",
-        prev?.length,
-        "next:",
-        next
-      );
-      return next;
-    });
+    setSegments(() => [emptySegment()]);
     setThumbnailSegment({ ...INITIAL_THUMBNAIL_SEGMENT });
     setTopText("");
     setTopTextColor(TEXT_COLORS[0]);
@@ -1890,13 +1733,6 @@ export default function Shorts3Panel({
       if (raw) {
         const d = JSON.parse(raw);
         if (Array.isArray(d.segments) && d.segments.length > 0) {
-          console.log(
-            "[setSegments] from: onLoadSavedJob draft",
-            "prev length:",
-            segments?.length,
-            "next:",
-            d.segments
-          );
           setSegments(d.segments);
         }
         if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
@@ -3268,8 +3104,8 @@ export default function Shorts3Panel({
                           startMs: frac,
                         }));
                       } else {
-                        setSegments((prev) => {
-                          const next = prev.map((s, i) =>
+                        setSegments((prev) =>
+                          prev.map((s, i) =>
                             i === selectedSegIndex
                               ? {
                                   ...s,
@@ -3277,16 +3113,8 @@ export default function Shorts3Panel({
                                   startMs: frac,
                                 }
                               : s
-                          );
-                          console.log(
-                            "[setSegments] from: toolbar 시작점 설정",
-                            "prev length:",
-                            prev?.length,
-                            "next:",
-                            next
-                          );
-                          return next;
-                        });
+                          )
+                        );
                       }
                     }}
                     style={{
@@ -3321,8 +3149,8 @@ export default function Shorts3Panel({
                           endMs: frac,
                         }));
                       } else {
-                        setSegments((prev) => {
-                          const next = prev.map((s, i) =>
+                        setSegments((prev) =>
+                          prev.map((s, i) =>
                             i === selectedSegIndex
                               ? {
                                   ...s,
@@ -3330,16 +3158,8 @@ export default function Shorts3Panel({
                                   endMs: frac,
                                 }
                               : s
-                          );
-                          console.log(
-                            "[setSegments] from: toolbar 종료점 설정",
-                            "prev length:",
-                            prev?.length,
-                            "next:",
-                            next
-                          );
-                          return next;
-                        });
+                          )
+                        );
                       }
                     }}
                     style={{
@@ -3871,16 +3691,7 @@ export default function Shorts3Panel({
                   overflow: "hidden",
                 }}
               >
-                {/* 구간 번호 + 삭제: 시간 입력 그리드와 분리 (오클릭 방지) */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 8,
-                    flexShrink: 0,
-                  }}
-                >
+                <div style={{ flexShrink: 0 }}>
                   <span
                     className="muted"
                     style={{
@@ -3891,32 +3702,6 @@ export default function Shorts3Panel({
                   >
                     #{index + 1}
                   </span>
-                  <button
-                    type="button"
-                    disabled={busy || uploading || segments.length <= 1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeSegment(index);
-                    }}
-                    title="구간 삭제"
-                    style={{
-                      padding: "6px 12px",
-                      minHeight: 28,
-                      minWidth: 44,
-                      background: "rgba(180,40,70,0.3)",
-                      border: "1px solid rgba(255,107,138,0.55)",
-                      color: "#ffd0dc",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      flexShrink: 0,
-                      ...(busy || uploading || segments.length <= 1
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                  >
-                    ✕ 삭제
-                  </button>
                 </div>
                 {/* 1행: 시간 입력 / 2행: 미세조정 버튼 (시작/종료 분리 정렬) */}
                 <div
