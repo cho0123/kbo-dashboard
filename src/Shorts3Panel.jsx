@@ -42,6 +42,10 @@ const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
 const MAX_SEGMENTS = 10;
 
+/** 원본 미리보기 행 고정 높이(px). 미리보기 캔버스 너비 = 높이 × 9/16 */
+const PREVIEW_ROW_HEIGHT_PX = 400;
+const PREVIEW_CANVAS_WIDTH_PX = Math.round((PREVIEW_ROW_HEIGHT_PX * 9) / 16);
+
 /** 30fps 기준 1프레임(초) — 미세조정용 */
 const ONE_FRAME_30_FPS_SEC = 1 / 30;
 const TENTH_SEC = 0.1;
@@ -2598,116 +2602,116 @@ export default function Shorts3Panel({
                     gap: 12,
                     alignItems: "stretch",
                     width: "100%",
+                    height: PREVIEW_ROW_HEIGHT_PX,
+                    minHeight: PREVIEW_ROW_HEIGHT_PX,
+                    boxSizing: "border-box",
                   }}
                 >
-                  {/* 원본 영상 — 나머지 너비 flex */}
+                  {/* 원본 영상 — 같은 높이(400px), 나머지 너비 flex */}
                   <div
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      position: "relative",
+                      height: PREVIEW_ROW_HEIGHT_PX,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                    }}
-                  >
-                    <video
-                      ref={previewVideoRef}
-                      src={previewUrl}
-                      controls
-                      playsInline
-                      onPlay={() => startPreviewLoop()}
-                      onPause={() => stopPreviewLoop()}
-                      onEnded={() => stopPreviewLoop()}
-                      onSeeked={() => renderPreviewFrame()}
-                      style={{
-                        position: "relative",
-                        zIndex: 0,
-                        width: "100%",
-                        height: "auto",
-                        maxHeight: "70vh",
-                        display: "block",
-                        objectFit: "contain",
-                        background: "#000",
-                      }}
-                    />
-                    {previewCropOverlay ? (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: "100%",
-                          zIndex: 2,
-                          pointerEvents: "none",
-                        }}
-                      >
-                        {previewCropOverlay.darkRects.map((r, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              position: "absolute",
-                              left: r.left,
-                              top: r.top,
-                              width: r.width,
-                              height: r.height,
-                              background: "rgba(0,0,0,0.5)",
-                            }}
-                          />
-                        ))}
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: previewCropOverlay.border.left,
-                            top: previewCropOverlay.border.top,
-                            width: previewCropOverlay.border.width,
-                            height: previewCropOverlay.border.height,
-                            boxSizing: "border-box",
-                            border: "2px solid rgba(255,255,255,0.92)",
-                            borderRadius: 2,
-                            background: "transparent",
-                            zIndex: 2,
-                          }}
-                        />
-                        {previewCropTextOverlayEl}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* 미리보기 Canvas: 영상과 동일 높이, 표시 비율 9:16 */}
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      alignSelf: "stretch",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      boxSizing: "border-box",
+                      overflow: "hidden",
                     }}
                   >
                     <div
                       style={{
-                        height: "100%",
-                        maxHeight: "70vh",
-                        aspectRatio: "9 / 16",
-                        width: "auto",
                         position: "relative",
+                        height: PREVIEW_ROW_HEIGHT_PX,
+                        maxWidth: "100%",
                       }}
                     >
-                      <canvas
-                        ref={previewCanvasRef}
-                        width={160}
-                        height={284}
+                      <video
+                        ref={previewVideoRef}
+                        src={previewUrl}
+                        controls
+                        playsInline
+                        onPlay={() => startPreviewLoop()}
+                        onPause={() => stopPreviewLoop()}
+                        onEnded={() => stopPreviewLoop()}
+                        onSeeked={() => renderPreviewFrame()}
                         style={{
-                          width: "100%",
-                          height: "100%",
-                          borderRadius: 6,
-                          background: thumbnailSelected ? "transparent" : "#000",
+                          position: "relative",
+                          zIndex: 0,
+                          height: PREVIEW_ROW_HEIGHT_PX,
+                          width: "auto",
+                          maxWidth: "100%",
                           display: "block",
+                          objectFit: "contain",
+                          background: "#000",
                         }}
                       />
+                      {previewCropOverlay ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            zIndex: 2,
+                            pointerEvents: "none",
+                          }}
+                        >
+                          {previewCropOverlay.darkRects.map((r, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                position: "absolute",
+                                left: r.left,
+                                top: r.top,
+                                width: r.width,
+                                height: r.height,
+                                background: "rgba(0,0,0,0.5)",
+                              }}
+                            />
+                          ))}
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: previewCropOverlay.border.left,
+                              top: previewCropOverlay.border.top,
+                              width: previewCropOverlay.border.width,
+                              height: previewCropOverlay.border.height,
+                              boxSizing: "border-box",
+                              border: "2px solid rgba(255,255,255,0.92)",
+                              borderRadius: 2,
+                              background: "transparent",
+                              zIndex: 2,
+                            }}
+                          />
+                          {previewCropTextOverlayEl}
+                        </div>
+                      ) : null}
                     </div>
+                  </div>
+
+                  {/* 미리보기 Canvas: 9:16 고정 (width = height × 9/16) */}
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      width: PREVIEW_CANVAS_WIDTH_PX,
+                      height: PREVIEW_ROW_HEIGHT_PX,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <canvas
+                      ref={previewCanvasRef}
+                      width={160}
+                      height={284}
+                      style={{
+                        width: PREVIEW_CANVAS_WIDTH_PX,
+                        height: PREVIEW_ROW_HEIGHT_PX,
+                        borderRadius: 6,
+                        background: thumbnailSelected ? "transparent" : "#000",
+                        display: "block",
+                      }}
+                    />
                   </div>
                 </div>
                 </div>
