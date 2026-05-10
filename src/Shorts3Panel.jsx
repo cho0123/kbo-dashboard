@@ -4411,7 +4411,6 @@ export default function Shorts3Panel({
           style={{
             flex: 1,
             height: "100%",
-            overflowY: "auto",
             minWidth: 0,
             paddingLeft: 4,
           }}
@@ -4606,18 +4605,54 @@ export default function Shorts3Panel({
                 </label>
                 <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
                   크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88)))}px)
-                  <input
-                    type="range"
-                    min={20}
-                    max={200}
-                    step={1}
-                    value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, fontSize1: Number(e.target.value) }))
-                    }
-                    style={{ width: "100%" }}
-                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 4,
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailSegment((v) => ({
+                          ...v,
+                          fontSize1: Number(e.target.value),
+                        }))
+                      }
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    <input
+                      type="number"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
+                      disabled={busy || uploading}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        const v = Math.min(200, Math.max(20, Math.round(n)));
+                        setThumbnailSegment((cur) => ({ ...cur, fontSize1: v }));
+                      }}
+                      style={{
+                        width: 52,
+                        padding: "2px 4px",
+                        fontSize: 11,
+                        boxSizing: "border-box",
+                        background: "#1e1e1e",
+                        color: "#fff",
+                        border: "1px solid #444",
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
                 </label>
                 <div
                   className="muted"
@@ -4680,18 +4715,54 @@ export default function Shorts3Panel({
                 </label>
                 <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
                   크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52)))}px)
-                  <input
-                    type="range"
-                    min={20}
-                    max={200}
-                    step={1}
-                    value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, fontSize2: Number(e.target.value) }))
-                    }
-                    style={{ width: "100%" }}
-                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginTop: 4,
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
+                      disabled={busy || uploading}
+                      onChange={(e) =>
+                        setThumbnailSegment((v) => ({
+                          ...v,
+                          fontSize2: Number(e.target.value),
+                        }))
+                      }
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    <input
+                      type="number"
+                      min={20}
+                      max={200}
+                      step={1}
+                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
+                      disabled={busy || uploading}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        const v = Math.min(200, Math.max(20, Math.round(n)));
+                        setThumbnailSegment((cur) => ({ ...cur, fontSize2: v }));
+                      }}
+                      style={{
+                        width: 52,
+                        padding: "2px 4px",
+                        fontSize: 11,
+                        boxSizing: "border-box",
+                        background: "#1e1e1e",
+                        color: "#fff",
+                        border: "1px solid #444",
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
                 </label>
                 <div
                   className="muted"
@@ -4875,25 +4946,60 @@ export default function Shorts3Panel({
                         Math.min(200, Math.max(20, Number(seg.textSize) || 48))
                       )}
                       px)
-                      <input
-                        type="range"
-                        min={20}
-                        max={200}
-                        step={1}
-                        value={Math.min(
-                          200,
-                          Math.max(20, Number(seg.textSize) || 48)
-                        )}
-                        disabled={busy || uploading}
-                        onChange={(e) =>
-                          handleSegmentOverlayChange(
-                            index,
-                            "textSize",
-                            e.target.value
-                          )
-                        }
-                        style={{ width: "100%" }}
-                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min={20}
+                          max={200}
+                          step={1}
+                          value={Math.min(
+                            200,
+                            Math.max(20, Number(seg.textSize) || 48)
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) =>
+                            handleSegmentOverlayChange(
+                              index,
+                              "textSize",
+                              e.target.value
+                            )
+                          }
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <input
+                          type="number"
+                          min={20}
+                          max={200}
+                          step={1}
+                          value={Math.min(
+                            200,
+                            Math.max(20, Number(seg.textSize) || 48)
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (!Number.isFinite(n)) return;
+                            const v = Math.min(200, Math.max(20, Math.round(n)));
+                            handleSegmentOverlayChange(index, "textSize", v);
+                          }}
+                          style={{
+                            width: 52,
+                            padding: "2px 4px",
+                            fontSize: 11,
+                            boxSizing: "border-box",
+                            background: "#1e1e1e",
+                            color: "#fff",
+                            border: "1px solid #444",
+                            borderRadius: 4,
+                          }}
+                        />
+                      </div>
                     </label>
                   </div>
                   <div
@@ -4968,23 +5074,64 @@ export default function Shorts3Panel({
                       }}
                     >
                       투명도 (
-                      {Math.round(roundOpacity01(seg.textOpacity ?? 1) * 100)}%)
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        value={roundOpacity01(seg.textOpacity ?? 1)}
-                        disabled={busy || uploading}
-                        onChange={(e) =>
-                          handleSegmentOverlayChange(
-                            index,
-                            "textOpacity",
-                            e.target.value
-                          )
-                        }
-                        style={{ width: "100%" }}
-                      />
+                      {Math.round(roundOpacity01(seg.textOpacity ?? 1) * 100)}
+                      %)
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={Math.round(
+                            roundOpacity01(seg.textOpacity ?? 1) * 100
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) =>
+                            handleSegmentOverlayChange(
+                              index,
+                              "textOpacity",
+                              Number(e.target.value) / 100
+                            )
+                          }
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={Math.round(
+                            roundOpacity01(seg.textOpacity ?? 1) * 100
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (!Number.isFinite(n)) return;
+                            const pct = Math.min(100, Math.max(0, Math.round(n)));
+                            handleSegmentOverlayChange(
+                              index,
+                              "textOpacity",
+                              pct / 100
+                            );
+                          }}
+                          style={{
+                            width: 52,
+                            padding: "2px 4px",
+                            fontSize: 11,
+                            boxSizing: "border-box",
+                            background: "#1e1e1e",
+                            color: "#fff",
+                            border: "1px solid #444",
+                            borderRadius: 4,
+                          }}
+                        />
+                      </div>
                     </label>
                   </div>
                   <label
@@ -4999,22 +5146,54 @@ export default function Shorts3Panel({
                     }}
                   >
                     세로 위치 (텍스트 1): {seg.textY ?? 85}%
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={seg.textY ?? 85}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        handleSegmentOverlayChange(
-                          index,
-                          "textY",
-                          e.target.value
-                        )
-                      }
-                      style={{ width: "100%" }}
-                    />
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={seg.textY ?? 85}
+                        disabled={busy || uploading}
+                        onChange={(e) =>
+                          handleSegmentOverlayChange(
+                            index,
+                            "textY",
+                            e.target.value
+                          )
+                        }
+                        style={{ flex: 1, minWidth: 0 }}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={seg.textY ?? 85}
+                        disabled={busy || uploading}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isFinite(n)) return;
+                          const v = Math.min(100, Math.max(0, Math.round(n)));
+                          handleSegmentOverlayChange(index, "textY", v);
+                        }}
+                        style={{
+                          width: 52,
+                          padding: "2px 4px",
+                          fontSize: 11,
+                          boxSizing: "border-box",
+                          background: "#1e1e1e",
+                          color: "#fff",
+                          border: "1px solid #444",
+                          borderRadius: 4,
+                        }}
+                      />
+                    </div>
                     <span
                       className="muted"
                       style={{ fontWeight: 400, fontSize: 11 }}
@@ -5094,25 +5273,60 @@ export default function Shorts3Panel({
                         )
                       )}
                       px)
-                      <input
-                        type="range"
-                        min={20}
-                        max={200}
-                        step={1}
-                        value={Math.min(
-                          200,
-                          Math.max(20, Number(seg.textSize2) || 48)
-                        )}
-                        disabled={busy || uploading}
-                        onChange={(e) =>
-                          handleSegmentOverlayChange(
-                            index,
-                            "textSize2",
-                            e.target.value
-                          )
-                        }
-                        style={{ width: "100%" }}
-                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min={20}
+                          max={200}
+                          step={1}
+                          value={Math.min(
+                            200,
+                            Math.max(20, Number(seg.textSize2) || 48)
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) =>
+                            handleSegmentOverlayChange(
+                              index,
+                              "textSize2",
+                              e.target.value
+                            )
+                          }
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <input
+                          type="number"
+                          min={20}
+                          max={200}
+                          step={1}
+                          value={Math.min(
+                            200,
+                            Math.max(20, Number(seg.textSize2) || 48)
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (!Number.isFinite(n)) return;
+                            const v = Math.min(200, Math.max(20, Math.round(n)));
+                            handleSegmentOverlayChange(index, "textSize2", v);
+                          }}
+                          style={{
+                            width: 52,
+                            padding: "2px 4px",
+                            fontSize: 11,
+                            boxSizing: "border-box",
+                            background: "#1e1e1e",
+                            color: "#fff",
+                            border: "1px solid #444",
+                            borderRadius: 4,
+                          }}
+                        />
+                      </div>
                     </label>
                   </div>
                   <div
@@ -5191,22 +5405,62 @@ export default function Shorts3Panel({
                         roundOpacity01(seg.textOpacity2 ?? 1) * 100
                       )}
                       %)
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        value={roundOpacity01(seg.textOpacity2 ?? 1)}
-                        disabled={busy || uploading}
-                        onChange={(e) =>
-                          handleSegmentOverlayChange(
-                            index,
-                            "textOpacity2",
-                            e.target.value
-                          )
-                        }
-                        style={{ width: "100%" }}
-                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={Math.round(
+                            roundOpacity01(seg.textOpacity2 ?? 1) * 100
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) =>
+                            handleSegmentOverlayChange(
+                              index,
+                              "textOpacity2",
+                              Number(e.target.value) / 100
+                            )
+                          }
+                          style={{ flex: 1, minWidth: 0 }}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={Math.round(
+                            roundOpacity01(seg.textOpacity2 ?? 1) * 100
+                          )}
+                          disabled={busy || uploading}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            if (!Number.isFinite(n)) return;
+                            const pct = Math.min(100, Math.max(0, Math.round(n)));
+                            handleSegmentOverlayChange(
+                              index,
+                              "textOpacity2",
+                              pct / 100
+                            );
+                          }}
+                          style={{
+                            width: 52,
+                            padding: "2px 4px",
+                            fontSize: 11,
+                            boxSizing: "border-box",
+                            background: "#1e1e1e",
+                            color: "#fff",
+                            border: "1px solid #444",
+                            borderRadius: 4,
+                          }}
+                        />
+                      </div>
                     </label>
                   </div>
                   <label
@@ -5221,22 +5475,54 @@ export default function Shorts3Panel({
                     }}
                   >
                     세로 위치 (텍스트 2): {seg.textY2 ?? 85}%
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={seg.textY2 ?? 85}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        handleSegmentOverlayChange(
-                          index,
-                          "textY2",
-                          e.target.value
-                        )
-                      }
-                      style={{ width: "100%" }}
-                    />
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={seg.textY2 ?? 85}
+                        disabled={busy || uploading}
+                        onChange={(e) =>
+                          handleSegmentOverlayChange(
+                            index,
+                            "textY2",
+                            e.target.value
+                          )
+                        }
+                        style={{ flex: 1, minWidth: 0 }}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={seg.textY2 ?? 85}
+                        disabled={busy || uploading}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isFinite(n)) return;
+                          const v = Math.min(100, Math.max(0, Math.round(n)));
+                          handleSegmentOverlayChange(index, "textY2", v);
+                        }}
+                        style={{
+                          width: 52,
+                          padding: "2px 4px",
+                          fontSize: 11,
+                          boxSizing: "border-box",
+                          background: "#1e1e1e",
+                          color: "#fff",
+                          border: "1px solid #444",
+                          borderRadius: 4,
+                        }}
+                      />
+                    </div>
                     <span
                       className="muted"
                       style={{ fontWeight: 400, fontSize: 11 }}
