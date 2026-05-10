@@ -46,6 +46,10 @@ const MAX_SEGMENTS = 10;
 const PREVIEW_ROW_HEIGHT_PX = 400;
 const PREVIEW_CANVAS_WIDTH_PX = Math.round((PREVIEW_ROW_HEIGHT_PX * 9) / 16);
 
+function draftStorageKey(jobId) {
+  return jobId ? `kbo_draft_${jobId}` : "";
+}
+
 /** 30fps 기준 1프레임(초) — 미세조정용 */
 const ONE_FRAME_30_FPS_SEC = 1 / 30;
 const TENTH_SEC = 0.1;
@@ -561,6 +565,53 @@ export default function Shorts3Panel({
   useEffect(() => {
     onJobIdChange?.(jobId || "");
   }, [jobId, onJobIdChange]);
+
+  /** 불러오기 직후 잘못된 키로 덮어쓰기 방지 */
+  const restoringDraftRef = useRef(false);
+  const [draftSaveGeneration, setDraftSaveGeneration] = useState(0);
+
+  useEffect(() => {
+    if (!jobId || typeof localStorage === "undefined") return;
+    if (restoringDraftRef.current) return;
+    try {
+      const payload = {
+        segments,
+        thumbnailSegment,
+        topText,
+        topTextColor,
+        topTextSize,
+        topTextFont,
+        topTextShadow,
+        topTextOpacity,
+        muteOriginal,
+        bgmVolume,
+        bgmStartTime,
+        bgmFadeOut,
+        highlightMusicS3Key,
+        selectedTeam,
+      };
+      localStorage.setItem(draftStorageKey(jobId), JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[kbo draft save]", e);
+    }
+  }, [
+    jobId,
+    segments,
+    thumbnailSegment,
+    topText,
+    topTextColor,
+    topTextSize,
+    topTextFont,
+    topTextShadow,
+    topTextOpacity,
+    muteOriginal,
+    bgmVolume,
+    bgmStartTime,
+    bgmFadeOut,
+    highlightMusicS3Key,
+    selectedTeam,
+    draftSaveGeneration,
+  ]);
 
   /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
@@ -1521,6 +1572,56 @@ export default function Shorts3Panel({
 
   const onLoadSavedJob = async (id) => {
     setError(null);
+    restoringDraftRef.current = true;
+    let restored = false;
+    try {
+      const raw =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem(draftStorageKey(id))
+          : null;
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (Array.isArray(d.segments) && d.segments.length > 0) {
+          setSegments(d.segments);
+        }
+        if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
+          setThumbnailSegment((prev) => ({ ...prev, ...d.thumbnailSegment }));
+        }
+        if (typeof d.topText === "string") setTopText(d.topText);
+        if (typeof d.topTextColor === "string") setTopTextColor(d.topTextColor);
+        if (d.topTextSize != null && Number.isFinite(Number(d.topTextSize))) {
+          setTopTextSize(Number(d.topTextSize));
+        }
+        if (typeof d.topTextFont === "string") setTopTextFont(d.topTextFont);
+        if (typeof d.topTextShadow === "boolean") {
+          setTopTextShadow(d.topTextShadow);
+        }
+        if (d.topTextOpacity != null && Number.isFinite(Number(d.topTextOpacity))) {
+          setTopTextOpacity(Number(d.topTextOpacity));
+        }
+        if (typeof d.muteOriginal === "boolean") setMuteOriginal(d.muteOriginal);
+        if (d.bgmVolume != null && Number.isFinite(Number(d.bgmVolume))) {
+          setBgmVolume(Number(d.bgmVolume));
+        }
+        if (d.bgmStartTime != null && Number.isFinite(Number(d.bgmStartTime))) {
+          setBgmStartTime(Number(d.bgmStartTime));
+        }
+        if (d.bgmFadeOut != null && Number.isFinite(Number(d.bgmFadeOut))) {
+          setBgmFadeOut(Number(d.bgmFadeOut));
+        }
+        if (typeof d.highlightMusicS3Key === "string") {
+          setHighlightMusicS3Key(d.highlightMusicS3Key);
+        }
+        if (typeof d.selectedTeam === "string" && TEAM_CONFIGS[d.selectedTeam]) {
+          setSelectedTeam(d.selectedTeam);
+          setTeamColor(TEAM_CONFIGS[d.selectedTeam]?.bg || "#4ade80");
+        }
+        restored = true;
+      }
+    } catch (e) {
+      console.warn("[kbo draft restore]", e);
+    }
+
     setJobId(id);
     setUploadPhase("done");
     setVideoFile(null);
@@ -1532,9 +1633,15 @@ export default function Shorts3Panel({
     setSelectedTimestamps({});
     await fetchPreviewUrl(id);
     setMessage(
-      "저장된 원본을 불러왔습니다. 구간을 입력한 뒤 영상 생성을 누르세요."
+      restored
+        ? "이전 작업 내용을 불러왔습니다"
+        : "저장된 원본을 불러왔습니다. 구간을 입력한 뒤 영상 생성을 누르세요."
     );
     setPanelOpen((v) => ({ ...v, whisper: true }));
+    setTimeout(() => {
+      restoringDraftRef.current = false;
+      setDraftSaveGeneration((g) => g + 1);
+    }, 0);
   };
 
   const onDeleteSavedJob = async (id) => {
