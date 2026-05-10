@@ -749,6 +749,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomParsed = normalizeThumbnailText(meta);
     } else {
       bottomParsed = normalizeSegmentTextOverlay(seg);
+      console.log(
+        "[font debug]",
+        i,
+        "textFont:",
+        seg?.textFont,
+        "textFont2:",
+        seg?.textFont2
+      );
     }
     const {
       text: bottomTxt,
