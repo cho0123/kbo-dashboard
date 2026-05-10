@@ -595,13 +595,18 @@ export default function Shorts3Panel({
     const bg = tc?.bg || teamColor || "#074CA1";
     const accent = tc?.accent || "#ffffff";
 
-    const TOP_BAR = Math.round(H * 0.146); // ~280/1920
-    const SIDE_BAR = Math.round(W * 0.037); // ~40/1080
-    const BOT_BAR = Math.round(H * 0.083); // ~160/1920
+    const TOP_BAR = Math.round(H * (280 / 1920));
+    const BOT_BAR = Math.round(H * (160 / 1920));
+    const SIDE_BAR = Math.round(W * (40 / 1080));
+    const holeX = SIDE_BAR;
+    const holeY = TOP_BAR;
+    const holeW = W - SIDE_BAR * 2;
+    const holeH = H - TOP_BAR - BOT_BAR;
+    const holeAspect = holeW / holeH;
 
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
     if (thumbnailSelected) {
-      // 1) 영상 프레임 먼저 그리기 (기존 crop 로직 동일)
+      // 1) 영상 프레임 먼저 그리기 — 9:16 크롭 후 hole 비율에 맞춰 hole 영역에만 매핑
       const cropOffset = Math.max(
         -50,
         Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
@@ -610,8 +615,16 @@ export default function Shorts3Panel({
       const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
       let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
       srcX = Math.max(0, Math.min(vw - cropW, srcX));
+      let cropH = Math.round(cropW / holeAspect);
+      let cropY = Math.round((vh - cropH) / 2);
+      if (cropH > vh) {
+        cropH = vh;
+        cropY = 0;
+      } else {
+        cropY = Math.max(0, Math.min(vh - cropH, cropY));
+      }
       ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(video, srcX, 0, cropW, vh, 0, 0, W, H);
+      ctx.drawImage(video, srcX, cropY, cropW, cropH, holeX, holeY, holeW, holeH);
       // 2) 썸네일 오버레이 덮기
       const overlayCanvas = thumbnailOverlayCanvasRef.current;
       if (overlayCanvas) {
@@ -632,8 +645,17 @@ export default function Shorts3Panel({
     let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
     srcX = Math.max(0, Math.min(vw - cropW, srcX));
 
+    let cropH = Math.round(cropW / holeAspect);
+    let cropY = Math.round((vh - cropH) / 2);
+    if (cropH > vh) {
+      cropH = vh;
+      cropY = 0;
+    } else {
+      cropY = Math.max(0, Math.min(vh - cropH, cropY));
+    }
+
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(video, srcX, 0, cropW, vh, 0, 0, W, H);
+    ctx.drawImage(video, srcX, cropY, cropW, cropH, holeX, holeY, holeW, holeH);
 
     // 2) 팀컬러 상단바
     ctx.fillStyle = bg;
