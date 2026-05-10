@@ -603,19 +603,31 @@ export default function Shorts3Panel({
     const holeW = W - SIDE_BAR * 2;
     const holeH = H - TOP_BAR - BOT_BAR;
 
+    const holeAspect = 1000 / 1480;
+    const srcCropW = Math.round(vh * holeAspect);
+
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
     if (thumbnailSelected) {
-      // 1) 영상 프레임 — 9:16 세로 스트립 → 미리보기 hole 영역
       const cropOffset = Math.max(
         -50,
         Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
       );
-      const cropW = Math.round((vh * 9) / 16);
-      const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
-      let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
-      srcX = Math.max(0, Math.min(vw - cropW, srcX));
+      const srcCropX =
+        Math.round((vw - srcCropW) / 2) +
+        Math.round((cropOffset / 100) * (vw - srcCropW));
+      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
       ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(video, srcX, 0, cropW, vh, holeX, holeY, holeW, holeH);
+      ctx.drawImage(
+        video,
+        clampedSrcCropX,
+        0,
+        srcCropW,
+        vh,
+        holeX,
+        holeY,
+        holeW,
+        holeH
+      );
       // 2) 썸네일 오버레이 덮기
       const overlayCanvas = thumbnailOverlayCanvasRef.current;
       if (overlayCanvas) {
@@ -630,14 +642,23 @@ export default function Shorts3Panel({
       Math.min(50, Number(selectedSeg?.cropOffset) || 0)
     );
 
-    // 1) 9:16 크롭 영상 → hole 영역
-    const cropW = Math.round((vh * 9) / 16);
-    const cropOffsetPx = (cropOffset / 100) * (vw - cropW);
-    let srcX = Math.round((vw - cropW) / 2 + cropOffsetPx);
-    srcX = Math.max(0, Math.min(vw - cropW, srcX));
+    const srcCropX =
+      Math.round((vw - srcCropW) / 2) +
+      Math.round((cropOffset / 100) * (vw - srcCropW));
+    const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
 
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(video, srcX, 0, cropW, vh, holeX, holeY, holeW, holeH);
+    ctx.drawImage(
+      video,
+      clampedSrcCropX,
+      0,
+      srcCropW,
+      vh,
+      holeX,
+      holeY,
+      holeW,
+      holeH
+    );
 
     // 2) 팀컬러 상단바
     ctx.fillStyle = bg;
