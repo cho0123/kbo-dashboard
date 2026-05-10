@@ -71,6 +71,7 @@ export async function drawThumbnail({
     "NotoSansKR-Bold": "'Noto Sans KR', sans-serif",
     "BlackHanSans-Regular": "'Black Han Sans', sans-serif",
     "NotoSerifKR-Bold": "'Noto Serif KR', serif",
+    "GamjaFlower-Regular": "'Gamja Flower', cursive",
   };
   const ff = (k) =>
     innerFontFamilyMap[k] || innerFontFamilyMap["NotoSansKR-Bold"];

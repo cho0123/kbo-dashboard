@@ -1394,6 +1394,54 @@ export default function Shorts3Panel({
     }
   }, [segments, isPlayingAll, segmentBoundarySeconds, thumbnailSegment]);
 
+  /** 썸네일 구간(thumbnailSegment.start ~ end)만 미리보기 재생 */
+  const playThumbnailSegmentPreview = useCallback(async () => {
+    const video = previewVideoRef.current;
+    if (!video || !previewUrl || busy || uploading || isPlayingAll) return;
+    const startSec = segmentBoundarySeconds(thumbnailSegment, "start");
+    let endSec = segmentBoundarySeconds(thumbnailSegment, "end");
+    if (startSec == null || !Number.isFinite(startSec)) return;
+    if (
+      endSec == null ||
+      !Number.isFinite(endSec) ||
+      endSec <= startSec
+    ) {
+      endSec = startSec + 0.1;
+    }
+    setThumbnailSelected(true);
+    setPlayingSegmentIndex(null);
+    setPreviewCropOverlay(
+      computePreviewCropOverlay(video, thumbnailSegment.cropOffset ?? 0)
+    );
+    video.currentTime = startSec;
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        try {
+          video.pause();
+        } catch {
+          /* ignore */
+        }
+        video.removeEventListener("timeupdate", check);
+        resolve();
+      };
+      const check = () => {
+        if (video.currentTime >= endSec) finish();
+      };
+      video.addEventListener("timeupdate", check);
+      video.play().catch(() => {});
+    });
+  }, [
+    previewUrl,
+    busy,
+    uploading,
+    isPlayingAll,
+    thumbnailSegment,
+    segmentBoundarySeconds,
+  ]);
+
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
     const v = Number.isFinite(n) ? Math.min(50, Math.max(-50, Math.round(n))) : 0;
@@ -2062,7 +2110,10 @@ export default function Shorts3Panel({
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
-          startTime: bgmStartTime,
+          /** Lambda: BGM 파일 내 -ss(초). 썸네일 구간이 유효하면 원본 영상 기준 썸네일 시작 시각(초) 사용 */
+          startTime: thumbValid
+            ? Math.max(0, thumbStart)
+            : Math.max(0, Number(bgmStartTime) || 0),
           fadeOutDuration: bgmFadeOut,
         },
       };
@@ -4359,6 +4410,56 @@ export default function Shorts3Panel({
               : `구간 #${selectedSegIndex + 1} · 세부 설정`}
           </div>
           {thumbnailSelected ? (
+            <div style={{ marginBottom: 10 }}>
+              <button
+                type="button"
+                disabled={
+                  busy ||
+                  uploading ||
+                  !previewUrl ||
+                  isPlayingAll ||
+                  String(thumbnailSegment.end || "").trim() === ""
+                }
+                title={
+                  String(thumbnailSegment.end || "").trim() === ""
+                    ? "종료 시각을 설정하세요"
+                    : "썸네일 시작~종료 구간만 재생"
+                }
+                onClick={(e) => {
+                  e.preventDefault();
+                  playThumbnailSegmentPreview();
+                }}
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  borderRadius: 6,
+                  cursor:
+                    busy ||
+                    uploading ||
+                    !previewUrl ||
+                    isPlayingAll ||
+                    String(thumbnailSegment.end || "").trim() === ""
+                      ? "not-allowed"
+                      : "pointer",
+                  background: "#1a3a2a",
+                  color: "#4ade80",
+                  border: "1px solid #4ade80",
+                  fontFamily: "inherit",
+                  opacity:
+                    busy ||
+                    uploading ||
+                    !previewUrl ||
+                    isPlayingAll ||
+                    String(thumbnailSegment.end || "").trim() === ""
+                      ? 0.45
+                      : 1,
+                }}
+              >
+                ▶ 구간 재생
+              </button>
+            </div>
+          ) : null}
+          {thumbnailSelected ? (
             <p
               className="muted"
               style={{
@@ -4488,6 +4589,7 @@ export default function Shorts3Panel({
                     <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
                     <option value="BlackHanSans-Regular">BlackHanSans</option>
                     <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
+                    <option value="GamjaFlower-Regular">감자꽃</option>
                   </select>
                 </label>
                 <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
@@ -4561,6 +4663,7 @@ export default function Shorts3Panel({
                     <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
                     <option value="BlackHanSans-Regular">BlackHanSans</option>
                     <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
+                    <option value="GamjaFlower-Regular">감자꽃</option>
                   </select>
                 </label>
                 <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>

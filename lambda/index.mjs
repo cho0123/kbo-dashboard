@@ -565,6 +565,7 @@ function buildHighlightSegmentVf(opts) {
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
 
+  /** 하단 첫 줄(text) */
   if (bottomTextFile && bottomFontPath) {
     const shadow = bottomShadow
       ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
@@ -578,6 +579,7 @@ function buildHighlightSegmentVf(opts) {
       ? Number(bottomFontSize2)
       : fsBottom
   );
+  /** 하단 둘째 줄(text2) — 별도 drawtext */
   if (bottomTextFile2 && bottomFontPath2) {
     const shadow2 = bottomShadow2
       ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
