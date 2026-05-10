@@ -2144,6 +2144,13 @@ export default function Shorts3Panel({
           textOpacity: 1,
           textShadow: false,
           textY: 50,
+          text2: thumbnailSegment.text2 || "",
+          textFont2: thumbnailSegment.font2 || DEFAULT_TEXT_FONT,
+          textColor2: thumbnailSegment.textColor2 || "#ffffff",
+          textSize2: thumbnailSegment.fontSize2 || 52,
+          textOpacity2: 1,
+          textShadow2: Boolean(thumbnailSegment.showLine),
+          textY2: 60,
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
       }

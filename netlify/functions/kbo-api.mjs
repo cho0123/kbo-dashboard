@@ -2586,6 +2586,8 @@ ${JSON.stringify(games, null, 2)}`;
           "BlackHanSans-Regular.ttf",
           "NotoSerifKR-Bold.ttf",
           "NotoSerifKR-Bold.otf",
+          "GamjaFlower-Regular.ttf",
+          "GamjaFlower-Regular",
         ]);
         const DEFAULT_HIGHLIGHT_FONT = "NotoSansKR-Bold.ttf";
         const sanitizeHighlightFont = (v) => {
