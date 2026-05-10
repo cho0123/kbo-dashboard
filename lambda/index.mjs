@@ -359,9 +359,15 @@ function highlightCropXFromOffset(iw, cw, rawOffset) {
   return cx;
 }
 
+/** 파일명 별칭 (UI 값 → 패키지 내 실제 TTF) */
+const BUNDLED_FONT_ALIASES = {
+  "GamjaFlower-Regular": "GamjaFlower-Regular.ttf",
+};
+
 /** /var/task/fonts/{fileName} — 없으면 기본 TTF */
 function resolveBundledFontPath(fileName) {
-  const base = String(fileName || "").trim() || DEFAULT_FONT_FILE;
+  let base = String(fileName || "").trim() || DEFAULT_FONT_FILE;
+  if (BUNDLED_FONT_ALIASES[base]) base = BUNDLED_FONT_ALIASES[base];
   const safe = /^[a-zA-Z0-9._-]+\.(ttf|otf|ttc)$/i.test(base)
     ? base
     : DEFAULT_FONT_FILE;

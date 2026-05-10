@@ -130,6 +130,7 @@ const FONTS = [
   { label: "Noto Sans KR (기본)", value: "NotoSansKR-Bold.ttf" },
   { label: "Black Han Sans (임팩트)", value: "BlackHanSans-Regular.ttf" },
   { label: "Noto Serif KR (명조)", value: "NotoSerifKR-Bold.ttf" },
+  { label: "감자꽃", value: "GamjaFlower-Regular" },
 ];
 
 const DEFAULT_TEXT_FONT = "NotoSansKR-Bold.ttf";
@@ -139,6 +140,7 @@ function previewFontFamily(fontFile) {
   const f = String(fontFile || "").trim();
   if (/blackhansans/i.test(f)) return '"Black Han Sans", sans-serif';
   if (/notoserifkr/i.test(f)) return '"Noto Serif KR", "Noto Serif", serif';
+  if (/gamjaflower/i.test(f)) return '"Gamja Flower", cursive';
   return '"Noto Sans KR", "Noto Sans", sans-serif';
 }
 
