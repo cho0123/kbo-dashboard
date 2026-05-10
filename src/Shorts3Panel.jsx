@@ -2578,26 +2578,6 @@ export default function Shorts3Panel({
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={addSegment}
-              disabled={busy || uploading}
-              style={{
-                background: "#4ade80",
-                color: "#000",
-                fontWeight: "bold",
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 12,
-                ...(busy || uploading
-                  ? { opacity: 0.6, cursor: "not-allowed" }
-                  : {}),
-              }}
-            >
-              + 구간 추가
-            </button>
           </div>
           {uploadPhase === "done" && previewUrl ? (
             <>
@@ -2612,9 +2592,25 @@ export default function Shorts3Panel({
                   boxSizing: "border-box",
                 }}
               >
-                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {/* 원본 영상 */}
-                  <div style={{ flex: 1, position: "relative" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "stretch",
+                    width: "100%",
+                  }}
+                >
+                  {/* 원본 영상 — 나머지 너비 flex */}
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     <video
                       ref={previewVideoRef}
                       src={previewUrl}
@@ -2679,21 +2675,39 @@ export default function Shorts3Panel({
                     ) : null}
                   </div>
 
-                  {/* 9:16 미리보기 Canvas */}
-                  <div style={{ width: 160, flexShrink: 0 }}>
-                    <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>
-                      미리보기
-                    </div>
-                    <canvas
-                      ref={previewCanvasRef}
-                      width={160}
-                      height={284}
+                  {/* 미리보기 Canvas: 영상과 동일 높이, 표시 비율 9:16 */}
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      alignSelf: "stretch",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <div
                       style={{
-                        borderRadius: 6,
-                        background: thumbnailSelected ? "transparent" : "#000",
-                        display: "block",
+                        height: "100%",
+                        maxHeight: "70vh",
+                        aspectRatio: "9 / 16",
+                        width: "auto",
+                        position: "relative",
                       }}
-                    />
+                    >
+                      <canvas
+                        ref={previewCanvasRef}
+                        width={160}
+                        height={284}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          borderRadius: 6,
+                          background: thumbnailSelected ? "transparent" : "#000",
+                          display: "block",
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
                 </div>
