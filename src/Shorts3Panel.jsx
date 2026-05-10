@@ -2149,7 +2149,7 @@ export default function Shorts3Panel({
           textColor2: thumbnailSegment.textColor2 || "#ffffff",
           textSize2: thumbnailSegment.fontSize2 || 52,
           textOpacity2: 1,
-          textShadow2: Boolean(thumbnailSegment.showLine),
+          textShadow2: false,
           textY2: 60,
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
