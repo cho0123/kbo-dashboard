@@ -301,8 +301,8 @@ function findSegmentAtPreviewTime(ct, segments) {
 }
 
 /**
- * video.offsetWidth / offsetHeight 기준 hole 비율(1000:1480) 크롭 박스(오버레이 좌표, px).
- * cropWidth = displayHeight * 1000/1480,
+ * video.offsetWidth / offsetHeight 기준 hole 비율(1000:1640) 크롭 박스(오버레이 좌표, px).
+ * 상단 280/1920 제외 영역 높이로 cropWidth = contentH * 1000/1640,
  * cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100 (클램프)
  */
 function computePreviewCropOverlay(videoEl, cropOffsetPct) {
@@ -311,8 +311,11 @@ function computePreviewCropOverlay(videoEl, cropOffsetPct) {
   const dispH = videoEl.offsetHeight;
   if (dispW < 2 || dispH < 2) return null;
 
+  const topBarPx = Math.round(dispH * (280 / 1920));
+  const contentH = Math.max(1, dispH - topBarPx);
+
   const pct = Math.min(50, Math.max(-50, Number(cropOffsetPct) || 0));
-  let cropW = dispH * (1000 / 1480);
+  let cropW = contentH * (1000 / 1640);
   let cropX = (dispW - cropW) / 2 + (dispW * pct) / 100;
   cropX = Math.max(0, Math.min(cropX, dispW - cropW));
   if (cropW > dispW) {
@@ -321,21 +324,29 @@ function computePreviewCropOverlay(videoEl, cropOffsetPct) {
   }
 
   const darkRects = [];
-  if (cropX > 0.5) {
+  if (topBarPx > 0.5) {
     darkRects.push({
       left: 0,
       top: 0,
+      width: dispW,
+      height: topBarPx,
+    });
+  }
+  if (cropX > 0.5) {
+    darkRects.push({
+      left: 0,
+      top: topBarPx,
       width: cropX,
-      height: dispH,
+      height: contentH,
     });
   }
   const rightW = dispW - cropX - cropW;
   if (rightW > 0.5) {
     darkRects.push({
       left: cropX + cropW,
-      top: 0,
+      top: topBarPx,
       width: rightW,
-      height: dispH,
+      height: contentH,
     });
   }
 
@@ -343,9 +354,9 @@ function computePreviewCropOverlay(videoEl, cropOffsetPct) {
     darkRects,
     border: {
       left: cropX,
-      top: 0,
+      top: topBarPx,
       width: cropW,
-      height: dispH,
+      height: contentH,
     },
   };
 }
@@ -656,15 +667,16 @@ export default function Shorts3Panel({
     const accent = tc?.accent || "#ffffff";
 
     const TOP_BAR = Math.round(H * (280 / 1920));
-    const BOT_BAR = Math.round(H * (160 / 1920));
     const SIDE_BAR = Math.round(W * (40 / 1080));
     const holeX = SIDE_BAR;
     const holeY = TOP_BAR;
     const holeW = W - SIDE_BAR * 2;
-    const holeH = H - TOP_BAR - BOT_BAR;
+    const holeH = H - TOP_BAR;
 
-    const holeAspect = 1000 / 1480;
+    const holeAspect = 1000 / 1640;
     const srcCropW = Math.round(vh * holeAspect);
+    const topBarSrc = Math.round(vh * (280 / 1920));
+    const srcCropH = Math.max(1, vh - topBarSrc);
 
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
     if (thumbnailSelected) {
@@ -680,9 +692,9 @@ export default function Shorts3Panel({
       ctx.drawImage(
         video,
         clampedSrcCropX,
-        0,
+        topBarSrc,
         srcCropW,
-        vh,
+        srcCropH,
         holeX,
         holeY,
         holeW,
@@ -711,9 +723,9 @@ export default function Shorts3Panel({
     ctx.drawImage(
       video,
       clampedSrcCropX,
-      0,
+      topBarSrc,
       srcCropW,
-      vh,
+      srcCropH,
       holeX,
       holeY,
       holeW,
@@ -724,14 +736,10 @@ export default function Shorts3Panel({
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, TOP_BAR);
 
-    // 3) 하단바
+    // 3) 좌우 사이드바
     ctx.fillStyle = bg;
-    ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
-
-    // 4) 좌우 사이드바
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
-    ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+    ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR);
+    ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR);
 
     // 5) 팀명 배지 (상단 캡슐형)
     const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
@@ -776,7 +784,7 @@ export default function Shorts3Panel({
         const logoW = nw * scale;
         const logoH = nh * scale;
         const logoX = SIDE_BAR - Math.round(W * 0.009);
-        const logoY = H - BOT_BAR - LOGO_MAX * 0.4;
+        const logoY = H - LOGO_MAX * 0.4;
         ctx.drawImage(img, logoX, logoY, logoW, logoH);
       }
     }
