@@ -251,6 +251,24 @@ function emptySegment() {
   };
 }
 
+/** 썸네일 구간 패널 초기값 (endMs 10 = 0.1초, Lambda 최소 구간) */
+const INITIAL_THUMBNAIL_SEGMENT = {
+  start: "00:00:00",
+  end: "00:00:00",
+  startMs: 0,
+  endMs: 10,
+  text1: "",
+  text2: "",
+  showLine: false,
+  cropOffset: 0,
+  font1: "NotoSansKR-Bold",
+  font2: "NotoSansKR-Bold",
+  textColor1: "#FFFFFF",
+  textColor2: "#FFFFFF",
+  fontSize1: 88,
+  fontSize2: 52,
+};
+
 /** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
 function segmentBoundaryToSeconds(hmsRaw, fracMs) {
   return parseHhMmSsToSeconds(hmsRaw, fracMs);
@@ -470,22 +488,9 @@ export default function Shorts3Panel({
   const [previewUrl, setPreviewUrl] = useState(null);
   /** 구간 카드 선택 → 오른쪽 세부 설정 */
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
-  const [thumbnailSegment, setThumbnailSegment] = useState({
-    start: "00:00:00",
-    end: "00:00:00",
-    startMs: 0,
-    endMs: 10, // 0.1초 = Lambda 최소 구간
-    text1: "",
-    text2: "",
-    showLine: false,
-    cropOffset: 0,
-    font1: "NotoSansKR-Bold",
-    font2: "NotoSansKR-Bold",
-    textColor1: "#FFFFFF",
-    textColor2: "#FFFFFF",
-    fontSize1: 88,
-    fontSize2: 52,
-  });
+  const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
+    ...INITIAL_THUMBNAIL_SEGMENT,
+  }));
   const [thumbnailSelected, setThumbnailSelected] = useState(false);
   const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
@@ -1549,6 +1554,45 @@ export default function Shorts3Panel({
       if (v) v.currentTime = seekSec;
     });
   }, []);
+
+  const onResetDraft = useCallback(() => {
+    if (!jobId || typeof localStorage === "undefined") return;
+    if (
+      !window.confirm(
+        "이 작업의 임시저장을 삭제하고 편집 내용을 처음 상태로 되돌립니다. 계속할까요?"
+      )
+    ) {
+      return;
+    }
+    try {
+      localStorage.removeItem(draftStorageKey(jobId));
+    } catch (e) {
+      console.warn("[kbo draft remove]", e);
+    }
+    restoringDraftRef.current = true;
+    setSegments([emptySegment()]);
+    setThumbnailSegment({ ...INITIAL_THUMBNAIL_SEGMENT });
+    setTopText("");
+    setTopTextColor(TEXT_COLORS[0]);
+    setTopTextSize(72);
+    setTopTextOpacity(1);
+    setTopTextFont(DEFAULT_TEXT_FONT);
+    setTopTextShadow(false);
+    setMuteOriginal(true);
+    setBgmVolume(0.8);
+    setBgmStartTime(0);
+    setBgmFadeOut(2);
+    setHighlightMusicS3Key("");
+    setSelectedTeam("삼성");
+    setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#074CA1");
+    setSelectedSegIndex(0);
+    setThumbnailSelected(false);
+    setMessage("임시저장을 초기화했습니다.");
+    setTimeout(() => {
+      restoringDraftRef.current = false;
+      setDraftSaveGeneration((g) => g + 1);
+    }, 0);
+  }, [jobId]);
 
   const onDeleteSource = async () => {
     if (!jobId) return;
@@ -3904,6 +3948,31 @@ export default function Shorts3Panel({
                 </div>
               </div>
             ))}
+            <button
+              type="button"
+              disabled={!jobId || busy || uploading}
+              title={
+                !jobId
+                  ? "저장된 원본을 불러온 뒤 사용할 수 있습니다"
+                  : "localStorage 임시저장 삭제 및 편집 초기화"
+              }
+              onClick={onResetDraft}
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                background: "#2a1818",
+                color: "#fecaca",
+                border: "1px solid rgba(248, 113, 113, 0.45)",
+                padding: "6px 10px",
+                borderRadius: 6,
+                fontSize: 12,
+                cursor:
+                  !jobId || busy || uploading ? "not-allowed" : "pointer",
+                opacity: !jobId || busy || uploading ? 0.55 : 1,
+              }}
+            >
+              임시저장 초기화
+            </button>
           </div>
 
           {/* 구간 추가 버튼 */}
