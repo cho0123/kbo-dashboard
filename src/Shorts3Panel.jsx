@@ -2110,10 +2110,7 @@ export default function Shorts3Panel({
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
-          /** Lambda: BGM 파일 내 -ss(초). 썸네일 구간이 유효하면 원본 영상 기준 썸네일 시작 시각(초) 사용 */
-          startTime: thumbValid
-            ? Math.max(0, thumbStart)
-            : Math.max(0, Number(bgmStartTime) || 0),
+          startTime: Math.max(0, Number(bgmStartTime) || 0),
           fadeOutDuration: bgmFadeOut,
         },
       };
