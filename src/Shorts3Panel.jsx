@@ -3893,7 +3893,6 @@ export default function Shorts3Panel({
                   </span>
                   <button
                     type="button"
-                    className="ghost"
                     disabled={busy || uploading || segments.length <= 1}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -3902,11 +3901,18 @@ export default function Shorts3Panel({
                     title="구간 삭제"
                     style={{
                       padding: "6px 12px",
-                      fontSize: 11,
-                      lineHeight: 1.2,
                       minHeight: 28,
                       minWidth: 44,
+                      background: "rgba(180,40,70,0.3)",
+                      border: "1px solid rgba(255,107,138,0.55)",
+                      color: "#ffd0dc",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
                       flexShrink: 0,
+                      ...(busy || uploading || segments.length <= 1
+                        ? { opacity: 0.45, cursor: "not-allowed" }
+                        : {}),
                     }}
                   >
                     ✕ 삭제
