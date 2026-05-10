@@ -500,7 +500,8 @@ function buildHighlightSegmentVf(opts) {
   } = opts;
   const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
-    `scale=1080:1920:flags=lanczos`,
+    "scale=1080:1640:flags=lanczos",
+    "pad=1080:1920:0:280",
     "format=yuv420p",
   ];
   if (borderColorPrimary && !skipTeamBorderBoxes) {
@@ -602,7 +603,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
-  let cw = Math.floor((ih * 9) / 16);
+  let cw = Math.floor((ih * 1080) / 1640);
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 

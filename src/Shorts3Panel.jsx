@@ -301,8 +301,8 @@ function findSegmentAtPreviewTime(ct, segments) {
 }
 
 /**
- * video.offsetWidth / offsetHeight 기준 hole 비율(1000:1480) 크롭 박스(오버레이 좌표, px).
- * cropWidth = displayHeight * 1000/1480,
+ * video.offsetWidth / offsetHeight 기준 세로형 크롭 비율(1080:1640) 박스(오버레이 좌표, px).
+ * cropWidth = displayHeight * 1080/1640,
  * cropX = (displayWidth - cropWidth)/2 + displayWidth * offset/100 (클램프)
  */
 function computePreviewCropOverlay(videoEl, cropOffsetPct) {
@@ -312,7 +312,7 @@ function computePreviewCropOverlay(videoEl, cropOffsetPct) {
   if (dispW < 2 || dispH < 2) return null;
 
   const pct = Math.min(50, Math.max(-50, Number(cropOffsetPct) || 0));
-  let cropW = dispH * (1000 / 1480);
+  let cropW = dispH * (1080 / 1640);
   let cropX = (dispW - cropW) / 2 + (dispW * pct) / 100;
   cropX = Math.max(0, Math.min(cropX, dispW - cropW));
   if (cropW > dispW) {
@@ -658,12 +658,8 @@ export default function Shorts3Panel({
     const TOP_BAR = Math.round(H * (280 / 1920));
     const BOT_BAR = Math.round(H * (160 / 1920));
     const SIDE_BAR = Math.round(W * (40 / 1080));
-    const holeX = SIDE_BAR;
-    const holeY = TOP_BAR;
-    const holeW = W - SIDE_BAR * 2;
-    const holeH = H - TOP_BAR - BOT_BAR;
 
-    const holeAspect = 1000 / 1480;
+    const holeAspect = 1080 / 1640;
     const srcCropW = Math.round(vh * holeAspect);
 
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
@@ -683,10 +679,10 @@ export default function Shorts3Panel({
         0,
         srcCropW,
         vh,
-        holeX,
-        holeY,
-        holeW,
-        holeH
+        0,
+        TOP_BAR,
+        W,
+        H - TOP_BAR
       );
       // 2) 썸네일 오버레이 덮기
       const overlayCanvas = thumbnailOverlayCanvasRef.current;
@@ -714,10 +710,10 @@ export default function Shorts3Panel({
       0,
       srcCropW,
       vh,
-      holeX,
-      holeY,
-      holeW,
-      holeH
+      0,
+      TOP_BAR,
+      W,
+      H - TOP_BAR
     );
 
     // 2) 팀컬러 상단바
