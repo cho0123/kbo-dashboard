@@ -4413,6 +4413,8 @@ export default function Shorts3Panel({
             height: "100%",
             minWidth: 0,
             paddingLeft: 4,
+            overflowX: "hidden",
+            overflowY: "auto",
           }}
         >
           <div className="label">
