@@ -500,7 +500,7 @@ export default function Shorts3Panel({
   const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
     ...INITIAL_THUMBNAIL_SEGMENT,
   }));
-  const [thumbnailSelected, setThumbnailSelected] = useState(false);
+  const [thumbnailSelected, setThumbnailSelected] = useState(true);
   const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
@@ -3691,31 +3691,31 @@ export default function Shorts3Panel({
                   overflow: "hidden",
                 }}
               >
-                <div style={{ flexShrink: 0 }}>
-                  <span
-                    className="muted"
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 11,
-                      userSelect: "none",
-                    }}
-                  >
-                    #{index + 1}
-                  </span>
-                </div>
-                {/* 1행: 시간 입력 / 2행: 미세조정 버튼 (시작/종료 분리 정렬) */}
+                {/* 1행: # + 시간 입력 / 2행: 미세조정 */}
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "44px 58px 6px 30px 8px 44px 58px 6px 30px",
+                      "32px 44px 58px 6px 30px 8px 44px 58px 6px 30px",
                     columnGap: 4,
                     rowGap: 6,
                     alignItems: "center",
                     overflowX: "hidden",
                   }}
                 >
-                  {/* 1행 */}
+                  <span
+                    className="muted"
+                    style={{
+                      gridColumn: 1,
+                      gridRow: 1,
+                      fontWeight: 700,
+                      fontSize: 11,
+                      userSelect: "none",
+                      justifySelf: "start",
+                    }}
+                  >
+                    #{index + 1}
+                  </span>
                   <button
                     type="button"
                     disabled={busy || uploading}
@@ -3724,7 +3724,7 @@ export default function Shorts3Panel({
                       seekPreviewToSegmentBoundary(index, "start");
                     }}
                     style={{
-                      gridColumn: 1,
+                      gridColumn: 2,
                       gridRow: 1,
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
@@ -3750,7 +3750,7 @@ export default function Shorts3Panel({
                     }
                     disabled={busy || uploading}
                     style={{
-                      gridColumn: 2,
+                      gridColumn: 3,
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 58,
@@ -3761,7 +3761,7 @@ export default function Shorts3Panel({
                   <span
                     className="muted"
                     style={{
-                      gridColumn: 3,
+                      gridColumn: 4,
                       gridRow: 1,
                       userSelect: "none",
                       margin: "0 2px",
@@ -3784,7 +3784,7 @@ export default function Shorts3Panel({
                     disabled={busy || uploading}
                     title="시작 소수 초 (0.01초 단위, 00~99)"
                     style={{
-                      gridColumn: 4,
+                      gridColumn: 5,
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 30,
@@ -3795,7 +3795,7 @@ export default function Shorts3Panel({
                   <span
                     className="muted"
                     style={{
-                      gridColumn: 5,
+                      gridColumn: 6,
                       gridRow: 1,
                       justifySelf: "center",
                       margin: "0 3px",
@@ -3811,7 +3811,7 @@ export default function Shorts3Panel({
                       seekPreviewToSegmentBoundary(index, "end");
                     }}
                     style={{
-                      gridColumn: 6,
+                      gridColumn: 7,
                       gridRow: 1,
                       background: "#1a3a2a",
                       border: "1px solid #4ade80",
@@ -3837,7 +3837,7 @@ export default function Shorts3Panel({
                     }
                     disabled={busy || uploading}
                     style={{
-                      gridColumn: 7,
+                      gridColumn: 8,
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 58,
@@ -3848,7 +3848,7 @@ export default function Shorts3Panel({
                   <span
                     className="muted"
                     style={{
-                      gridColumn: 8,
+                      gridColumn: 9,
                       gridRow: 1,
                       userSelect: "none",
                       margin: "0 2px",
@@ -3871,7 +3871,7 @@ export default function Shorts3Panel({
                     disabled={busy || uploading}
                     title="종료 소수 초 (0.01초 단위, 00~99)"
                     style={{
-                      gridColumn: 9,
+                      gridColumn: 10,
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 30,
@@ -3883,7 +3883,7 @@ export default function Shorts3Panel({
                   {/* 2행: 시작/종료 미세조정 */}
                   <div
                     style={{
-                      gridColumn: "1 / span 4",
+                      gridColumn: "2 / span 4",
                       gridRow: 2,
                       display: "flex",
                       gap: 4,
@@ -3971,7 +3971,7 @@ export default function Shorts3Panel({
 
                   <div
                     style={{
-                      gridColumn: "6 / span 4",
+                      gridColumn: "7 / span 4",
                       gridRow: 2,
                       display: "flex",
                       gap: 4,
