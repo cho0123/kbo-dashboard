@@ -347,7 +347,7 @@ function probeVideoDimensions(workDir, fileName) {
   return { w, h };
 }
 
-/** 하이라이트 구간 crop x: (iw-cw)/2 + iw * offset% / 100 (전체 프레임 너비 기준 패닝), 짝수·범위 보정 */
+/** 하이라이트 구간 crop x: (iw-cw)/2 + iw * offset% / 100, 짝수·범위 보정 */
 function highlightCropXFromOffset(iw, cw, rawOffset) {
   const o = Number(rawOffset);
   const pct = Number.isFinite(o) ? Math.min(50, Math.max(-50, o)) : 0;
@@ -480,9 +480,8 @@ function normalizeThumbnailText(meta) {
 function buildHighlightSegmentVf(opts) {
   const {
     cw,
-    cropH,
+    ih,
     cx,
-    cropY,
     borderColorPrimary,
     skipTeamBorderBoxes,
     topTextFile,
@@ -603,9 +602,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
-  const topBarH = Math.floor((ih * 280) / 1920);
-  const cropH = Math.max(2, ih - topBarH);
-  let cw = Math.floor((ih * 1000) / 1640);
+  let cw = Math.floor((ih * 9) / 16);
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
@@ -699,9 +696,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
     const vfSeg = buildHighlightSegmentVf({
       cw,
-      cropH,
+      ih,
       cx,
-      cropY: topBarH,
       borderColorPrimary,
       skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
       topTextFile: topTextPath,
