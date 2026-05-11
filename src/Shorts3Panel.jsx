@@ -293,6 +293,7 @@ function emptySegment() {
     textFont2: DEFAULT_TEXT_FONT,
     narration: "",
     narrationDuration: null,
+    narrationAudioUrl: null,
   };
 }
 
@@ -314,6 +315,7 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   fontSize2: 52,
   narration: "",
   narrationDuration: null,
+  narrationAudioUrl: null,
 };
 
 /** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
@@ -538,6 +540,7 @@ export default function Shorts3Panel({
   onJobIdChange,
 }) {
   const [segments, setSegments] = useState([emptySegment()]);
+  const segmentsRef = useRef(segments);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState(null);
@@ -566,6 +569,11 @@ export default function Shorts3Panel({
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
   const [narrationBusy, setNarrationBusy] = useState(false);
   const narrationAudioRef = useRef(null);
+  /** 구간 미리보기 재생 시 나레이션(미리듣기 저장 URL) */
+  const segmentPreviewNarrationAudioRef = useRef(null);
+  const segmentNarrationStartTimeoutRef = useRef(null);
+  /** 구간 미리보기 전 `video.muted` (미저장 시 undefined) */
+  const savedVideoMutedForSegmentPreviewRef = useRef(undefined);
   const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
     ...INITIAL_THUMBNAIL_SEGMENT,
   }));
@@ -607,6 +615,10 @@ export default function Shorts3Panel({
   useEffect(() => {
     thumbnailSegmentRef.current = thumbnailSegment;
   }, [thumbnailSegment]);
+
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
 
   useEffect(() => {
     if (uploadPhase !== "done") return;
@@ -707,11 +719,17 @@ export default function Shorts3Panel({
   ]);
 
   /** 원본 미리보기 영상만 구간 끝에서 멈춤 */
+  const playingSegmentIndexRef = useRef(null);
   const [playingSegmentIndex, setPlayingSegmentIndex] = useState(null);
+  useEffect(() => {
+    playingSegmentIndexRef.current = playingSegmentIndex;
+  }, [playingSegmentIndex]);
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
 
   const [isPlayingAll, setIsPlayingAll] = useState(false);
   const playAllRef = useRef(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const monitorRef = useRef(false);
 
   const thumbnailOverlayCanvasRef = useRef(null);
 
@@ -1106,28 +1124,106 @@ export default function Shorts3Panel({
     };
   }, [previewUrl]);
 
+  /** 구간 미리보기: 원본 음소거, 0.5초 후 저장된 나레이션 URL 재생, 끝에서 정리 */
   useEffect(() => {
     const v = previewVideoRef.current;
-    if (!v || !previewUrl || playingSegmentIndex == null) return undefined;
-    const seg = segments[playingSegmentIndex];
-    if (!seg) return undefined;
-    const endRaw = String(seg.end ?? "").trim();
-    const endSec = segmentBoundaryToSeconds(endRaw, seg.endMs);
-    if (endSec == null) return undefined;
+    const stopNarrationOnly = () => {
+      if (segmentNarrationStartTimeoutRef.current != null) {
+        clearTimeout(segmentNarrationStartTimeoutRef.current);
+        segmentNarrationStartTimeoutRef.current = null;
+      }
+      const na = segmentPreviewNarrationAudioRef.current;
+      if (na) {
+        try {
+          na.pause();
+        } catch {
+          /* ignore */
+        }
+        try {
+          na.src = "";
+        } catch {
+          /* ignore */
+        }
+        segmentPreviewNarrationAudioRef.current = null;
+      }
+    };
+
+    const restoreVideoMute = () => {
+      if (v && savedVideoMutedForSegmentPreviewRef.current !== undefined) {
+        v.muted = savedVideoMutedForSegmentPreviewRef.current;
+        savedVideoMutedForSegmentPreviewRef.current = undefined;
+      }
+    };
+
+    if (!v || !previewUrl || playingSegmentIndex == null) {
+      stopNarrationOnly();
+      restoreVideoMute();
+      return undefined;
+    }
+
+    const idx = playingSegmentIndex;
+    const seg = segmentsRef.current[idx];
+    if (!seg) {
+      stopNarrationOnly();
+      restoreVideoMute();
+      return undefined;
+    }
+    const st = String(seg.start ?? "").trim();
+    const en = String(seg.end ?? "").trim();
+    const startSec = segmentBoundaryToSeconds(st, seg.startMs);
+    const endSec = segmentBoundaryToSeconds(en, seg.endMs);
+    if (
+      startSec == null ||
+      endSec == null ||
+      !Number.isFinite(endSec) ||
+      endSec <= startSec
+    ) {
+      stopNarrationOnly();
+      restoreVideoMute();
+      return undefined;
+    }
+
+    if (savedVideoMutedForSegmentPreviewRef.current === undefined) {
+      savedVideoMutedForSegmentPreviewRef.current = v.muted;
+    }
+    v.muted = true;
+
+    const narrUrl = String(seg.narrationAudioUrl ?? "").trim();
+    segmentNarrationStartTimeoutRef.current = setTimeout(() => {
+      segmentNarrationStartTimeoutRef.current = null;
+      if (playingSegmentIndexRef.current !== idx) return;
+      if (!narrUrl) return;
+      const audio = new Audio(narrUrl);
+      segmentPreviewNarrationAudioRef.current = audio;
+      audio.play().catch(() => {});
+    }, 500);
 
     const onTimeUpdate = () => {
       if (v.paused) return;
       if (v.currentTime >= endSec) {
         v.pause();
+        stopNarrationOnly();
+        restoreVideoMute();
         setPlayingSegmentIndex(null);
       }
     };
 
+    const onPause = () => {
+      try {
+        segmentPreviewNarrationAudioRef.current?.pause();
+      } catch {
+        /* ignore */
+      }
+    };
+
     v.addEventListener("timeupdate", onTimeUpdate);
+    v.addEventListener("pause", onPause);
     return () => {
       v.removeEventListener("timeupdate", onTimeUpdate);
+      v.removeEventListener("pause", onPause);
+      stopNarrationOnly();
     };
-  }, [previewUrl, playingSegmentIndex, segments]);
+  }, [previewUrl, playingSegmentIndex]);
 
   useEffect(() => {
     const v = previewVideoRef.current;
@@ -1355,7 +1451,7 @@ export default function Shorts3Panel({
   const toggleSegmentPreviewPlayback = useCallback(
     async (index) => {
       const v = previewVideoRef.current;
-      if (!previewUrl || !v || busy || uploading) return;
+      if (!previewUrl || !v || busy || uploading || isMonitoring) return;
       const seg = segments[index];
       if (!segmentPlaybackTimesValid(seg)) return;
 
@@ -1373,6 +1469,15 @@ export default function Shorts3Panel({
           await v.play();
         } catch {
           /* autoplay / 미디어 정책 */
+        }
+        const na = segmentPreviewNarrationAudioRef.current;
+        if (na && startSec != null && v.currentTime >= startSec + 0.5) {
+          const off = v.currentTime - startSec - 0.5;
+          const dur = Number(na.duration);
+          if (Number.isFinite(dur) && dur > 0 && off < dur) {
+            na.currentTime = Math.max(0, off);
+            na.play().catch(() => {});
+          }
         }
         return;
       }
@@ -1394,6 +1499,7 @@ export default function Shorts3Panel({
       previewUrl,
       busy,
       uploading,
+      isMonitoring,
       segmentPlaybackTimesValid,
     ]
   );
@@ -1446,7 +1552,7 @@ export default function Shorts3Panel({
 
   const playAllSegments = useCallback(async () => {
     const video = previewVideoRef.current;
-    if (!video || isPlayingAll) return;
+    if (!video || isPlayingAll || isMonitoring) return;
 
     setIsPlayingAll(true);
     playAllRef.current = true;
@@ -1526,14 +1632,141 @@ export default function Shorts3Panel({
       playAllRef.current = false;
       setIsPlayingAll(false);
     }
-  }, [segments, isPlayingAll, segmentBoundarySeconds, thumbnailSegment]);
+  }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds, thumbnailSegment]);
+
+  const runFullMonitor = useCallback(async () => {
+    const video = previewVideoRef.current;
+    if (!video || !previewUrl || busy || uploading || isMonitoring || isPlayingAll)
+      return;
+
+    monitorRef.current = true;
+    setIsMonitoring(true);
+    const savedMute = video.muted;
+    video.muted = true;
+
+    const playRangeMonitor = (startSec, endSec, narrUrl) =>
+      new Promise((resolve) => {
+        let narrTimeout = null;
+        let narrAudio = null;
+        let done = false;
+        const cleanupNarration = () => {
+          if (narrTimeout != null) {
+            clearTimeout(narrTimeout);
+            narrTimeout = null;
+          }
+          if (narrAudio) {
+            try {
+              narrAudio.pause();
+            } catch {
+              /* ignore */
+            }
+            try {
+              narrAudio.src = "";
+            } catch {
+              /* ignore */
+            }
+            narrAudio = null;
+          }
+        };
+        const finish = () => {
+          if (done) return;
+          done = true;
+          cleanupNarration();
+          video.removeEventListener("timeupdate", check);
+          video.removeEventListener("pause", onPauseWhileMonitor);
+          try {
+            video.pause();
+          } catch {
+            /* ignore */
+          }
+          resolve();
+        };
+        const check = () => {
+          if (!monitorRef.current) return finish();
+          if (video.currentTime >= endSec) return finish();
+        };
+        const onPauseWhileMonitor = () => {
+          if (done) return;
+          if (!monitorRef.current) finish();
+        };
+        video.addEventListener("timeupdate", check);
+        video.addEventListener("pause", onPauseWhileMonitor);
+        narrTimeout = setTimeout(() => {
+          narrTimeout = null;
+          if (!monitorRef.current || done) return;
+          const u = String(narrUrl ?? "").trim();
+          if (!u) return;
+          narrAudio = new Audio(u);
+          narrAudio.play().catch(() => {});
+        }, 500);
+        video.play().catch(() => {});
+      });
+
+    try {
+      const thumb = thumbnailSegmentRef.current;
+      const ts = segmentBoundarySeconds(thumb, "start");
+      let te = segmentBoundarySeconds(thumb, "end");
+      if (ts != null && Number.isFinite(ts)) {
+        if (te == null || !Number.isFinite(te) || te <= ts) {
+          te = ts + 0.1;
+        }
+        setThumbnailSelected(true);
+        setPlayingSegmentIndex(null);
+        setPreviewCropOverlay(
+          computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
+        );
+        video.currentTime = ts;
+        await playRangeMonitor(ts, te, thumb.narrationAudioUrl);
+      }
+      await new Promise((r) => setTimeout(r, 80));
+      if (!monitorRef.current) return;
+
+      const segs = segmentsRef.current;
+      for (let i = 0; i < segs.length; i++) {
+        if (!monitorRef.current) break;
+        const seg = segs[i];
+        const ss = segmentBoundarySeconds(seg, "start");
+        const es = segmentBoundarySeconds(seg, "end");
+        if (
+          ss == null ||
+          es == null ||
+          !Number.isFinite(ss) ||
+          !Number.isFinite(es) ||
+          es <= ss
+        ) {
+          continue;
+        }
+        setThumbnailSelected(false);
+        setSelectedSegIndex(i);
+        setPreviewCropOverlay(
+          computePreviewCropOverlay(video, seg?.cropOffset ?? 0)
+        );
+        video.currentTime = ss;
+        await playRangeMonitor(ss, es, seg?.narrationAudioUrl);
+        await new Promise((r) => setTimeout(r, 80));
+      }
+    } finally {
+      monitorRef.current = false;
+      setIsMonitoring(false);
+      video.muted = savedMute;
+    }
+  }, [
+    previewUrl,
+    busy,
+    uploading,
+    isMonitoring,
+    isPlayingAll,
+    segmentBoundarySeconds,
+  ]);
 
   /** 썸네일 구간(thumbnailSegment.start ~ end)만 미리보기 재생 */
   const playThumbnailSegmentPreview = useCallback(async () => {
     const video = previewVideoRef.current;
-    if (!video || !previewUrl || busy || uploading || isPlayingAll) return;
-    const startSec = segmentBoundarySeconds(thumbnailSegment, "start");
-    let endSec = segmentBoundarySeconds(thumbnailSegment, "end");
+    if (!video || !previewUrl || busy || uploading || isPlayingAll || isMonitoring)
+      return;
+    const thumb = thumbnailSegmentRef.current;
+    const startSec = segmentBoundarySeconds(thumb, "start");
+    let endSec = segmentBoundarySeconds(thumb, "end");
     if (startSec == null || !Number.isFinite(startSec)) return;
     if (
       endSec == null ||
@@ -1542,10 +1775,15 @@ export default function Shorts3Panel({
     ) {
       endSec = startSec + 0.1;
     }
+    const narrUrl = String(thumb.narrationAudioUrl ?? "").trim();
+    const prevMuted = video.muted;
+    video.muted = true;
+    let narrTimeout = null;
+    let narrAudio = null;
     setThumbnailSelected(true);
     setPlayingSegmentIndex(null);
     setPreviewCropOverlay(
-      computePreviewCropOverlay(video, thumbnailSegment.cropOffset ?? 0)
+      computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
     );
     video.currentTime = startSec;
     await new Promise((resolve) => {
@@ -1553,18 +1791,42 @@ export default function Shorts3Panel({
       const finish = () => {
         if (done) return;
         done = true;
+        if (narrTimeout != null) {
+          clearTimeout(narrTimeout);
+          narrTimeout = null;
+        }
+        if (narrAudio) {
+          try {
+            narrAudio.pause();
+          } catch {
+            /* ignore */
+          }
+          try {
+            narrAudio.src = "";
+          } catch {
+            /* ignore */
+          }
+          narrAudio = null;
+        }
         try {
           video.pause();
         } catch {
           /* ignore */
         }
         video.removeEventListener("timeupdate", check);
+        video.muted = prevMuted;
         resolve();
       };
       const check = () => {
         if (video.currentTime >= endSec) finish();
       };
       video.addEventListener("timeupdate", check);
+      narrTimeout = setTimeout(() => {
+        narrTimeout = null;
+        if (done || !narrUrl) return;
+        narrAudio = new Audio(narrUrl);
+        narrAudio.play().catch(() => {});
+      }, 500);
       video.play().catch(() => {});
     });
   }, [
@@ -1572,7 +1834,7 @@ export default function Shorts3Panel({
     busy,
     uploading,
     isPlayingAll,
-    thumbnailSegment,
+    isMonitoring,
     segmentBoundarySeconds,
   ]);
 
@@ -3276,7 +3538,13 @@ export default function Shorts3Panel({
                         playAllSegments();
                       }
                     }}
-                    disabled={busy || uploading || uploadPhase !== "done" || !previewUrl}
+                    disabled={
+                      busy ||
+                      uploading ||
+                      uploadPhase !== "done" ||
+                      !previewUrl ||
+                      isMonitoring
+                    }
                     style={{
                       background: isPlayingAll ? "#ef4444" : "#2563eb",
                       color: "#fff",
@@ -3285,12 +3553,46 @@ export default function Shorts3Panel({
                       borderRadius: 6,
                       fontSize: 12,
                       cursor: "pointer",
-                      ...(busy || uploading
+                      ...(busy || uploading || isMonitoring
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
                     }}
                   >
                     {isPlayingAll ? "⏹ 중지" : "▶ 전체 재생"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isMonitoring) {
+                        monitorRef.current = false;
+                        previewVideoRef.current?.pause();
+                        setIsMonitoring(false);
+                      } else {
+                        runFullMonitor();
+                      }
+                    }}
+                    disabled={
+                      busy ||
+                      uploading ||
+                      uploadPhase !== "done" ||
+                      !previewUrl ||
+                      isPlayingAll
+                    }
+                    style={{
+                      background: isMonitoring ? "#b45309" : "#0d9488",
+                      color: "#fff",
+                      border: "none",
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      ...(busy || uploading || isPlayingAll
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    {isMonitoring ? "⏹ 모니터 중지" : "🎙 전체 모니터"}
                   </button>
 
                   <select
@@ -4018,6 +4320,7 @@ export default function Shorts3Panel({
                           setThumbnailSegment((prev) => ({
                             ...prev,
                             narrationDuration: d,
+                            narrationAudioUrl: url,
                           }));
                         };
                         narrationAudioRef.current = audio;
@@ -4060,6 +4363,7 @@ export default function Shorts3Panel({
                       uploading ||
                       !previewUrl ||
                       isPlayingAll ||
+                      isMonitoring ||
                       String(thumbnailSegment.end || "").trim() === ""
                     }
                     title={
@@ -4079,6 +4383,7 @@ export default function Shorts3Panel({
                         uploading ||
                         !previewUrl ||
                         isPlayingAll ||
+                        isMonitoring ||
                         String(thumbnailSegment.end || "").trim() === ""
                           ? "not-allowed"
                           : "pointer",
@@ -4087,6 +4392,7 @@ export default function Shorts3Panel({
                         uploading ||
                         !previewUrl ||
                         isPlayingAll ||
+                        isMonitoring ||
                         String(thumbnailSegment.end || "").trim() === ""
                           ? 0.5
                           : 1,
@@ -4097,7 +4403,11 @@ export default function Shorts3Panel({
                   <button
                     type="button"
                     disabled={
-                      busy || uploading || segments.length >= MAX_SEGMENTS
+                      busy ||
+                      uploading ||
+                      isMonitoring ||
+                      isPlayingAll ||
+                      segments.length >= MAX_SEGMENTS
                     }
                     title={
                       segments.length >= MAX_SEGMENTS
@@ -4111,11 +4421,19 @@ export default function Shorts3Panel({
                     style={{
                       ...NARRATION_ROW_BTN_BASE,
                       cursor:
-                        busy || uploading || segments.length >= MAX_SEGMENTS
+                        busy ||
+                        uploading ||
+                        isMonitoring ||
+                        isPlayingAll ||
+                        segments.length >= MAX_SEGMENTS
                           ? "not-allowed"
                           : "pointer",
                       opacity:
-                        busy || uploading || segments.length >= MAX_SEGMENTS
+                        busy ||
+                        uploading ||
+                        isMonitoring ||
+                        isPlayingAll ||
+                        segments.length >= MAX_SEGMENTS
                           ? 0.5
                           : 1,
                     }}
@@ -4646,7 +4964,11 @@ export default function Shorts3Panel({
                             setSegments((prev) =>
                               prev.map((s, i) =>
                                 i === index
-                                  ? { ...s, narrationDuration: d }
+                                  ? {
+                                      ...s,
+                                      narrationDuration: d,
+                                      narrationAudioUrl: url,
+                                    }
                                   : s
                               )
                             );
@@ -4691,6 +5013,8 @@ export default function Shorts3Panel({
                         uploading ||
                         !previewUrl ||
                         uploadPhase !== "done" ||
+                        isPlayingAll ||
+                        isMonitoring ||
                         !segmentPlaybackTimesValid(seg)
                       }
                       title={
@@ -4710,6 +5034,8 @@ export default function Shorts3Panel({
                           uploading ||
                           !previewUrl ||
                           uploadPhase !== "done" ||
+                          isPlayingAll ||
+                          isMonitoring ||
                           !segmentPlaybackTimesValid(seg)
                             ? "not-allowed"
                             : "pointer",
@@ -4718,6 +5044,8 @@ export default function Shorts3Panel({
                           uploading ||
                           !previewUrl ||
                           uploadPhase !== "done" ||
+                          isPlayingAll ||
+                          isMonitoring ||
                           !segmentPlaybackTimesValid(seg)
                             ? 0.5
                             : 1,
@@ -4730,7 +5058,11 @@ export default function Shorts3Panel({
                     <button
                       type="button"
                       disabled={
-                        busy || uploading || segments.length >= MAX_SEGMENTS
+                        busy ||
+                        uploading ||
+                        isPlayingAll ||
+                        isMonitoring ||
+                        segments.length >= MAX_SEGMENTS
                       }
                       title={
                         segments.length >= MAX_SEGMENTS
@@ -4744,11 +5076,19 @@ export default function Shorts3Panel({
                       style={{
                         ...NARRATION_ROW_BTN_BASE,
                         cursor:
-                          busy || uploading || segments.length >= MAX_SEGMENTS
+                          busy ||
+                          uploading ||
+                          isPlayingAll ||
+                          isMonitoring ||
+                          segments.length >= MAX_SEGMENTS
                             ? "not-allowed"
                             : "pointer",
                         opacity:
-                          busy || uploading || segments.length >= MAX_SEGMENTS
+                          busy ||
+                          uploading ||
+                          isPlayingAll ||
+                          isMonitoring ||
+                          segments.length >= MAX_SEGMENTS
                             ? 0.5
                             : 1,
                       }}
