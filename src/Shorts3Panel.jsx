@@ -292,6 +292,7 @@ function emptySegment() {
     textSize2: 48,
     textFont2: DEFAULT_TEXT_FONT,
     narration: "",
+    narrationDuration: null,
   };
 }
 
@@ -312,11 +313,41 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   fontSize1: 88,
   fontSize2: 52,
   narration: "",
+  narrationDuration: null,
 };
 
 /** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
 function segmentBoundaryToSeconds(hmsRaw, fracMs) {
   return parseHhMmSsToSeconds(hmsRaw, fracMs);
+}
+
+/** 구간(또는 썸네일) 시작~끝 길이(초); 경계가 유효하지 않으면 null */
+function segmentDurationSpanSeconds(seg) {
+  const st = String(seg?.start ?? "").trim();
+  const en = String(seg?.end ?? "").trim();
+  const a = segmentBoundaryToSeconds(st, seg?.startMs);
+  const b = segmentBoundaryToSeconds(en, seg?.endMs);
+  if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) {
+    return null;
+  }
+  if (b <= a) return null;
+  return b - a;
+}
+
+/** 미리듣기 후 표시용 한 줄; narrationDuration 없으면 null */
+function narrationLengthLineModel(narrationDurationSec, seg) {
+  if (narrationDurationSec == null) return null;
+  const nd = Number(narrationDurationSec);
+  if (!Number.isFinite(nd) || nd < 0) return null;
+  const span = segmentDurationSpanSeconds(seg);
+  const narrStr = `${nd.toFixed(1)}초`;
+  const segStr = span != null ? `${span.toFixed(1)}초` : null;
+  const text =
+    segStr != null
+      ? `나레이션: ${narrStr} | 구간: ${segStr}`
+      : `나레이션: ${narrStr}`;
+  const warn = span != null && nd > span;
+  return { text, warn };
 }
 
 function formatCropOffsetLabel(offset) {
@@ -3869,6 +3900,28 @@ export default function Shorts3Panel({
                     color: "#eee",
                   }}
                 />
+                {(() => {
+                  const m = narrationLengthLineModel(
+                    thumbnailSegment.narrationDuration,
+                    thumbnailSegment
+                  );
+                  if (!m) return null;
+                  return (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        lineHeight: 1.35,
+                        userSelect: "none",
+                      }}
+                    >
+                      <span
+                        style={{ color: m.warn ? "#ea580c" : "#94a3b8" }}
+                      >
+                        {m.text}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div
                   style={{
                     display: "flex",
@@ -3924,6 +3977,14 @@ export default function Shorts3Panel({
                           throw new Error("미리듣기 URL을 받지 못했습니다.");
                         }
                         const audio = new Audio(url);
+                        audio.onloadedmetadata = () => {
+                          const d = audio.duration;
+                          if (!Number.isFinite(d) || d < 0) return;
+                          setThumbnailSegment((prev) => ({
+                            ...prev,
+                            narrationDuration: d,
+                          }));
+                        };
                         narrationAudioRef.current = audio;
                         await audio.play();
                       } catch (err) {
@@ -4463,6 +4524,28 @@ export default function Shorts3Panel({
                       color: "#eee",
                     }}
                   />
+                  {(() => {
+                    const m = narrationLengthLineModel(
+                      seg.narrationDuration,
+                      seg
+                    );
+                    if (!m) return null;
+                    return (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          lineHeight: 1.35,
+                          userSelect: "none",
+                        }}
+                      >
+                        <span
+                          style={{ color: m.warn ? "#ea580c" : "#94a3b8" }}
+                        >
+                          {m.text}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <div
                     style={{
                       display: "flex",
@@ -4519,6 +4602,17 @@ export default function Shorts3Panel({
                             throw new Error("미리듣기 URL을 받지 못했습니다.");
                           }
                           const audio = new Audio(url);
+                          audio.onloadedmetadata = () => {
+                            const d = audio.duration;
+                            if (!Number.isFinite(d) || d < 0) return;
+                            setSegments((prev) =>
+                              prev.map((s, i) =>
+                                i === index
+                                  ? { ...s, narrationDuration: d }
+                                  : s
+                              )
+                            );
+                          };
                           narrationAudioRef.current = audio;
                           await audio.play();
                         } catch (err) {
@@ -5279,6 +5373,28 @@ export default function Shorts3Panel({
                     }}
                   />
                 </label>
+                {(() => {
+                  const m = narrationLengthLineModel(
+                    thumbnailSegment.narrationDuration,
+                    thumbnailSegment
+                  );
+                  if (!m) return null;
+                  return (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        lineHeight: 1.35,
+                        userSelect: "none",
+                      }}
+                    >
+                      <span
+                        style={{ color: m.warn ? "#ea580c" : "#64748b" }}
+                      >
+                        {m.text}
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div
                   style={{
                     display: "flex",
@@ -5333,6 +5449,14 @@ export default function Shorts3Panel({
                           throw new Error("미리듣기 URL을 받지 못했습니다.");
                         }
                         const audio = new Audio(url);
+                        audio.onloadedmetadata = () => {
+                          const d = audio.duration;
+                          if (!Number.isFinite(d) || d < 0) return;
+                          setThumbnailSegment((prev) => ({
+                            ...prev,
+                            narrationDuration: d,
+                          }));
+                        };
                         narrationAudioRef.current = audio;
                         await audio.play();
                       } catch (err) {
