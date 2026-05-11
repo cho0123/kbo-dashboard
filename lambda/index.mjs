@@ -590,8 +590,8 @@ function buildHighlightSegmentVf(opts) {
     const wR = coverBox.width / 100;
     const hR = coverBox.height / 100;
     const boxDraw = skipTeamBorderBoxes
-      ? `drawbox=x='iw*${xR}':y='280+(ih-280)*${yR}':w='iw*${wR}':h='(ih-280)*${hR}':color=${c}:t=fill`
-      : `drawbox=x='10+(iw-20)*${xR}':y='280+(ih-280)*${yR}':w='(iw-20)*${wR}':h='(ih-280)*${hR}':color=${c}:t=fill`;
+      ? `drawbox=x='iw*${xR}':y='280+(ih-280-160)*${yR}':w='iw*${wR}':h='(ih-280-160)*${hR}':color=${c}:t=fill`
+      : `drawbox=x='10+(iw-20)*${xR}':y='280+(ih-280-160)*${yR}':w='(iw-20)*${wR}':h='(ih-280-160)*${hR}':color=${c}:t=fill`;
     parts.push(boxDraw);
   }
   const fsTop = Math.round(topFontSize);
