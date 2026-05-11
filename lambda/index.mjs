@@ -814,6 +814,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
       writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
+    // 하단 텍스트는 썸네일 구간(THUMB_SEG_FLAG)일 때 meta 기준으로만 달라지고,
+    // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반 구간과 동일하게 적용한다.
     const vfSeg = buildHighlightSegmentVf({
       cw,
       ih,
