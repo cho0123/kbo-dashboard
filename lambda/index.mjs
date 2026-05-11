@@ -519,6 +519,22 @@ function normalizeThumbnailText(meta) {
   return { text, textY, textColor, textSize, textOpacity, textFont };
 }
 
+/** 구간 커버박스: 홀(좌우 10px·상하단 패드 제외) 기준 %; enabled만 필터 적용 */
+function normalizeCoverBoxForLambda(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  if (!raw.enabled) return null;
+  const clamp = (n, d) => {
+    const x = Number(n);
+    return Number.isFinite(x) ? Math.min(100, Math.max(0, Math.round(x))) : d;
+  };
+  const x = clamp(raw.x, 50);
+  const y = clamp(raw.y, 50);
+  const width = clamp(raw.width, 20);
+  const height = clamp(raw.height, 10);
+  if (width <= 0 || height <= 0) return null;
+  return { enabled: true, x, y, width, height };
+}
+
 function buildHighlightSegmentVf(opts) {
   const {
     cw,
@@ -546,6 +562,8 @@ function buildHighlightSegmentVf(opts) {
     topFontPath,
     bottomFontPath,
     bottomFontPath2,
+    coverBox,
+    teamColorForCover,
   } = opts;
   const parts = [
     `crop=${cw}:${ih}:${cx}:0`,
@@ -561,6 +579,20 @@ function buildHighlightSegmentVf(opts) {
       `drawbox=x=0:y=0:w=10:h=ih:color=${c}:t=fill`,
       `drawbox=x=iw-10:y=0:w=10:h=ih:color=${c}:t=fill`
     );
+  }
+  if (coverBox?.enabled && teamColorForCover) {
+    const hex = String(teamColorForCover).trim();
+    const m = hex.match(/^#?([0-9A-Fa-f]{6})$/i);
+    const colorCore = m ? `#${m[1]}` : "#074CA1";
+    const c = `${colorCore}@1`;
+    const xR = coverBox.x / 100;
+    const yR = coverBox.y / 100;
+    const wR = coverBox.width / 100;
+    const hR = coverBox.height / 100;
+    const boxDraw = skipTeamBorderBoxes
+      ? `drawbox=x='iw*${xR}':y='280+(ih-280)*${yR}':w='iw*${wR}':h='(ih-280)*${hR}':color=${c}:t=fill`
+      : `drawbox=x='10+(iw-20)*${xR}':y='280+(ih-280)*${yR}':w='(iw-20)*${wR}':h='(ih-280)*${hR}':color=${c}:t=fill`;
+    parts.push(boxDraw);
   }
   const fsTop = Math.round(topFontSize);
   const fsBottom = Math.round(bottomFontSize);
@@ -780,6 +812,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
       writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
+    const coverBoxNorm = normalizeCoverBoxForLambda(seg?.coverBox);
     const vfSeg = buildHighlightSegmentVf({
       cw,
       ih,
@@ -806,6 +839,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topFontPath,
       bottomFontPath,
       bottomFontPath2,
+      coverBox: coverBoxNorm,
+      teamColorForCover: borderColorPrimary,
     });
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;

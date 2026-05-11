@@ -269,6 +269,14 @@ function TextColorPalette({ value, onChange, disabled }) {
   );
 }
 
+const DEFAULT_COVER_BOX = Object.freeze({
+  enabled: false,
+  x: 50,
+  y: 50,
+  width: 20,
+  height: 10,
+});
+
 function emptySegment() {
   return {
     id: newSegmentId(),
@@ -294,6 +302,7 @@ function emptySegment() {
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
+    coverBox: { ...DEFAULT_COVER_BOX },
   };
 }
 
@@ -834,6 +843,28 @@ export default function Shorts3Panel({
     ctx.fillStyle = bg;
     ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
     ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+
+    // 4b) 커버박스 (팀컬러, hole = 좌우 사이드 제외·상하단 제외 영역 기준 %)
+    const cbRaw = selectedSeg?.coverBox;
+    if (cbRaw?.enabled) {
+      const holeX = SIDE_BAR;
+      const holeY = TOP_BAR;
+      const holeW = W - 2 * SIDE_BAR;
+      const holeH = H - TOP_BAR - BOT_BAR;
+      const xp = Math.min(100, Math.max(0, Number(cbRaw.x) || 0)) / 100;
+      const yp = Math.min(100, Math.max(0, Number(cbRaw.y) || 0)) / 100;
+      const wp = Math.min(100, Math.max(0, Number(cbRaw.width) || 0)) / 100;
+      const hp = Math.min(100, Math.max(0, Number(cbRaw.height) || 0)) / 100;
+      if (wp > 0 && hp > 0) {
+        ctx.fillStyle = bg;
+        ctx.fillRect(
+          holeX + xp * holeW,
+          holeY + yp * holeH,
+          wp * holeW,
+          hp * holeH
+        );
+      }
+    }
 
     // 5) 팀명 배지 (상단 캡슐형)
     const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
@@ -1853,6 +1884,36 @@ export default function Shorts3Panel({
     );
   };
 
+  const handleCoverBoxChange = (segIndex, key, rawVal) => {
+    setSegments((prev) =>
+      prev.map((seg, i) => {
+        if (i !== segIndex) return seg;
+        const d = { ...DEFAULT_COVER_BOX };
+        const prevCb =
+          seg.coverBox && typeof seg.coverBox === "object" ? seg.coverBox : {};
+        const base = {
+          enabled: Boolean(prevCb.enabled),
+          x: Number.isFinite(Number(prevCb.x)) ? Number(prevCb.x) : d.x,
+          y: Number.isFinite(Number(prevCb.y)) ? Number(prevCb.y) : d.y,
+          width: Number.isFinite(Number(prevCb.width))
+            ? Number(prevCb.width)
+            : d.width,
+          height: Number.isFinite(Number(prevCb.height))
+            ? Number(prevCb.height)
+            : d.height,
+        };
+        if (key === "enabled") {
+          return { ...seg, coverBox: { ...base, enabled: Boolean(rawVal) } };
+        }
+        const n = Number(rawVal);
+        const v = Number.isFinite(n)
+          ? Math.min(100, Math.max(0, Math.round(n)))
+          : base[key];
+        return { ...seg, coverBox: { ...base, [key]: v } };
+      })
+    );
+  };
+
   const handleSegmentOverlayChange = (segIndex, field, rawVal) => {
     setSegments((prev) => {
       const next = prev.map((seg, i) => {
@@ -2554,6 +2615,25 @@ export default function Shorts3Panel({
               )
             ),
             narration: String(s.narration ?? "").trim(),
+            coverBox: (() => {
+              const d = { ...DEFAULT_COVER_BOX };
+              const raw = s?.coverBox;
+              const src =
+                raw && typeof raw === "object" ? raw : {};
+              const clampP = (n, fallback) => {
+                const x = Number(n);
+                return Number.isFinite(x)
+                  ? Math.min(100, Math.max(0, Math.round(x)))
+                  : fallback;
+              };
+              return {
+                enabled: Boolean(src.enabled),
+                x: clampP(src.x, d.x),
+                y: clampP(src.y, d.y),
+                width: clampP(src.width, d.width),
+                height: clampP(src.height, d.height),
+              };
+            })(),
           };
         }),
         muteOriginal,
@@ -5847,6 +5927,143 @@ export default function Shorts3Panel({
                       {formatCropOffsetLabel(seg.cropOffset ?? 0)}
                     </span>
                   </div>
+
+                  <div className="label" style={{ marginTop: 10 }}>
+                    커버박스
+                  </div>
+                  <p
+                    className="muted"
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    색상은 팀 컬러로 자동 적용됩니다. 위치·크기는 중앙 영역(홀) 기준
+                    %입니다.
+                  </p>
+                  {(() => {
+                    const cb = {
+                      ...DEFAULT_COVER_BOX,
+                      ...(seg.coverBox && typeof seg.coverBox === "object"
+                        ? seg.coverBox
+                        : {}),
+                    };
+                    const covOn = Boolean(cb.enabled);
+                    const num = (k, fallback) => {
+                      const n = Number(cb[k]);
+                      return Number.isFinite(n)
+                        ? Math.min(100, Math.max(0, Math.round(n)))
+                        : fallback;
+                    };
+                    const xv = num("x", 50);
+                    const yv = num("y", 50);
+                    const wv = num("width", 20);
+                    const hv = num("height", 10);
+                    const sliderRow = (label, key, val) => (
+                      <label
+                        className="muted"
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          minWidth: 0,
+                        }}
+                      >
+                        {label}: {val}%
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={val}
+                            disabled={busy || uploading || !covOn}
+                            onChange={(e) =>
+                              handleCoverBoxChange(index, key, e.target.value)
+                            }
+                            style={{ flex: 1, minWidth: 0 }}
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={val}
+                            disabled={busy || uploading || !covOn}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              if (!Number.isFinite(n)) return;
+                              handleCoverBoxChange(
+                                index,
+                                key,
+                                Math.min(100, Math.max(0, Math.round(n)))
+                              );
+                            }}
+                            style={{
+                              width: 52,
+                              padding: "2px 4px",
+                              fontSize: 11,
+                              boxSizing: "border-box",
+                              background: "#1e1e1e",
+                              color: "#fff",
+                              border: "1px solid #444",
+                              borderRadius: 4,
+                            }}
+                          />
+                        </div>
+                      </label>
+                    );
+                    return (
+                      <>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            marginBottom: 8,
+                            cursor: busy || uploading ? "default" : "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={covOn}
+                            disabled={busy || uploading}
+                            onChange={(e) =>
+                              handleCoverBoxChange(
+                                index,
+                                "enabled",
+                                e.target.checked
+                              )
+                            }
+                          />
+                          커버박스 사용
+                        </label>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 10,
+                          }}
+                        >
+                          {sliderRow("X", "x", xv)}
+                          {sliderRow("Y", "y", yv)}
+                          {sliderRow("너비", "width", wv)}
+                          {sliderRow("높이", "height", hv)}
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <div className="label" style={{ marginTop: 8 }}>
                     텍스트 1
