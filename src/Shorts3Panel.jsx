@@ -65,7 +65,7 @@ const SEGMENT_NUDGE_BTN_STYLE = {
   cursor: "pointer",
 };
 
-/** 나레이션 하단 3버튼 행(미리듣기·구간 재생·구간 삽입) 공통 — 삽입 등 기본 톤 */
+/** 나레이션 하단 3버튼 행 — 라이트 패널 위 가독용 (삽입 = BASE) */
 const NARRATION_ROW_BTN_BASE = {
   flex: 1,
   minWidth: 0,
@@ -74,21 +74,23 @@ const NARRATION_ROW_BTN_BASE = {
   fontSize: 12,
   fontFamily: "inherit",
   boxSizing: "border-box",
-  background: "rgba(255,255,255,0.15)",
-  border: "1px solid rgba(255,255,255,0.4)",
-  color: "#e2e8f0",
+  background: "#334155",
+  border: "1px solid #334155",
+  color: "#fff",
   textAlign: "center",
   lineHeight: 1.25,
 };
 
 const NARRATION_ROW_BTN_TTS = {
   background: "#1d4ed8",
-  border: "1px solid #3b82f6",
+  border: "1px solid #1d4ed8",
+  color: "#fff",
 };
 
 const NARRATION_ROW_BTN_SEGMENT_PLAY = {
   background: "#065f46",
-  border: "1px solid #10b981",
+  border: "1px solid #065f46",
+  color: "#fff",
 };
 
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
