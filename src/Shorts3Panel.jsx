@@ -5267,8 +5267,40 @@ export default function Shorts3Panel({
 
           {/* 커버박스 (전체 공통) */}
           <div style={{ maxWidth: 480, marginBottom: 12 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-              커버박스 TEST
+            <div
+              className="muted"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                flexWrap: "wrap",
+                gap: 12,
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ fontWeight: 700 }}>커버박스</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  gap: 8,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={coverBox.enabled}
+                  onChange={(e) =>
+                    setCoverBox((v) => ({
+                      ...v,
+                      enabled: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="muted" style={{ fontSize: 13 }}>
+                  커버박스 사용
+                </span>
+              </div>
             </div>
             <p
               className="muted"
@@ -5361,43 +5393,18 @@ export default function Shorts3Panel({
                 </label>
               );
               return (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                      gap: 8,
-                      marginBottom: 8,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={coverBox.enabled}
-                      onChange={(e) =>
-                        setCoverBox((v) => ({
-                          ...v,
-                          enabled: e.target.checked,
-                        }))
-                      }
-                    />
-                    <span className="muted" style={{ fontSize: 13 }}>
-                      커버박스 사용
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 10,
-                    }}
-                  >
-                    {sliderRow("X", "x", xv)}
-                    {sliderRow("Y", "y", yv)}
-                    {sliderRow("너비", "width", wv)}
-                    {sliderRow("높이", "height", hv)}
-                  </div>
-                </>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  {sliderRow("X", "x", xv)}
+                  {sliderRow("Y", "y", yv)}
+                  {sliderRow("너비", "width", wv)}
+                  {sliderRow("높이", "height", hv)}
+                </div>
               );
             })()}
           </div>
