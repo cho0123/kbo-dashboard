@@ -2878,6 +2878,8 @@ ${JSON.stringify(games, null, 2)}`;
             textOpacity2,
             textFont2,
             textShadow2: Boolean(s.textShadow2),
+            narration:
+              s.narration != null ? String(s.narration).trim() : "",
           });
         }
         if (segments.length < 1) {

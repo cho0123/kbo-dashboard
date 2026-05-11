@@ -805,6 +805,21 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomFontPath,
       bottomFontPath2,
     });
+    const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
+    const narrLocalRel = `narration_${i}.mp3`;
+    const narrLocalAbs = join(workDir, narrLocalRel);
+    let hasNarrAudio = false;
+    if (seg.narration != null && String(seg.narration).trim() !== "") {
+      try {
+        await getObjectFile(bucket, narrS3Key, narrLocalAbs);
+        hasNarrAudio = existsSync(narrLocalAbs);
+      } catch (e) {
+        console.warn(
+          `[highlight] narration S3 get failed (${narrS3Key}):`,
+          e?.message || e
+        );
+      }
+    }
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
@@ -814,8 +829,102 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       : hasThumbnailPng
         ? "thumbnail.png"
         : null;
+    const durStr = String(duration);
+    const narrApadSamples = Math.max(
+      1,
+      Math.ceil((Number(duration) || 0) * 48000)
+    );
     if (overlayPngFile) {
-      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+      if (hasNarrAudio) {
+        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+        runFfmpeg(
+          [
+            "-y",
+            "-ss",
+            String(startSec),
+            "-t",
+            String(duration),
+            "-i",
+            sourceFileName,
+            "-loop",
+            "1",
+            "-t",
+            String(duration),
+            "-i",
+            overlayPngFile,
+            "-i",
+            narrLocalRel,
+            "-filter_complex",
+            fc,
+            "-map",
+            "[out]",
+            "-map",
+            "[aud]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            `seg_${i}.mp4`,
+          ],
+          workDir,
+          `highlight_seg_${i}_overlay_narr`
+        );
+      } else {
+        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+        runFfmpeg(
+          [
+            "-y",
+            "-ss",
+            String(startSec),
+            "-t",
+            String(duration),
+            "-i",
+            sourceFileName,
+            "-loop",
+            "1",
+            "-t",
+            String(duration),
+            "-i",
+            overlayPngFile,
+            "-filter_complex",
+            fc,
+            "-map",
+            "[out]",
+            "-map",
+            "0:a?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            "-shortest",
+            `seg_${i}.mp4`,
+          ],
+          workDir,
+          `highlight_seg_${i}_overlay`
+        );
+      }
+    } else if (hasNarrAudio) {
+      const fc = `[0:v]${vfSeg}[v];[1:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
       runFfmpeg(
         [
           "-y",
@@ -825,18 +934,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           String(duration),
           "-i",
           sourceFileName,
-          "-loop",
-          "1",
-          "-t",
-          String(duration),
           "-i",
-          overlayPngFile,
+          narrLocalRel,
           "-filter_complex",
           fc,
           "-map",
-          "[out]",
+          "[v]",
           "-map",
-          "0:a?",
+          "[aud]",
           "-c:v",
           "libx264",
           "-preset",
@@ -849,11 +954,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "30",
           "-c:a",
           "aac",
-          "-shortest",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
           `seg_${i}.mp4`,
         ],
         workDir,
-        `highlight_seg_${i}_overlay`
+        `highlight_seg_${i}_narr`
       );
     } else {
       runFfmpeg(

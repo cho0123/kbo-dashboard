@@ -2055,6 +2055,18 @@ export default function Shorts3Panel({
         }
       }
 
+      for (let vi = 0; vi < validSegments.length; vi++) {
+        const narrText = String(validSegments[vi]?.narration ?? "").trim();
+        if (!narrText) continue;
+        const segIndexForS3 = thumbValid ? vi + 1 : vi;
+        await postKbo({
+          action: "elevenlabs_tts",
+          jobId,
+          segIndex: segIndexForS3,
+          text: narrText,
+        });
+      }
+
       const payload = {
         action: "highlight_video_create",
         jobId,
@@ -2116,6 +2128,7 @@ export default function Shorts3Panel({
                 Math.round(Number(s.textSize2)) || 48
               )
             ),
+            narration: String(s.narration ?? "").trim(),
           };
         }),
         muteOriginal,
