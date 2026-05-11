@@ -830,6 +830,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         );
       }
     }
+    console.log(
+      "[narration]",
+      i,
+      "hasNarrAudio:",
+      hasNarrAudio,
+      "exists:",
+      existsSync(narrLocalAbs)
+    );
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
@@ -844,6 +852,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       1,
       Math.ceil((Number(duration) || 0) * 48000)
     );
+    if (hasNarrAudio) {
+      console.log(
+        "[narration] ffmpeg with narration, overlay:",
+        !!overlayPngFile
+      );
+    }
     if (overlayPngFile) {
       if (hasNarrAudio) {
         const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
