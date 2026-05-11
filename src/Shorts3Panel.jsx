@@ -5268,39 +5268,26 @@ export default function Shorts3Panel({
           {/* 커버박스 (전체 공통) */}
           <div style={{ maxWidth: 480, marginBottom: 12 }}>
             <div
-              className="muted"
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "flex-start",
-                flexWrap: "wrap",
-                gap: 12,
+                gap: 8,
                 marginBottom: 8,
               }}
             >
-              <span style={{ fontWeight: 700 }}>커버박스</span>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  gap: 8,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={coverBox.enabled}
-                  onChange={(e) =>
-                    setCoverBox((v) => ({
-                      ...v,
-                      enabled: e.target.checked,
-                    }))
-                  }
-                />
-                <span className="muted" style={{ fontSize: 13 }}>
-                  커버박스 사용
-                </span>
-              </div>
+              <span className="muted" style={{ fontWeight: 700 }}>
+                커버박스
+              </span>
+              <input
+                type="checkbox"
+                checked={coverBox.enabled}
+                onChange={(e) =>
+                  setCoverBox((v) => ({ ...v, enabled: e.target.checked }))
+                }
+              />
+              <span className="muted" style={{ fontSize: 13 }}>
+                사용
+              </span>
             </div>
             <p
               className="muted"
