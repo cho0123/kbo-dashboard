@@ -1035,7 +1035,7 @@ export default function Shorts3Panel({
     let cancelled = false;
     (async () => {
       try {
-        const thumb = thumbnailSegmentRef.current;
+        const thumb = thumbnailSegment;
         const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
@@ -1056,7 +1056,7 @@ export default function Shorts3Panel({
             200,
             Math.max(20, Math.round(Number(thumb?.fontSize2)) || 52)
           ),
-          showLine: Boolean(thumb?.showLine),
+          showLine: Boolean(thumbnailSegment.showLine),
         });
         if (cancelled) return;
         thumbnailOverlayCanvasRef.current = overlayCanvas;
