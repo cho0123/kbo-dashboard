@@ -1196,6 +1196,27 @@ export default function Shorts3Panel({
     });
   }, []);
 
+  const insertSegmentAfter = useCallback((index) => {
+    setPlayingSegmentIndex((cur) => {
+      if (cur == null) return cur;
+      if (cur > index) return cur + 1;
+      return cur;
+    });
+    setSegments((s) => {
+      if (s.length >= MAX_SEGMENTS) return s;
+      const i = Number(index);
+      if (!Number.isFinite(i) || i < 0 || i >= s.length) return s;
+      const next = [
+        ...s.slice(0, i + 1),
+        emptySegment(),
+        ...s.slice(i + 1),
+      ];
+      setThumbnailSelected(false);
+      setSelectedSegIndex(i + 1);
+      return next;
+    });
+  }, []);
+
   const appendWhisperSegmentsToEditor = useCallback((apiSegs) => {
     const mapped = apiSegs.map((seg) => mapApiSegmentToPanelSegment(seg));
     setSegments((prev) => {
@@ -4489,6 +4510,43 @@ export default function Shorts3Panel({
                     </button>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={
+                    busy || uploading || segments.length >= MAX_SEGMENTS
+                  }
+                  title={
+                    segments.length >= MAX_SEGMENTS
+                      ? `구간은 최대 ${MAX_SEGMENTS}개까지`
+                      : "이 구간 다음에 빈 구간 삽입"
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    insertSegmentAfter(index);
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: 6,
+                    padding: "3px 8px",
+                    fontSize: 10,
+                    lineHeight: 1.2,
+                    borderRadius: 4,
+                    cursor:
+                      busy || uploading || segments.length >= MAX_SEGMENTS
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      busy || uploading || segments.length >= MAX_SEGMENTS
+                        ? 0.5
+                        : 1,
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#ccc",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  ＋ 삽입
+                </button>
               </div>
             ))}
             <button
