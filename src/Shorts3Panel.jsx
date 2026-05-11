@@ -819,6 +819,26 @@ export default function Shorts3Panel({
       if (overlayCanvas) {
         ctx.drawImage(overlayCanvas, 0, 0, W, H);
       }
+      // 3) 커버박스 (일반 구간 미리보기와 동일 hole 기준)
+      if (coverBox?.enabled) {
+        const holeX = SIDE_BAR;
+        const holeY = TOP_BAR;
+        const holeW = W - 2 * SIDE_BAR;
+        const holeH = H - TOP_BAR - BOT_BAR;
+        const xp = Math.min(100, Math.max(0, Number(coverBox.x) || 0)) / 100;
+        const yp = Math.min(100, Math.max(0, Number(coverBox.y) || 0)) / 100;
+        const wp = Math.min(100, Math.max(0, Number(coverBox.width) || 0)) / 100;
+        const hp = Math.min(100, Math.max(0, Number(coverBox.height) || 0)) / 100;
+        if (wp > 0 && hp > 0) {
+          ctx.fillStyle = bg;
+          ctx.fillRect(
+            holeX + xp * holeW,
+            holeY + yp * holeH,
+            wp * holeW,
+            hp * holeH
+          );
+        }
+      }
       return;
     }
 
@@ -1015,29 +1035,28 @@ export default function Shorts3Panel({
     let cancelled = false;
     (async () => {
       try {
+        const thumb = thumbnailSegmentRef.current;
         const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
           tc,
-          text1: String(thumbnailSegment.text1 || "").trim(),
-          text2: String(thumbnailSegment.text2 || "").trim(),
-          font1: String(thumbnailSegment.font1 || "NotoSansKR-Bold").trim(),
-          font2: String(thumbnailSegment.font2 || "NotoSansKR-Bold").trim(),
+          text1: String(thumb?.text1 || "").trim(),
+          text2: String(thumb?.text2 || "").trim(),
+          font1: String(thumb?.font1 || "NotoSansKR-Bold").trim(),
+          font2: String(thumb?.font2 || "NotoSansKR-Bold").trim(),
           textColor1:
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF",
+            String(thumb?.textColor1 || "#FFFFFF").trim() || "#FFFFFF",
           textColor2:
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF",
+            String(thumb?.textColor2 || "#FFFFFF").trim() || "#FFFFFF",
           fontSize1: Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+            Math.max(20, Math.round(Number(thumb?.fontSize1)) || 88)
           ),
           fontSize2: Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+            Math.max(20, Math.round(Number(thumb?.fontSize2)) || 52)
           ),
-          showLine: Boolean(thumbnailSegment.showLine),
+          showLine: Boolean(thumb?.showLine),
         });
         if (cancelled) return;
         thumbnailOverlayCanvasRef.current = overlayCanvas;
