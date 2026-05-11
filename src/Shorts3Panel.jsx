@@ -4313,6 +4313,10 @@ export default function Shorts3Panel({
                         if (!url || typeof url !== "string") {
                           throw new Error("미리듣기 URL을 받지 못했습니다.");
                         }
+                        setThumbnailSegment((prev) => ({
+                          ...prev,
+                          narrationAudioUrl: url,
+                        }));
                         const audio = new Audio(url);
                         audio.onloadedmetadata = () => {
                           const d = audio.duration;
@@ -4320,7 +4324,6 @@ export default function Shorts3Panel({
                           setThumbnailSegment((prev) => ({
                             ...prev,
                             narrationDuration: d,
-                            narrationAudioUrl: url,
                           }));
                         };
                         narrationAudioRef.current = audio;
@@ -4957,19 +4960,18 @@ export default function Shorts3Panel({
                           if (!url || typeof url !== "string") {
                             throw new Error("미리듣기 URL을 받지 못했습니다.");
                           }
+                          setSegments((prev) =>
+                            prev.map((s, i) =>
+                              i === index ? { ...s, narrationAudioUrl: url } : s
+                            )
+                          );
                           const audio = new Audio(url);
                           audio.onloadedmetadata = () => {
                             const d = audio.duration;
                             if (!Number.isFinite(d) || d < 0) return;
                             setSegments((prev) =>
                               prev.map((s, i) =>
-                                i === index
-                                  ? {
-                                      ...s,
-                                      narrationDuration: d,
-                                      narrationAudioUrl: url,
-                                    }
-                                  : s
+                                i === index ? { ...s, narrationDuration: d } : s
                               )
                             );
                           };
