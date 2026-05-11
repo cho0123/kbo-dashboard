@@ -305,9 +305,9 @@ function normalizeCoverBoxForPayload(raw) {
   };
   return {
     enabled: Boolean(src.enabled),
-    x: clampP(src.x, 50),
+    x: clampP(src.x, 0),
     y: clampP(src.y, 50),
-    width: clampP(src.width, 20),
+    width: clampP(src.width, 100),
     height: clampP(src.height, 10),
   };
 }
@@ -655,9 +655,9 @@ export default function Shorts3Panel({
   const [highlightMusicS3Key, setHighlightMusicS3Key] = useState("");
   const [coverBox, setCoverBox] = useState({
     enabled: false,
-    x: 50,
+    x: 0,
     y: 50,
-    width: 20,
+    width: 100,
     height: 10,
   });
   const [bgmVolume, setBgmVolume] = useState(0.8);
@@ -2314,9 +2314,9 @@ export default function Shorts3Panel({
           };
           setCoverBox({
             enabled: Boolean(d.coverBox.enabled),
-            x: clampP(d.coverBox.x, 50),
+            x: clampP(d.coverBox.x, 0),
             y: clampP(d.coverBox.y, 50),
-            width: clampP(d.coverBox.width, 20),
+            width: clampP(d.coverBox.width, 100),
             height: clampP(d.coverBox.height, 10),
           });
         }
@@ -5285,9 +5285,9 @@ export default function Shorts3Panel({
                   ? Math.min(100, Math.max(0, Math.round(n)))
                   : fallback;
               };
-              const xv = num("x", 50);
+              const xv = num("x", 0);
               const yv = num("y", 50);
-              const wv = num("width", 20);
+              const wv = num("width", 100);
               const hv = num("height", 10);
               const patchCover = (key, rawVal) => {
                 setCoverBox((prev) => {
@@ -5367,10 +5367,15 @@ export default function Shorts3Panel({
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
+                      flexWrap: "nowrap",
+                      justifyContent: "flex-start",
+                      width: "100%",
+                      boxSizing: "border-box",
                       fontSize: 13,
                       fontWeight: 700,
                       marginBottom: 8,
                       cursor: busy || uploading ? "default" : "pointer",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     <input
@@ -5378,8 +5383,11 @@ export default function Shorts3Panel({
                       checked={covOn}
                       disabled={busy || uploading}
                       onChange={(e) => patchCover("enabled", e.target.checked)}
+                      style={{ flexShrink: 0 }}
                     />
-                    커버박스 사용
+                    <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                      커버박스 사용
+                    </span>
                   </label>
                   <div
                     style={{
