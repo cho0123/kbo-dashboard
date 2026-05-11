@@ -4849,7 +4849,10 @@ export default function Shorts3Panel({
               />
             </label>
             <label className="preset-field">
-              <span>안정성 ({narrationStability.toFixed(2)})</span>
+              <span>
+                안정성 (낮을수록 다양 / 높을수록 일관된 톤) (
+                {narrationStability.toFixed(2)})
+              </span>
               <input
                 type="range"
                 min={0}
@@ -4863,7 +4866,9 @@ export default function Shorts3Panel({
               />
             </label>
             <label className="preset-field">
-              <span>스타일 ({narrationStyle.toFixed(2)})</span>
+              <span>
+                스타일 (높을수록 더 극적인 표현) ({narrationStyle.toFixed(2)})
+              </span>
               <input
                 type="range"
                 min={0}
@@ -5426,226 +5431,6 @@ export default function Shorts3Panel({
                       setThumbnailSegment((v) => ({ ...v, textColor2: c }))
                     }
                   />
-                </div>
-              </div>
-
-              <div className="label" style={{ marginTop: 14 }}>
-                나레이션
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  marginTop: 4,
-                }}
-              >
-                <label className="preset-field" style={{ marginTop: 0 }}>
-                  <span>나레이션</span>
-                  <textarea
-                    rows={2}
-                    placeholder="TTS로 읽을 나레이션 문장"
-                    value={thumbnailSegment.narration ?? ""}
-                    disabled={busy || uploading || narrationBusy}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({
-                        ...v,
-                        narration: e.target.value,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      resize: "vertical",
-                      minHeight: 48,
-                      boxSizing: "border-box",
-                      fontFamily: "inherit",
-                      fontSize: 13,
-                    }}
-                  />
-                </label>
-                {(() => {
-                  const m = narrationLengthLineModel(
-                    thumbnailSegment.narrationDuration,
-                    thumbnailSegment
-                  );
-                  if (!m) return null;
-                  return (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        lineHeight: 1.35,
-                        userSelect: "none",
-                      }}
-                    >
-                      <span
-                        style={{ color: m.warn ? "#ea580c" : "#64748b" }}
-                      >
-                        {m.text}
-                      </span>
-                    </div>
-                  );
-                })()}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "stretch",
-                    gap: 8,
-                    flexWrap: "nowrap",
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      narrationBusy ||
-                      !jobId ||
-                      !String(thumbnailSegment.narration ?? "").trim()
-                    }
-                    title={
-                      !jobId
-                        ? "원본 업로드 완료 후 사용"
-                        : !String(thumbnailSegment.narration ?? "").trim()
-                          ? "나레이션을 입력하세요"
-                          : "ElevenLabs TTS 미리듣기"
-                    }
-                    onClick={async () => {
-                      const narrText = String(
-                        thumbnailSegment.narration ?? ""
-                      ).trim();
-                      if (!narrText || !jobId) return;
-                      const prevA = narrationAudioRef.current;
-                      if (prevA) {
-                        try {
-                          prevA.pause();
-                        } catch {
-                          /* ignore */
-                        }
-                        prevA.src = "";
-                        narrationAudioRef.current = null;
-                      }
-                      setNarrationBusy(true);
-                      setError(null);
-                      try {
-                        const json = await postKbo({
-                          action: "elevenlabs_tts",
-                          jobId,
-                          segIndex: 0,
-                          text: narrText,
-                          speed: narrationSpeed,
-                          stability: narrationStability,
-                          style: narrationStyle,
-                        });
-                        const url = json?.presignedUrl;
-                        if (!url || typeof url !== "string") {
-                          throw new Error("미리듣기 URL을 받지 못했습니다.");
-                        }
-                        const audio = new Audio(url);
-                        audio.onloadedmetadata = () => {
-                          const d = audio.duration;
-                          if (!Number.isFinite(d) || d < 0) return;
-                          setThumbnailSegment((prev) => ({
-                            ...prev,
-                            narrationDuration: d,
-                          }));
-                        };
-                        narrationAudioRef.current = audio;
-                        await audio.play();
-                      } catch (err) {
-                        setError(
-                          err instanceof Error ? err.message : String(err)
-                        );
-                      } finally {
-                        setNarrationBusy(false);
-                      }
-                    }}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      ...NARRATION_ROW_BTN_TTS,
-                      cursor:
-                        busy ||
-                        uploading ||
-                        narrationBusy ||
-                        !jobId ||
-                        !String(thumbnailSegment.narration ?? "").trim()
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy ||
-                        uploading ||
-                        narrationBusy ||
-                        !jobId ||
-                        !String(thumbnailSegment.narration ?? "").trim()
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    ▶ 미리듣기
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      !previewUrl ||
-                      isPlayingAll ||
-                      String(thumbnailSegment.end || "").trim() === ""
-                    }
-                    title={
-                      String(thumbnailSegment.end || "").trim() === ""
-                        ? "종료 시각을 설정하세요"
-                        : "썸네일 시작~종료 구간만 재생"
-                    }
-                    onClick={() => playThumbnailSegmentPreview()}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      ...NARRATION_ROW_BTN_SEGMENT_PLAY,
-                      cursor:
-                        busy ||
-                        uploading ||
-                        !previewUrl ||
-                        isPlayingAll ||
-                        String(thumbnailSegment.end || "").trim() === ""
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy ||
-                        uploading ||
-                        !previewUrl ||
-                        isPlayingAll ||
-                        String(thumbnailSegment.end || "").trim() === ""
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    ▶ 구간 재생
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      busy || uploading || segments.length >= MAX_SEGMENTS
-                    }
-                    title={
-                      segments.length >= MAX_SEGMENTS
-                        ? `구간은 최대 ${MAX_SEGMENTS}개까지`
-                        : "첫 본편 구간 앞에 빈 구간 삽입"
-                    }
-                    onClick={() => insertSegmentBeforeFirst()}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      cursor:
-                        busy || uploading || segments.length >= MAX_SEGMENTS
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy || uploading || segments.length >= MAX_SEGMENTS
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    + 구간 삽입
-                  </button>
                 </div>
               </div>
 
