@@ -5362,33 +5362,28 @@ export default function Shorts3Panel({
               );
               return (
                 <>
-                  <label
+                  <div
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
-                      flexWrap: "nowrap",
-                      justifyContent: "flex-start",
-                      width: "100%",
-                      boxSizing: "border-box",
-                      fontSize: 13,
-                      fontWeight: 700,
                       marginBottom: 8,
-                      cursor: busy || uploading ? "default" : "pointer",
-                      whiteSpace: "nowrap",
                     }}
                   >
                     <input
                       type="checkbox"
-                      checked={covOn}
-                      disabled={busy || uploading}
-                      onChange={(e) => patchCover("enabled", e.target.checked)}
-                      style={{ flexShrink: 0 }}
+                      checked={coverBox.enabled}
+                      onChange={(e) =>
+                        setCoverBox((v) => ({
+                          ...v,
+                          enabled: e.target.checked,
+                        }))
+                      }
                     />
-                    <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+                    <span style={{ fontSize: 13, color: "#e2e8f0" }}>
                       커버박스 사용
                     </span>
-                  </label>
+                  </div>
                   <div
                     style={{
                       display: "grid",
