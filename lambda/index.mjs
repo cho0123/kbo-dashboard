@@ -838,7 +838,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     );
     if (overlayPngFile) {
       if (hasNarrAudio) {
-        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
         runFfmpeg(
           [
             "-y",
@@ -959,7 +959,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         );
       }
     } else if (hasNarrAudio) {
-      const fc = `[0:v]${vfSeg}[v];[1:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+      const fc = `[0:v]${vfSeg}[v];[1:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
       runFfmpeg(
         [
           "-y",
