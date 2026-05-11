@@ -65,6 +65,22 @@ const SEGMENT_NUDGE_BTN_STYLE = {
   cursor: "pointer",
 };
 
+/** 나레이션 하단 3버튼 행(미리듣기·구간 재생·구간 삽입) 공통 */
+const NARRATION_ROW_BTN_BASE = {
+  flex: 1,
+  minWidth: 0,
+  padding: "8px 6px",
+  borderRadius: 6,
+  fontSize: 12,
+  fontFamily: "inherit",
+  boxSizing: "border-box",
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.2)",
+  color: "#e2e8f0",
+  textAlign: "center",
+  lineHeight: 1.25,
+};
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -1213,6 +1229,21 @@ export default function Shorts3Panel({
       ];
       setThumbnailSelected(false);
       setSelectedSegIndex(i + 1);
+      return next;
+    });
+  }, []);
+
+  /** 썸네일 카드: 첫 본편 구간(index 0) 앞에 빈 구간 삽입 후 선택 */
+  const insertSegmentBeforeFirst = useCallback(() => {
+    setPlayingSegmentIndex((cur) => {
+      if (cur == null) return cur;
+      return cur + 1;
+    });
+    setSegments((s) => {
+      if (s.length >= MAX_SEGMENTS) return s;
+      const next = [emptySegment(), ...s];
+      setThumbnailSelected(false);
+      setSelectedSegIndex(0);
       return next;
     });
   }, []);
@@ -3830,9 +3861,9 @@ export default function Shorts3Panel({
                   style={{
                     display: "flex",
                     flexDirection: "row",
-                    alignItems: "center",
+                    alignItems: "stretch",
                     gap: 6,
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                   }}
                 >
                   <button
@@ -3892,14 +3923,7 @@ export default function Shorts3Panel({
                       }
                     }}
                     style={{
-                      padding: "4px 10px",
-                      borderRadius: 6,
-                      border: "1px solid #1e40af",
-                      background: "#2563eb",
-                      color: "#ffffff",
-                      fontFamily: "inherit",
-                      fontSize: 11,
-                      fontWeight: 700,
+                      ...NARRATION_ROW_BTN_BASE,
                       cursor:
                         busy ||
                         uploading ||
@@ -3922,7 +3946,6 @@ export default function Shorts3Panel({
                   </button>
                   <button
                     type="button"
-                    className="primary"
                     disabled={
                       busy ||
                       uploading ||
@@ -3940,12 +3963,54 @@ export default function Shorts3Panel({
                       playThumbnailSegmentPreview();
                     }}
                     style={{
-                      padding: "4px 8px",
-                      fontSize: 11,
-                      whiteSpace: "nowrap",
+                      ...NARRATION_ROW_BTN_BASE,
+                      cursor:
+                        busy ||
+                        uploading ||
+                        !previewUrl ||
+                        isPlayingAll ||
+                        String(thumbnailSegment.end || "").trim() === ""
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        busy ||
+                        uploading ||
+                        !previewUrl ||
+                        isPlayingAll ||
+                        String(thumbnailSegment.end || "").trim() === ""
+                          ? 0.5
+                          : 1,
                     }}
                   >
                     ▶ 구간 재생
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      busy || uploading || segments.length >= MAX_SEGMENTS
+                    }
+                    title={
+                      segments.length >= MAX_SEGMENTS
+                        ? `구간은 최대 ${MAX_SEGMENTS}개까지`
+                        : "첫 본편 구간 앞에 빈 구간 삽입"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      insertSegmentBeforeFirst();
+                    }}
+                    style={{
+                      ...NARRATION_ROW_BTN_BASE,
+                      cursor:
+                        busy || uploading || segments.length >= MAX_SEGMENTS
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        busy || uploading || segments.length >= MAX_SEGMENTS
+                          ? 0.5
+                          : 1,
+                    }}
+                  >
+                    + 구간 삽입
                   </button>
                 </div>
               </div>
@@ -4388,9 +4453,9 @@ export default function Shorts3Panel({
                     style={{
                       display: "flex",
                       flexDirection: "row",
-                      alignItems: "center",
+                      alignItems: "stretch",
                       gap: 6,
-                      flexWrap: "wrap",
+                      flexWrap: "nowrap",
                     }}
                   >
                     <button
@@ -4451,14 +4516,7 @@ export default function Shorts3Panel({
                         }
                       }}
                       style={{
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #1e40af",
-                        background: "#2563eb",
-                        color: "#ffffff",
-                        fontFamily: "inherit",
-                        fontSize: 11,
-                        fontWeight: 700,
+                        ...NARRATION_ROW_BTN_BASE,
                         cursor:
                           busy ||
                           uploading ||
@@ -4481,7 +4539,6 @@ export default function Shorts3Panel({
                     </button>
                     <button
                       type="button"
-                      className="primary"
                       disabled={
                         busy ||
                         uploading ||
@@ -4499,54 +4556,59 @@ export default function Shorts3Panel({
                         toggleSegmentPreviewPlayback(index);
                       }}
                       style={{
-                        padding: "4px 8px",
-                        fontSize: 11,
-                        whiteSpace: "nowrap",
+                        ...NARRATION_ROW_BTN_BASE,
+                        cursor:
+                          busy ||
+                          uploading ||
+                          !previewUrl ||
+                          uploadPhase !== "done" ||
+                          !segmentPlaybackTimesValid(seg)
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          busy ||
+                          uploading ||
+                          !previewUrl ||
+                          uploadPhase !== "done" ||
+                          !segmentPlaybackTimesValid(seg)
+                            ? 0.5
+                            : 1,
                       }}
                     >
                       {playingSegmentIndex === index && !previewPlaybackPaused
                         ? "⏸ 일시정지"
                         : "▶ 구간 재생"}
                     </button>
+                    <button
+                      type="button"
+                      disabled={
+                        busy || uploading || segments.length >= MAX_SEGMENTS
+                      }
+                      title={
+                        segments.length >= MAX_SEGMENTS
+                          ? `구간은 최대 ${MAX_SEGMENTS}개까지`
+                          : "이 구간 다음에 빈 구간 삽입"
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        insertSegmentAfter(index);
+                      }}
+                      style={{
+                        ...NARRATION_ROW_BTN_BASE,
+                        cursor:
+                          busy || uploading || segments.length >= MAX_SEGMENTS
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          busy || uploading || segments.length >= MAX_SEGMENTS
+                            ? 0.5
+                            : 1,
+                      }}
+                    >
+                      + 구간 삽입
+                    </button>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  disabled={
-                    busy || uploading || segments.length >= MAX_SEGMENTS
-                  }
-                  title={
-                    segments.length >= MAX_SEGMENTS
-                      ? `구간은 최대 ${MAX_SEGMENTS}개까지`
-                      : "이 구간 다음에 빈 구간 삽입"
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    insertSegmentAfter(index);
-                  }}
-                  style={{
-                    alignSelf: "flex-start",
-                    marginTop: 6,
-                    padding: "3px 8px",
-                    fontSize: 10,
-                    lineHeight: 1.2,
-                    borderRadius: 4,
-                    cursor:
-                      busy || uploading || segments.length >= MAX_SEGMENTS
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      busy || uploading || segments.length >= MAX_SEGMENTS
-                        ? 0.5
-                        : 1,
-                    background: "rgba(255,255,255,0.08)",
-                    color: "#ccc",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  ＋ 삽입
-                </button>
               </div>
             ))}
             <button
@@ -5205,9 +5267,9 @@ export default function Shorts3Panel({
                   style={{
                     display: "flex",
                     flexDirection: "row",
-                    alignItems: "center",
+                    alignItems: "stretch",
                     gap: 8,
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                   }}
                 >
                   <button
@@ -5266,13 +5328,7 @@ export default function Shorts3Panel({
                       }
                     }}
                     style={{
-                      padding: "8px 14px",
-                      borderRadius: 6,
-                      border: "1px solid #1e40af",
-                      background: "#2563eb",
-                      color: "#ffffff",
-                      fontFamily: "inherit",
-                      fontWeight: 700,
+                      ...NARRATION_ROW_BTN_BASE,
                       cursor:
                         busy ||
                         uploading ||
@@ -5295,7 +5351,6 @@ export default function Shorts3Panel({
                   </button>
                   <button
                     type="button"
-                    className="primary"
                     disabled={
                       busy ||
                       uploading ||
@@ -5310,12 +5365,51 @@ export default function Shorts3Panel({
                     }
                     onClick={() => playThumbnailSegmentPreview()}
                     style={{
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      borderRadius: 6,
+                      ...NARRATION_ROW_BTN_BASE,
+                      cursor:
+                        busy ||
+                        uploading ||
+                        !previewUrl ||
+                        isPlayingAll ||
+                        String(thumbnailSegment.end || "").trim() === ""
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        busy ||
+                        uploading ||
+                        !previewUrl ||
+                        isPlayingAll ||
+                        String(thumbnailSegment.end || "").trim() === ""
+                          ? 0.5
+                          : 1,
                     }}
                   >
                     ▶ 구간 재생
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      busy || uploading || segments.length >= MAX_SEGMENTS
+                    }
+                    title={
+                      segments.length >= MAX_SEGMENTS
+                        ? `구간은 최대 ${MAX_SEGMENTS}개까지`
+                        : "첫 본편 구간 앞에 빈 구간 삽입"
+                    }
+                    onClick={() => insertSegmentBeforeFirst()}
+                    style={{
+                      ...NARRATION_ROW_BTN_BASE,
+                      cursor:
+                        busy || uploading || segments.length >= MAX_SEGMENTS
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        busy || uploading || segments.length >= MAX_SEGMENTS
+                          ? 0.5
+                          : 1,
+                    }}
+                  >
+                    + 구간 삽입
                   </button>
                 </div>
               </div>
