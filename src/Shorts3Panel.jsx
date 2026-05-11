@@ -5366,6 +5366,7 @@ export default function Shorts3Panel({
                     style={{
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "flex-start",
                       gap: 8,
                       marginBottom: 8,
                     }}
@@ -5380,7 +5381,7 @@ export default function Shorts3Panel({
                         }))
                       }
                     />
-                    <span style={{ fontSize: 13, color: "#e2e8f0" }}>
+                    <span className="muted" style={{ fontSize: 13 }}>
                       커버박스 사용
                     </span>
                   </div>
