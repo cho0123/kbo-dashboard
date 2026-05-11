@@ -908,8 +908,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           `highlight_seg_${i}_overlay_narr`
         );
       } else {
-        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
         const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+        const fc = muteSegNoNarr
+          ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`
+          : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
         const overlayNoNarrArgs = [
           "-y",
           "-ss",
@@ -930,24 +932,48 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "[out]",
         ];
         if (muteSegNoNarr) {
-          overlayNoNarrArgs.push("-an");
+          overlayNoNarrArgs.push(
+            "-map",
+            "[aud]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-shortest",
+            `seg_${i}.mp4`
+          );
         } else {
-          overlayNoNarrArgs.push("-map", "0:a?", "-c:a", "aac");
+          overlayNoNarrArgs.push(
+            "-map",
+            "0:a?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            "-shortest",
+            `seg_${i}.mp4`
+          );
         }
-        overlayNoNarrArgs.push(
-          "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "23",
-          "-pix_fmt",
-          "yuv420p",
-          "-r",
-          "30",
-          "-shortest",
-          `seg_${i}.mp4`
-        );
         runFfmpeg(
           overlayNoNarrArgs,
           workDir,
@@ -998,38 +1024,75 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       );
     } else {
       const muteSegNoNarr = muteOriginal && !hasNarrAudio;
-      const noOverlayArgs = [
-        "-y",
-        "-ss",
-        String(startSec),
-        "-i",
-        sourceFileName,
-        "-t",
-        String(duration),
-        "-vf",
-        vfSeg,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "ultrafast",
-        "-crf",
-        "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
-      ];
       if (muteSegNoNarr) {
-        noOverlayArgs.push("-an");
+        const fc = `[0:v]${vfSeg}[out];anullsrc=r=48000:cl=stereo[aud]`;
+        runFfmpeg(
+          [
+            "-y",
+            "-ss",
+            String(startSec),
+            "-i",
+            sourceFileName,
+            "-t",
+            String(duration),
+            "-filter_complex",
+            fc,
+            "-map",
+            "[out]",
+            "-map",
+            "[aud]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-shortest",
+            `seg_${i}.mp4`,
+          ],
+          workDir,
+          `highlight_seg_${i}_mo`
+        );
       } else {
-        noOverlayArgs.push("-c:a", "aac");
+        runFfmpeg(
+          [
+            "-y",
+            "-ss",
+            String(startSec),
+            "-i",
+            sourceFileName,
+            "-t",
+            String(duration),
+            "-vf",
+            vfSeg,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "23",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "30",
+            "-c:a",
+            "aac",
+            `seg_${i}.mp4`,
+          ],
+          workDir,
+          `highlight_seg_${i}`
+        );
       }
-      noOverlayArgs.push(`seg_${i}.mp4`);
-      runFfmpeg(
-        noOverlayArgs,
-        workDir,
-        muteSegNoNarr ? `highlight_seg_${i}_mo` : `highlight_seg_${i}`
-      );
     }
   }
 
