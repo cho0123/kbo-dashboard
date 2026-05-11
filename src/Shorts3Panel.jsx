@@ -5268,7 +5268,7 @@ export default function Shorts3Panel({
           {/* 커버박스 (전체 공통) */}
           <div style={{ maxWidth: 480, marginBottom: 12 }}>
             <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-              커버박스
+              커버박스 TEST
             </div>
             <p
               className="muted"
