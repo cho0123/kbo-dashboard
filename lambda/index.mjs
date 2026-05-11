@@ -808,9 +808,19 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;
     const narrLocalAbs = join(workDir, narrLocalRel);
+    console.log(
+      "[narration]",
+      i,
+      "narration:",
+      seg?.narration ? "있음" : "없음"
+    );
     let hasNarrAudio = false;
     if (seg.narration != null && String(seg.narration).trim() !== "") {
       try {
+        console.log(
+          "[narration] downloading:",
+          `jobs/${jobId}/narration_${i}.mp3`
+        );
         await getObjectFile(bucket, narrS3Key, narrLocalAbs);
         hasNarrAudio = existsSync(narrLocalAbs);
       } catch (e) {
