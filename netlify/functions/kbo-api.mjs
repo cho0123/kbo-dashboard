@@ -2868,7 +2868,7 @@ ${JSON.stringify(games, null, 2)}`;
           const endMs = Number.isFinite(endMsRaw)
             ? Math.min(99, Math.max(0, Math.round(endMsRaw)))
             : 0;
-          segments.push({
+          const segRow = {
             start: st,
             end: en,
             startMs,
@@ -2890,7 +2890,11 @@ ${JSON.stringify(games, null, 2)}`;
             textShadow2: Boolean(s.textShadow2),
             narration:
               s.narration != null ? String(s.narration).trim() : "",
-          });
+          };
+          if (s._thumbnailClip === true) {
+            segRow._thumbnailClip = true;
+          }
+          segments.push(segRow);
         }
         if (segments.length < 1) {
           return {
@@ -3041,11 +3045,14 @@ ${JSON.stringify(games, null, 2)}`;
           };
         })();
 
+        const thumbnailShowLine = payload.thumbnailShowLine === true;
+
         const meta = {
           type: "highlight",
           sourceUpload: true,
           segments,
           coverBox: coverBoxMeta,
+          thumbnailShowLine,
           muteOriginal,
           musicOptions,
           topText,

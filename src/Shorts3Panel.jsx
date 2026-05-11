@@ -2645,6 +2645,7 @@ export default function Shorts3Panel({
           };
         }),
         coverBox: normalizeCoverBoxForPayload(coverBox),
+        thumbnailShowLine: Boolean(thumbnailSegment.showLine),
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
@@ -2667,6 +2668,7 @@ export default function Shorts3Panel({
         thumbEnd > thumbStart
       ) {
         const thumbSegPayload = {
+          _thumbnailClip: true,
           start: thumbnailSegment.start,
           startMs: thumbnailSegment.startMs,
           end: thumbnailSegment.end,

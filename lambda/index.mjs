@@ -816,7 +816,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
     // 하단 텍스트는 썸네일 구간(THUMB_SEG_FLAG)일 때 meta 기준으로만 달라지고,
     // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반 구간과 동일하게 적용한다.
-    const vfSeg = buildHighlightSegmentVf({
+    let vfSeg = buildHighlightSegmentVf({
       cw,
       ih,
       cx,
@@ -845,6 +845,13 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       coverBox: coverBoxGlobal,
       teamColorForCover: borderColorPrimary,
     });
+    if (seg[THUMB_SEG_FLAG] === true && meta.thumbnailShowLine === true) {
+      const thumbLineDraw =
+        "drawbox=x='iw*0.1':y='ih*0.5':w='iw*0.8':h='4':color=white@1:t=fill";
+      vfSeg = /,fps=30$/.test(vfSeg)
+        ? vfSeg.replace(/,fps=30$/, `,${thumbLineDraw},fps=30`)
+        : `${vfSeg},${thumbLineDraw},fps=30`;
+    }
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;
     const narrLocalAbs = join(workDir, narrLocalRel);
