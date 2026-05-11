@@ -269,14 +269,6 @@ function TextColorPalette({ value, onChange, disabled }) {
   );
 }
 
-const DEFAULT_COVER_BOX = Object.freeze({
-  enabled: false,
-  x: 50,
-  y: 50,
-  width: 20,
-  height: 10,
-});
-
 function emptySegment() {
   return {
     id: newSegmentId(),
@@ -302,7 +294,21 @@ function emptySegment() {
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
-    coverBox: { ...DEFAULT_COVER_BOX },
+  };
+}
+
+function normalizeCoverBoxForPayload(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const clampP = (v, d) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : d;
+  };
+  return {
+    enabled: Boolean(src.enabled),
+    x: clampP(src.x, 50),
+    y: clampP(src.y, 50),
+    width: clampP(src.width, 20),
+    height: clampP(src.height, 10),
   };
 }
 
@@ -647,6 +653,13 @@ export default function Shorts3Panel({
   const [muteOriginal, setMuteOriginal] = useState(true);
   const [musicTracks, setMusicTracks] = useState([]);
   const [highlightMusicS3Key, setHighlightMusicS3Key] = useState("");
+  const [coverBox, setCoverBox] = useState({
+    enabled: false,
+    x: 50,
+    y: 50,
+    width: 20,
+    height: 10,
+  });
   const [bgmVolume, setBgmVolume] = useState(0.8);
   const [bgmStartTime, setBgmStartTime] = useState(0);
   const [bgmFadeOut, setBgmFadeOut] = useState(2);
@@ -700,6 +713,7 @@ export default function Shorts3Panel({
         narrationSpeed,
         narrationStability,
         narrationStyle,
+        coverBox,
       };
       localStorage.setItem(draftStorageKey(jobId), JSON.stringify(payload));
     } catch (e) {
@@ -724,6 +738,7 @@ export default function Shorts3Panel({
     narrationSpeed,
     narrationStability,
     narrationStyle,
+    coverBox,
     draftSaveGeneration,
   ]);
 
@@ -845,7 +860,7 @@ export default function Shorts3Panel({
     ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
 
     // 4b) 커버박스 (팀컬러, hole = 좌우 사이드 제외·상하단 제외 영역 기준 %)
-    const cbRaw = selectedSeg?.coverBox;
+    const cbRaw = coverBox;
     if (cbRaw?.enabled) {
       const holeX = SIDE_BAR;
       const holeY = TOP_BAR;
@@ -955,6 +970,7 @@ export default function Shorts3Panel({
     selectedTeam,
     teamColor,
     thumbnailSelected,
+    coverBox,
   ]);
 
   useEffect(() => {
@@ -1884,36 +1900,6 @@ export default function Shorts3Panel({
     );
   };
 
-  const handleCoverBoxChange = (segIndex, key, rawVal) => {
-    setSegments((prev) =>
-      prev.map((seg, i) => {
-        if (i !== segIndex) return seg;
-        const d = { ...DEFAULT_COVER_BOX };
-        const prevCb =
-          seg.coverBox && typeof seg.coverBox === "object" ? seg.coverBox : {};
-        const base = {
-          enabled: Boolean(prevCb.enabled),
-          x: Number.isFinite(Number(prevCb.x)) ? Number(prevCb.x) : d.x,
-          y: Number.isFinite(Number(prevCb.y)) ? Number(prevCb.y) : d.y,
-          width: Number.isFinite(Number(prevCb.width))
-            ? Number(prevCb.width)
-            : d.width,
-          height: Number.isFinite(Number(prevCb.height))
-            ? Number(prevCb.height)
-            : d.height,
-        };
-        if (key === "enabled") {
-          return { ...seg, coverBox: { ...base, enabled: Boolean(rawVal) } };
-        }
-        const n = Number(rawVal);
-        const v = Number.isFinite(n)
-          ? Math.min(100, Math.max(0, Math.round(n)))
-          : base[key];
-        return { ...seg, coverBox: { ...base, [key]: v } };
-      })
-    );
-  };
-
   const handleSegmentOverlayChange = (segIndex, field, rawVal) => {
     setSegments((prev) => {
       const next = prev.map((seg, i) => {
@@ -2200,6 +2186,13 @@ export default function Shorts3Panel({
     setBgmStartTime(0);
     setBgmFadeOut(2);
     setHighlightMusicS3Key("");
+    setCoverBox({
+      enabled: false,
+      x: 50,
+      y: 50,
+      width: 20,
+      height: 10,
+    });
     setSelectedTeam("삼성");
     setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#074CA1");
     setSelectedSegIndex(0);
@@ -2292,6 +2285,21 @@ export default function Shorts3Panel({
         }
         if (d.narrationStyle != null && Number.isFinite(Number(d.narrationStyle))) {
           setNarrationStyle(Math.min(1, Math.max(0, Number(d.narrationStyle))));
+        }
+        if (d.coverBox && typeof d.coverBox === "object") {
+          const clampP = (v, fallback) => {
+            const n = Number(v);
+            return Number.isFinite(n)
+              ? Math.min(100, Math.max(0, Math.round(n)))
+              : fallback;
+          };
+          setCoverBox({
+            enabled: Boolean(d.coverBox.enabled),
+            x: clampP(d.coverBox.x, 50),
+            y: clampP(d.coverBox.y, 50),
+            width: clampP(d.coverBox.width, 20),
+            height: clampP(d.coverBox.height, 10),
+          });
         }
         restored = true;
       }
@@ -2615,27 +2623,9 @@ export default function Shorts3Panel({
               )
             ),
             narration: String(s.narration ?? "").trim(),
-            coverBox: (() => {
-              const d = { ...DEFAULT_COVER_BOX };
-              const raw = s?.coverBox;
-              const src =
-                raw && typeof raw === "object" ? raw : {};
-              const clampP = (n, fallback) => {
-                const x = Number(n);
-                return Number.isFinite(x)
-                  ? Math.min(100, Math.max(0, Math.round(x)))
-                  : fallback;
-              };
-              return {
-                enabled: Boolean(src.enabled),
-                x: clampP(src.x, d.x),
-                y: clampP(src.y, d.y),
-                width: clampP(src.width, d.width),
-                height: clampP(src.height, d.height),
-              };
-            })(),
           };
         }),
+        coverBox: normalizeCoverBoxForPayload(coverBox),
         muteOriginal,
         musicOptions: {
           volume: bgmVolume,
@@ -5256,6 +5246,139 @@ export default function Shorts3Panel({
           {/* 구분선 */}
           <hr style={{ borderColor: "#333", margin: "8px 0" }} />
 
+          {/* 커버박스 (전체 공통) */}
+          <div style={{ maxWidth: 480, marginBottom: 12 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+              커버박스
+            </div>
+            <p
+              className="muted"
+              style={{ margin: "0 0 8px", fontSize: 11, lineHeight: 1.45 }}
+            >
+              모든 구간에 동일하게 적용됩니다. 색상은 팀 컬러를 사용합니다. 위치·크기는
+              중앙 영역(홀) 기준 %입니다.
+            </p>
+            {(() => {
+              const covOn = Boolean(coverBox.enabled);
+              const num = (k, fallback) => {
+                const n = Number(coverBox[k]);
+                return Number.isFinite(n)
+                  ? Math.min(100, Math.max(0, Math.round(n)))
+                  : fallback;
+              };
+              const xv = num("x", 50);
+              const yv = num("y", 50);
+              const wv = num("width", 20);
+              const hv = num("height", 10);
+              const patchCover = (key, rawVal) => {
+                setCoverBox((prev) => {
+                  if (key === "enabled") {
+                    return { ...prev, enabled: Boolean(rawVal) };
+                  }
+                  const n = Number(rawVal);
+                  const v = Number.isFinite(n)
+                    ? Math.min(100, Math.max(0, Math.round(n)))
+                    : prev[key];
+                  return { ...prev, [key]: v };
+                });
+              };
+              const sliderRow = (label, key, val) => (
+                <label
+                  className="muted"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    minWidth: 0,
+                  }}
+                >
+                  {label}: {val}%
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={val}
+                      disabled={busy || uploading || !covOn}
+                      onChange={(e) => patchCover(key, e.target.value)}
+                      style={{ flex: 1, minWidth: 0 }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={val}
+                      disabled={busy || uploading || !covOn}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        patchCover(
+                          key,
+                          Math.min(100, Math.max(0, Math.round(n)))
+                        );
+                      }}
+                      style={{
+                        width: 52,
+                        padding: "2px 4px",
+                        fontSize: 11,
+                        boxSizing: "border-box",
+                        background: "#1e1e1e",
+                        color: "#fff",
+                        border: "1px solid #444",
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
+                </label>
+              );
+              return (
+                <>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      marginBottom: 8,
+                      cursor: busy || uploading ? "default" : "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={covOn}
+                      disabled={busy || uploading}
+                      onChange={(e) => patchCover("enabled", e.target.checked)}
+                    />
+                    커버박스 사용
+                  </label>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 10,
+                    }}
+                  >
+                    {sliderRow("X", "x", xv)}
+                    {sliderRow("Y", "y", yv)}
+                    {sliderRow("너비", "width", wv)}
+                    {sliderRow("높이", "height", hv)}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
           {/* 나레이션 공통 (TTS) */}
           <div style={{ maxWidth: 480, marginBottom: 10 }}>
             <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
@@ -5927,143 +6050,6 @@ export default function Shorts3Panel({
                       {formatCropOffsetLabel(seg.cropOffset ?? 0)}
                     </span>
                   </div>
-
-                  <div className="label" style={{ marginTop: 10 }}>
-                    커버박스
-                  </div>
-                  <p
-                    className="muted"
-                    style={{
-                      margin: "0 0 8px",
-                      fontSize: 11,
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    색상은 팀 컬러로 자동 적용됩니다. 위치·크기는 중앙 영역(홀) 기준
-                    %입니다.
-                  </p>
-                  {(() => {
-                    const cb = {
-                      ...DEFAULT_COVER_BOX,
-                      ...(seg.coverBox && typeof seg.coverBox === "object"
-                        ? seg.coverBox
-                        : {}),
-                    };
-                    const covOn = Boolean(cb.enabled);
-                    const num = (k, fallback) => {
-                      const n = Number(cb[k]);
-                      return Number.isFinite(n)
-                        ? Math.min(100, Math.max(0, Math.round(n)))
-                        : fallback;
-                    };
-                    const xv = num("x", 50);
-                    const yv = num("y", 50);
-                    const wv = num("width", 20);
-                    const hv = num("height", 10);
-                    const sliderRow = (label, key, val) => (
-                      <label
-                        className="muted"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          minWidth: 0,
-                        }}
-                      >
-                        {label}: {val}%
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={val}
-                            disabled={busy || uploading || !covOn}
-                            onChange={(e) =>
-                              handleCoverBoxChange(index, key, e.target.value)
-                            }
-                            style={{ flex: 1, minWidth: 0 }}
-                          />
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={val}
-                            disabled={busy || uploading || !covOn}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              if (!Number.isFinite(n)) return;
-                              handleCoverBoxChange(
-                                index,
-                                key,
-                                Math.min(100, Math.max(0, Math.round(n)))
-                              );
-                            }}
-                            style={{
-                              width: 52,
-                              padding: "2px 4px",
-                              fontSize: 11,
-                              boxSizing: "border-box",
-                              background: "#1e1e1e",
-                              color: "#fff",
-                              border: "1px solid #444",
-                              borderRadius: 4,
-                            }}
-                          />
-                        </div>
-                      </label>
-                    );
-                    return (
-                      <>
-                        <label
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            marginBottom: 8,
-                            cursor: busy || uploading ? "default" : "pointer",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={covOn}
-                            disabled={busy || uploading}
-                            onChange={(e) =>
-                              handleCoverBoxChange(
-                                index,
-                                "enabled",
-                                e.target.checked
-                              )
-                            }
-                          />
-                          커버박스 사용
-                        </label>
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
-                            gap: 10,
-                          }}
-                        >
-                          {sliderRow("X", "x", xv)}
-                          {sliderRow("Y", "y", yv)}
-                          {sliderRow("너비", "width", wv)}
-                          {sliderRow("높이", "height", hv)}
-                        </div>
-                      </>
-                    );
-                  })()}
 
                   <div className="label" style={{ marginTop: 8 }}>
                     텍스트 1

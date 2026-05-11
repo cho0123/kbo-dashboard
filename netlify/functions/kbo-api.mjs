@@ -2868,21 +2868,6 @@ ${JSON.stringify(games, null, 2)}`;
           const endMs = Number.isFinite(endMsRaw)
             ? Math.min(99, Math.max(0, Math.round(endMsRaw)))
             : 0;
-          const clampPct = (v, d) => {
-            const n = Number(v);
-            return Number.isFinite(n)
-              ? Math.min(100, Math.max(0, Math.round(n)))
-              : d;
-          };
-          const rawCb =
-            s.coverBox && typeof s.coverBox === "object" ? s.coverBox : {};
-          const coverBox = {
-            enabled: Boolean(rawCb.enabled),
-            x: clampPct(rawCb.x, 50),
-            y: clampPct(rawCb.y, 50),
-            width: clampPct(rawCb.width, 20),
-            height: clampPct(rawCb.height, 10),
-          };
           segments.push({
             start: st,
             end: en,
@@ -2905,7 +2890,6 @@ ${JSON.stringify(games, null, 2)}`;
             textShadow2: Boolean(s.textShadow2),
             narration:
               s.narration != null ? String(s.narration).trim() : "",
-            coverBox,
           });
         }
         if (segments.length < 1) {
@@ -3036,10 +3020,32 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
 
+        const rawCoverPayload = payload.coverBox;
+        const coverBoxMeta = (() => {
+          const src =
+            rawCoverPayload && typeof rawCoverPayload === "object"
+              ? rawCoverPayload
+              : {};
+          const clampPct = (v, d) => {
+            const n = Number(v);
+            return Number.isFinite(n)
+              ? Math.min(100, Math.max(0, Math.round(n)))
+              : d;
+          };
+          return {
+            enabled: Boolean(src.enabled),
+            x: clampPct(src.x, 50),
+            y: clampPct(src.y, 50),
+            width: clampPct(src.width, 20),
+            height: clampPct(src.height, 10),
+          };
+        })();
+
         const meta = {
           type: "highlight",
           sourceUpload: true,
           segments,
+          coverBox: coverBoxMeta,
           muteOriginal,
           musicOptions,
           topText,

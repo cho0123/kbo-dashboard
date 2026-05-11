@@ -737,6 +737,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   }
 
   const numSeg = segments.length;
+  const coverBoxGlobal = normalizeCoverBoxForLambda(meta?.coverBox);
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
     let startSec;
@@ -812,7 +813,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
       writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
-    const coverBoxNorm = normalizeCoverBoxForLambda(seg?.coverBox);
     const vfSeg = buildHighlightSegmentVf({
       cw,
       ih,
@@ -839,7 +839,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topFontPath,
       bottomFontPath,
       bottomFontPath2,
-      coverBox: coverBoxNorm,
+      coverBox: coverBoxGlobal,
       teamColorForCover: borderColorPrimary,
     });
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
