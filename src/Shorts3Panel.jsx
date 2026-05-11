@@ -630,6 +630,10 @@ export default function Shorts3Panel({
   const [bgmStartTime, setBgmStartTime] = useState(0);
   const [bgmFadeOut, setBgmFadeOut] = useState(2);
 
+  const [narrationSpeed, setNarrationSpeed] = useState(1.0);
+  const [narrationStability, setNarrationStability] = useState(0.5);
+  const [narrationStyle, setNarrationStyle] = useState(0.3);
+
   const [topText, setTopText] = useState("");
   const [topTextColor, setTopTextColor] = useState(TEXT_COLORS[0]);
   const [topTextSize, setTopTextSize] = useState(72);
@@ -672,6 +676,9 @@ export default function Shorts3Panel({
         bgmFadeOut,
         highlightMusicS3Key,
         selectedTeam,
+        narrationSpeed,
+        narrationStability,
+        narrationStyle,
       };
       localStorage.setItem(draftStorageKey(jobId), JSON.stringify(payload));
     } catch (e) {
@@ -693,6 +700,9 @@ export default function Shorts3Panel({
     bgmFadeOut,
     highlightMusicS3Key,
     selectedTeam,
+    narrationSpeed,
+    narrationStability,
+    narrationStyle,
     draftSaveGeneration,
   ]);
 
@@ -1939,6 +1949,22 @@ export default function Shorts3Panel({
           setSelectedTeam(d.selectedTeam);
           setTeamColor(TEAM_CONFIGS[d.selectedTeam]?.bg || "#4ade80");
         }
+        if (d.narrationSpeed != null && Number.isFinite(Number(d.narrationSpeed))) {
+          setNarrationSpeed(
+            Math.min(1.2, Math.max(0.7, Number(d.narrationSpeed)))
+          );
+        }
+        if (
+          d.narrationStability != null &&
+          Number.isFinite(Number(d.narrationStability))
+        ) {
+          setNarrationStability(
+            Math.min(1, Math.max(0, Number(d.narrationStability)))
+          );
+        }
+        if (d.narrationStyle != null && Number.isFinite(Number(d.narrationStyle))) {
+          setNarrationStyle(Math.min(1, Math.max(0, Number(d.narrationStyle))));
+        }
         restored = true;
       }
     } catch (e) {
@@ -2178,6 +2204,9 @@ export default function Shorts3Panel({
             jobId,
             segIndex: 0,
             text: thumbNarr,
+            speed: narrationSpeed,
+            stability: narrationStability,
+            style: narrationStyle,
           });
         }
       }
@@ -2190,6 +2219,9 @@ export default function Shorts3Panel({
           jobId,
           segIndex: segIndexForS3,
           text: narrText,
+          speed: narrationSpeed,
+          stability: narrationStability,
+          style: narrationStyle,
         });
       }
 
@@ -3971,6 +4003,9 @@ export default function Shorts3Panel({
                           jobId,
                           segIndex: 0,
                           text: narrText,
+                          speed: narrationSpeed,
+                          stability: narrationStability,
+                          style: narrationStyle,
                         });
                         const url = json?.presignedUrl;
                         if (!url || typeof url !== "string") {
@@ -4596,6 +4631,9 @@ export default function Shorts3Panel({
                             jobId,
                             segIndex: segIdxTts,
                             text: narrText,
+                            speed: narrationSpeed,
+                            stability: narrationStability,
+                            style: narrationStyle,
                           });
                           const url = json?.presignedUrl;
                           if (!url || typeof url !== "string") {
@@ -4790,6 +4828,58 @@ export default function Shorts3Panel({
 
           {/* 구분선 */}
           <hr style={{ borderColor: "#333", margin: "8px 0" }} />
+
+          {/* 나레이션 공통 (TTS) */}
+          <div style={{ maxWidth: 480, marginBottom: 10 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+              나레이션 설정
+            </div>
+            <label className="preset-field">
+              <span>속도 ({narrationSpeed.toFixed(2)})</span>
+              <input
+                type="range"
+                min={0.7}
+                max={1.2}
+                step={0.05}
+                value={narrationSpeed}
+                disabled={busy || uploading}
+                onChange={(e) =>
+                  setNarrationSpeed(Number(e.target.value) || 1.0)
+                }
+              />
+            </label>
+            <label className="preset-field">
+              <span>안정성 ({narrationStability.toFixed(2)})</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={narrationStability}
+                disabled={busy || uploading}
+                onChange={(e) =>
+                  setNarrationStability(Number(e.target.value) || 0)
+                }
+              />
+            </label>
+            <label className="preset-field">
+              <span>스타일 ({narrationStyle.toFixed(2)})</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={narrationStyle}
+                disabled={busy || uploading}
+                onChange={(e) =>
+                  setNarrationStyle(Number(e.target.value) || 0)
+                }
+              />
+            </label>
+            <p className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+              미리듣기·영상 생성 시 ElevenLabs TTS에 공통 적용됩니다.
+            </p>
+          </div>
 
           {/* BGM 설정 */}
           <div style={{ maxWidth: 480 }}>
@@ -5443,6 +5533,9 @@ export default function Shorts3Panel({
                           jobId,
                           segIndex: 0,
                           text: narrText,
+                          speed: narrationSpeed,
+                          stability: narrationStability,
+                          style: narrationStyle,
                         });
                         const url = json?.presignedUrl;
                         if (!url || typeof url !== "string") {

@@ -2342,6 +2342,14 @@ ${JSON.stringify(games, null, 2)}`;
             }),
           };
         }
+        const clampNum = (raw, min, max, fallback) => {
+          const n = Number(raw);
+          if (!Number.isFinite(n)) return fallback;
+          return Math.min(max, Math.max(min, n));
+        };
+        const ttsSpeed = clampNum(payload.speed, 0.7, 1.2, 1.0);
+        const ttsStability = clampNum(payload.stability, 0, 1, 0.5);
+        const ttsStyle = clampNum(payload.style, 0, 1, 0.3);
         const apiKey = process.env.ELEVENLABS_API_KEY;
         if (!apiKey) {
           return {
@@ -2367,8 +2375,10 @@ ${JSON.stringify(games, null, 2)}`;
               text,
               model_id: "eleven_multilingual_v2",
               voice_settings: {
-                stability: 0.5,
+                stability: ttsStability,
                 similarity_boost: 0.75,
+                style: ttsStyle,
+                speed: ttsSpeed,
               },
             }),
           });
