@@ -2304,7 +2304,7 @@ ${JSON.stringify(games, null, 2)}`;
         const segIndex =
           typeof segRaw === "number" ? segRaw : Number(segRaw);
         const text = String(payload.text || "").trim();
-        const DEFAULT_ELEVENLABS_VOICE_ID = "m3gJBS8OofDJfycyA2Ip";
+        const DEFAULT_ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
         const voiceIdRaw = String(payload.voiceId || "").trim();
         const voiceId = voiceIdRaw || DEFAULT_ELEVENLABS_VOICE_ID;
 
