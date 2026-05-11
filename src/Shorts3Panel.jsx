@@ -263,6 +263,7 @@ function emptySegment() {
     textOpacity2: 1,
     textSize2: 48,
     textFont2: DEFAULT_TEXT_FONT,
+    narration: "",
   };
 }
 
@@ -503,6 +504,8 @@ export default function Shorts3Panel({
   const [previewUrl, setPreviewUrl] = useState(null);
   /** 구간 카드 선택 → 오른쪽 세부 설정 */
   const [selectedSegIndex, setSelectedSegIndex] = useState(0);
+  const [narrationBusy, setNarrationBusy] = useState(false);
+  const narrationAudioRef = useRef(null);
   const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
     ...INITIAL_THUMBNAIL_SEGMENT,
   }));
@@ -5532,6 +5535,119 @@ export default function Shorts3Panel({
                       0% = 최상단 · 100% = 최하단
                     </span>
                   </label>
+
+                  <div className="label" style={{ marginTop: 16 }}>
+                    나레이션
+                  </div>
+                  <label className="preset-field" style={{ marginTop: 4 }}>
+                    <span>나레이션</span>
+                    <textarea
+                      rows={3}
+                      placeholder="TTS로 읽을 나레이션 문장"
+                      value={seg.narration ?? ""}
+                      disabled={busy || uploading || narrationBusy}
+                      onChange={(e) =>
+                        setSegments((prev) =>
+                          prev.map((s, i) =>
+                            i === index
+                              ? { ...s, narration: e.target.value }
+                              : s
+                          )
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        resize: "vertical",
+                        minHeight: 56,
+                        boxSizing: "border-box",
+                        fontFamily: "inherit",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={
+                      busy ||
+                      uploading ||
+                      narrationBusy ||
+                      !jobId ||
+                      !String(seg.narration ?? "").trim()
+                    }
+                    title={
+                      !jobId
+                        ? "원본 업로드 완료 후 사용"
+                        : !String(seg.narration ?? "").trim()
+                          ? "나레이션을 입력하세요"
+                          : "ElevenLabs TTS 미리듣기"
+                    }
+                    onClick={async () => {
+                      const narrText = String(seg.narration ?? "").trim();
+                      if (!narrText || !jobId) return;
+                      const prevA = narrationAudioRef.current;
+                      if (prevA) {
+                        try {
+                          prevA.pause();
+                        } catch {
+                          /* ignore */
+                        }
+                        prevA.src = "";
+                        narrationAudioRef.current = null;
+                      }
+                      setNarrationBusy(true);
+                      setError(null);
+                      try {
+                        const json = await postKbo({
+                          action: "elevenlabs_tts",
+                          jobId,
+                          segIndex: index,
+                          text: narrText,
+                        });
+                        const url = json?.presignedUrl;
+                        if (!url || typeof url !== "string") {
+                          throw new Error("미리듣기 URL을 받지 못했습니다.");
+                        }
+                        const audio = new Audio(url);
+                        narrationAudioRef.current = audio;
+                        await audio.play();
+                      } catch (e) {
+                        setError(
+                          e instanceof Error ? e.message : String(e)
+                        );
+                      } finally {
+                        setNarrationBusy(false);
+                      }
+                    }}
+                    style={{
+                      alignSelf: "flex-start",
+                      marginTop: 8,
+                      padding: "8px 14px",
+                      borderRadius: 6,
+                      border: "1px solid rgba(19,199,154,0.45)",
+                      background: "rgba(19,199,154,0.2)",
+                      color: "#b8f5e0",
+                      fontFamily: "inherit",
+                      fontWeight: 700,
+                      cursor:
+                        busy ||
+                        uploading ||
+                        narrationBusy ||
+                        !jobId ||
+                        !String(seg.narration ?? "").trim()
+                          ? "not-allowed"
+                          : "pointer",
+                      opacity:
+                        busy ||
+                        uploading ||
+                        narrationBusy ||
+                        !jobId ||
+                        !String(seg.narration ?? "").trim()
+                          ? 0.5
+                          : 1,
+                    }}
+                  >
+                    ▶ 미리듣기
+                  </button>
                 </div>
               );
             })()

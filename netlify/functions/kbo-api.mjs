@@ -2298,6 +2298,127 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "elevenlabs_tts": {
+        const jobId = String(payload.jobId || "").trim();
+        const segRaw = payload.segIndex;
+        const segIndex =
+          typeof segRaw === "number" ? segRaw : Number(segRaw);
+        const text = String(payload.text || "").trim();
+        const DEFAULT_ELEVENLABS_VOICE_ID = "m3gJBS8OofDJfycyA2Ip";
+        const voiceIdRaw = String(payload.voiceId || "").trim();
+        const voiceId = voiceIdRaw || DEFAULT_ELEVENLABS_VOICE_ID;
+
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "유효한 jobId가 필요합니다.",
+            }),
+          };
+        }
+        if (
+          !Number.isFinite(segIndex) ||
+          segIndex < 0 ||
+          !Number.isInteger(segIndex)
+        ) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "유효한 segIndex(0 이상 정수)가 필요합니다.",
+            }),
+          };
+        }
+        if (!text) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "나레이션 텍스트가 필요합니다.",
+            }),
+          };
+        }
+        const apiKey = process.env.ELEVENLABS_API_KEY;
+        if (!apiKey) {
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "ELEVENLABS_API_KEY가 설정되어 있지 않습니다.",
+            }),
+          };
+        }
+        try {
+          const ttsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
+            voiceId
+          )}`;
+          const elevenRes = await fetch(ttsUrl, {
+            method: "POST",
+            headers: {
+              "xi-api-key": apiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              text,
+              model_id: "eleven_multilingual_v2",
+              voice_settings: {
+                stability: 0.5,
+                similarity_boost: 0.75,
+              },
+            }),
+          });
+          if (!elevenRes.ok) {
+            const errBody = (await elevenRes.text()).slice(0, 800);
+            return {
+              statusCode: 502,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: `ElevenLabs TTS 실패 HTTP ${elevenRes.status}: ${errBody}`,
+              }),
+            };
+          }
+          const buf = Buffer.from(await elevenRes.arrayBuffer());
+          const { s3, bucket } = videoEncodeAwsClients();
+          const key = `jobs/${jobId}/narration_${segIndex}.mp3`;
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: buf,
+              ContentType: "audio/mpeg",
+            })
+          );
+          const getCmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+          const presignedUrl = await getSignedUrl(s3, getCmd, {
+            expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              jobId,
+              segIndex,
+              key,
+              presignedUrl,
+              expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "highlight_upload_url_from_url": {
         const sourceUrl = String(payload.sourceUrl || "").trim();
         if (!/^https?:\/\//i.test(sourceUrl)) {
