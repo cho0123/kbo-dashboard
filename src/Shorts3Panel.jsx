@@ -5275,7 +5275,10 @@ export default function Shorts3Panel({
                 marginBottom: 8,
               }}
             >
-              <span className="muted" style={{ fontWeight: 700 }}>
+              <span
+                className="muted"
+                style={{ fontWeight: 700, whiteSpace: "nowrap" }}
+              >
                 커버박스
               </span>
               <input
