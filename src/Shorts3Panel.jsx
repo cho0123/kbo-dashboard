@@ -1554,8 +1554,10 @@ export default function Shorts3Panel({
     const video = previewVideoRef.current;
     if (!video || isPlayingAll || isMonitoring) return;
 
+    const savedMuteForPlayAll = video.muted;
     setIsPlayingAll(true);
     playAllRef.current = true;
+    video.muted = false;
 
     const playRange = (startSec, endSec) =>
       new Promise((res) => {
@@ -1631,6 +1633,7 @@ export default function Shorts3Panel({
     } finally {
       playAllRef.current = false;
       setIsPlayingAll(false);
+      video.muted = savedMuteForPlayAll;
     }
   }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds, thumbnailSegment]);
 
@@ -1646,6 +1649,7 @@ export default function Shorts3Panel({
 
     const playRangeMonitor = (startSec, endSec, narrUrl) =>
       new Promise((resolve) => {
+        video.muted = true;
         let narrTimeout = null;
         let narrAudio = null;
         let done = false;
@@ -1699,6 +1703,7 @@ export default function Shorts3Panel({
           narrAudio = new Audio(u);
           narrAudio.play().catch(() => {});
         }, 500);
+        video.muted = true;
         video.play().catch(() => {});
       });
 
