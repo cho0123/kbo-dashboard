@@ -5285,9 +5285,6 @@ export default function Shorts3Panel({
                   setCoverBox((v) => ({ ...v, enabled: e.target.checked }))
                 }
               />
-              <span className="muted" style={{ fontSize: 13 }}>
-                사용
-              </span>
             </div>
             <p
               className="muted"
