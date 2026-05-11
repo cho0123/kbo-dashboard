@@ -606,6 +606,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   let segments = Array.isArray(meta.segments) ? [...meta.segments] : [];
   if (segments.length < 1) throw new Error("구간 없음");
 
+  const muteOriginal = coerceMuteOriginal(meta);
+
   const TEAM_COLORS = {
     삼성: { primary: "#074CA1", secondary: "#C0C0C0" },
     KIA: { primary: "#EA0029", secondary: "#05141F" },
@@ -907,44 +909,51 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         );
       } else {
         const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+        const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+        const overlayNoNarrArgs = [
+          "-y",
+          "-ss",
+          String(startSec),
+          "-t",
+          String(duration),
+          "-i",
+          sourceFileName,
+          "-loop",
+          "1",
+          "-t",
+          String(duration),
+          "-i",
+          overlayPngFile,
+          "-filter_complex",
+          fc,
+          "-map",
+          "[out]",
+        ];
+        if (muteSegNoNarr) {
+          overlayNoNarrArgs.push("-an");
+        } else {
+          overlayNoNarrArgs.push("-map", "0:a?", "-c:a", "aac");
+        }
+        overlayNoNarrArgs.push(
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-shortest",
+          `seg_${i}.mp4`
+        );
         runFfmpeg(
-          [
-            "-y",
-            "-ss",
-            String(startSec),
-            "-t",
-            String(duration),
-            "-i",
-            sourceFileName,
-            "-loop",
-            "1",
-            "-t",
-            String(duration),
-            "-i",
-            overlayPngFile,
-            "-filter_complex",
-            fc,
-            "-map",
-            "[out]",
-            "-map",
-            "0:a?",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "ultrafast",
-            "-crf",
-            "23",
-            "-pix_fmt",
-            "yuv420p",
-            "-r",
-            "30",
-            "-c:a",
-            "aac",
-            "-shortest",
-            `seg_${i}.mp4`,
-          ],
+          overlayNoNarrArgs,
           workDir,
-          `highlight_seg_${i}_overlay`
+          muteSegNoNarr
+            ? `highlight_seg_${i}_overlay_mo`
+            : `highlight_seg_${i}_overlay`
         );
       }
     } else if (hasNarrAudio) {
@@ -988,33 +997,38 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         `highlight_seg_${i}_narr`
       );
     } else {
+      const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+      const noOverlayArgs = [
+        "-y",
+        "-ss",
+        String(startSec),
+        "-i",
+        sourceFileName,
+        "-t",
+        String(duration),
+        "-vf",
+        vfSeg,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
+      ];
+      if (muteSegNoNarr) {
+        noOverlayArgs.push("-an");
+      } else {
+        noOverlayArgs.push("-c:a", "aac");
+      }
+      noOverlayArgs.push(`seg_${i}.mp4`);
       runFfmpeg(
-        [
-          "-y",
-          "-ss",
-          String(startSec),
-          "-i",
-          sourceFileName,
-          "-t",
-          String(duration),
-          "-vf",
-          vfSeg,
-          "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "23",
-          "-pix_fmt",
-          "yuv420p",
-          "-r",
-          "30",
-          "-c:a",
-          "aac",
-          `seg_${i}.mp4`,
-        ],
+        noOverlayArgs,
         workDir,
-        `highlight_seg_${i}`
+        muteSegNoNarr ? `highlight_seg_${i}_mo` : `highlight_seg_${i}`
       );
     }
   }
@@ -1045,7 +1059,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   await putStatus(bucket, jobId, { state: "processing", progress: 78 });
 
   const outLocal = join(workDir, "output.mp4");
-  const muteOriginal = coerceMuteOriginal(meta);
   const musicKeyRaw =
     meta.music_s3_key && String(meta.music_s3_key).trim()
       ? String(meta.music_s3_key).trim()
