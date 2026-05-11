@@ -738,6 +738,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
 
   const numSeg = segments.length;
   const coverBoxGlobal = normalizeCoverBoxForLambda(meta?.coverBox);
+  console.log("[coverBox]", JSON.stringify(coverBoxGlobal));
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
     let startSec;
