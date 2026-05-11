@@ -810,19 +810,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;
     const narrLocalAbs = join(workDir, narrLocalRel);
-    console.log(
-      "[narration]",
-      i,
-      "narration:",
-      seg?.narration ? "있음" : "없음"
-    );
     let hasNarrAudio = false;
     if (seg.narration != null && String(seg.narration).trim() !== "") {
       try {
-        console.log(
-          "[narration] downloading:",
-          `jobs/${jobId}/narration_${i}.mp3`
-        );
         await getObjectFile(bucket, narrS3Key, narrLocalAbs);
         hasNarrAudio = existsSync(narrLocalAbs);
       } catch (e) {
@@ -832,14 +822,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         );
       }
     }
-    console.log(
-      "[narration]",
-      i,
-      "hasNarrAudio:",
-      hasNarrAudio,
-      "exists:",
-      existsSync(narrLocalAbs)
-    );
     await putStatus(bucket, jobId, {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
@@ -854,12 +836,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       1,
       Math.ceil((Number(duration) || 0) * 48000)
     );
-    if (hasNarrAudio) {
-      console.log(
-        "[narration] ffmpeg with narration, overlay:",
-        !!overlayPngFile
-      );
-    }
     if (overlayPngFile) {
       if (hasNarrAudio) {
         const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
