@@ -1052,6 +1052,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       : "";
   const hasMusic = Boolean(musicKeyRaw);
   const musicOpts = normalizeMusicOptions(meta);
+  const hasNarration = segments.some(
+    (s) => s?.narration != null && String(s.narration).trim() !== ""
+  );
 
   if (hasMusic) {
     const musicLocal = resolve(join(workDir, "highlight_bgm.mp3"));
@@ -1061,59 +1064,101 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
 
     if (muteOriginal) {
-      runFfmpeg(
-        [
+      if (hasNarration) {
+        const videoDurSec = probeFormatDurationSec(workDir, "joined_hi.mp4");
+        const videoDurForMux =
+          videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+        const chain = buildMusicAf(videoDurForMux, musicOpts);
+        const fc = `[1:a]${chain}[bm];[0:a][bm]amix=inputs=2:duration=first:normalize=0[outa]`;
+        runFfmpeg(
+          [
+            "-y",
+            "-i",
+            "joined_hi.mp4",
+            "-stream_loop",
+            "-1",
+            "-ss",
+            String(musicOpts.startTime),
+            "-i",
+            musicLocal,
+            "-filter_complex",
+            fc,
+            "-map",
+            "0:v",
+            "-map",
+            "[outa]",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "320k",
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
+            "-t",
+            String(videoDurForMux),
+            outLocal,
+          ],
+          workDir,
+          "highlight_mux_mix_mo_narr"
+        );
+      } else {
+        runFfmpeg(
+          [
+            "-y",
+            "-i",
+            "joined_hi.mp4",
+            "-c:v",
+            "copy",
+            "-an",
+            "cropped_hi.mp4",
+          ],
+          workDir,
+          "highlight_strip_a_for_bgm"
+        );
+        const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
+        const videoDurForMux =
+          videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
+        const afChain = buildMusicAf(videoDurForMux, musicOpts);
+        const muxArgs = [
           "-y",
           "-i",
-          "joined_hi.mp4",
+          "cropped_hi.mp4",
+          "-stream_loop",
+          "-1",
+          "-ss",
+          String(musicOpts.startTime),
+          "-i",
+          musicLocal,
+          "-map",
+          "0:v",
+          "-map",
+          "1:a",
           "-c:v",
           "copy",
-          "-an",
-          "cropped_hi.mp4",
-        ],
-        workDir,
-        "highlight_strip_a_for_bgm"
-      );
-      const videoDurSec = probeFormatDurationSec(workDir, "cropped_hi.mp4");
-      const videoDurForMux =
-        videoDurSec != null && Number.isFinite(videoDurSec) ? videoDurSec : 0;
-      const afChain = buildMusicAf(videoDurForMux, musicOpts);
-      const muxArgs = [
-        "-y",
-        "-i",
-        "cropped_hi.mp4",
-        "-stream_loop",
-        "-1",
-        "-ss",
-        String(musicOpts.startTime),
-        "-i",
-        musicLocal,
-        "-map",
-        "0:v",
-        "-map",
-        "1:a",
-        "-c:v",
-        "copy",
-      ];
-      if (afChain) {
-        muxArgs.push("-af", afChain);
+        ];
+        if (afChain) {
+          muxArgs.push("-af", afChain);
+        }
+        muxArgs.push(
+          "-c:a",
+          "aac",
+          "-b:a",
+          "320k",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          "-t",
+          String(videoDurForMux),
+          outLocal
+        );
+        runFfmpeg(muxArgs, workDir, "highlight_mux_bgm");
+        const ch = join(workDir, "cropped_hi.mp4");
+        if (existsSync(ch)) unlinkSync(ch);
       }
-      muxArgs.push(
-        "-c:a",
-        "aac",
-        "-b:a",
-        "320k",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "-t",
-        String(videoDurForMux),
-        outLocal
-      );
-      runFfmpeg(muxArgs, workDir, "highlight_mux_bgm");
-      const ch = join(workDir, "cropped_hi.mp4");
-      if (existsSync(ch)) unlinkSync(ch);
     } else {
       runFfmpeg(
         [
@@ -1170,19 +1215,27 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       if (existsSync(pva)) unlinkSync(pva);
     }
   } else if (muteOriginal) {
-    runFfmpeg(
-      [
-        "-y",
-        "-i",
-        "joined_hi.mp4",
-        "-c:v",
-        "copy",
-        "-an",
-        outLocal,
-      ],
-      workDir,
-      "highlight_out_mute"
-    );
+    if (hasNarration) {
+      runFfmpeg(
+        ["-y", "-i", "joined_hi.mp4", "-c", "copy", outLocal],
+        workDir,
+        "highlight_out_keep_narr"
+      );
+    } else {
+      runFfmpeg(
+        [
+          "-y",
+          "-i",
+          "joined_hi.mp4",
+          "-c:v",
+          "copy",
+          "-an",
+          outLocal,
+        ],
+        workDir,
+        "highlight_out_mute"
+      );
+    }
   } else {
     runFfmpeg(
       ["-y", "-i", "joined_hi.mp4", "-c", "copy", outLocal],
