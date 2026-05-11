@@ -1626,3 +1626,156 @@ button.danger-outline {
 .video-export-actions {
   margin-top: 10px;
 }
+
+/* —— 메모장 —— */
+.topbar-row-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+}
+
+.memo-toolbar-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.memo-toolbar-btn:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.memo-modal-overlay {
+  z-index: 1050;
+}
+
+.memo-modal {
+  width: min(920px, 100%);
+  max-height: min(90vh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+
+.memo-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.memo-modal-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.memo-modal-close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--text);
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.memo-modal-close:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.memo-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+  flex: 1;
+  min-height: min(52vh, 520px);
+}
+
+.memo-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.memo-pane-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.memo-textarea {
+  width: 100%;
+  flex: 1;
+  min-height: min(46vh, 460px);
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f141c;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.memo-textarea:focus {
+  outline: none;
+  border-color: rgba(62, 224, 169, 0.45);
+}
+
+.memo-tabbed {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .memo-dual {
+    display: none;
+  }
+
+  .memo-tabbed {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .memo-tabbed .mini-tabs {
+    margin-bottom: 10px;
+  }
+
+  .memo-tabbed .memo-textarea {
+    flex: 1;
+    min-height: min(42vh, 360px);
+  }
+}

@@ -8,6 +8,7 @@ import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import Shorts3Panel from "./Shorts3Panel.jsx";
 import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
+import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
@@ -3917,6 +3918,7 @@ export default function App() {
   }, []);
 
   const [tab, setTab] = useState("shorts");
+  const [memoOpen, setMemoOpen] = useState(false);
   const [activeKey, setActiveKey] = useState("shorts_slides");
   const [pendingSegments, setPendingSegments] = useState([]);
   const [shorts3JobId, setShorts3JobId] = useState("");
@@ -4280,25 +4282,36 @@ export default function App() {
   return (
     <div className="app-shell shell-wide">
       <div className="topbar">
-        <div className="topbar-row">
-          <span className="topbar-k">마지막 업데이트:</span>{" "}
-          <span className="topbar-v">
-            {lastMeta.error ? "—" : fmtKstTimestamp(lastMeta.data?.timestamp)}
-          </span>
-          {" "}
+        <div className="topbar-row topbar-row-head">
+          <div className="topbar-row-main">
+            <span className="topbar-k">마지막 업데이트:</span>{" "}
+            <span className="topbar-v">
+              {lastMeta.error ? "—" : fmtKstTimestamp(lastMeta.data?.timestamp)}
+            </span>
+            {" "}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const r = await postKbo({ action: "trigger_crawl", date: mvpDate });
+                  if (r?.success) alert("✅ 크롤링 시작됐어요!");
+                  else alert("❌ 실패했어요");
+                } catch {
+                  alert("❌ 실패했어요");
+                }
+              }}
+            >
+              크롤링 실행
+            </button>
+          </div>
           <button
             type="button"
-            onClick={async () => {
-              try {
-                const r = await postKbo({ action: "trigger_crawl", date: mvpDate });
-                if (r?.success) alert("✅ 크롤링 시작됐어요!");
-                else alert("❌ 실패했어요");
-              } catch {
-                alert("❌ 실패했어요");
-              }
-            }}
+            className="memo-toolbar-btn"
+            aria-label="메모장 열기"
+            title="메모장"
+            onClick={() => setMemoOpen(true)}
           >
-            크롤링 실행
+            📝
           </button>
         </div>
         <div className="topbar-row">
@@ -4326,6 +4339,7 @@ export default function App() {
           })()}
         </div>
       </div>
+      <MemoPadModal open={memoOpen} onClose={() => setMemoOpen(false)} />
       <div className="layout">
         <aside className="sidebar">
           <div className="side-head">
