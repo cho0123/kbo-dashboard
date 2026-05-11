@@ -2411,6 +2411,7 @@ ${JSON.stringify(games, null, 2)}`;
             }),
           };
         } catch (e) {
+          console.error("[elevenlabs_tts] error:", e?.message || e);
           const msg = e instanceof Error ? e.message : String(e);
           return {
             statusCode: 500,
