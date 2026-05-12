@@ -82,22 +82,42 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.stroke();
 }
 
-/** 선발 슬라이드 전용: 상단 원정 컬러 / 하단 홈 컬러 (반반) + 야구 데코 */
-function starterHalfFieldBackground(ctx, w, h, homeTeam, awayTeam) {
-  const [awayC] = teamGrad(awayTeam);
-  const [homeC] = teamGrad(homeTeam);
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = awayC;
-  ctx.fillRect(0, 0, w, h / 2);
-  ctx.fillStyle = homeC;
-  ctx.fillRect(0, h / 2, w, h / 2);
-  drawBaseballBackground(ctx);
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(0, h / 2);
-  ctx.lineTo(w, h / 2);
-  ctx.stroke();
+/**
+ * 야구 이닝 아웃카운트 표기 (예: 6 → "6", 6⅓ → "6.1", 6⅔ → "6.2").
+ * @param {unknown} ip 숫자(6.333… 등) 또는 문자열 "6.1", "6 1/3" 등
+ * @returns {string}
+ */
+function formatInnings(ip) {
+  if (ip == null) return "—";
+  const sRaw = String(ip).trim();
+  if (!sRaw) return "—";
+
+  if (typeof ip === "string") {
+    const compact = sRaw.replace(/\s+/g, "");
+    const m12 = compact.match(/^(\d+)\.([12])$/);
+    if (m12) return `${Number(m12[1])}.${m12[2]}`;
+    const m13 = sRaw.match(/^(\d+)\s+(\d)\/3$/);
+    if (m13) {
+      const f = Number(m13[1]);
+      const t = Number(m13[2]);
+      if (t === 1) return `${f}.1`;
+      if (t === 2) return `${f}.2`;
+      if (t === 0) return `${f}`;
+    }
+    if (/^\d+$/.test(compact)) return compact;
+  }
+
+  const n = Number(ip);
+  if (!Number.isFinite(n) || n < 0) return "—";
+  const full = Math.floor(n + 1e-9);
+  const frac = n - full;
+  if (frac < 1e-6) return `${full}`;
+  if (Math.abs(frac - 0.1) < 1e-5) return `${full}.1`;
+  if (Math.abs(frac - 0.2) < 1e-5) return `${full}.2`;
+  const outs = Math.round(frac * 3);
+  const o = ((outs % 3) + 3) % 3;
+  if (o === 0) return `${full}`;
+  return `${full}.${o}`;
 }
 
 function shorts4MatchupBackground(ctx, w, h, homeTeam, awayTeam) {
@@ -276,7 +296,8 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
 export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
-  starterHalfFieldBackground(ctx, w, h, homeTeam, awayTeam);
+  ctx.clearRect(0, 0, w, h);
+  diagTeamGradient(ctx, w, h, awayTeam, homeTeam);
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
@@ -284,12 +305,14 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
   const hso = g?.home_starter_so;
   const aip = g?.away_starter_ip;
   const aso = g?.away_starter_so;
-  const hipStr = Number.isFinite(Number(hip)) ? String(hip) : "—";
+  const hipInn = formatInnings(hip);
+  const aipInn = formatInnings(aip);
+  const hipLabel = hipInn === "—" ? "—" : `${hipInn}이닝`;
+  const aipLabel = aipInn === "—" ? "—" : `${aipInn}이닝`;
   const hsoStr = Number.isFinite(Number(hso)) ? String(hso) : "—";
-  const aipStr = Number.isFinite(Number(aip)) ? String(aip) : "—";
   const asoStr = Number.isFinite(Number(aso)) ? String(aso) : "—";
-  const homeStats = `ERA ${fmtEra(g?.home_starter_era)}  ·  이닝 ${hipStr}  ·  삼진 ${hsoStr}`;
-  const awayStats = `ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipStr}  ·  삼진 ${asoStr}`;
+  const homeStats = `ERA ${fmtEra(g?.home_starter_era)}  ·  이닝 ${hipLabel}  ·  삼진 ${hsoStr}`;
+  const awayStats = `ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipLabel}  ·  삼진 ${asoStr}`;
 
   /** drawTomorrowPreviewGameSlide VS: `1000 90px "${FONT_TITLE}"` → 2배 */
   const vsSizePx = 180;
