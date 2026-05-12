@@ -328,65 +328,62 @@ export default function Shorts4Panel() {
       <div className="section-title">4. 쇼츠-예상전력-비교</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 경기 선택 후 상세 로드</div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          marginTop: 10,
-          flexWrap: "wrap",
-        }}
-      >
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={listBusy} />
-        <button
-          type="button"
-          className="primary"
-          onClick={() => setDate(seoulToday())}
+      <div className="shorts4-vstack shorts4-vstack--top">
+        <input
+          type="date"
+          className="shorts4-input-full"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
           disabled={listBusy}
-        >
-          오늘
-        </button>
-        <button
-          type="button"
-          className="primary"
-          onClick={() => setDate(addCalendarDayKst(date, 1))}
-          disabled={listBusy}
-        >
-          내일
-        </button>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {listBusy ? "일정 불러오는 중…" : gamesList.length ? `경기 ${gamesList.length}건` : "경기 없음"}
-        </span>
-      </div>
+        />
 
-      {gamesList.length > 0 ? (
-        <div className="tabs" style={{ marginTop: 12 }}>
-          {gamesList.map((g, i) => {
-            const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
-            return (
-              <button
-                key={String(g?.game_id ?? i)}
-                type="button"
-                className={`tab${i === selectedIdx ? " active" : ""}`}
-                onClick={() => {
-                  setSelectedIdx(i);
-                  setCommitted(false);
-                  setDetailGame(null);
-                  setCapturedSlides([]);
-                }}
-                disabled={listBusy}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="shorts4-row2eq">
+          <button type="button" className="primary shorts4-flex1" onClick={() => setDate(seoulToday())} disabled={listBusy}>
+            오늘
+          </button>
+          <button
+            type="button"
+            className="primary shorts4-flex1"
+            onClick={() => setDate(addCalendarDayKst(date, 1))}
+            disabled={listBusy}
+          >
+            내일
+          </button>
         </div>
-      ) : null}
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <p className="muted shorts4-meta-line">
+          {listBusy ? "일정 불러오는 중…" : gamesList.length ? `경기 ${gamesList.length}건` : "경기 없음"}
+        </p>
+
+        {gamesList.length > 0 ? (
+          <div className="shorts4-tabs" role="tablist" aria-label="경기 선택">
+            {gamesList.map((g, i) => {
+              const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
+              return (
+                <button
+                  key={String(g?.game_id ?? i)}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === selectedIdx}
+                  className={`shorts4-tab${i === selectedIdx ? " active" : ""}`}
+                  onClick={() => {
+                    setSelectedIdx(i);
+                    setCommitted(false);
+                    setDetailGame(null);
+                    setCapturedSlides([]);
+                  }}
+                  disabled={listBusy}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <button
           type="button"
-          className="primary"
+          className="primary primary-fill shorts4-btn-full"
           onClick={() => void onLoadDetail()}
           disabled={!selectedGame || loadBtnBusy}
         >
@@ -429,34 +426,24 @@ export default function Shorts4Panel() {
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          marginTop: 14,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="shorts4-vstack shorts4-vstack--actions">
+        <p className="muted shorts4-meta-line">{capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}</p>
         <button
           type="button"
-          className="primary"
+          className="primary primary-fill shorts4-btn-full"
           onClick={() => void captureAllSlides()}
           disabled={!committed || !detailGame || loadBtnBusy || captureBusy}
         >
           {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
         </button>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}
-        </span>
-      </div>
 
-      <ShortsPresetPicker shortsType="shorts4" slides={capturedSlides} />
+        <div className="shorts4-picker-wrap">
+          <ShortsPresetPicker shortsType="shorts4" slides={capturedSlides} />
+        </div>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <button
           type="button"
-          className="primary primary-fill"
+          className="primary primary-fill shorts4-btn-full"
           onClick={() => void downloadZip()}
           disabled={!capturedSlides.length}
         >

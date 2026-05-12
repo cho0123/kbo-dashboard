@@ -1,4 +1,119 @@
-/* 쇼츠4만: .results 전역 thead 숨김(App.css) 때문에 라인업 테이블 헤더 복구 */
+/* 쇼츠4 전용 — 쇼츠1/2/3·App.jsx 미수정 */
+
+/* .results 전역 thead 숨김(App.css) 때문에 라인업 테이블 헤더 복구 */
 .shorts4-root .shorts4-lineup-table thead {
   display: table-header-group !important;
+}
+
+.shorts4-root .shorts4-vstack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shorts4-root .shorts4-vstack--top {
+  margin-top: 10px;
+}
+
+.shorts4-root .shorts4-input-full {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shorts4-root .shorts4-row2eq {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.shorts4-root .shorts4-flex1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.shorts4-root .shorts4-meta-line {
+  margin: 0;
+  font-size: 13px;
+}
+
+.shorts4-root .shorts4-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.shorts4-root .shorts4-tab {
+  appearance: none;
+  border: 1px solid rgba(26, 26, 46, 0.22);
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.86rem;
+  background: #e4e4ec;
+  color: #1a1a2e;
+  flex: 0 1 auto;
+  min-width: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.shorts4-root .shorts4-tab:hover:not(:disabled):not(.active) {
+  background: #d8d8e2;
+}
+
+.shorts4-root .shorts4-tab.active {
+  background: #1f9a7a;
+  color: #ffffff;
+  border-color: #187a62;
+}
+
+.shorts4-root .shorts4-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.shorts4-root .shorts4-btn-full {
+  width: 100%;
+  box-sizing: border-box;
+  flex: none !important;
+}
+
+.shorts4-root .shorts4-vstack--actions {
+  margin-top: 14px;
+}
+
+.shorts4-root .shorts4-picker-wrap .shorts-preset-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.shorts4-root .shorts4-picker-wrap .shorts-preset-picker > span.muted {
+  display: block;
+  width: 100%;
+}
+
+.shorts4-root .shorts4-picker-wrap .shorts-preset-picker select {
+  width: 100%;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
+.shorts4-root .shorts4-picker-wrap .shorts-preset-picker button.primary {
+  width: 100%;
+  flex: none !important;
+}
+
+.shorts4-root .shorts4-picker-wrap .shorts-preset-picker button.ghost {
+  align-self: flex-start;
+  flex: none !important;
+  width: auto;
+}
+
+.shorts4-root .result-error-light {
+  margin-top: 10px;
 }
