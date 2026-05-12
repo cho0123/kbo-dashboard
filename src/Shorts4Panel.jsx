@@ -10,6 +10,7 @@ import {
   SHORTS2_INTRO_TEAM_KEYS,
 } from "./shorts2TomorrowPreviewDraw.js";
 import { drawShorts4LineupSlide, drawShorts4StarterSlide } from "./shorts4SlideDraw.js";
+import { loadPlayerImage } from "./shorts4PlayerImage.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -257,7 +258,16 @@ export default function Shorts4Panel() {
       }
 
       if (slide.type === "starter" && slide.game) {
-        drawShorts4StarterSlide(ctx, w, h, slide.game);
+        const g0 = slide.game;
+        const hk = teamKeyword(g0?.home_team);
+        const ak = teamKeyword(g0?.away_team);
+        const hsName = String(g0?.home_starter || "").trim();
+        const asName = String(g0?.away_starter || "").trim();
+        const [awayPortrait, homePortrait] = await Promise.all([
+          loadPlayerImage(ak, asName),
+          loadPlayerImage(hk, hsName),
+        ]);
+        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayPortrait, home: homePortrait });
         return;
       }
 

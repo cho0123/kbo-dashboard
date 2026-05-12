@@ -255,8 +255,25 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
   }
 }
 
-/** 선발 투수 비교 (쇼츠4 슬라이드7) — 내일프리뷰 VS 폰트·팀색과 동일 계열 */
-export function drawShorts4StarterSlide(ctx, w, h, g) {
+const STARTER_PHOTO_W = 300;
+const STARTER_PHOTO_H = 370;
+
+function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
+  if (!img || !(Number(img.naturalWidth) > 0)) return;
+  const iw = Number(img.naturalWidth) || boxW;
+  const ih = Number(img.naturalHeight) || boxH;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  const x = cx - dw / 2;
+  const y = boxTop + (boxH - dh) / 2;
+  ctx.drawImage(img, x, y, dw, dh);
+}
+
+/**
+ * @param {{ away?: HTMLImageElement | null, home?: HTMLImageElement | null } | null | undefined} portraits
+ */
+export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   starterHalfFieldBackground(ctx, w, h, homeTeam, awayTeam);
@@ -282,28 +299,63 @@ export function drawShorts4StarterSlide(ctx, w, h, g) {
   const topCy = h * 0.25;
   const botCy = h * 0.75;
 
+  const awayImg = portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
+  const homeImg = portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
+  const awayUsePhoto = Boolean(awayImg) && as !== "미정";
+  const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(as, w / 2, topCy - nameSizePx * 0.35);
-  resetShadow(ctx);
-  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(awayStats, w / 2, topCy + nameSizePx * 0.55);
-  resetShadow(ctx);
+  if (awayUsePhoto) {
+    const boxTop = 72;
+    drawPortraitContain(ctx, awayImg, w / 2, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
+    const nameY = boxTop + STARTER_PHOTO_H + 36;
+    const statsY = nameY + 72;
+    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(as, w / 2, nameY);
+    resetShadow(ctx);
+    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(awayStats, w / 2, statsY);
+    resetShadow(ctx);
+  } else {
+    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(as, w / 2, topCy - nameSizePx * 0.35);
+    resetShadow(ctx);
+    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(awayStats, w / 2, topCy + nameSizePx * 0.55);
+    resetShadow(ctx);
+  }
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(hs, w / 2, botCy - nameSizePx * 0.35);
-  resetShadow(ctx);
-  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(homeStats, w / 2, botCy + nameSizePx * 0.55);
-  resetShadow(ctx);
+  if (homeUsePhoto) {
+    const boxTop = h / 2 + 72;
+    drawPortraitContain(ctx, homeImg, w / 2, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
+    const nameY = boxTop + STARTER_PHOTO_H + 36;
+    const statsY = nameY + 72;
+    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(hs, w / 2, nameY);
+    resetShadow(ctx);
+    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(homeStats, w / 2, statsY);
+    resetShadow(ctx);
+  } else {
+    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(hs, w / 2, botCy - nameSizePx * 0.35);
+    resetShadow(ctx);
+    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(homeStats, w / 2, botCy + nameSizePx * 0.55);
+    resetShadow(ctx);
+  }
 
   ctx.fillStyle = "#ffffff";
   ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
