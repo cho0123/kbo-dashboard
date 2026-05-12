@@ -82,6 +82,24 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.stroke();
 }
 
+/** 선발 슬라이드 전용: 상단 원정 컬러 / 하단 홈 컬러 (반반) + 야구 데코 */
+function starterHalfFieldBackground(ctx, w, h, homeTeam, awayTeam) {
+  const [awayC] = teamGrad(awayTeam);
+  const [homeC] = teamGrad(homeTeam);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = awayC;
+  ctx.fillRect(0, 0, w, h / 2);
+  ctx.fillStyle = homeC;
+  ctx.fillRect(0, h / 2, w, h / 2);
+  drawBaseballBackground(ctx);
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
+  ctx.stroke();
+}
+
 function shorts4MatchupBackground(ctx, w, h, homeTeam, awayTeam) {
   ctx.clearRect(0, 0, w, h);
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
@@ -237,63 +255,61 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
   }
 }
 
-/** 선발 투수 비교 + 상대전적 */
+/** 선발 투수 비교 (쇼츠4 슬라이드7) — 내일프리뷰 VS 폰트·팀색과 동일 계열 */
 export function drawShorts4StarterSlide(ctx, w, h, g) {
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
-  shorts4MatchupBackground(ctx, w, h, homeTeam, awayTeam);
+  starterHalfFieldBackground(ctx, w, h, homeTeam, awayTeam);
 
-  const hh = g?.head_to_head ?? g?.headToHead ?? null;
-  const hw = Number(hh?.home_wins ?? hh?.homeWins) || 0;
-  const aw = Number(hh?.away_wins ?? hh?.awayWins) || 0;
-  const dr = Number(hh?.draws ?? hh?.draw) || 0;
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 88px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("선발 투수", w / 2, SAFE_TOP + 100);
-  resetShadow(ctx);
-
-  const y0 = SAFE_TOP + 220;
-  const gap = 100;
-  ctx.textAlign = "left";
-  ctx.font = `800 52px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#FFD700";
-  ctx.fillText(`홈 ${homeTeam}`, 72, y0);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
   const hs = String(g?.home_starter || "미정").trim() || "미정";
+  const as = String(g?.away_starter || "미정").trim() || "미정";
   const hip = g?.home_starter_ip;
   const hso = g?.home_starter_so;
-  const hipStr = Number.isFinite(Number(hip)) ? String(hip) : "—";
-  const hsoStr = Number.isFinite(Number(hso)) ? String(hso) : "—";
-  ctx.fillText(`${hs}  ·  ERA ${fmtEra(g?.home_starter_era)}  ·  이닝 ${hipStr}  ·  삼진 ${hsoStr}`, 72, y0 + gap * 0.65);
-
-  ctx.font = `800 52px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "#FFE082";
-  ctx.fillText(`원정 ${awayTeam}`, 72, y0 + gap * 1.85);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `600 44px "${FONT_BODY}", system-ui, sans-serif`;
-  const as = String(g?.away_starter || "미정").trim() || "미정";
   const aip = g?.away_starter_ip;
   const aso = g?.away_starter_so;
+  const hipStr = Number.isFinite(Number(hip)) ? String(hip) : "—";
+  const hsoStr = Number.isFinite(Number(hso)) ? String(hso) : "—";
   const aipStr = Number.isFinite(Number(aip)) ? String(aip) : "—";
   const asoStr = Number.isFinite(Number(aso)) ? String(aso) : "—";
-  ctx.fillText(`${as}  ·  ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipStr}  ·  삼진 ${asoStr}`, 72, y0 + gap * 2.45);
+  const homeStats = `ERA ${fmtEra(g?.home_starter_era)}  ·  이닝 ${hipStr}  ·  삼진 ${hsoStr}`;
+  const awayStats = `ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipStr}  ·  삼진 ${asoStr}`;
 
-  const h2hY = y0 + gap * 3.55;
-  ctx.fillStyle = "rgba(0,0,0,0.45)";
-  ctx.beginPath();
-  ctx.roundRect(56, h2hY - 24, w - 112, 140, 16);
-  ctx.fill();
-  ctx.fillStyle = "#F9FF00";
-  ctx.font = `700 46px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("상대전적", 88, h2hY + 28);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `600 40px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(`${homeTeam} ${hw}승 ${dr}무 ${aw}패 (${awayTeam} 관점)`, 88, h2hY + 92);
+  /** drawTomorrowPreviewGameSlide VS: `1000 90px "${FONT_TITLE}"` → 2배 */
+  const vsSizePx = 180;
+  const nameSizePx = 108;
+  const statSizePx = 90;
+
+  const topCy = h * 0.25;
+  const botCy = h * 0.75;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(as, w / 2, topCy - nameSizePx * 0.35);
+  resetShadow(ctx);
+  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(awayStats, w / 2, topCy + nameSizePx * 0.55);
+  resetShadow(ctx);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(hs, w / 2, botCy - nameSizePx * 0.35);
+  resetShadow(ctx);
+  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(homeStats, w / 2, botCy + nameSizePx * 0.55);
+  resetShadow(ctx);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", w / 2, h / 2);
+  resetShadow(ctx);
 }
 
 function sortLineupRows(rows) {
