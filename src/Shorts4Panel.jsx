@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 import "./Shorts4Panel.css";
 
@@ -61,7 +61,7 @@ function LineupTable({ title, rows }) {
         <tbody>
           {sorted.length === 0 ? (
             <tr>
-              <td colSpan={3} className="muted">
+              <td colSpan={3} className="muted shorts4-lineup-note">
                 라인업 없음
               </td>
             </tr>
@@ -191,10 +191,6 @@ export default function Shorts4Panel() {
     }
   }, []);
 
-  useEffect(() => {
-    void fetchMatchupPreview(seoulToday());
-  }, [fetchMatchupPreview]);
-
   const onLoad = () => {
     void fetchMatchupPreview(date);
   };
@@ -204,11 +200,16 @@ export default function Shorts4Panel() {
   };
 
   return (
-    <div className="section soft">
+    <div className="shorts4-panel">
+      <div className="section soft">
       <div className="section-title">4. 쇼츠-예상전력-비교</div>
       <div className="muted">선발·순위·최근 폼·상대전적·직전 라인업 비교</div>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+      {!data && !busy ? (
+        <p className="shorts4-hint">날짜를 선택한 뒤 <strong>데이터 불러오기</strong>를 누르세요. 경기가 있으면 아래에 탭·카드가 표시됩니다.</p>
+      ) : null}
+
+      <div className="shorts4-controls-row">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <button
           type="button"
@@ -224,7 +225,7 @@ export default function Shorts4Panel() {
       </div>
 
       {error ? (
-        <div className="result-error-light" role="alert" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
+        <div className="result-error-light shorts4-error" role="alert">
           {error}
         </div>
       ) : null}
@@ -249,7 +250,7 @@ export default function Shorts4Panel() {
           <GameCard game={activeGame} />
         </>
       ) : data && games.length === 0 ? (
-        <div className="empty-state" style={{ marginTop: 16 }}>
+        <div className="empty-state shorts4-empty">
           해당 날짜에 예정된 경기가 없습니다.
         </div>
       ) : null}
@@ -258,6 +259,7 @@ export default function Shorts4Panel() {
         <button type="button" className="primary primary-fill" onClick={onShortsCreate} disabled={!activeGame}>
           쇼츠 생성
         </button>
+      </div>
       </div>
     </div>
   );
