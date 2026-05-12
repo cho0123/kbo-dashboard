@@ -301,22 +301,33 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
   }
 }
 
-const STARTER_LOGO_BOX = 530;
-const STARTER_LOGO_ALPHA = 0.28;
+const STARTER_FACE_BOX = Math.round(530 * 0.7);
+const PORTRAIT_FRAME_LW = 7;
 
-/** 팀 SVG 로고를 고정 박스에 맞춰 반투명으로 (선수 사진 아래 레이어) */
-function drawStarterLogoFaded(ctx, img, boxX, boxY, boxW, boxH, alpha) {
+function starterTeamStrokeColor(teamName) {
+  const [c] = teamGrad(teamName);
+  return c || "#ffffff";
+}
+
+/** 원형 클립 + 팀컬러 링 — 선수 사진만 */
+function drawStarterPortraitFramed(ctx, img, cx, cy, diameter, teamName) {
   if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
+  const r = diameter / 2;
+  const boxTop = cy - r;
   ctx.save();
-  ctx.globalAlpha = alpha;
-  const iw = Number(img.naturalWidth) || boxW;
-  const ih = Number(img.naturalHeight) || boxH;
-  const scale = Math.min(boxW / iw, boxH / ih);
-  const dw = iw * scale;
-  const dh = ih * scale;
-  const x = boxX + (boxW - dw) / 2;
-  const y = boxY + (boxH - dh) / 2;
-  ctx.drawImage(img, x, y, dw, dh);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  drawPortraitContain(ctx, img, cx, boxTop, diameter, diameter);
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = starterTeamStrokeColor(teamName);
+  ctx.lineWidth = PORTRAIT_FRAME_LW;
+  ctx.lineJoin = "round";
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -334,25 +345,22 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
 
 /**
  * @param {{ away?: HTMLImageElement | null, home?: HTMLImageElement | null } | null | undefined} portraits
- * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey teamKeyword 키 → SVG 로고
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey 미사용(호환용)
  */
 export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
+  void logosByTeamKey;
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   ctx.clearRect(0, 0, w, h);
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
   drawBaseballBackground(ctx);
 
-  const hk = teamKeyword(g?.home_team);
-  const ak = teamKeyword(g?.away_team);
-  const awayLogo = logosByTeamKey?.[ak] ?? null;
-  const homeLogo = logosByTeamKey?.[hk] ?? null;
-  const awayLogoX = 24;
-  const awayLogoY = 56;
-  const homeLogoX = w - 24 - STARTER_LOGO_BOX;
-  const homeLogoY = h / 2 + 156;
-  const awayFaceCx = awayLogoX + STARTER_LOGO_BOX / 2;
-  const homeFaceCx = homeLogoX + STARTER_LOGO_BOX / 2;
+  const awayFaceCx = w * 0.65;
+  const homeFaceCx = w * 0.35;
+  const awayFaceTop = 56;
+  const homeFaceTop = h / 2 + 156;
+  const awayCy = awayFaceTop + STARTER_FACE_BOX / 2;
+  const homeCy = homeFaceTop + STARTER_FACE_BOX / 2;
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
@@ -378,30 +386,11 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
-  drawStarterLogoFaded(
-    ctx,
-    awayLogo,
-    awayLogoX,
-    awayLogoY,
-    STARTER_LOGO_BOX,
-    STARTER_LOGO_BOX,
-    STARTER_LOGO_ALPHA
-  );
   if (awayUsePhoto) {
-    drawPortraitContain(ctx, awayImg, awayFaceCx, awayLogoY, STARTER_LOGO_BOX, STARTER_LOGO_BOX);
+    drawStarterPortraitFramed(ctx, awayImg, awayFaceCx, awayCy, STARTER_FACE_BOX, awayTeam);
   }
-
-  drawStarterLogoFaded(
-    ctx,
-    homeLogo,
-    homeLogoX,
-    homeLogoY,
-    STARTER_LOGO_BOX,
-    STARTER_LOGO_BOX,
-    STARTER_LOGO_ALPHA
-  );
   if (homeUsePhoto) {
-    drawPortraitContain(ctx, homeImg, homeFaceCx, homeLogoY, STARTER_LOGO_BOX, STARTER_LOGO_BOX);
+    drawStarterPortraitFramed(ctx, homeImg, homeFaceCx, homeCy, STARTER_FACE_BOX, homeTeam);
   }
 
   ctx.textAlign = "center";
@@ -409,7 +398,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   ctx.fillStyle = "#ffffff";
 
   if (awayUsePhoto) {
-    const awayNameY = awayLogoY + STARTER_LOGO_BOX + 22;
+    const awayNameY = awayFaceTop + STARTER_FACE_BOX + 22;
     const awayStatY = awayNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -420,7 +409,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     ctx.fillText(awayStats, w / 2, awayStatY);
     resetShadow(ctx);
   } else {
-    const awayNameY = awayLogoY + STARTER_LOGO_BOX + 28;
+    const awayNameY = awayFaceTop + STARTER_FACE_BOX + 28;
     const awayStatY = awayNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -433,7 +422,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   }
 
   if (homeUsePhoto) {
-    const homeNameY = homeLogoY + STARTER_LOGO_BOX + 22;
+    const homeNameY = homeFaceTop + STARTER_FACE_BOX + 22;
     const homeStatY = homeNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -444,7 +433,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     ctx.fillText(homeStats, w / 2, homeStatY);
     resetShadow(ctx);
   } else {
-    const homeNameY = homeLogoY + STARTER_LOGO_BOX + 28;
+    const homeNameY = homeFaceTop + STARTER_FACE_BOX + 28;
     const homeStatY = homeNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -456,11 +445,14 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     resetShadow(ctx);
   }
 
+  ctx.save();
+  ctx.globalAlpha = 0.7;
   ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFD700";
   shadowTextSoft(ctx);
   ctx.fillText("VS", w / 2, h / 2);
   resetShadow(ctx);
+  ctx.restore();
 }
 
 function sortLineupRows(rows) {
