@@ -277,6 +277,24 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 
 const STARTER_PHOTO_W = 300;
 const STARTER_PHOTO_H = 370;
+const STARTER_LOGO_BOX = 400;
+const STARTER_LOGO_ALPHA = 0.28;
+
+/** 팀 SVG 로고를 고정 박스에 맞춰 반투명으로 (선수 사진 아래 레이어) */
+function drawStarterLogoFaded(ctx, img, boxX, boxY, boxW, boxH, alpha) {
+  if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const iw = Number(img.naturalWidth) || boxW;
+  const ih = Number(img.naturalHeight) || boxH;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  const x = boxX + (boxW - dw) / 2;
+  const y = boxY + (boxH - dh) / 2;
+  ctx.drawImage(img, x, y, dw, dh);
+  ctx.restore();
+}
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
   if (!img || !(Number(img.naturalWidth) > 0)) return;
@@ -292,12 +310,24 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
 
 /**
  * @param {{ away?: HTMLImageElement | null, home?: HTMLImageElement | null } | null | undefined} portraits
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey teamKeyword 키 → SVG 로고
  */
-export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
+export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   ctx.clearRect(0, 0, w, h);
   diagTeamGradient(ctx, w, h, awayTeam, homeTeam);
+
+  const hk = teamKeyword(g?.home_team);
+  const ak = teamKeyword(g?.away_team);
+  const awayLogo = logosByTeamKey?.[ak] ?? null;
+  const homeLogo = logosByTeamKey?.[hk] ?? null;
+  const awayLogoX = 32;
+  const awayLogoY = 72;
+  const homeLogoX = w - 32 - STARTER_LOGO_BOX;
+  const homeLogoY = h / 2 + 56;
+  const awayPhotoCx = w / 2 + 72;
+  const homePhotoCx = w / 2 - 72;
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
@@ -333,7 +363,16 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
   ctx.fillStyle = "#ffffff";
   if (awayUsePhoto) {
     const boxTop = 72;
-    drawPortraitContain(ctx, awayImg, w / 2, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
+    drawStarterLogoFaded(
+      ctx,
+      awayLogo,
+      awayLogoX,
+      awayLogoY,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_ALPHA
+    );
+    drawPortraitContain(ctx, awayImg, awayPhotoCx, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
     const nameY = boxTop + STARTER_PHOTO_H + 36;
     const statsY = nameY + 72;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
@@ -345,6 +384,15 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
     ctx.fillText(awayStats, w / 2, statsY);
     resetShadow(ctx);
   } else {
+    drawStarterLogoFaded(
+      ctx,
+      awayLogo,
+      awayLogoX,
+      awayLogoY,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_ALPHA
+    );
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     ctx.fillText(as, w / 2, topCy - nameSizePx * 0.35);
@@ -358,7 +406,16 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
   ctx.fillStyle = "#ffffff";
   if (homeUsePhoto) {
     const boxTop = h / 2 + 72;
-    drawPortraitContain(ctx, homeImg, w / 2, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
+    drawStarterLogoFaded(
+      ctx,
+      homeLogo,
+      homeLogoX,
+      homeLogoY,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_ALPHA
+    );
+    drawPortraitContain(ctx, homeImg, homePhotoCx, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
     const nameY = boxTop + STARTER_PHOTO_H + 36;
     const statsY = nameY + 72;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
@@ -370,6 +427,15 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null) {
     ctx.fillText(homeStats, w / 2, statsY);
     resetShadow(ctx);
   } else {
+    drawStarterLogoFaded(
+      ctx,
+      homeLogo,
+      homeLogoX,
+      homeLogoY,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_BOX,
+      STARTER_LOGO_ALPHA
+    );
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     ctx.fillText(hs, w / 2, botCy - nameSizePx * 0.35);

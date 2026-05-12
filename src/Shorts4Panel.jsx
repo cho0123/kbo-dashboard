@@ -273,7 +273,7 @@ export default function Shorts4Panel() {
           loadPlayerImage(ak, asName),
           loadPlayerImage(hk, hsName),
         ]);
-        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayPortrait, home: homePortrait });
+        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayPortrait, home: homePortrait }, logosByTeamKey);
         return;
       }
 
