@@ -276,13 +276,13 @@ function starterSeasonYearFromGame(g) {
   return Number.isFinite(sy) && sy > 0 ? sy : 2026;
 }
 
-function drawShorts4StarterHeaderDivider(ctx, w, padL, padR, dividerY) {
+function drawShorts4StarterHeaderDivider(ctx, w, pad, dividerY) {
   ctx.save();
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(padL, dividerY);
-  ctx.lineTo(w - padR, dividerY);
+  ctx.moveTo(pad, dividerY);
+  ctx.lineTo(w - pad, dividerY);
   ctx.stroke();
   ctx.restore();
 }
@@ -352,7 +352,6 @@ function awayStarterWhipLabel(g) {
 function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey) {
   const rPhoto = STARTER_FACE_BOX / 2;
   const awayPhotoCx = w * 0.25;
-  const padR = 56;
   const padL = 48;
 
   const headerContentTop = 28;
@@ -369,7 +368,7 @@ function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePho
     starterSeasonYearFromGame(g),
     awayLogoImg
   );
-  drawShorts4StarterHeaderDivider(ctx, w, padL, padR, dividerY);
+  drawShorts4StarterHeaderDivider(ctx, w, padL, dividerY);
 
   const awayCy = dividerY + rPhoto + 56;
   const awayBoxTop = awayCy - rPhoto;
@@ -446,7 +445,6 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
  * @returns {number} homeDividerY
  */
 function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) {
-  const padR = 56;
   const padL = 48;
   const mid = h * 0.5;
   const headerContentTop = mid + 92;
@@ -463,7 +461,7 @@ function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) 
     starterSeasonYearFromGame(g),
     homeLogoImg
   );
-  drawShorts4StarterHeaderDivider(ctx, w, padL, padR, dividerY);
+  drawShorts4StarterHeaderDivider(ctx, w, padL, dividerY);
   return dividerY;
 }
 
