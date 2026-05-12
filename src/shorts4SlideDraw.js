@@ -302,48 +302,48 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
-const PORTRAIT_TEAM_BORDER_LW = 5;
-const PORTRAIT_WHITE_BORDER_LW = 8;
+const PORTRAIT_RECT_BORDER_LW = 15;
+const PORTRAIT_RECT_RADIUS = 22;
 
-function starterTeamStrokeColor(teamName) {
-  const [c] = teamGrad(teamName);
-  return c || "#ffffff";
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return { r: 32, g: 36, b: 44 };
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+/** TEAM_GRAD 기반으로 진한 단색 테두리 */
+function starterPortraitBorderColor(teamName) {
+  const [base] = teamGrad(teamName);
+  const { r, g, b } = hexToRgb(base);
+  const k = 0.38;
+  return `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`;
 }
 
 /**
- * 원형 클립 사진 + 안쪽 팀컬러 링 + 바깥 흰색 링 (대비 확보)
- * @param {number} diameter 사진(클립) 직경(px)
+ * 라운드 직사각형 clip + 동일 형태 stroke (팀컬러 진하게)
+ * @param {number} diameter 정사각 한 변 길이(px)
  */
 function drawStarterPortraitFramed(ctx, img, cx, cy, diameter, teamName) {
   if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
-  const rPhoto = diameter / 2;
-  const boxTop = cy - rPhoto;
+  const boxW = diameter;
+  const boxH = diameter;
+  const boxLeft = cx - boxW / 2;
+  const boxTop = cy - boxH / 2;
+  const rad = PORTRAIT_RECT_RADIUS;
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, rPhoto, 0, Math.PI * 2);
+  ctx.roundRect(boxLeft, boxTop, boxW, boxH, rad);
   ctx.clip();
-  drawPortraitContain(ctx, img, cx, boxTop, diameter, diameter);
-  ctx.restore();
-
-  const rTeamMid = rPhoto + PORTRAIT_TEAM_BORDER_LW / 2;
-  const rWhiteMid = rPhoto + PORTRAIT_TEAM_BORDER_LW + PORTRAIT_WHITE_BORDER_LW / 2;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, rTeamMid, 0, Math.PI * 2);
-  ctx.strokeStyle = starterTeamStrokeColor(teamName);
-  ctx.lineWidth = PORTRAIT_TEAM_BORDER_LW;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.stroke();
+  drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH);
   ctx.restore();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, rWhiteMid, 0, Math.PI * 2);
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = PORTRAIT_WHITE_BORDER_LW;
-  ctx.lineCap = "round";
+  ctx.roundRect(boxLeft, boxTop, boxW, boxH, rad);
+  ctx.strokeStyle = starterPortraitBorderColor(teamName);
+  ctx.lineWidth = PORTRAIT_RECT_BORDER_LW;
   ctx.lineJoin = "round";
   ctx.stroke();
   ctx.restore();
@@ -373,7 +373,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
   drawBaseballBackground(ctx);
 
-  const frameOuter = PORTRAIT_TEAM_BORDER_LW + PORTRAIT_WHITE_BORDER_LW;
+  const frameOuter = PORTRAIT_RECT_BORDER_LW;
 
   const awayFaceCx = w * 0.65 + 100;
   const homeFaceCx = w * 0.35 - 100;
