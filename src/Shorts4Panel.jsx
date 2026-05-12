@@ -10,6 +10,7 @@ import {
   loadSvgLogo,
   teamKeyword,
 } from "./shorts1IntroStandingsDraw.js";
+import { drawShorts4LineupSlide, drawShorts4MatchupSlide, drawShorts4StarterSlide } from "./shorts4SlideDraw.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -166,7 +167,15 @@ export default function Shorts4Panel() {
 
   const slides = useMemo(() => {
     if (!data || !detailGame) return [];
-    return [{ type: "intro" }, { type: "matchup", game: detailGame }, { type: "standings" }];
+    const g = detailGame;
+    return [
+      { type: "intro" },
+      { type: "matchup", game: g },
+      { type: "starter", game: g },
+      { type: "home_lineup", game: g },
+      { type: "away_lineup", game: g },
+      { type: "standings" },
+    ];
   }, [data, detailGame]);
 
   useEffect(() => {
@@ -218,14 +227,34 @@ export default function Shorts4Panel() {
         return;
       }
 
-      if (slide.type === "matchup" && slide.game) {
-        ctx.fillStyle = "#f8f9fa";
-        ctx.fillRect(0, 0, w, h);
+      const g = slide.game;
+      if (!g) {
         ctx.fillStyle = "#1a1a2e";
-        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("매치업 슬라이드 준비 중", w / 2, h / 2);
+        ctx.fillRect(0, 0, w, h);
+        return;
+      }
+
+      const logosTwo = {};
+      const hk = teamKeyword(g.home_team);
+      const ak = teamKeyword(g.away_team);
+      if (hk) logosTwo[hk] = await loadSvgLogo(hk);
+      if (ak) logosTwo[ak] = await loadSvgLogo(ak);
+
+      if (slide.type === "matchup") {
+        drawShorts4MatchupSlide(ctx, w, h, date, g, logosTwo);
+        return;
+      }
+      if (slide.type === "starter") {
+        drawShorts4StarterSlide(ctx, w, h, g);
+        return;
+      }
+      if (slide.type === "home_lineup") {
+        drawShorts4LineupSlide(ctx, w, h, g, "home");
+        return;
+      }
+      if (slide.type === "away_lineup") {
+        drawShorts4LineupSlide(ctx, w, h, g, "away");
+        return;
       }
     },
     [slides, standingsRows, date]
@@ -460,8 +489,12 @@ export default function Shorts4Panel() {
             <div className="muted" style={{ marginTop: 10 }}>
               - 슬라이드1: 인트로
               <br />
-              - 슬라이드2~N: 경기별 예상전력(순위·선발·라인업)
-              <br />- 마지막: KBO 순위
+              - 슬라이드2: 매치업(일시·구장·로고·순위·전적·최근5)
+              <br />
+              - 슬라이드3: 선발 투수·상대전적
+              <br />
+              - 슬라이드4~5: 홈/원정 예상 라인업
+              <br />- 슬라이드6: KBO 순위
             </div>
           </div>
         </div>
