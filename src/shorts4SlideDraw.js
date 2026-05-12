@@ -264,9 +264,14 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
+/** 선발 슬라이드만: 얼굴 박스 5% 확대 */
+const STARTER_SLIDE_FACE_BOX = Math.round(STARTER_FACE_BOX * 1.05);
 /** drawTomorrowPreviewGameSlide 하단 텍스트와 동일: 800 46px Noto Sans KR */
 const STARTER_DETAIL_FONT_PX = 46;
 const STARTER_DETAIL_LINE_GAP = 54;
+/** 선발 슬라이드 오른쪽 스탯: 본문 +2px, 줄간격 ~1.45배 */
+const STARTER_SLIDE_STAT_FONT_PX = STARTER_DETAIL_FONT_PX + 2;
+const STARTER_SLIDE_STAT_LINE_GAP = Math.round(STARTER_DETAIL_LINE_GAP * 1.45);
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
 const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
 /** 헤더 로고: 세로 100px, 가로는 비율 유지(최대 폭 제한) */
@@ -276,6 +281,9 @@ const LOGO_HEADER_MAX_W = 280;
 const STARTER_HEADER_GAP_LINE_TO_CENTER = 48;
 /** 원정·홈 공통: 흰 구분선 아래 얼굴 박스 상단까지 간격 */
 const STARTER_DIVIDER_TO_FACE_TOP = 56;
+
+/** 원정 상단 흰 구분선 y (기존 대비 +3px) */
+const STARTER_AWAY_DIVIDER_Y = 157;
 
 function starterSeasonYearFromGame(g) {
   const sy = Number(g?.season_year);
@@ -332,53 +340,57 @@ function drawShorts4StarterHeaderRow(ctx, w, centerY, padL, teamName, playerName
   ctx.restore();
 }
 
-function starterWlLineFromGame(g, side) {
+function starterSlideStatLineWins(g, side) {
   const pref = side === "away" ? "away" : "home";
   const has = g?.[`${pref}_starter_season_has_result`] === true;
-  const w = Number(g?.[`${pref}_starter_season_wins`]);
-  const l = Number(g?.[`${pref}_starter_season_losses`]);
-  if (has) {
-    const ws = Number.isFinite(w) ? w : 0;
-    const ls = Number.isFinite(l) ? l : 0;
-    return `${ws}승 ${ls}패`;
-  }
-  return "-승 -패";
-}
-
-function starterWhipLineFromGame(g, side) {
-  const whip = side === "away" ? g?.away_starter_whip : g?.home_starter_whip;
-  if (whip == null || !Number.isFinite(Number(whip))) return "WHIP -";
-  return `WHIP ${Number(whip).toFixed(2)}`;
-}
-
-/** 원정 선발 승패 (상단 스탯 블록용, 미집계 시 "- 승 - 패") */
-function awayStarterWlDisplay(g) {
-  const has = g?.away_starter_season_has_result === true;
-  const wv = Number(g?.away_starter_season_wins);
-  const lv = Number(g?.away_starter_season_losses);
+  const wv = Number(g?.[`${pref}_starter_season_wins`]);
+  const lv = Number(g?.[`${pref}_starter_season_losses`]);
   if (has) {
     const ws = Number.isFinite(wv) ? wv : 0;
     const ls = Number.isFinite(lv) ? lv : 0;
-    return `${ws}승 ${ls}패`;
+    return `- ${ws}승 ${ls}패`;
   }
-  return "- 승 - 패";
+  return `- -승 -패`;
 }
 
-function awayStarterWhipLabel(g) {
-  const whip = g?.away_starter_whip;
-  if (whip == null || !Number.isFinite(Number(whip))) return "WHIP : -";
-  return `WHIP : ${Number(whip).toFixed(2)}`;
+function starterSlideStatLinesThree(g, side) {
+  const era = side === "away" ? g?.away_starter_era : g?.home_starter_era;
+  const whip = side === "away" ? g?.away_starter_whip : g?.home_starter_whip;
+  const l1 = starterSlideStatLineWins(g, side);
+  const l2 = `- ERA(평균자책점) : ${fmtEra(era)}`;
+  const l3 =
+    whip != null && Number.isFinite(Number(whip)) ? `- WHIP : ${Number(whip).toFixed(2)}` : `- WHIP : -`;
+  return [l1, l2, l3];
+}
+
+/** 선수 얼굴 세로 중심 cy 기준 오른쪽 스탯 3줄 */
+function drawStarterSlideRightStatBlock(ctx, statX, cy, g, side) {
+  const lines = starterSlideStatLinesThree(g, side);
+  const gap = STARTER_SLIDE_STAT_LINE_GAP;
+  const totalH = (lines.length - 1) * gap;
+  let statY = cy - totalH / 2;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${STARTER_SLIDE_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  for (const line of lines) {
+    shadowTextSoft(ctx);
+    ctx.fillText(line, statX, statY);
+    resetShadow(ctx);
+    statY += gap;
+  }
 }
 
 /**
  * 원정팀(상단 절반): 헤더(로고+한줄)·구분선, 사진 중심 x=w*0.25, 스탯은 사진 오른쪽 좌측 정렬
  */
 function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey) {
-  const rPhoto = STARTER_FACE_BOX / 2;
+  const faceBox = STARTER_SLIDE_FACE_BOX;
+  const rPhoto = faceBox / 2;
   const awayPhotoCx = w * 0.25;
   const padL = 48;
 
-  const dividerY = 154;
+  const dividerY = STARTER_AWAY_DIVIDER_Y;
   const headerCenterY = dividerY - STARTER_HEADER_GAP_LINE_TO_CENTER;
   const ak = teamKeyword(awayTeam);
   const awayLogoImg = logosByTeamKey?.[ak] ?? null;
@@ -398,58 +410,11 @@ function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePho
   const awayBoxTop = awayCy - rPhoto;
 
   if (awayUsePhoto && awayImg) {
-    drawPortraitContain(ctx, awayImg, awayPhotoCx, awayBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
+    drawPortraitContain(ctx, awayImg, awayPhotoCx, awayBoxTop, faceBox, faceBox);
   }
 
-  const sy = Number(g?.season_year);
-  const seasonLine = `${Number.isFinite(sy) && sy > 0 ? sy : 2026} 시즌`;
-  const era = g?.away_starter_era;
-  const statLines = [
-    seasonLine,
-    awayStarterWlDisplay(g),
-    `평균자책점(ERA) : ${fmtEra(era)}`,
-    awayStarterWhipLabel(g),
-  ];
   const statX = awayPhotoCx + rPhoto + 28;
-  const totalStatH = (statLines.length - 1) * STARTER_DETAIL_LINE_GAP;
-  let statY = awayCy - totalStatH / 2;
-
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${STARTER_DETAIL_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  for (const line of statLines) {
-    shadowTextSoft(ctx);
-    ctx.fillText(line, statX, statY);
-    resetShadow(ctx);
-    statY += STARTER_DETAIL_LINE_GAP;
-  }
-}
-
-/** 사진 하단 기준 중앙 정렬, 6줄 동일 폰트·흰색 (내일프리뷰 하단과 동일 46px) */
-function drawStarterPortraitStatStack(ctx, cx, cy, rPhoto, g, side, teamFull, playerName) {
-  const sy = Number(g?.season_year);
-  const seasonLine = `${Number.isFinite(sy) && sy > 0 ? sy : 2026} 시즌`;
-  const era = side === "away" ? g?.away_starter_era : g?.home_starter_era;
-  const lines = [
-    String(teamFull || "—").trim() || "—",
-    String(playerName || "—").trim() || "—",
-    seasonLine,
-    starterWlLineFromGame(g, side),
-    `평균자책점 ${fmtEra(era)}`,
-    starterWhipLineFromGame(g, side),
-  ];
-  let y = cy + rPhoto + 28;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${STARTER_DETAIL_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  for (const line of lines) {
-    shadowTextSoft(ctx);
-    ctx.fillText(line, cx, y);
-    resetShadow(ctx);
-    y += STARTER_DETAIL_LINE_GAP;
-  }
+  drawStarterSlideRightStatBlock(ctx, statX, awayCy, g, "away");
 }
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
@@ -465,17 +430,15 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
 }
 
 /**
- * 홈(하단): 흰 구분선 위 로고+한 줄 헤더.
- * 상단과 동일하게 구분선~헤더 텍스트(세로 중심) 간격 = STARTER_HEADER_GAP_LINE_TO_CENTER 가 되도록
- * headerContentTop(mid+92) 고정 시 dividerY = mid+188.
+ * 홈(하단): 흰 구분선 위 로고+한 줄 헤더. 구분선은 상단과 동일하게 +3px 아래.
+ * 구분선~헤더 세로중심 간격 = STARTER_HEADER_GAP_LINE_TO_CENTER.
  * @returns {number} homeDividerY
  */
 function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) {
   const padL = 48;
   const mid = h * 0.5;
-  const headerContentTop = mid + 92;
-  const dividerY = mid + 92 + 2 * STARTER_HEADER_GAP_LINE_TO_CENTER;
-  const headerCenterY = (headerContentTop + dividerY) / 2;
+  const dividerY = mid + 92 + 2 * STARTER_HEADER_GAP_LINE_TO_CENTER + 3;
+  const headerCenterY = dividerY - STARTER_HEADER_GAP_LINE_TO_CENTER;
   const hk = teamKeyword(homeTeam);
   const homeLogoImg = logosByTeamKey?.[hk] ?? null;
   drawShorts4StarterHeaderRow(
@@ -503,7 +466,8 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
   drawBaseballBackground(ctx);
 
-  const rPhoto = STARTER_FACE_BOX / 2;
+  const faceBox = STARTER_SLIDE_FACE_BOX;
+  const rPhoto = faceBox / 2;
 
   const homeFaceCx = w * 0.35 - 100;
 
@@ -524,10 +488,10 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const homeFaceTop = homeCy - rPhoto;
 
   if (homeUsePhoto) {
-    drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
+    drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
   }
 
-  drawStarterPortraitStatStack(ctx, homeFaceCx, homeCy, rPhoto, g, "home", homeTeam, hs);
+  drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
 
   ctx.save();
   ctx.globalAlpha = 0.7;
