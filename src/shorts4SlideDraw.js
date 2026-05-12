@@ -2,7 +2,7 @@
  * 쇼츠4 전용 슬라이드 캔버스 — 내일프리뷰(drawTomorrowPreviewGameSlide)와 유사한 배경·타이포.
  * 쇼츠1/2 draw 함수는 수정하지 않음.
  */
-import { drawBaseballBackground } from "./shortsBaseballDecor.js";
+import { drawBaseballBackground, drawBaseballBackgroundStarter } from "./shortsBaseballDecor.js";
 import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
 
 function fmtTeamShort(team) {
@@ -54,6 +54,32 @@ function resetShadow(ctx) {
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
+}
+
+/** 팀컬러 사선만 — 선발 슬라이드에서 야구공 레이어와 순서 분리용 */
+function diagTeamColorsOnly(ctx, w, h, primaryTeam, secondaryTeam) {
+  const [p] = teamGrad(primaryTeam);
+  const [s] = teamGrad(secondaryTeam);
+  ctx.fillStyle = p;
+  ctx.fillRect(0, 0, w, h);
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
+  ctx.beginPath();
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = s;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
+  ctx.stroke();
 }
 
 function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
@@ -275,9 +301,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
   }
 }
 
-const STARTER_PHOTO_W = 300;
-const STARTER_PHOTO_H = 370;
-const STARTER_LOGO_BOX = 400;
+const STARTER_LOGO_BOX = 530;
 const STARTER_LOGO_ALPHA = 0.28;
 
 /** 팀 SVG 로고를 고정 박스에 맞춰 반투명으로 (선수 사진 아래 레이어) */
@@ -297,7 +321,7 @@ function drawStarterLogoFaded(ctx, img, boxX, boxY, boxW, boxH, alpha) {
 }
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
-  if (!img || !(Number(img.naturalWidth) > 0)) return;
+  if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
   const iw = Number(img.naturalWidth) || boxW;
   const ih = Number(img.naturalHeight) || boxH;
   const scale = Math.min(boxW / iw, boxH / ih);
@@ -316,18 +340,19 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   ctx.clearRect(0, 0, w, h);
-  diagTeamGradient(ctx, w, h, awayTeam, homeTeam);
+  diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
+  drawBaseballBackgroundStarter(ctx, w, h);
 
   const hk = teamKeyword(g?.home_team);
   const ak = teamKeyword(g?.away_team);
   const awayLogo = logosByTeamKey?.[ak] ?? null;
   const homeLogo = logosByTeamKey?.[hk] ?? null;
-  const awayLogoX = 32;
-  const awayLogoY = 72;
-  const homeLogoX = w - 32 - STARTER_LOGO_BOX;
-  const homeLogoY = h / 2 + 56;
-  const awayPhotoCx = w / 2 + 72;
-  const homePhotoCx = w / 2 - 72;
+  const awayLogoX = 24;
+  const awayLogoY = 56;
+  const homeLogoX = w - 24 - STARTER_LOGO_BOX;
+  const homeLogoY = h / 2 + 156;
+  const awayFaceCx = awayLogoX + STARTER_LOGO_BOX / 2;
+  const homeFaceCx = homeLogoX + STARTER_LOGO_BOX / 2;
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
@@ -344,105 +369,90 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const homeStats = `ERA ${fmtEra(g?.home_starter_era)}  ·  이닝 ${hipLabel}  ·  삼진 ${hsoStr}`;
   const awayStats = `ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipLabel}  ·  삼진 ${asoStr}`;
 
-  /** drawTomorrowPreviewGameSlide VS: `1000 90px "${FONT_TITLE}"` → 2배 */
   const vsSizePx = 180;
-  const nameSizePx = 108;
-  const statSizePx = 90;
-
-  const topCy = h * 0.25;
-  const botCy = h * 0.75;
+  const nameSizePx = 86;
+  const statSizePx = 72;
 
   const awayImg = portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
   const homeImg = portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
+  drawStarterLogoFaded(
+    ctx,
+    awayLogo,
+    awayLogoX,
+    awayLogoY,
+    STARTER_LOGO_BOX,
+    STARTER_LOGO_BOX,
+    STARTER_LOGO_ALPHA
+  );
+  if (awayUsePhoto) {
+    drawPortraitContain(ctx, awayImg, awayFaceCx, awayLogoY, STARTER_LOGO_BOX, STARTER_LOGO_BOX);
+  }
+
+  drawStarterLogoFaded(
+    ctx,
+    homeLogo,
+    homeLogoX,
+    homeLogoY,
+    STARTER_LOGO_BOX,
+    STARTER_LOGO_BOX,
+    STARTER_LOGO_ALPHA
+  );
+  if (homeUsePhoto) {
+    drawPortraitContain(ctx, homeImg, homeFaceCx, homeLogoY, STARTER_LOGO_BOX, STARTER_LOGO_BOX);
+  }
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-
   ctx.fillStyle = "#ffffff";
+
   if (awayUsePhoto) {
-    const boxTop = 72;
-    drawStarterLogoFaded(
-      ctx,
-      awayLogo,
-      awayLogoX,
-      awayLogoY,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_ALPHA
-    );
-    drawPortraitContain(ctx, awayImg, awayPhotoCx, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
-    const nameY = boxTop + STARTER_PHOTO_H + 36;
-    const statsY = nameY + 72;
+    const awayNameY = awayLogoY + STARTER_LOGO_BOX + 22;
+    const awayStatY = awayNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(as, w / 2, nameY);
+    ctx.fillText(as, w / 2, awayNameY);
     resetShadow(ctx);
     ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(awayStats, w / 2, statsY);
+    ctx.fillText(awayStats, w / 2, awayStatY);
     resetShadow(ctx);
   } else {
-    drawStarterLogoFaded(
-      ctx,
-      awayLogo,
-      awayLogoX,
-      awayLogoY,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_ALPHA
-    );
+    const awayNameY = awayLogoY + STARTER_LOGO_BOX + 28;
+    const awayStatY = awayNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(as, w / 2, topCy - nameSizePx * 0.35);
+    ctx.fillText(as, w / 2, awayNameY);
     resetShadow(ctx);
     ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(awayStats, w / 2, topCy + nameSizePx * 0.55);
+    ctx.fillText(awayStats, w / 2, awayStatY);
     resetShadow(ctx);
   }
 
-  ctx.fillStyle = "#ffffff";
   if (homeUsePhoto) {
-    const boxTop = h / 2 + 72;
-    drawStarterLogoFaded(
-      ctx,
-      homeLogo,
-      homeLogoX,
-      homeLogoY,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_ALPHA
-    );
-    drawPortraitContain(ctx, homeImg, homePhotoCx, boxTop, STARTER_PHOTO_W, STARTER_PHOTO_H);
-    const nameY = boxTop + STARTER_PHOTO_H + 36;
-    const statsY = nameY + 72;
+    const homeNameY = homeLogoY + STARTER_LOGO_BOX + 22;
+    const homeStatY = homeNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(hs, w / 2, nameY);
+    ctx.fillText(hs, w / 2, homeNameY);
     resetShadow(ctx);
     ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(homeStats, w / 2, statsY);
+    ctx.fillText(homeStats, w / 2, homeStatY);
     resetShadow(ctx);
   } else {
-    drawStarterLogoFaded(
-      ctx,
-      homeLogo,
-      homeLogoX,
-      homeLogoY,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_BOX,
-      STARTER_LOGO_ALPHA
-    );
+    const homeNameY = homeLogoY + STARTER_LOGO_BOX + 28;
+    const homeStatY = homeNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(hs, w / 2, botCy - nameSizePx * 0.35);
+    ctx.fillText(hs, w / 2, homeNameY);
     resetShadow(ctx);
     ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(homeStats, w / 2, botCy + nameSizePx * 0.55);
+    ctx.fillText(homeStats, w / 2, homeStatY);
     resetShadow(ctx);
   }
 
