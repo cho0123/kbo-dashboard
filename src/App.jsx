@@ -10,8 +10,6 @@ import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
-import { Routes, Route, Link } from "react-router-dom";
-import ShortsEditPage from "./pages/ShortsEditPage.jsx";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
 const KBO_TEAMS = [
@@ -3897,7 +3895,7 @@ function SummaryCards({ batterRows }) {
   );
 }
 
-function KboDashboard() {
+export default function App() {
   const today = useMemo(() => seoulToday(), []);
   const { busy, runWith } = useAnalyzer();
 
@@ -4381,12 +4379,6 @@ function KboDashboard() {
               예측 (9–10)
             </button>
           </nav>
-
-          <div className="side-shorts-edit-wrap">
-            <Link to="/shorts-edit" className="side-shorts-edit-link">
-              쇼츠 영상편집
-            </Link>
-          </div>
 
           {tab === "analysis" && (
             <div className="side-section">
@@ -5809,14 +5801,5 @@ function KboDashboard() {
         플랜을 확인하세요.
       </footer>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<KboDashboard />} />
-      <Route path="/shorts-edit" element={<ShortsEditPage />} />
-    </Routes>
   );
 }
