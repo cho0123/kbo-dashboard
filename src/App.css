@@ -125,7 +125,59 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+
+.side-shorts-edit-wrap {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.side-shorts-edit-link {
+  display: inline-block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(129, 214, 255, 0.95);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.side-shorts-edit-link:hover {
+  color: #b8e8ff;
+  text-decoration: underline;
+}
+
+.side-shorts-edit-link:focus-visible {
+  outline: 2px solid rgba(62, 224, 169, 0.65);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.shorts-edit-page {
+  min-height: 100vh;
+}
+
+.shorts-edit-page-head {
+  margin-bottom: 16px;
+}
+
+.shorts-edit-back-link {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.shorts-edit-back-link:hover {
+  text-decoration: underline;
+  color: #0d6efd;
+}
+
+.shorts-edit-back-link:focus-visible {
+  outline: 2px solid rgba(13, 110, 253, 0.45);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .side-section {
