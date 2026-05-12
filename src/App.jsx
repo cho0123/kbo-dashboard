@@ -11,6 +11,8 @@ import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import Shorts4Panel from "./Shorts4Panel.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
+import { drawBaseballBackground, loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
+import { drawIntroSlide, drawStandingsSlide, KBO_INTRO_TEAM_KEYS, loadSvgLogo } from "./shorts1IntroStandingsDraw.js";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
 const KBO_TEAMS = [
@@ -679,208 +681,6 @@ function drawTeamBadge(ctx, cx, cy, r, teamName) {
   ctx.restore();
 }
 
-const TEAM_LOGO_PATH = {
-  삼성: "/logos/samsung.svg",
-  LG: "/logos/lg.svg",
-  KT: "/logos/kt.svg",
-  SSG: "/logos/ssg.svg",
-  NC: "/logos/nc.svg",
-  KIA: "/logos/kia.svg",
-  두산: "/logos/doosan.svg",
-  롯데: "/logos/lotte.svg",
-  한화: "/logos/hanwha.svg",
-  키움: "/logos/kiwoom.svg",
-};
-
-function teamLogoPath(teamName) {
-  return TEAM_LOGO_PATH[teamKeyword(teamName)] || null;
-}
-
-/** 쇼츠1 인트로 10구단 로고 (프리로드·흩뿌리기 동일 순서) */
-const KBO_INTRO_TEAM_KEYS = [
-  "KIA",
-  "삼성",
-  "LG",
-  "두산",
-  "KT",
-  "SSG",
-  "롯데",
-  "한화",
-  "NC",
-  "키움",
-];
-
-/** 쇼츠1 인트로 로고 배치 (1080×1920 기준, x/y=중심) */
-const LOGO_LAYOUT = [
-  { key: 0, x: 180, y: 480, size: 200, angle: -12 },
-  { key: 1, x: 580, y: 450, size: 175, angle: 8 },
-  { key: 2, x: 880, y: 500, size: 190, angle: -15 },
-  { key: 3, x: 140, y: 680, size: 185, angle: 10 },
-  { key: 4, x: 430, y: 640, size: 210, angle: -8 },
-  { key: 5, x: 760, y: 660, size: 170, angle: 18 },
-  { key: 6, x: 220, y: 920, size: 195, angle: -20 },
-  { key: 7, x: 540, y: 840, size: 180, angle: 5 },
-  { key: 8, x: 955, y: 800, size: 200, angle: -10 },
-  { key: 9, x: 770, y: 980, size: 175, angle: 14 },
-];
-
-const __svgLogoCache = new Map();
-async function loadSvgLogo(teamName) {
-  const path = TEAM_LOGO_PATH[String(teamName || "").trim()] || teamLogoPath(teamName);
-  if (!path) return null;
-  if (__svgLogoCache.has(path)) return await __svgLogoCache.get(path);
-  const p = new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = path;
-  });
-  __svgLogoCache.set(path, p);
-  return await p;
-}
-
-const __pngImageCache = new Map();
-async function loadPngImage(path) {
-  const p = String(path || "").trim();
-  if (!p) return null;
-  if (__pngImageCache.has(p)) return await __pngImageCache.get(p);
-  const promise = new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = p;
-  });
-  __pngImageCache.set(p, promise);
-  return await promise;
-}
-
-let __baseballDecorImg = null;
-function drawBaseballBackground(ctx) {
-  const baseballImg = __baseballDecorImg;
-  if (!baseballImg) return;
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  const size = 700;
-  const centerX = 900;
-  const centerY = 1400;
-  ctx.drawImage(
-    baseballImg,
-    centerX - size / 2,
-    centerY - size / 2,
-    size,
-    size
-  );
-  ctx.restore();
-}
-
-function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야구 경기 결과") {
-  ctx.save();
-  // Background: day-of-week color
-  const DAY_COLORS = {
-    0: "#E74C3C", // Sun
-    1: "#1B2A80", // Mon
-    2: "#1B2A80", // Tue
-    3: "#1E8449", // Wed - 원래대로
-    4: "#D35400", // Thu - 원래대로
-    5: "#6C3483", // Fri - 원래대로
-    6: "#C0155A", // Sat
-  };
-  const ONE_MIN_COLOR = {
-    0: "#F4FF00", // Sun
-    1: "#FF9500", // Mon
-    2: "#FF9500", // Tue
-    3: "#FF4ECD", // Wed
-    4: "#00E5FF", // Thu
-    5: "#00FF94", // Fri
-    6: "#FFD700", // Sat - 골드
-  };
-  const iso = String(date || "").slice(0, 10);
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00`).getDay() : 0;
-  ctx.fillStyle = DAY_COLORS[day] || "#002B5B";
-  ctx.fillRect(0, 0, w, h);
-
-  // Baseball (same position/size/opacity as other slides)
-  drawBaseballBackground(ctx);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  ctx.save();
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.fillStyle = "#FFFFFF";
-  const titleMaxW = w * 0.8;
-  let topTitleSize = 44;
-  for (let fs = 46; fs <= 280; fs += 2) {
-    ctx.font = `900 ${fs}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    if (ctx.measureText(introTitle).width > titleMaxW) break;
-    topTitleSize = fs;
-  }
-  ctx.font = `900 ${topTitleSize}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(introTitle, w / 2, h * 0.1 + 35);
-  ctx.restore();
-
-  for (const slot of LOGO_LAYOUT) {
-    const tk = KBO_INTRO_TEAM_KEYS[slot.key];
-    const img = logosByTeamKey?.[tk] || null;
-    ctx.save();
-    ctx.translate(slot.x, slot.y);
-    ctx.rotate((slot.angle * Math.PI) / 180);
-    if (img) {
-      const iw = Number(img.naturalWidth ?? img.width) || 1;
-      const ih = Number(img.naturalHeight ?? img.height) || 1;
-      const s = slot.size;
-      let adjustedW;
-      let adjustedH;
-      if (iw >= ih) {
-        adjustedW = s;
-        adjustedH = s * (ih / iw);
-      } else {
-        adjustedH = s;
-        adjustedW = s * (iw / ih);
-      }
-      ctx.drawImage(img, -adjustedW / 2, -adjustedH / 2, adjustedW, adjustedH);
-    }
-    ctx.restore();
-  }
-
-  const dateY = Math.round(h * 0.64);
-  const dateStr = fmtKoreanLongDate(date);
-  ctx.save();
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.font = `700 110px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
-  ctx.fillText(dateStr, w / 2, dateY);
-  ctx.restore();
-
-  const divY = dateY + 100;
-  const divW = 600;
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - divW / 2, divY);
-  ctx.lineTo(w / 2 + divW / 2, divY);
-  ctx.stroke();
-
-  const oneMinY = divY + 180;
-  ctx.fillStyle = ONE_MIN_COLOR[day] || "#FFFFFF";
-  ctx.font = `800 220px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.shadowColor = "rgba(0,0,0,0.3)";
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 6;
-  ctx.fillText("1분컷", w / 2, oneMinY);
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-
-  ctx.restore();
-}
-
 function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
   ctx.save();
   const DAY_COLORS = {
@@ -1074,13 +874,6 @@ function hexToRgba(hex, a) {
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
   // 유지용 이름이지만, 실제 동작은 "사선 분할" 배경으로 변경합니다.
   diagTeamGradient(ctx, w, h, winTeam, loseTeam);
-}
-
-/** 순위 슬라이드 배경 — 단색 네이비 + 야구공 워터마크 */
-function drawStandingsSolidBackground(ctx, w, h) {
-  ctx.fillStyle = "#1E88E5";
-  ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 }
 
 function downloadBlob(blob, filename) {
@@ -2201,268 +1994,6 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   void total;
 }
 
-function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
-  ctx.clearRect(0, 0, w, h);
-  drawStandingsSolidBackground(ctx, w, h);
-
-  const TOP_PAD = 120;
-  const BOTTOM_PAD = 120;
-  const TITLE_FS = 72;
-  const TITLE_BASELINE = TOP_PAD + TITLE_FS;
-  const DATE_BASELINE = TITLE_BASELINE + 80;
-  const DIVIDER_Y = DATE_BASELINE + 20;
-  const LIST_TOP = DIVIDER_Y + 60;
-  const LIST_BOTTOM = h - BOTTOM_PAD;
-  const ROW_PITCH = (LIST_BOTTOM - LIST_TOP) / 10;
-
-  const rows = Array.isArray(standings) ? standings : [];
-  console.log("standings[0]:", JSON.stringify(rows[0]));
-  const rawDate =
-    rows[0]?.date ?? rows[0]?.DATE ?? rows[0]?.game_date ?? "";
-  const isoPick = String(rawDate || date || "").slice(0, 10);
-  const dateLabel =
-    /^\d{4}-\d{2}-\d{2}$/.test(isoPick) ? fmtKoreanLongDate(isoPick) : fmtKoreanLongDate(date);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-
-  const titleText = "KBO 현재 순위";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 ${TITLE_FS}px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(titleText, w / 2, TITLE_BASELINE);
-
-  ctx.fillStyle = `#F9FF00`;
-  ctx.font = `700 40px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(dateLabel, w / 2, DATE_BASELINE);
-
-  ctx.textAlign = "left";
-
-  ctx.strokeStyle = "rgba(255,255,255,0.55)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(64, DIVIDER_Y);
-  ctx.lineTo(w - 64, DIVIDER_Y);
-  ctx.stroke();
-
-  if (!rows.length) {
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.beginPath();
-    ctx.roundRect(64, LIST_TOP + 40, w - 128, 200, 20);
-    ctx.fill();
-    ctx.fillStyle = "#e2e8f0";
-    ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.textBaseline = "middle";
-    ctx.fillText("순위 데이터 없음", 88, LIST_TOP + 40 + 100);
-    return;
-  }
-
-  // Layout constants
-  const X0 = 64;
-  const TOP_GAP = 36;
-  const GRID_GAP = 20;
-
-  // Top (1~2)
-  const TOP_W = 952;
-  const TOP_H = 220;
-
-  // Bottom (3~10) grid
-  const GRID_W = 460;
-  const GRID_H = 230;
-  const GRID_COL_GAP = GRID_GAP;
-  const GRID_ROW_GAP = GRID_GAP;
-
-  const pick = (i) => {
-    const r = rows[i] || {};
-    const rank = Number(r.rank ?? r.RANK ?? i + 1) || i + 1;
-    const teamRaw = r.team ?? r.TEAM_NM ?? r.team_name ?? r.name ?? "—";
-    const team = fmtTeamShort(teamRaw);
-    const ws = r.wins ?? r.W ?? r.WIN ?? "—";
-    const ls = r.losses ?? r.L ?? r.LOSE ?? "—";
-    const pct = fmtStandingsWinRateDot(r.win_rate ?? r.WRA ?? r.WIN_PCT);
-    const tk = teamKeyword(teamRaw);
-    const logo = logosByTeamKey?.[tk] || null;
-    console.log("logo check:", tk, !!logosByTeamKey?.[tk], logosByTeamKey?.[tk]);
-    const winsN = Number(ws);
-    const lossesN = Number(ls);
-    return {
-      rank,
-      team,
-      ws,
-      ls,
-      pct,
-      teamRaw,
-      tk,
-      logo,
-      winsN: Number.isFinite(winsN) ? winsN : null,
-      lossesN: Number.isFinite(lossesN) ? lossesN : null,
-    };
-  };
-
-  const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
-    if (!img) {
-      const r = Math.min(boxW, boxH) / 2;
-      drawTeamBadge(ctx, x + boxW / 2, y + boxH / 2, r, teamName);
-      return;
-    }
-    const iw = Number(img.width);
-    const ih = Number(img.height);
-    if (!Number.isFinite(iw) || !Number.isFinite(ih) || iw <= 0 || ih <= 0) {
-      // Some SVG images can report 0x0 even when drawable.
-      ctx.save();
-      ctx.globalAlpha = 1;
-      ctx.drawImage(img, x, y, boxW, boxH);
-      ctx.restore();
-      return;
-    }
-    drawImageContain(ctx, img, x, y, boxW, boxH);
-  };
-
-  const leader = pick(0);
-  const gbOf = (d) => {
-    if (!leader || leader.winsN == null || leader.lossesN == null) return null;
-    if (!d || d.winsN == null || d.lossesN == null) return null;
-    const gamesBehind = ((leader.winsN - d.winsN) + (d.lossesN - leader.lossesN)) / 2;
-    if (!Number.isFinite(gamesBehind)) return null;
-    // KBO GB usually in 0.5 steps; show one decimal, trim trailing .0
-    const s = gamesBehind.toFixed(1);
-    return s.endsWith(".0") ? s.slice(0, -2) : s;
-  };
-
-  // 1st box
-  {
-    const d = pick(0);
-    const x = X0;
-    const y = LIST_TOP;
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
-    ctx.strokeStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.4)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(x, y, TOP_W, TOP_H, 36);
-    ctx.fill();
-    ctx.stroke();
-
-    // logo (120x120)
-    const logoSize = 120;
-    const lx = x + 28;
-    const ly = y + (TOP_H - logoSize) / 2;
-    drawLogoInBox(lx, ly, logoSize, logoSize, d.teamRaw, d.logo);
-
-    // text
-    const tx = lx + logoSize + 28;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const lineY = y + TOP_H / 2;
-    ctx.fillStyle = "#FFD700";
-    ctx.font = `800 104px "${FONT_BODY}", sans-serif`;
-    ctx.letterSpacing = "-0.5px";
-    const leftText = `${d.team}`;
-    ctx.fillText(leftText, tx, lineY);
-    const leftW = ctx.measureText(leftText).width;
-    ctx.letterSpacing = "0px";
-    ctx.save();
-    ctx.globalAlpha = 0.85;
-    ctx.font = `400 52px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#FFD700";
-    ctx.fillText(`  ${d.ws}승 ${d.ls}패 ${d.pct}`, tx + leftW, lineY);
-    ctx.restore();
-    ctx.restore();
-  }
-
-  // 2nd box
-  if (rows.length >= 2) {
-    const d = pick(1);
-    const x = X0;
-    const y = LIST_TOP + TOP_H + TOP_GAP;
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.25)";
-    ctx.strokeStyle = TEAM_PASTEL_BG?.[d.tk] || "rgba(255,255,255,0.4)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(x, y, TOP_W, TOP_H, 36);
-    ctx.fill();
-    ctx.stroke();
-
-    const logoSize = 120;
-    const lx = x + 28;
-    const ly = y + (TOP_H - logoSize) / 2;
-    drawLogoInBox(lx, ly, logoSize, logoSize, d.teamRaw, d.logo);
-
-    const tx = lx + logoSize + 28;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const gb = gbOf(d);
-    const gbPart = gb != null ? `  GB ${gb}` : "";
-    const lineY = y + TOP_H / 2;
-    ctx.fillStyle = "#1a3a5c";
-    ctx.font = `800 104px "${FONT_BODY}", sans-serif`;
-    ctx.letterSpacing = "-0.5px";
-    const leftText = `${d.team}`;
-    ctx.fillText(leftText, tx, lineY);
-    const leftW = ctx.measureText(leftText).width;
-    ctx.letterSpacing = "0px";
-    ctx.save();
-    ctx.globalAlpha = 0.85;
-    ctx.font = `400 52px "${FONT_BODY}", sans-serif`;
-    ctx.fillStyle = "#1a3a5c";
-    ctx.fillText(`  ${d.ws}승 ${d.ls}패 ${d.pct}${gbPart}`, tx + leftW, lineY);
-    ctx.restore();
-    ctx.restore();
-  }
-
-  // 3~10 boxes (2 columns x 4 rows)
-  const gridStartY = LIST_TOP + TOP_H * 2 + TOP_GAP + GRID_GAP;
-  for (let idx = 2; idx < Math.min(rows.length, 10); idx++) {
-    const d = pick(idx);
-    const j = idx - 2; // 0..7
-    const col = j % 2; // 0..1
-    const row = Math.floor(j / 2); // 0..3
-    const x = X0 + col * (GRID_W + GRID_COL_GAP);
-    const y = gridStartY + row * (GRID_H + GRID_ROW_GAP);
-
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.20)";
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(x, y, GRID_W, GRID_H, 28);
-    ctx.fill();
-    ctx.stroke();
-
-    // rank (top-left)
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#FFF5E0";
-    ctx.fillText(String(d.rank), x + 24, y + 24);
-
-    // logo (center) or team name fallback
-    const logoSize = GRID_H * 0.6;
-    const lx = x + (GRID_W - logoSize) / 2;
-    const ly = y + (GRID_H - logoSize) / 2;
-    if (d.logo) {
-      drawLogoInBox(lx, ly, logoSize, logoSize, d.teamRaw, d.logo);
-    } else {
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = `800 48px "${FONT_BODY}", sans-serif`;
-      ctx.fillStyle = "#FFF5E0";
-      ctx.fillText(d.team, x + GRID_W / 2, y + GRID_H / 2);
-    }
-
-    // GB (bottom-right)
-    const gb = gbOf(d);
-    if (gb != null) {
-      ctx.textAlign = "right";
-      ctx.textBaseline = "alphabetic";
-      ctx.font = `700 40px "${FONT_BODY}", sans-serif`;
-      ctx.fillStyle = "#F9FF00";
-      ctx.fillText(`GB ${gb}`, x + GRID_W - 16, y + GRID_H - 16);
-    }
-    ctx.restore();
-  }
-}
-
 /**
  * 쇼츠1 프리셋 키: 요약 N번째 중 1~4번은 summary, 5번째 이상은 summary_last
  */
@@ -2592,7 +2123,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       logosByTeamKey[tk] = img;
     }
 
-    __baseballDecorImg = await loadPngImage("/baseball.png");
+    await loadShortsBaseballDecor();
 
     if (slide.type === "intro") drawIntroSlide(ctx, w, h, date, logosByTeamKey);
     else if (slide.type === "summary")
@@ -2943,7 +2474,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
       logosByTeamKey[tk] = img;
     }
 
-    __baseballDecorImg = await loadPngImage("/baseball.png");
+    await loadShortsBaseballDecor();
 
     if (slide.type === "intro")
       drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, games?.[0] || null);
@@ -3670,7 +3201,7 @@ function Card9WeeklySummary() {
     for (const [k, img] of Object.entries(logosByTeamKey)) {
       if (img) teamLogoImages[k] = img;
     }
-    __baseballDecorImg = await loadPngImage("/baseball.png");
+    await loadShortsBaseballDecor();
 
     if (slide.type === "intro") drawWeeklyIntroSlide(ctx, w, h, fromDate, toDate, logosByTeamKey);
     else if (slide.type === "weekly_games") drawWeeklyStandingsSlide(ctx, w, h, weeklyGames, logosByTeamKey);

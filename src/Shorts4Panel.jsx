@@ -2,6 +2,14 @@ import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "r
 import JSZip from "jszip";
 import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
+import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
+import {
+  drawIntroSlide,
+  drawStandingsSlide,
+  KBO_INTRO_TEAM_KEYS,
+  loadSvgLogo,
+  teamKeyword,
+} from "./shorts1IntroStandingsDraw.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -55,67 +63,6 @@ function addCalendarDayKst(isoYmd, deltaDays) {
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return seoulToday();
   const t = Date.UTC(y, m - 1, d + deltaDays, 12, 0, 0);
   return new Date(t).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 10);
-}
-
-function fmtWdl(rec) {
-  if (!rec || typeof rec !== "object") return "—";
-  const w = Number(rec.win);
-  const d = Number(rec.draw);
-  const l = Number(rec.lose);
-  const parts = [];
-  if (Number.isFinite(w)) parts.push(`${w}승`);
-  if (Number.isFinite(d) && d > 0) parts.push(`${d}무`);
-  if (Number.isFinite(l)) parts.push(`${l}패`);
-  return parts.length ? parts.join(" ") : "—";
-}
-
-function fmtRankLine(rankObj) {
-  if (!rankObj || typeof rankObj !== "object") return "순위 —";
-  const r = Number(rankObj.rank);
-  if (Number.isFinite(r) && r > 0) return `${r}위`;
-  return "순위 —";
-}
-
-function fmtLast5(arr) {
-  if (!Array.isArray(arr) || arr.length === 0) return "—";
-  return arr.join(" ");
-}
-
-function fmtEra(v) {
-  if (v == null || v === "") return "—";
-  const n = Number(v);
-  if (Number.isFinite(n)) return n.toFixed(2);
-  return String(v);
-}
-
-function fmtNum(v) {
-  if (v == null || v === "") return "—";
-  const n = Number(v);
-  if (Number.isFinite(n)) return String(n);
-  return String(v);
-}
-
-function sortLineup(rows) {
-  if (!Array.isArray(rows)) return [];
-  return [...rows].sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0));
-}
-
-function drawWrappedLines(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = String(text || "").split(/\s+/);
-  let line = "";
-  let yy = y;
-  for (let n = 0; n < words.length; n++) {
-    const test = line + words[n] + " ";
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line.trim(), x, yy);
-      line = words[n] + " ";
-      yy += lineHeight;
-    } else {
-      line = test;
-    }
-  }
-  if (line.trim()) ctx.fillText(line.trim(), x, yy);
-  return yy;
 }
 
 /** App.jsx ShortsCanvas와 동일 구조 */
@@ -240,119 +187,48 @@ export default function Shorts4Panel() {
       const ctx = canvas.getContext("2d");
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const slide = slides[idx];
-      ctx.fillStyle = "#f8f9fa";
-      ctx.fillRect(0, 0, w, h);
-      if (!slide) return;
+      if (!slide) {
+        ctx.fillStyle = "#f8f9fa";
+        ctx.fillRect(0, 0, w, h);
+        return;
+      }
+
+      await loadShortsBaseballDecor();
 
       if (slide.type === "intro") {
-        ctx.fillStyle = "#1a1a2e";
-        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("인트로 슬라이드 준비 중", w / 2, h / 2);
+        const logosByTeamKey = {};
+        for (const tk of KBO_INTRO_TEAM_KEYS) {
+          logosByTeamKey[tk] = await loadSvgLogo(tk);
+        }
+        drawIntroSlide(ctx, w, h, date, logosByTeamKey, "오늘경기 예상라인업");
         return;
       }
 
       if (slide.type === "standings") {
-        ctx.fillStyle = "#1a1a2e";
-        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("순위 슬라이드 준비 중", w / 2, h / 2 - 28);
-        ctx.font = "28px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillStyle = "rgba(26,26,46,0.65)";
-        ctx.fillText(`(API standings ${standingsRows.length}행)`, w / 2, h / 2 + 48);
+        const logosByTeamKey = {};
+        const seen = new Set();
+        for (const r of standingsRows) {
+          const raw = r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? "";
+          const tk = teamKeyword(raw);
+          if (!tk || seen.has(tk)) continue;
+          seen.add(tk);
+          logosByTeamKey[tk] = await loadSvgLogo(tk);
+        }
+        drawStandingsSlide(ctx, w, h, date, standingsRows, logosByTeamKey);
         return;
       }
 
       if (slide.type === "matchup" && slide.game) {
-        const g = slide.game;
-        const hName = g.home_team || "홈";
-        const aName = g.away_team || "원정";
+        ctx.fillStyle = "#f8f9fa";
+        ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = "#1a1a2e";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        let y = 72;
-        ctx.font = "bold 44px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText(`${hName} vs ${aName}`, 56, y);
-        y += 72;
-        ctx.font = "26px system-ui, 'Noto Sans KR', sans-serif";
-        const meta = [g.game_date, g.game_time, g.venue].filter(Boolean).join(" · ");
-        y = drawWrappedLines(ctx, meta || "—", 56, y, w - 112, 36) + 24;
-
-        ctx.font = "bold 28px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText(`${aName} (원정)`, 56, y);
-        y += 40;
-        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
-        y =
-          drawWrappedLines(
-            ctx,
-            `${fmtRankLine(g.away_rank)} · 전적 ${fmtWdl(g.away_record)} · 최근5: ${fmtLast5(g.away_last5)}`,
-            56,
-            y,
-            w - 112,
-            34
-          ) + 28;
-
-        ctx.font = "bold 28px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText(`${hName} (홈)`, 56, y);
-        y += 40;
-        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
-        y =
-          drawWrappedLines(
-            ctx,
-            `${fmtRankLine(g.home_rank)} · 전적 ${fmtWdl(g.home_record)} · 최근5: ${fmtLast5(g.home_last5)}`,
-            56,
-            y,
-            w - 112,
-            34
-          ) + 36;
-
-        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText("선발 투수", 56, y);
-        y += 40;
-        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
-        y =
-          drawWrappedLines(
-            ctx,
-            `원정 ${g.away_starter || "미정"} — ERA ${fmtEra(g.away_starter_era)} · 이닝 ${fmtNum(g.away_starter_ip)} · 삼진 ${fmtNum(g.away_starter_so)}`,
-            56,
-            y,
-            w - 112,
-            34
-          ) + 8;
-        y =
-          drawWrappedLines(
-            ctx,
-            `홈 ${g.home_starter || "미정"} — ERA ${fmtEra(g.home_starter_era)} · 이닝 ${fmtNum(g.home_starter_ip)} · 삼진 ${fmtNum(g.home_starter_so)}`,
-            56,
-            y,
-            w - 112,
-            34
-          ) + 28;
-
-        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText("라인업 (원정)", 56, y);
-        y += 40;
-        ctx.font = "22px system-ui, 'Noto Sans KR', sans-serif";
-        const awayL = sortLineup(g.away_lineup)
-          .slice(0, 9)
-          .map((r) => `${r.order || ""}. ${r.pos || "-"} ${r.player || ""}`)
-          .join(" / ");
-        y = drawWrappedLines(ctx, awayL || "—", 56, y, w - 112, 30) + 20;
-
-        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
-        ctx.fillText("라인업 (홈)", 56, y);
-        y += 40;
-        ctx.font = "22px system-ui, 'Noto Sans KR', sans-serif";
-        const homeL = sortLineup(g.home_lineup)
-          .slice(0, 9)
-          .map((r) => `${r.order || ""}. ${r.pos || "-"} ${r.player || ""}`)
-          .join(" / ");
-        drawWrappedLines(ctx, homeL || "—", 56, y, w - 112, 30);
+        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("매치업 슬라이드 준비 중", w / 2, h / 2);
       }
     },
-    [slides, standingsRows.length]
+    [slides, standingsRows, date]
   );
 
   const renderSlideToCanvas = useCallback(
