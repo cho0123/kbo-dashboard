@@ -4180,11 +4180,6 @@ export default function App() {
     summary: null,
     error: null,
   });
-  const [worstOut, setWorstOut] = useState({
-    text: "",
-    summary: null,
-    error: null,
-  });
 
   const pending = (key) => busy === key;
 
@@ -4924,7 +4919,21 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 쇼츠-주간-분석(월요일)</div>
+                <div className="side-group-title">4. 쇼츠-예상선발-비교</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts4_preview");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">5. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
@@ -4933,21 +4942,6 @@ export default function App() {
                   }}
                 >
                   열기
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">5. 최악 매칭업</div>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={pending("shorts_worst_matchup_10")}
-                  onClick={() => {
-                    setActiveKey("shorts_worst_matchup");
-                    runWith("shorts_worst_matchup", {}, "10", setWorstOut);
-                  }}
-                >
-                  생성
                 </button>
               </div>
 
@@ -5762,6 +5756,11 @@ export default function App() {
                     <Card8Shorts defaultDate={shDate} onShortsDateChange={setShDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (
                     <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
+                  ) : activeKey === "shorts4_preview" ? (
+                    <div className="result-page">
+                      <div className="section-title">4. 쇼츠-예상선발-비교</div>
+                      <div className="empty-state">준비 중입니다.</div>
+                    </div>
                   ) : activeKey === "shorts_weekly_summary" ? (
                     <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
@@ -5770,13 +5769,6 @@ export default function App() {
                       text={wkOut.text}
                       error={wkOut.error}
                       pending={pending("shorts_pitcher_week_9")}
-                    />
-                  ) : activeKey === "shorts_worst_matchup" ? (
-                    <ResultBlock
-                      title={null}
-                      text={worstOut.text}
-                      error={worstOut.error}
-                      pending={pending("shorts_worst_matchup_10")}
                     />
                   ) : (
                     <div className="muted">← 좌측에서 실행하세요</div>
