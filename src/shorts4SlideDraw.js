@@ -302,51 +302,30 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
-const PORTRAIT_RECT_BORDER_LW = 15;
-const PORTRAIT_RECT_RADIUS = 22;
-
-function hexToRgb(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
-  if (!m) return { r: 32, g: 36, b: 44 };
-  const n = parseInt(m[1], 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-/** TEAM_GRAD 기반으로 진한 단색 테두리 */
-function starterPortraitBorderColor(teamName) {
-  const [base] = teamGrad(teamName);
-  const { r, g, b } = hexToRgb(base);
-  const k = 0.38;
-  return `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`;
-}
+/** drawTomorrowPreviewGameSlide 팀명 줄과 동일 */
+const STARTER_CAPTION_FONT_PX = 54;
 
 /**
- * 라운드 직사각형 clip + 동일 형태 stroke (팀컬러 진하게)
- * @param {number} diameter 정사각 한 변 길이(px)
+ * 사진 중심(cx, cy) 아래: 줄1 팀명(팀컬러) · 줄2 선수명(흰 볼드)
+ * @returns {number} 캡션 블록 하단 근처 Y (스탯 줄 배치용)
  */
-function drawStarterPortraitFramed(ctx, img, cx, cy, diameter, teamName) {
-  if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
-  const boxW = diameter;
-  const boxH = diameter;
-  const boxLeft = cx - boxW / 2;
-  const boxTop = cy - boxH / 2;
-  const rad = PORTRAIT_RECT_RADIUS;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(boxLeft, boxTop, boxW, boxH, rad);
-  ctx.clip();
-  drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH);
-  ctx.restore();
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(boxLeft, boxTop, boxW, boxH, rad);
-  ctx.strokeStyle = starterPortraitBorderColor(teamName);
-  ctx.lineWidth = PORTRAIT_RECT_BORDER_LW;
-  ctx.lineJoin = "round";
-  ctx.stroke();
-  ctx.restore();
+function drawStarterPhotoCaptions(ctx, cx, cy, rPhoto, teamFullName, playerName) {
+  const y1 = cy + rPhoto + 30;
+  const y2 = y1 + 58;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const [teamColor] = teamGrad(teamFullName);
+  ctx.fillStyle = teamColor || "#ffffff";
+  ctx.font = `700 ${STARTER_CAPTION_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(String(teamFullName || "—").trim() || "—", cx, y1);
+  resetShadow(ctx);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${STARTER_CAPTION_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(String(playerName || "—").trim() || "—", cx, y2);
+  resetShadow(ctx);
+  return y2 + STARTER_CAPTION_FONT_PX * 0.55;
 }
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
@@ -373,7 +352,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
   drawBaseballBackground(ctx);
 
-  const frameOuter = PORTRAIT_RECT_BORDER_LW;
+  const rPhoto = STARTER_FACE_BOX / 2;
 
   const awayFaceCx = w * 0.65 + 100;
   const homeFaceCx = w * 0.35 - 100;
@@ -398,7 +377,6 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayStats = `ERA ${fmtEra(g?.away_starter_era)}  ·  이닝 ${aipLabel}  ·  삼진 ${asoStr}`;
 
   const vsSizePx = 180;
-  const nameSizePx = 86;
   const statSizePx = 72;
 
   const awayImg = portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
@@ -406,66 +384,33 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
+  const awayBoxTop = awayCy - rPhoto;
+  const homeBoxTop = homeCy - rPhoto;
+
   if (awayUsePhoto) {
-    drawStarterPortraitFramed(ctx, awayImg, awayFaceCx, awayCy, STARTER_FACE_BOX, awayTeam);
+    drawPortraitContain(ctx, awayImg, awayFaceCx, awayBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
   }
   if (homeUsePhoto) {
-    drawStarterPortraitFramed(ctx, homeImg, homeFaceCx, homeCy, STARTER_FACE_BOX, homeTeam);
+    drawPortraitContain(ctx, homeImg, homeFaceCx, homeBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
   }
+
+  const awayCaptionEndY = drawStarterPhotoCaptions(ctx, awayFaceCx, awayCy, rPhoto, awayTeam, as);
+  const homeCaptionEndY = drawStarterPhotoCaptions(ctx, homeFaceCx, homeCy, rPhoto, homeTeam, hs);
+
+  const awayStatY = awayCaptionEndY + 36;
+  const homeStatY = homeCaptionEndY + 36;
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
-
-  const rPhoto = STARTER_FACE_BOX / 2;
-
-  if (awayUsePhoto) {
-    const awayNameY = awayCy + rPhoto + frameOuter + 22;
-    const awayStatY = awayNameY + 50;
-    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(as, w / 2, awayNameY);
-    resetShadow(ctx);
-    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(awayStats, w / 2, awayStatY);
-    resetShadow(ctx);
-  } else {
-    const awayNameY = awayFaceTop + STARTER_FACE_BOX + frameOuter + 28;
-    const awayStatY = awayNameY + 52;
-    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(as, w / 2, awayNameY);
-    resetShadow(ctx);
-    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(awayStats, w / 2, awayStatY);
-    resetShadow(ctx);
-  }
-
-  if (homeUsePhoto) {
-    const homeNameY = homeCy + rPhoto + frameOuter + 22;
-    const homeStatY = homeNameY + 50;
-    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(hs, w / 2, homeNameY);
-    resetShadow(ctx);
-    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(homeStats, w / 2, homeStatY);
-    resetShadow(ctx);
-  } else {
-    const homeNameY = homeFaceTop + STARTER_FACE_BOX + frameOuter + 28;
-    const homeStatY = homeNameY + 52;
-    ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(hs, w / 2, homeNameY);
-    resetShadow(ctx);
-    ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(homeStats, w / 2, homeStatY);
-    resetShadow(ctx);
-  }
+  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(awayStats, awayFaceCx, awayStatY);
+  resetShadow(ctx);
+  ctx.font = `800 ${statSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(homeStats, homeFaceCx, homeStatY);
+  resetShadow(ctx);
 
   ctx.save();
   ctx.globalAlpha = 0.7;
