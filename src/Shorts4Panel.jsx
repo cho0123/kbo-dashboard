@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { postKbo, seoulToday } from "./api.js";
 import "./Shorts4Panel.css";
 
@@ -157,7 +157,7 @@ function GameCard({ game }) {
 }
 
 export default function Shorts4Panel() {
-  const [date, setDate] = useState(seoulToday);
+  const [date, setDate] = useState(() => seoulToday());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -170,11 +170,17 @@ export default function Shorts4Panel() {
 
   const activeGame = games[tabIdx] || null;
 
-  const onLoad = async () => {
+  const fetchMatchupPreview = useCallback(async (dateStr) => {
+    const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
     setBusy(true);
     setError(null);
     try {
-      const res = await postKbo({ action: "matchup_preview", date });
+      const res = await postKbo({ action: "matchup_preview", date: d });
+      if (res && res.ok === false) {
+        setError(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
+        setData(null);
+        return;
+      }
       setData(res);
       setTabIdx(0);
     } catch (e) {
@@ -183,6 +189,14 @@ export default function Shorts4Panel() {
     } finally {
       setBusy(false);
     }
+  }, []);
+
+  useEffect(() => {
+    void fetchMatchupPreview(seoulToday());
+  }, [fetchMatchupPreview]);
+
+  const onLoad = () => {
+    void fetchMatchupPreview(date);
   };
 
   const onShortsCreate = () => {
@@ -209,7 +223,11 @@ export default function Shorts4Panel() {
         </button>
       </div>
 
-      {error ? <pre className="result-error-light">{error}</pre> : null}
+      {error ? (
+        <div className="result-error-light" role="alert" style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
+          {error}
+        </div>
+      ) : null}
 
       {data && games.length > 0 ? (
         <>

@@ -4920,20 +4920,6 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 쇼츠-예상선발-비교</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("shorts4_preview");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
-
-              <div className="side-group">
                 <div className="side-group-title">4. 쇼츠-예상전력-비교</div>
                 <button
                   type="button"
@@ -5771,11 +5757,6 @@ export default function App() {
                     <Card8Shorts defaultDate={shDate} onShortsDateChange={setShDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (
                     <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
-                  ) : activeKey === "shorts4_preview" ? (
-                    <div className="result-page">
-                      <div className="section-title">4. 쇼츠-예상선발-비교</div>
-                      <div className="empty-state">준비 중입니다.</div>
-                    </div>
                   ) : activeKey === "shorts4_matchup" ? (
                     <Shorts4Panel />
                   ) : activeKey === "shorts_weekly_summary" ? (
