@@ -2139,6 +2139,342 @@ function pickNextWeekHighlights(scheduleRows, topTeams, afterDateIso, topN = 3) 
   return out;
 }
 
+// --- matchup_preview (additive only) ---
+
+function __starterBoolTrue(v) {
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "true" || s === "1";
+}
+
+async function fetchLatestStarterIpSoBeforeDate(
+  db,
+  seasonYear,
+  pitcherNameRaw,
+  beforeDateIso,
+  cacheMap
+) {
+  const name = normalizePitcherNameForMatch(pitcherNameRaw);
+  if (!name || !beforeDateIso) return { ip: null, so: null };
+  const key = `${seasonYear}:${name}:ipso:${beforeDateIso}`;
+  if (cacheMap?.has(key)) return cacheMap.get(key);
+  let rows = [];
+  try {
+    const snap = await db.collection("pitchers").where("player", "==", name).limit(220).get();
+    snap.forEach((d) => rows.push(docSnap(d)));
+  } catch (e) {
+    console.warn("[fetchLatestStarterIpSoBeforeDate]", e?.message || e);
+    const empty = { ip: null, so: null };
+    cacheMap?.set(key, empty);
+    return empty;
+  }
+  const rowsOk = (rows || []).filter((r) => {
+    const gd = safeIsoDate(r?.game_date || r?.gameDate || "");
+    if (!gd || gd >= beforeDateIso) return false;
+    return __starterBoolTrue(r?.is_starter ?? r?.isStarter);
+  });
+  rowsOk.sort((a, b) => {
+    const sa = `${safeIsoDate(a?.game_date || a?.gameDate || "")}__${String(a?.game_id || a?.gameId || "")}`;
+    const sb = `${safeIsoDate(b?.game_date || b?.gameDate || "")}__${String(b?.game_id || b?.gameId || "")}`;
+    return sb.localeCompare(sa);
+  });
+  const pickNumLocal = (row, keys) => {
+    for (const k of keys) {
+      const n = Number(row?.[k]);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+  const r0 = rowsOk[0];
+  if (!r0) {
+    const empty = { ip: null, so: null };
+    cacheMap?.set(key, empty);
+    return empty;
+  }
+  const ipN = pickNumLocal(r0, ["ip", "IP", "inn", "innings"]);
+  const soN = pickNumLocal(r0, ["so", "SO", "k", "K", "strikeouts"]);
+  const out = { ip: ipN, so: soN };
+  cacheMap?.set(key, out);
+  return out;
+}
+
+function findPrevGameSideForTeam(seasonGames, teamKeyNorm, beforeDateIso, currentGameId) {
+  if (!teamKeyNorm || !beforeDateIso) return null;
+  const hits = [];
+  for (const g of seasonGames || []) {
+    const gid = String(g?.game_id ?? g?.gameId ?? "").trim();
+    const gd = safeIsoDate(g?.game_date || g?.gameDate || "");
+    if (!gid || !gd || gd >= beforeDateIso) continue;
+    if (currentGameId && gid === currentGameId) continue;
+    const ht = normalizeTeamKey(
+      pickStr(g, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) ||
+        String(g?.home_team || g?.home || g?.homeTeam || "")
+    );
+    const at = normalizeTeamKey(
+      pickStr(g, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) ||
+        String(g?.away_team || g?.away || g?.awayTeam || "")
+    );
+    let side = null;
+    if (ht === teamKeyNorm) side = "home";
+    else if (at === teamKeyNorm) side = "away";
+    else continue;
+    hits.push({ gd, gid, side });
+  }
+  hits.sort((a, b) => b.gd.localeCompare(a.gd) || String(b.gid).localeCompare(String(a.gid)));
+  return hits[0] || null;
+}
+
+async function fetchLineupArrayForGameSide(db, gameId, side) {
+  const sid = String(side || "").trim().toLowerCase();
+  if (!sid || (sid !== "home" && sid !== "away")) return [];
+  const docId = `${String(gameId || "").trim()}_${sid}`;
+  try {
+    const snap = await db.collection("lineup").doc(docId).get();
+    if (!snap.exists) return [];
+    const v = docSnap(snap);
+    const arr = v?.lineup;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((x) => ({
+        order: Number.isFinite(Number(x?.order)) ? Number(x.order) : 0,
+        pos: x?.pos != null ? String(x.pos) : "",
+        player: x?.player != null ? String(x.player) : "",
+      }))
+      .filter((x) => x.player);
+  } catch (e) {
+    console.warn("[fetchLineupArrayForGameSide]", docId, e?.message || e);
+    return [];
+  }
+}
+
+async function buildMatchupPreviewPayload(db, dateStr) {
+  const { standings, year: standingsYear } = await fetchStandings2026Document(db);
+  const findRankRow = (teamName) => {
+    const key = normalizeTeamKey(teamName || "");
+    if (!key) return null;
+    return (
+      (standings || []).find((r) => {
+        const tn = pickStr(r, ["team", "TEAM_NM", "team_name", "name", "club", "TEAM"]);
+        return normalizeTeamKey(tn) === key;
+      }) || null
+    );
+  };
+  const toRankObj = (row) => {
+    if (!row) return null;
+    const rank = pickNum(row, ["rank", "RANK", "순위"]);
+    const wins = pickNum(row, ["wins", "W", "win", "승", "WINS"]);
+    const losses = pickNum(row, ["losses", "L", "loss", "패", "LOSSES"]);
+    const draws = pickNum(row, ["draws", "D", "draw", "무", "DRAWS"]);
+    return {
+      rank: Number.isFinite(rank) && rank > 0 ? rank : null,
+      wins: Number.isFinite(wins) ? wins : null,
+      losses: Number.isFinite(losses) ? losses : null,
+      draws: Number.isFinite(draws) ? draws : null,
+    };
+  };
+
+  const rawRows = await fetchScheduleRowsForDate(db, dateStr);
+  const byId = new Map();
+  for (const r of rawRows || []) {
+    const gid0 = String(r?.game_id ?? r?.gameId ?? "").trim();
+    if (gid0) byId.set(gid0, { ...r, game_id: gid0 });
+  }
+  const rows = [...byId.values()].sort((a, b) =>
+    String(a?.game_id || "").localeCompare(String(b?.game_id || ""))
+  );
+
+  const seasonYear = Number(standingsYear) || 2026;
+  const seasonFrom = `${seasonYear}-01-01`;
+  const seasonTo = `${seasonYear}-12-31`;
+  const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
+
+  const gamesByTeam = new Map();
+  const pushTeamGame = (team, item) => {
+    if (!team) return;
+    const list = gamesByTeam.get(team) || [];
+    list.push(item);
+    gamesByTeam.set(team, list);
+  };
+
+  const pickGameTeam = (g, side) => {
+    if (!g || typeof g !== "object") return "";
+    const raw =
+      side === "home"
+        ? g.home_team ?? g.home ?? g.homeTeam ?? ""
+        : g.away_team ?? g.away ?? g.awayTeam ?? "";
+    return normalizeTeamKey(raw || "");
+  };
+  const pickGameDate = (g) => safeIsoDate(g?.game_date || g?.gameDate || "");
+  const pickScore = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const ensureRec = () => ({ win: 0, draw: 0, lose: 0 });
+
+  const homeOnlyRecordByTeam = new Map();
+  const awayOnlyRecordByTeam = new Map();
+
+  for (const g of seasonGames || []) {
+    const gd = pickGameDate(g);
+    if (!gd) continue;
+    const hTeam = pickGameTeam(g, "home");
+    const aTeam = pickGameTeam(g, "away");
+    if (!hTeam || !aTeam) continue;
+
+    const hs = pickScore(g?.home_score);
+    const as = pickScore(g?.away_score);
+    if (hs == null || as == null) continue;
+
+    pushTeamGame(hTeam, { gd, isHome: true, hs, as });
+    pushTeamGame(aTeam, { gd, isHome: false, hs, as });
+
+    const hr = homeOnlyRecordByTeam.get(hTeam) || ensureRec();
+    if (hs === as) hr.draw += 1;
+    else if (hs > as) hr.win += 1;
+    else hr.lose += 1;
+    homeOnlyRecordByTeam.set(hTeam, hr);
+
+    const ar = awayOnlyRecordByTeam.get(aTeam) || ensureRec();
+    if (hs === as) ar.draw += 1;
+    else if (as > hs) ar.win += 1;
+    else ar.lose += 1;
+    awayOnlyRecordByTeam.set(aTeam, ar);
+  }
+
+  const last5ByTeam = new Map();
+  for (const [team, list] of gamesByTeam.entries()) {
+    const sortedDesc = [...list].sort((x, y) => String(y.gd).localeCompare(String(x.gd)));
+    const out = [];
+    for (const it of sortedDesc.slice(0, 5)) {
+      const r =
+        it.hs === it.as
+          ? "무"
+          : it.isHome
+            ? it.hs > it.as
+              ? "승"
+              : "패"
+            : it.as > it.hs
+              ? "승"
+              : "패";
+      out.push(r);
+    }
+    last5ByTeam.set(team, out);
+  }
+
+  const __starterEraCache = new Map();
+  const __starterIpSoCache = new Map();
+
+  const games = [];
+  for (const r of rows) {
+    const game_id = String(r?.game_id ?? r?.gameId ?? "").trim() || null;
+    const game_date = String(safeIsoDate(r?.game_date || "") || dateStr).slice(0, 10);
+    const game_time = pickStr(r, ["game_time", "gameTime", "time", "G_TM"]) || null;
+    const venueRaw = pickStr(r, ["venue", "stadium", "S_NM"]) || "";
+    const venue =
+      venueRaw && typeof venueRaw === "string"
+        ? VENUE_MAP[venueRaw.trim()] ||
+          Object.entries(VENUE_MAP).find(([k]) => venueRaw.includes(k))?.[1] ||
+          venueRaw.trim()
+        : null;
+
+    const home_team = pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) || null;
+    const away_team = pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm"]) || null;
+
+    const hss = r?.home_starter ?? r?.homeStarter ?? null;
+    const ass = r?.away_starter ?? r?.awayStarter ?? null;
+    const home_starter =
+      hss == null || String(hss).trim() === "" ? null : String(hss).replace(/\s+/g, " ").trim();
+    const away_starter =
+      ass == null || String(ass).trim() === "" ? null : String(ass).replace(/\s+/g, " ").trim();
+
+    const home_starter_era =
+      home_starter == null
+        ? null
+        : await fetchLatestSeasonEraByPitcherName(db, seasonYear, home_starter, __starterEraCache);
+    const away_starter_era =
+      away_starter == null
+        ? null
+        : await fetchLatestSeasonEraByPitcherName(db, seasonYear, away_starter, __starterEraCache);
+
+    const hsPitch = home_starter
+      ? await fetchLatestStarterIpSoBeforeDate(
+          db,
+          seasonYear,
+          home_starter,
+          game_date,
+          __starterIpSoCache
+        )
+      : { ip: null, so: null };
+    const awPitch = away_starter
+      ? await fetchLatestStarterIpSoBeforeDate(
+          db,
+          seasonYear,
+          away_starter,
+          game_date,
+          __starterIpSoCache
+        )
+      : { ip: null, so: null };
+
+    const home_rank = toRankObj(findRankRow(home_team));
+    const away_rank = toRankObj(findRankRow(away_team));
+
+    const homeKey = normalizeTeamKey(home_team || "");
+    const awayKey = normalizeTeamKey(away_team || "");
+    const home_record = homeOnlyRecordByTeam.get(homeKey) || { win: 0, draw: 0, lose: 0 };
+    const away_record = awayOnlyRecordByTeam.get(awayKey) || { win: 0, draw: 0, lose: 0 };
+    const home_last5 = last5ByTeam.get(homeKey) || [];
+    const away_last5 = last5ByTeam.get(awayKey) || [];
+
+    const h2h = await fetchHeadToHeadRecord(
+      db,
+      normalizeTeamKey(home_team || ""),
+      normalizeTeamKey(away_team || ""),
+      standingsYear || 2026
+    );
+    const head_to_head = {
+      home_wins: Number(h2h?.win) || 0,
+      away_wins: Number(h2h?.lose) || 0,
+      draws: Number(h2h?.draw) || 0,
+    };
+
+    const prevHome = findPrevGameSideForTeam(seasonGames, homeKey, game_date, game_id);
+    const prevAway = findPrevGameSideForTeam(seasonGames, awayKey, game_date, game_id);
+    const home_lineup = prevHome
+      ? await fetchLineupArrayForGameSide(db, prevHome.gid, prevHome.side)
+      : [];
+    const away_lineup = prevAway
+      ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
+      : [];
+
+    games.push({
+      game_id,
+      game_date,
+      game_time,
+      venue,
+      home_team,
+      away_team,
+      home_starter,
+      away_starter,
+      home_starter_era,
+      away_starter_era,
+      home_starter_ip: hsPitch?.ip ?? null,
+      away_starter_ip: awPitch?.ip ?? null,
+      home_starter_so: hsPitch?.so ?? null,
+      away_starter_so: awPitch?.so ?? null,
+      home_rank,
+      away_rank,
+      home_record,
+      away_record,
+      home_last5,
+      away_last5,
+      head_to_head,
+      home_lineup,
+      away_lineup,
+    });
+  }
+  return { ok: true, date: dateStr, games, standings };
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
@@ -4064,6 +4400,19 @@ ${JSON.stringify(games, null, 2)}`;
             date: dateStr,
             games,
             standings,
+          }),
+        };
+      }
+      case "matchup_preview": {
+        const dateStr = safeIsoDate(payload.date || "") || isoSeoulToday();
+        const mp = await buildMatchupPreviewPayload(db, dateStr);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            action,
+            ...mp,
           }),
         };
       }

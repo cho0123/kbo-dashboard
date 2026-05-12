@@ -1,0 +1,165 @@
+/* Shorts4 — 예상전력 비교 (App.css 변수·카드 패턴 보조) */
+
+.shorts4-matchup {
+  margin-top: 14px;
+}
+
+.shorts4-tab-row {
+  margin-top: 16px;
+}
+
+.shorts4-tab-row .tab {
+  max-width: min(100%, 220px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shorts4-card-head {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.shorts4-vs-line {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.shorts4-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .shorts4-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shorts4-team-block {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.shorts4-team-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.shorts4-team-block .muted {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.shorts4-subtitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.shorts4-pitcher-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 720px) {
+  .shorts4-pitcher-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shorts4-pitcher-box {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--elevated);
+}
+
+.shorts4-pitcher-name {
+  font-weight: 800;
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.shorts4-pitcher-stats {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.shorts4-h2h {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.84rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.shorts4-lineup-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .shorts4-lineup-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shorts4-lineup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.shorts4-lineup-table th,
+.shorts4-lineup-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.shorts4-lineup-table th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shorts4-lineup-table .num {
+  width: 2rem;
+  text-align: center;
+  font-weight: 800;
+}
+
+.shorts4-lineup-table .pos {
+  width: 2.5rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.shorts4-footer-actions {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}

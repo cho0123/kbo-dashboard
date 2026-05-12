@@ -8,6 +8,7 @@ import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import Shorts3Panel from "./Shorts3Panel.jsx";
 import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
+import Shorts4Panel from "./Shorts4Panel.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
 
@@ -4933,6 +4934,20 @@ export default function App() {
               </div>
 
               <div className="side-group">
+                <div className="side-group-title">4. 쇼츠-예상전력-비교</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts4_matchup");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
                 <div className="side-group-title">5. 쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
@@ -5761,6 +5776,8 @@ export default function App() {
                       <div className="section-title">4. 쇼츠-예상선발-비교</div>
                       <div className="empty-state">준비 중입니다.</div>
                     </div>
+                  ) : activeKey === "shorts4_matchup" ? (
+                    <Shorts4Panel />
                   ) : activeKey === "shorts_weekly_summary" ? (
                     <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
