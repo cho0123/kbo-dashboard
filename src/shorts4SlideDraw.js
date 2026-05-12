@@ -2,7 +2,7 @@
  * 쇼츠4 전용 슬라이드 캔버스 — 내일프리뷰(drawTomorrowPreviewGameSlide)와 유사한 배경·타이포.
  * 쇼츠1/2 draw 함수는 수정하지 않음.
  */
-import { drawBaseballBackground, drawBaseballBackgroundStarter } from "./shortsBaseballDecor.js";
+import { drawBaseballBackground } from "./shortsBaseballDecor.js";
 import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
 
 function fmtTeamShort(team) {
@@ -341,7 +341,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayTeam = String(g?.away_team || "원정");
   ctx.clearRect(0, 0, w, h);
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
-  drawBaseballBackgroundStarter(ctx, w, h);
+  drawBaseballBackground(ctx);
 
   const hk = teamKeyword(g?.home_team);
   const ak = teamKeyword(g?.away_team);
@@ -456,8 +456,8 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     resetShadow(ctx);
   }
 
-  ctx.fillStyle = "#ffffff";
   ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
   shadowTextSoft(ctx);
   ctx.fillText("VS", w / 2, h / 2);
   resetShadow(ctx);
