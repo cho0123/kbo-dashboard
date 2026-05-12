@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
+const SHORTS_EXPORT_H = 1920;
 const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
 
 function delayMs(ms) {
@@ -12,6 +13,15 @@ function delayMs(ms) {
 }
 
 async function waitFontsReadyForCapture() {
+  if (typeof document === "undefined" || !document.fonts?.ready) return;
+  try {
+    await document.fonts.ready;
+  } catch {
+    // ignore
+  }
+}
+
+async function ensureCanvasFonts() {
   if (typeof document === "undefined" || !document.fonts?.ready) return;
   try {
     await document.fonts.ready;
@@ -30,6 +40,13 @@ function downloadBlob(blob, filename) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function canvasToBlob(canvas) {
+  if (!canvas) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
+  });
 }
 
 function addCalendarDayKst(isoYmd, deltaDays) {
@@ -83,109 +100,56 @@ function sortLineup(rows) {
   return [...rows].sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0));
 }
 
-function LineupTable({ title, rows }) {
-  const sorted = sortLineup(rows);
-  return (
-    <div>
-      <div className="hint" style={{ marginBottom: 6 }}>
-        {title}
-      </div>
-      <table className="shorts4-lineup-table">
-        <thead>
-          <tr>
-            <th className="num">#</th>
-            <th className="pos">포</th>
-            <th>타자</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.length === 0 ? (
-            <tr>
-              <td colSpan={3} className="muted">
-                라인업 없음
-              </td>
-            </tr>
-          ) : (
-            sorted.map((row, i) => (
-              <tr key={`${row.order}-${row.player}-${i}`}>
-                <td className="num">{row.order || i + 1}</td>
-                <td className="pos">{row.pos || "—"}</td>
-                <td>{row.player || "—"}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+function drawWrappedLines(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = String(text || "").split(/\s+/);
+  let line = "";
+  let yy = y;
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + " ";
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line.trim(), x, yy);
+      line = words[n] + " ";
+      yy += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line.trim()) ctx.fillText(line.trim(), x, yy);
+  return yy;
 }
 
-function MatchupDetailCard({ game }) {
-  if (!game) return null;
-  const hName = game.home_team || "홈";
-  const aName = game.away_team || "원정";
-
+/** App.jsx ShortsCanvas와 동일 구조 */
+const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide }, ref) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    renderSlide(canvasRef.current);
+  }, [slideIdx, renderSlide]);
   return (
-    <div className="card">
-      <div className="hint" style={{ marginBottom: 10 }}>
-        {game.game_date || "—"}
-        {game.game_time ? ` · ${game.game_time}` : ""}
-        {game.venue ? ` · ${game.venue}` : ""}
-      </div>
-      <h3 style={{ marginTop: 0 }}>
-        {hName} vs {aName}
-      </h3>
-      <div className="row two" style={{ marginBottom: 14 }}>
-        <div className="card" style={{ padding: 12 }}>
-          <h4 style={{ margin: "0 0 8px" }}>{aName}</h4>
-          <div className="muted" style={{ fontSize: "0.88rem", lineHeight: 1.45 }}>
-            {fmtRankLine(game.away_rank)} · 전적 {fmtWdl(game.away_record)}
-            <br />
-            최근 5경기: {fmtLast5(game.away_last5)}
-          </div>
-        </div>
-        <div className="card" style={{ padding: 12 }}>
-          <h4 style={{ margin: "0 0 8px" }}>{hName}</h4>
-          <div className="muted" style={{ fontSize: "0.88rem", lineHeight: 1.45 }}>
-            {fmtRankLine(game.home_rank)} · 전적 {fmtWdl(game.home_record)}
-            <br />
-            최근 5경기: {fmtLast5(game.home_last5)}
-          </div>
-        </div>
-      </div>
-
-      <div className="hint" style={{ margin: "12px 0 8px" }}>
-        선발 투수
-      </div>
-      <div className="row two">
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>{game.away_starter || "미정"}</div>
-          <div className="muted" style={{ fontSize: "0.88rem", lineHeight: 1.55 }}>
-            ERA {fmtEra(game.away_starter_era)}
-            <br />
-            이닝 {fmtNum(game.away_starter_ip)} · 삼진 {fmtNum(game.away_starter_so)}
-          </div>
-        </div>
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>{game.home_starter || "미정"}</div>
-          <div className="muted" style={{ fontSize: "0.88rem", lineHeight: 1.55 }}>
-            ERA {fmtEra(game.home_starter_era)}
-            <br />
-            이닝 {fmtNum(game.home_starter_ip)} · 삼진 {fmtNum(game.home_starter_so)}
-          </div>
-        </div>
-      </div>
-
-      <div className="hint" style={{ margin: "16px 0 8px" }}>
-        직전경기 라인업
-      </div>
-      <div className="row two">
-        <LineupTable title={`${aName} (원정)`} rows={game.away_lineup} />
-        <LineupTable title={`${hName} (홈)`} rows={game.home_lineup} />
+    <div className="shorts-capture-wrap">
+      <div
+        ref={ref}
+        className="slide-card"
+        style={{
+          margin: 0,
+          padding: 0,
+          display: "inline-block",
+          lineHeight: 0,
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            display: "block",
+            margin: 0,
+            padding: 0,
+            borderRadius: 14,
+            border: "1px solid rgba(0,0,0,0.15)",
+          }}
+        />
       </div>
     </div>
   );
-}
+});
 
 export default function Shorts4Panel() {
   const [date, setDate] = useState(() => seoulToday());
@@ -195,6 +159,7 @@ export default function Shorts4Panel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
@@ -217,6 +182,7 @@ export default function Shorts4Panel() {
     setData(null);
     setCapturedSlides([]);
     setSelectedIdx(0);
+    setSlideIdx(0);
     (async () => {
       try {
         const { games } = await fetchMatchupPreview(date);
@@ -239,14 +205,162 @@ export default function Shorts4Panel() {
   const detailGame = useMemo(() => {
     if (!data) return null;
     const g = Array.isArray(data.games) ? data.games : [];
-    const row = g[selectedIdx] ?? g[0] ?? null;
-    return row;
+    return g[selectedIdx] ?? g[0] ?? null;
   }, [data, selectedIdx]);
 
+  const standingsRows = useMemo(() => {
+    if (!data) return [];
+    return Array.isArray(data.standings)
+      ? data.standings
+      : Array.isArray(data.standing_rows)
+        ? data.standing_rows
+        : [];
+  }, [data]);
+
   const slides = useMemo(() => {
-    if (!detailGame) return [];
-    return [{ type: "matchup", game: detailGame }];
+    if (!data || !detailGame) return [];
+    return [{ type: "intro" }, { type: "matchup", game: detailGame }, { type: "standings" }];
+  }, [data, detailGame]);
+
+  useEffect(() => {
+    setSlideIdx(0);
   }, [detailGame]);
+
+  const paintSlideAt = useCallback(
+    async (idx, canvas) => {
+      if (!canvas) return;
+      await ensureCanvasFonts();
+      const w = 1080;
+      const h = 1920;
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = "360px";
+      canvas.style.height = "640px";
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const slide = slides[idx];
+      ctx.fillStyle = "#f8f9fa";
+      ctx.fillRect(0, 0, w, h);
+      if (!slide) return;
+
+      if (slide.type === "intro") {
+        ctx.fillStyle = "#1a1a2e";
+        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("인트로 슬라이드 준비 중", w / 2, h / 2);
+        return;
+      }
+
+      if (slide.type === "standings") {
+        ctx.fillStyle = "#1a1a2e";
+        ctx.font = "bold 52px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("순위 슬라이드 준비 중", w / 2, h / 2 - 28);
+        ctx.font = "28px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillStyle = "rgba(26,26,46,0.65)";
+        ctx.fillText(`(API standings ${standingsRows.length}행)`, w / 2, h / 2 + 48);
+        return;
+      }
+
+      if (slide.type === "matchup" && slide.game) {
+        const g = slide.game;
+        const hName = g.home_team || "홈";
+        const aName = g.away_team || "원정";
+        ctx.fillStyle = "#1a1a2e";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        let y = 72;
+        ctx.font = "bold 44px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText(`${hName} vs ${aName}`, 56, y);
+        y += 72;
+        ctx.font = "26px system-ui, 'Noto Sans KR', sans-serif";
+        const meta = [g.game_date, g.game_time, g.venue].filter(Boolean).join(" · ");
+        y = drawWrappedLines(ctx, meta || "—", 56, y, w - 112, 36) + 24;
+
+        ctx.font = "bold 28px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText(`${aName} (원정)`, 56, y);
+        y += 40;
+        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
+        y =
+          drawWrappedLines(
+            ctx,
+            `${fmtRankLine(g.away_rank)} · 전적 ${fmtWdl(g.away_record)} · 최근5: ${fmtLast5(g.away_last5)}`,
+            56,
+            y,
+            w - 112,
+            34
+          ) + 28;
+
+        ctx.font = "bold 28px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText(`${hName} (홈)`, 56, y);
+        y += 40;
+        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
+        y =
+          drawWrappedLines(
+            ctx,
+            `${fmtRankLine(g.home_rank)} · 전적 ${fmtWdl(g.home_record)} · 최근5: ${fmtLast5(g.home_last5)}`,
+            56,
+            y,
+            w - 112,
+            34
+          ) + 36;
+
+        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText("선발 투수", 56, y);
+        y += 40;
+        ctx.font = "24px system-ui, 'Noto Sans KR', sans-serif";
+        y =
+          drawWrappedLines(
+            ctx,
+            `원정 ${g.away_starter || "미정"} — ERA ${fmtEra(g.away_starter_era)} · 이닝 ${fmtNum(g.away_starter_ip)} · 삼진 ${fmtNum(g.away_starter_so)}`,
+            56,
+            y,
+            w - 112,
+            34
+          ) + 8;
+        y =
+          drawWrappedLines(
+            ctx,
+            `홈 ${g.home_starter || "미정"} — ERA ${fmtEra(g.home_starter_era)} · 이닝 ${fmtNum(g.home_starter_ip)} · 삼진 ${fmtNum(g.home_starter_so)}`,
+            56,
+            y,
+            w - 112,
+            34
+          ) + 28;
+
+        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText("라인업 (원정)", 56, y);
+        y += 40;
+        ctx.font = "22px system-ui, 'Noto Sans KR', sans-serif";
+        const awayL = sortLineup(g.away_lineup)
+          .slice(0, 9)
+          .map((r) => `${r.order || ""}. ${r.pos || "-"} ${r.player || ""}`)
+          .join(" / ");
+        y = drawWrappedLines(ctx, awayL || "—", 56, y, w - 112, 30) + 20;
+
+        ctx.font = "bold 26px system-ui, 'Noto Sans KR', sans-serif";
+        ctx.fillText("라인업 (홈)", 56, y);
+        y += 40;
+        ctx.font = "22px system-ui, 'Noto Sans KR', sans-serif";
+        const homeL = sortLineup(g.home_lineup)
+          .slice(0, 9)
+          .map((r) => `${r.order || ""}. ${r.pos || "-"} ${r.player || ""}`)
+          .join(" / ");
+        drawWrappedLines(ctx, homeL || "—", 56, y, w - 112, 30);
+      }
+    },
+    [slides, standingsRows.length]
+  );
+
+  const renderSlideToCanvas = useCallback(
+    async (canvas) => {
+      await paintSlideAt(slideIdx, canvas);
+    },
+    [slideIdx, paintSlideAt]
+  );
 
   const onGenerate = useCallback(async () => {
     setBusy(true);
@@ -257,6 +371,7 @@ export default function Shorts4Panel() {
       setTabGames(games);
       setSelectedIdx((idx) => (games.length && idx >= games.length ? 0 : idx));
       setCapturedSlides([]);
+      setSlideIdx(0);
     } catch (e) {
       setError(e?.message || String(e));
       setData(null);
@@ -272,6 +387,7 @@ export default function Shorts4Panel() {
       const { default: html2canvas } = await import("html2canvas");
       const out = [];
       for (let i = 0; i < slides.length; i++) {
+        setSlideIdx(i);
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         await waitFontsReadyForCapture();
         const el = captureWrapRef.current;
@@ -280,12 +396,15 @@ export default function Shorts4Panel() {
         const c = await html2canvas(el, {
           scale,
           useCORS: true,
-          backgroundColor: "#f8f9fa",
+          backgroundColor: null,
         });
+        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
+          console.warn("[shorts4 capture] 해상도", c.width, c.height);
+        }
         const blob = await new Promise((resolve, reject) => {
           c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
         });
-        out.push({ key: "shorts4_matchup", blob });
+        out.push({ key: `shorts4_${slides[i]?.type || i}`, blob });
         if (i < slides.length - 1) {
           await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
@@ -298,39 +417,23 @@ export default function Shorts4Panel() {
     }
   };
 
-  const html2canvasToBlob = async () => {
-    const el = captureWrapRef.current;
-    if (!el) return null;
-    await waitFontsReadyForCapture();
-    const { default: html2canvas } = await import("html2canvas");
-    const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
-    const c = await html2canvas(el, {
-      scale,
-      useCORS: true,
-      backgroundColor: "#f8f9fa",
-    });
-    return new Promise((resolve, reject) => {
-      c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
-    });
+  const downloadPng = async (idx) => {
+    const c = document.createElement("canvas");
+    await paintSlideAt(idx, c);
+    const blob = await canvasToBlob(c);
+    if (!blob) return;
+    downloadBlob(blob, `shorts4_${date}_${String(idx + 1).padStart(2, "0")}.png`);
   };
 
   const downloadZip = async () => {
     if (!data || busy) return;
     const zip = new JSZip();
-    if (capturedSlides.length > 0) {
-      capturedSlides.forEach((item, i) => {
-        if (item.blob) {
-          zip.file(`shorts4_${date}_${String(i + 1).padStart(2, "0")}.png`, item.blob);
-        }
-      });
-    } else {
-      try {
-        const blob = await html2canvasToBlob();
-        if (!blob) return;
-        zip.file(`shorts4_${date}_01.png`, blob);
-      } catch {
-        return;
-      }
+    for (let i = 0; i < slides.length; i++) {
+      const c = document.createElement("canvas");
+      await paintSlideAt(i, c);
+      const blob = await canvasToBlob(c);
+      if (!blob) continue;
+      zip.file(`shorts4_${date}_${String(i + 1).padStart(2, "0")}.png`, blob);
     }
     const out = await zip.generateAsync({ type: "blob" });
     downloadBlob(out, `shorts4_${date}.zip`);
@@ -356,7 +459,7 @@ export default function Shorts4Panel() {
           type="button"
           className="primary"
           onClick={() => void captureAllSlides()}
-          disabled={!data || rowBusy || captureBusy || !detailGame}
+          disabled={!data || rowBusy || captureBusy || !slides.length}
         >
           {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
         </button>
@@ -365,20 +468,22 @@ export default function Shorts4Panel() {
         </span>
       </div>
 
-      <ShortsPresetPicker
-        ref={presetPickerRef}
-        shortsType="shorts4"
-        slides={capturedSlides}
-        hideVideoButton
-        hideCaptureStatus
-      />
+      <div className="shorts4-preset-tight">
+        <ShortsPresetPicker
+          ref={presetPickerRef}
+          shortsType="shorts4"
+          slides={capturedSlides}
+          hideVideoButton
+          hideCaptureStatus
+        />
+      </div>
 
       <div
+        className="shorts4-video-row"
         style={{
           display: "flex",
           gap: 10,
           alignItems: "center",
-          marginTop: 8,
           flexWrap: "wrap",
         }}
       >
@@ -414,6 +519,7 @@ export default function Shorts4Panel() {
                 onClick={() => {
                   setSelectedIdx(i);
                   setCapturedSlides([]);
+                  setSlideIdx(0);
                 }}
                 disabled={rowBusy}
               >
@@ -451,34 +557,35 @@ export default function Shorts4Panel() {
 
       {error ? <pre className="result-error-light">{error}</pre> : null}
 
-      {data && detailGame ? (
+      {data && detailGame && slides.length > 0 ? (
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
           <div style={{ flexShrink: 0 }}>
-            <div className="shorts-capture-wrap">
-              <div
-                ref={captureWrapRef}
-                className="slide-card"
-                style={{
-                  margin: 0,
-                  padding: 0,
-                  display: "inline-block",
-                  lineHeight: 0,
-                  maxWidth: 360,
-                }}
-              >
-                <div style={{ padding: 12, lineHeight: 1.4, background: "#f8f9fa" }}>
-                  <MatchupDetailCard game={detailGame} />
-                </div>
-              </div>
-            </div>
+            <ShortsCanvas ref={captureWrapRef} slideIdx={slideIdx} renderSlide={renderSlideToCanvas} />
           </div>
           <div>
             <div className="muted" style={{ fontWeight: 900 }}>
-              슬라이드 (1/{slides.length || 1})
+              슬라이드 ({slideIdx + 1}/{slides.length})
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0 || captureBusy}>
+                이전
+              </button>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+                disabled={slideIdx >= slides.length - 1 || captureBusy}
+              >
+                다음
+              </button>
+              <button type="button" onClick={() => void downloadPng(slideIdx)} disabled={rowBusy || captureBusy}>
+                현재 슬라이드 PNG 다운로드
+              </button>
             </div>
             <div className="muted" style={{ marginTop: 10 }}>
-              - 선택 경기 예상 전력(순위·선발·라인업) 캡처용
-              <br />- 슬라이드 캡처 후 BGM 프리셋으로 영상 생성
+              - 슬라이드1: 인트로
+              <br />
+              - 슬라이드2~N: 경기별 예상전력(순위·선발·라인업)
+              <br />- 마지막: KBO 순위
             </div>
           </div>
         </div>

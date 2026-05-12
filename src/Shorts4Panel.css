@@ -1,8 +1,12 @@
 /* 쇼츠4 전용 — 쇼츠1/2/3·App.jsx 미수정 */
 
-/* .results 전역 thead 숨김(App.css) 때문에 라인업 테이블 헤더 복구 */
-.shorts4-root .shorts4-lineup-table thead {
-  display: table-header-group !important;
+/* 프리셋 행 기본 margin-top(10px)과 영상 생성 행 사이 간격 축소 */
+.shorts4-root .shorts4-preset-tight .shorts-preset-picker {
+  margin-top: 6px;
+}
+
+.shorts4-root .shorts4-video-row {
+  margin-top: 4px;
 }
 
 .shorts4-root .shorts4-tabs {
