@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
@@ -189,20 +189,59 @@ function MatchupDetailCard({ game }) {
 
 export default function Shorts4Panel() {
   const [date, setDate] = useState(() => seoulToday());
+  const [tabGames, setTabGames] = useState([]);
+  const [scheduleBusy, setScheduleBusy] = useState(false);
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const captureWrapRef = useRef(null);
+  const presetPickerRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [capturedSlides, setCapturedSlides] = useState([]);
 
-  const gamesList = useMemo(() => {
-    const g = Array.isArray(data?.games) ? data.games : [];
-    return g.slice(0, 5);
-  }, [data]);
+  const fetchMatchupPreview = useCallback(async (dateStr) => {
+    const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
+    const res = await postKbo({ action: "matchup_preview", date: d });
+    if (res && res.ok === false) {
+      throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
+    }
+    const g = Array.isArray(res?.games) ? res.games.slice(0, 5) : [];
+    return { res, games: g };
+  }, []);
 
-  const detailGame = gamesList[selectedIdx] ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    setScheduleBusy(true);
+    setError(null);
+    setData(null);
+    setCapturedSlides([]);
+    setSelectedIdx(0);
+    (async () => {
+      try {
+        const { games } = await fetchMatchupPreview(date);
+        if (cancelled) return;
+        setTabGames(games);
+      } catch (e) {
+        if (!cancelled) {
+          setTabGames([]);
+          setError(e?.message || String(e));
+        }
+      } finally {
+        if (!cancelled) setScheduleBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [date, fetchMatchupPreview]);
+
+  const detailGame = useMemo(() => {
+    if (!data) return null;
+    const g = Array.isArray(data.games) ? data.games : [];
+    const row = g[selectedIdx] ?? g[0] ?? null;
+    return row;
+  }, [data, selectedIdx]);
 
   const slides = useMemo(() => {
     if (!detailGame) return [];
@@ -213,13 +252,10 @@ export default function Shorts4Panel() {
     setBusy(true);
     setError(null);
     try {
-      const d = String(date || "").trim().slice(0, 10) || seoulToday();
-      const res = await postKbo({ action: "matchup_preview", date: d });
-      if (res && res.ok === false) {
-        throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
-      }
+      const { res, games } = await fetchMatchupPreview(date);
       setData(res);
-      setSelectedIdx(0);
+      setTabGames(games);
+      setSelectedIdx((idx) => (games.length && idx >= games.length ? 0 : idx));
       setCapturedSlides([]);
     } catch (e) {
       setError(e?.message || String(e));
@@ -227,7 +263,7 @@ export default function Shorts4Panel() {
     } finally {
       setBusy(false);
     }
-  }, [date]);
+  }, [date, fetchMatchupPreview]);
 
   const captureAllSlides = async () => {
     if (!data || !slides.length) return;
@@ -300,6 +336,8 @@ export default function Shorts4Panel() {
     downloadBlob(out, `shorts4_${date}.zip`);
   };
 
+  const rowBusy = busy || scheduleBusy;
+
   return (
     <div className="section soft shorts4-root">
       <div className="section-title">4. 쇼츠-예상전력-비교</div>
@@ -318,7 +356,7 @@ export default function Shorts4Panel() {
           type="button"
           className="primary"
           onClick={() => void captureAllSlides()}
-          disabled={!data || busy || captureBusy || !detailGame}
+          disabled={!data || rowBusy || captureBusy || !detailGame}
         >
           {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
         </button>
@@ -327,42 +365,44 @@ export default function Shorts4Panel() {
         </span>
       </div>
 
-      <ShortsPresetPicker shortsType="shorts4" slides={capturedSlides} />
+      <ShortsPresetPicker
+        ref={presetPickerRef}
+        shortsType="shorts4"
+        slides={capturedSlides}
+        hideVideoButton
+        hideCaptureStatus
+      />
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={busy} />
-        <button
-          type="button"
-          className="primary"
-          onClick={() => {
-            const todayStr = new Date().toLocaleDateString("sv-SE", {
-              timeZone: "Asia/Seoul",
-            });
-            setDate(todayStr);
-          }}
-          disabled={busy}
-        >
-          오늘
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <button type="button" className="primary" onClick={() => presetPickerRef.current?.openVideoExport()}>
+          영상 생성
         </button>
-        <button
-          type="button"
-          className="primary"
-          onClick={() => setDate(addCalendarDayKst(date, 1))}
-          disabled={busy}
-        >
-          내일
-        </button>
-        <button type="button" className="primary" onClick={() => void onGenerate()} disabled={busy}>
-          {busy ? "불러오는 중…" : "데이터 불러오기"}
-        </button>
-        <button type="button" className="primary primary-fill" onClick={() => void downloadZip()} disabled={!data || busy}>
-          전체 ZIP 다운로드
-        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}
+        </span>
       </div>
 
-      {gamesList.length > 0 ? (
+      <div style={{ marginTop: 10 }}>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          disabled={rowBusy}
+          style={{ width: "100%", boxSizing: "border-box" }}
+        />
+      </div>
+
+      {tabGames.length > 0 ? (
         <div className="shorts4-tabs" style={{ marginTop: 10 }} role="tablist" aria-label="경기 선택">
-          {gamesList.map((g, i) => {
+          {tabGames.map((g, i) => {
             const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
             return (
               <button
@@ -375,7 +415,7 @@ export default function Shorts4Panel() {
                   setSelectedIdx(i);
                   setCapturedSlides([]);
                 }}
-                disabled={busy}
+                disabled={rowBusy}
               >
                 {label}
               </button>
@@ -383,6 +423,31 @@ export default function Shorts4Panel() {
           })}
         </div>
       ) : null}
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const todayStr = new Date().toLocaleDateString("sv-SE", {
+              timeZone: "Asia/Seoul",
+            });
+            setDate(todayStr);
+          }}
+          disabled={rowBusy}
+        >
+          오늘
+        </button>
+        <button type="button" className="primary" onClick={() => setDate(addCalendarDayKst(date, 1))} disabled={rowBusy}>
+          내일
+        </button>
+        <button type="button" className="primary" onClick={() => void onGenerate()} disabled={rowBusy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary primary-fill" onClick={() => void downloadZip()} disabled={!data || rowBusy}>
+          전체 ZIP 다운로드
+        </button>
+      </div>
 
       {error ? <pre className="result-error-light">{error}</pre> : null}
 

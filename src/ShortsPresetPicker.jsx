@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { postKbo } from "./api.js";
 import VideoExportModal from "./VideoExportModal.jsx";
 
-export default function ShortsPresetPicker({ shortsType, slides = [] }) {
+const ShortsPresetPicker = forwardRef(function ShortsPresetPicker(
+  { shortsType, slides = [], hideVideoButton = false, hideCaptureStatus = false },
+  ref
+) {
   const [list, setList] = useState([]);
   const [sel, setSel] = useState("");
   const [presetObj, setPresetObj] = useState(null);
@@ -51,14 +54,22 @@ export default function ShortsPresetPicker({ shortsType, slides = [] }) {
     return `✅ ${captureCount}장 캡처됨`;
   }, [captureCount]);
 
-  const onVideoClick = () => {
+  const onVideoClick = useCallback(() => {
     if (!captureCount) {
       window.alert("먼저 슬라이드를 캡처해주세요");
       return;
     }
     setExportSession((x) => x + 1);
     setExportOpen(true);
-  };
+  }, [captureCount]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      openVideoExport: onVideoClick,
+    }),
+    [onVideoClick]
+  );
 
   return (
     <>
@@ -87,15 +98,19 @@ export default function ShortsPresetPicker({ shortsType, slides = [] }) {
             </option>
           ))}
         </select>
-        <button type="button" className="primary" onClick={onVideoClick}>
-          영상 생성
-        </button>
+        {!hideVideoButton ? (
+          <button type="button" className="primary" onClick={onVideoClick}>
+            영상 생성
+          </button>
+        ) : null}
         <button type="button" className="ghost" onClick={() => load()} title="목록 새로고침">
           ↻
         </button>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {statusLabel}
-        </span>
+        {!hideCaptureStatus ? (
+          <span className="muted" style={{ fontSize: 13 }}>
+            {statusLabel}
+          </span>
+        ) : null}
         {err ? (
           <span className="muted" style={{ fontSize: 12 }}>
             {err}
@@ -113,4 +128,6 @@ export default function ShortsPresetPicker({ shortsType, slides = [] }) {
       />
     </>
   );
-}
+});
+
+export default ShortsPresetPicker;
