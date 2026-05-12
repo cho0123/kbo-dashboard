@@ -7,7 +7,12 @@ export const SLIDE_KEYS_SHORTS1 = [
   "game_detail",
   "standings",
 ];
-export const SLIDE_KEYS_SHORTS4 = ["intro", "summary", "game_detail", "standings"];
+export const SLIDE_KEYS_SHORTS4 = [
+  "intro",
+  "game_preview",
+  "game_preview_last",
+  "standings",
+];
 export const SLIDE_KEYS_SHORTS2 = [
   "intro",
   "game_preview",
@@ -30,8 +35,16 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠4: summary_last 구분 없음(쇼츠1 전용) */
+/** 쇼츠4: 쇼츠2 내일프리뷰와 동일 슬라이드 구조(인트로+프리뷰5p+순위) — duration도 동일 */
 export const DEFAULT_DURATION_SHORTS4 = {
+  intro: 4.0,
+  game_preview: 1.5,
+  game_preview_last: 2.0,
+  standings: 4.0,
+};
+
+/** 쇼츠3 전용(영상 프리셋 UI에는 없으나 API·인코딩에서 shorts_type 구분용) */
+export const DEFAULT_DURATION_SHORTS3 = {
   intro: 3.0,
   summary: 2.5,
   game_detail: 2.0,
@@ -45,6 +58,9 @@ export function defaultSlidesForType(shortsType) {
     case "shorts2":
       return { ...DEFAULT_DURATION_SHORTS2 };
     case "shorts4":
+      return { ...DEFAULT_DURATION_SHORTS4 };
+    case "shorts3":
+      return { ...DEFAULT_DURATION_SHORTS3 };
     default:
       return { ...DEFAULT_DURATION_SHORTS4 };
   }
@@ -71,11 +87,20 @@ export function slideFrameCountForKey(shortsType, key) {
     };
     return m[key] ?? 1;
   }
-  if (shortsType === "shorts3" || shortsType === "shorts4") {
+  if (shortsType === "shorts3") {
     const m = {
       intro: 1,
       summary: 1,
       game_detail: 10,
+      standings: 1,
+    };
+    return m[key] ?? 1;
+  }
+  if (shortsType === "shorts4") {
+    const m = {
+      intro: 1,
+      game_preview: 4,
+      game_preview_last: 1,
       standings: 1,
     };
     return m[key] ?? 1;
@@ -101,6 +126,22 @@ export function slideFieldDefs(shortsType) {
       { key: "standings", label: "순위" },
     ];
   }
+  if (shortsType === "shorts4") {
+    return [
+      { key: "intro", label: "인트로" },
+      { key: "game_preview", label: "경기 프리뷰 (1~4페이지)" },
+      { key: "game_preview_last", label: "경기 프리뷰 (5페이지)" },
+      { key: "standings", label: "팀순위" },
+    ];
+  }
+  if (shortsType === "shorts3") {
+    return [
+      { key: "intro", label: "인트로" },
+      { key: "summary", label: "결과 요약" },
+      { key: "game_detail", label: "경기 상세" },
+      { key: "standings", label: "순위" },
+    ];
+  }
   return [
     { key: "intro", label: "인트로" },
     { key: "summary", label: "결과 요약" },
@@ -113,7 +154,11 @@ export function mergeSlides(shortsType, existing) {
   const base = defaultSlidesForType(shortsType);
   const ex =
     existing && typeof existing === "object" ? { ...existing } : {};
-  if (shortsType === "shorts2" && ex && typeof ex === "object") {
+  if (
+    (shortsType === "shorts2" || shortsType === "shorts4") &&
+    ex &&
+    typeof ex === "object"
+  ) {
     if (!Number.isFinite(Number(ex.game_preview))) {
       for (const k of [
         "game_preview_p1",
@@ -133,6 +178,17 @@ export function mergeSlides(shortsType, existing) {
       Number.isFinite(Number(ex.game_preview_p5))
     ) {
       ex.game_preview_last = Number(ex.game_preview_p5);
+    }
+  }
+  if (shortsType === "shorts4" && ex && typeof ex === "object") {
+    if (!Number.isFinite(Number(ex.game_preview)) && Number.isFinite(Number(ex.summary))) {
+      ex.game_preview = Number(ex.summary);
+    }
+    if (
+      !Number.isFinite(Number(ex.game_preview_last)) &&
+      Number.isFinite(Number(ex.game_detail))
+    ) {
+      ex.game_preview_last = Number(ex.game_detail);
     }
   }
   const out = { ...base };

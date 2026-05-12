@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   DEFAULT_DURATION_SHORTS1,
   DEFAULT_DURATION_SHORTS2,
+  DEFAULT_DURATION_SHORTS3,
   DEFAULT_DURATION_SHORTS4,
 } from "../videoPresetDefaults.js";
 
@@ -20,11 +21,13 @@ function resolveDuration(key, preset, shortsType) {
   const map =
     shortsType === "shorts2"
       ? DEFAULT_DURATION_SHORTS2
-      : shortsType === "shorts3" || shortsType === "shorts4"
+      : shortsType === "shorts4"
         ? DEFAULT_DURATION_SHORTS4
-        : DEFAULT_DURATION_SHORTS1;
+        : shortsType === "shorts3"
+          ? DEFAULT_DURATION_SHORTS3
+          : DEFAULT_DURATION_SHORTS1;
 
-  if (shortsType === "shorts2") {
+  if (shortsType === "shorts2" || shortsType === "shorts4") {
     if (
       key === "game_preview_p1" ||
       key === "game_preview_p2" ||

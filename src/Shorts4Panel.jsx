@@ -3,19 +3,29 @@ import JSZip from "jszip";
 import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
+import { drawStandingsSlide, loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import {
-  drawIntroSlide,
-  drawStandingsSlide,
-  KBO_INTRO_TEAM_KEYS,
-  loadSvgLogo,
-  teamKeyword,
-} from "./shorts1IntroStandingsDraw.js";
-import { drawShorts4LineupSlide, drawShorts4MatchupSlide, drawShorts4StarterSlide } from "./shorts4SlideDraw.js";
+  drawTomorrowPreviewGameSlide,
+  drawTomorrowPreviewIntroSlide,
+  SHORTS2_INTRO_TEAM_KEYS,
+} from "./shorts2TomorrowPreviewDraw.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
 const SHORTS_EXPORT_H = 1920;
 const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
+
+/** 쇼츠2 `slideExportKeyShorts2`와 동일 — 영상 프리셋 duration·쇼츠2와 동일 키 체계 */
+function slideExportKeyShorts4Capture(slide) {
+  if (!slide?.type) return "intro";
+  if (slide.type === "intro") return "intro";
+  if (slide.type === "preview_game") {
+    const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
+    return p <= 4 ? "game_preview" : "game_preview_last";
+  }
+  if (slide.type === "standings") return "standings";
+  return "intro";
+}
 
 function delayMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -168,14 +178,12 @@ export default function Shorts4Panel() {
   const slides = useMemo(() => {
     if (!data || !detailGame) return [];
     const g = detailGame;
-    return [
-      { type: "intro" },
-      { type: "matchup", game: g },
-      { type: "starter", game: g },
-      { type: "home_lineup", game: g },
-      { type: "away_lineup", game: g },
-      { type: "standings" },
-    ];
+    const s = [{ type: "intro" }];
+    for (let page = 1; page <= 5; page++) {
+      s.push({ type: "preview_game", game: g, page });
+    }
+    s.push({ type: "standings" });
+    return s;
   }, [data, detailGame]);
 
   useEffect(() => {
@@ -202,62 +210,44 @@ export default function Shorts4Panel() {
         return;
       }
 
+      const standings = standingsRows;
+
+      const teamKeys = new Set();
+      if (slide.type === "intro") {
+        for (const tk of SHORTS2_INTRO_TEAM_KEYS) teamKeys.add(tk);
+      } else if (slide.type === "preview_game") {
+        teamKeys.add(teamKeyword(slide.game?.home_team));
+        teamKeys.add(teamKeyword(slide.game?.away_team));
+      } else if (slide.type === "standings") {
+        for (const r of standings) {
+          teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
+        }
+      }
+
+      const logosByTeamKey = {};
+      for (const tk of teamKeys) {
+        if (!tk) continue;
+        logosByTeamKey[tk] = await loadSvgLogo(tk);
+      }
+
       await loadShortsBaseballDecor();
 
       if (slide.type === "intro") {
-        const logosByTeamKey = {};
-        for (const tk of KBO_INTRO_TEAM_KEYS) {
-          logosByTeamKey[tk] = await loadSvgLogo(tk);
-        }
-        drawIntroSlide(ctx, w, h, date, logosByTeamKey, "오늘경기 예상라인업");
+        drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
+        return;
+      }
+
+      if (slide.type === "preview_game" && slide.game) {
+        drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey, Number(slide.page) || 1);
         return;
       }
 
       if (slide.type === "standings") {
-        const logosByTeamKey = {};
-        const seen = new Set();
-        for (const r of standingsRows) {
-          const raw = r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? "";
-          const tk = teamKeyword(raw);
-          if (!tk || seen.has(tk)) continue;
-          seen.add(tk);
-          logosByTeamKey[tk] = await loadSvgLogo(tk);
-        }
-        drawStandingsSlide(ctx, w, h, date, standingsRows, logosByTeamKey);
-        return;
-      }
-
-      const g = slide.game;
-      if (!g) {
-        ctx.fillStyle = "#1a1a2e";
-        ctx.fillRect(0, 0, w, h);
-        return;
-      }
-
-      const logosTwo = {};
-      const hk = teamKeyword(g.home_team);
-      const ak = teamKeyword(g.away_team);
-      if (hk) logosTwo[hk] = await loadSvgLogo(hk);
-      if (ak) logosTwo[ak] = await loadSvgLogo(ak);
-
-      if (slide.type === "matchup") {
-        drawShorts4MatchupSlide(ctx, w, h, date, g, logosTwo);
-        return;
-      }
-      if (slide.type === "starter") {
-        drawShorts4StarterSlide(ctx, w, h, g);
-        return;
-      }
-      if (slide.type === "home_lineup") {
-        drawShorts4LineupSlide(ctx, w, h, g, "home");
-        return;
-      }
-      if (slide.type === "away_lineup") {
-        drawShorts4LineupSlide(ctx, w, h, g, "away");
+        drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
         return;
       }
     },
-    [slides, standingsRows, date]
+    [slides, standingsRows, date, detailGame]
   );
 
   const renderSlideToCanvas = useCallback(
@@ -309,7 +299,7 @@ export default function Shorts4Panel() {
         const blob = await new Promise((resolve, reject) => {
           c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
         });
-        out.push({ key: `shorts4_${slides[i]?.type || i}`, blob });
+        out.push({ key: slideExportKeyShorts4Capture(slides[i]), blob });
         if (i < slides.length - 1) {
           await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
@@ -487,14 +477,10 @@ export default function Shorts4Panel() {
               </button>
             </div>
             <div className="muted" style={{ marginTop: 10 }}>
-              - 슬라이드1: 인트로
+              - 슬라이드1: 인트로 (쇼츠2와 동일)
               <br />
-              - 슬라이드2: 매치업(일시·구장·로고·순위·전적·최근5)
-              <br />
-              - 슬라이드3: 선발 투수·상대전적
-              <br />
-              - 슬라이드4~5: 홈/원정 예상 라인업
-              <br />- 슬라이드6: KBO 순위
+              - 슬라이드2~6: 선택 경기 프리뷰(page 1~5, 쇼츠2와 동일)
+              <br />- 슬라이드7: KBO 순위
             </div>
           </div>
         </div>
