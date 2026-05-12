@@ -2227,6 +2227,16 @@ function pitcherIpRowToOuts(row) {
   return full * 3 + partialOuts;
 }
 
+/** 시즌 누적 아웃 수 → 야구 이닝 문자열 (예: 27, 27.1, 27.2) */
+function outsToBaseballIpString(totalOuts) {
+  const o = Math.max(0, Math.floor(Number(totalOuts) || 0));
+  if (o <= 0) return null;
+  const whole = Math.floor(o / 3);
+  const rem = o % 3;
+  if (rem === 0) return String(whole);
+  return `${whole}.${rem}`;
+}
+
 function pitcherDecisionWlFromRow(r) {
   const s = String(
     pickStr(r, ["result", "RESULT", "decision", "win_loss", "wl", "승패"]) || ""
@@ -2260,7 +2270,7 @@ function computeSeasonWhipFromPitcherRows(rows) {
 async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap) {
   const name = normalizePitcherNameForMatch(pitcherNameRaw);
   const y = Number(seasonYear) || 2026;
-  const empty = { wins: 0, losses: 0, has_result: false, whip: null };
+  const empty = { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
   if (!name) {
     return empty;
   }
@@ -2301,8 +2311,22 @@ async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap
     }
   }
 
+  let totalOutsSum = 0;
+  let totalSo = 0;
+  for (const r of seasonRows) {
+    totalOutsSum += pitcherIpRowToOuts(r);
+    const so = pickNumOrNull(r, ["so", "SO", "k", "K", "strikeouts"]);
+    if (so != null && Number.isFinite(Number(so))) totalSo += Number(so);
+  }
+  let total_ip = null;
+  let k9 = null;
+  if (totalOutsSum > 0) {
+    total_ip = outsToBaseballIpString(totalOutsSum);
+    k9 = Math.round(((totalSo * 9) / (totalOutsSum / 3)) * 100) / 100;
+  }
+
   const whip = computeSeasonWhipFromPitcherRows(seasonRows);
-  const out = { wins, losses, has_result, whip };
+  const out = { wins, losses, has_result, whip, total_ip, k9 };
   cacheMap?.set(key, out);
   return out;
 }
@@ -2508,11 +2532,11 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
     const homeWlWhip =
       home_starter == null
-        ? { wins: 0, losses: 0, has_result: false, whip: null }
+        ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
         : await fetchPitcherSeasonWlWhip(db, seasonYear, home_starter, __starterWlWhipCache);
     const awayWlWhip =
       away_starter == null
-        ? { wins: 0, losses: 0, has_result: false, whip: null }
+        ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
         : await fetchPitcherSeasonWlWhip(db, seasonYear, away_starter, __starterWlWhipCache);
 
     const hsPitch = home_starter
@@ -2585,6 +2609,10 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_starter_season_losses: awayWlWhip.losses,
       away_starter_season_has_result: awayWlWhip.has_result,
       away_starter_whip: awayWlWhip.whip,
+      home_starter_total_ip: homeWlWhip.total_ip ?? null,
+      away_starter_total_ip: awayWlWhip.total_ip ?? null,
+      home_starter_k9: homeWlWhip.k9 ?? null,
+      away_starter_k9: awayWlWhip.k9 ?? null,
       home_starter_ip: hsPitch?.ip ?? null,
       away_starter_ip: awPitch?.ip ?? null,
       home_starter_so: hsPitch?.so ?? null,

@@ -353,19 +353,27 @@ function starterSlideStatLineWins(g, side) {
   return `- -승 -패`;
 }
 
-function starterSlideStatLinesThree(g, side) {
+function starterSlideStatLinesFour(g, side) {
+  const pref = side === "away" ? "away" : "home";
   const era = side === "away" ? g?.away_starter_era : g?.home_starter_era;
-  const whip = side === "away" ? g?.away_starter_whip : g?.home_starter_whip;
+  const totalIp = g?.[`${pref}_starter_total_ip`];
+  const k9 = g?.[`${pref}_starter_k9`];
   const l1 = starterSlideStatLineWins(g, side);
-  const l2 = `- ERA(평균자책점) : ${fmtEra(era)}`;
-  const l3 =
-    whip != null && Number.isFinite(Number(whip)) ? `- WHIP : ${Number(whip).toFixed(2)}` : `- WHIP : -`;
-  return [l1, l2, l3];
+  const l2 =
+    totalIp != null && String(totalIp).trim() !== ""
+      ? `- 시즌 총 이닝 : ${totalIp}`
+      : `- 시즌 총 이닝 : -`;
+  const l3 = `- 평균자책점(ERA) : ${fmtEra(era)}`;
+  const l4 =
+    k9 != null && Number.isFinite(Number(k9))
+      ? `- 9이닝당 삼진 : ${Number(k9).toFixed(2)}`
+      : `- 9이닝당 삼진 : -`;
+  return [l1, l2, l3, l4];
 }
 
-/** 선수 얼굴 세로 중심 cy 기준 오른쪽 스탯 3줄 */
+/** 선수 얼굴 세로 중심 cy 기준 오른쪽 스탯 4줄 */
 function drawStarterSlideRightStatBlock(ctx, statX, cy, g, side) {
-  const lines = starterSlideStatLinesThree(g, side);
+  const lines = starterSlideStatLinesFour(g, side);
   const gap = STARTER_SLIDE_STAT_LINE_GAP;
   const totalH = (lines.length - 1) * gap;
   let statY = cy - totalH / 2;
