@@ -302,30 +302,48 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
-const PORTRAIT_FRAME_LW = 7;
+const PORTRAIT_TEAM_BORDER_LW = 5;
+const PORTRAIT_WHITE_BORDER_LW = 8;
 
 function starterTeamStrokeColor(teamName) {
   const [c] = teamGrad(teamName);
   return c || "#ffffff";
 }
 
-/** 원형 클립 + 팀컬러 링 — 선수 사진만 */
+/**
+ * 원형 클립 사진 + 안쪽 팀컬러 링 + 바깥 흰색 링 (대비 확보)
+ * @param {number} diameter 사진(클립) 직경(px)
+ */
 function drawStarterPortraitFramed(ctx, img, cx, cy, diameter, teamName) {
   if (!img || !img.complete || !(Number(img.naturalWidth) > 0)) return;
-  const r = diameter / 2;
-  const boxTop = cy - r;
+  const rPhoto = diameter / 2;
+  const boxTop = cy - rPhoto;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.arc(cx, cy, rPhoto, 0, Math.PI * 2);
   ctx.clip();
   drawPortraitContain(ctx, img, cx, boxTop, diameter, diameter);
   ctx.restore();
 
+  const rTeamMid = rPhoto + PORTRAIT_TEAM_BORDER_LW / 2;
+  const rWhiteMid = rPhoto + PORTRAIT_TEAM_BORDER_LW + PORTRAIT_WHITE_BORDER_LW / 2;
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.arc(cx, cy, rTeamMid, 0, Math.PI * 2);
   ctx.strokeStyle = starterTeamStrokeColor(teamName);
-  ctx.lineWidth = PORTRAIT_FRAME_LW;
+  ctx.lineWidth = PORTRAIT_TEAM_BORDER_LW;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, rWhiteMid, 0, Math.PI * 2);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = PORTRAIT_WHITE_BORDER_LW;
+  ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.stroke();
   ctx.restore();
@@ -355,12 +373,14 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
   drawBaseballBackground(ctx);
 
-  const awayFaceCx = w * 0.65;
-  const homeFaceCx = w * 0.35;
+  const frameOuter = PORTRAIT_TEAM_BORDER_LW + PORTRAIT_WHITE_BORDER_LW;
+
+  const awayFaceCx = w * 0.65 + 100;
+  const homeFaceCx = w * 0.35 - 100;
   const awayFaceTop = 56;
   const homeFaceTop = h / 2 + 156;
-  const awayCy = awayFaceTop + STARTER_FACE_BOX / 2;
-  const homeCy = homeFaceTop + STARTER_FACE_BOX / 2;
+  const awayCy = awayFaceTop + STARTER_FACE_BOX / 2 + 100;
+  const homeCy = homeFaceTop + STARTER_FACE_BOX / 2 - 100;
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
@@ -397,8 +417,10 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
 
+  const rPhoto = STARTER_FACE_BOX / 2;
+
   if (awayUsePhoto) {
-    const awayNameY = awayFaceTop + STARTER_FACE_BOX + 22;
+    const awayNameY = awayCy + rPhoto + frameOuter + 22;
     const awayStatY = awayNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -409,7 +431,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     ctx.fillText(awayStats, w / 2, awayStatY);
     resetShadow(ctx);
   } else {
-    const awayNameY = awayFaceTop + STARTER_FACE_BOX + 28;
+    const awayNameY = awayFaceTop + STARTER_FACE_BOX + frameOuter + 28;
     const awayStatY = awayNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -422,7 +444,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   }
 
   if (homeUsePhoto) {
-    const homeNameY = homeFaceTop + STARTER_FACE_BOX + 22;
+    const homeNameY = homeCy + rPhoto + frameOuter + 22;
     const homeStatY = homeNameY + 50;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
@@ -433,7 +455,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
     ctx.fillText(homeStats, w / 2, homeStatY);
     resetShadow(ctx);
   } else {
-    const homeNameY = homeFaceTop + STARTER_FACE_BOX + 28;
+    const homeNameY = homeFaceTop + STARTER_FACE_BOX + frameOuter + 28;
     const homeStatY = homeNameY + 52;
     ctx.font = `700 ${nameSizePx}px "Gmarket Sans", "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
