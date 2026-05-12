@@ -10,7 +10,7 @@ import {
   SHORTS2_INTRO_TEAM_KEYS,
 } from "./shorts2TomorrowPreviewDraw.js";
 import { drawShorts4LineupSlide, drawShorts4StarterSlide } from "./shorts4SlideDraw.js";
-import { loadPlayerImage } from "./shorts4PlayerImage.js";
+import { clearPlayerImageCache, loadPlayerImage } from "./shorts4PlayerImage.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -127,6 +127,12 @@ export default function Shorts4Panel() {
   const presetPickerRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [capturedSlides, setCapturedSlides] = useState([]);
+  const playerPhotoFileRef = useRef(null);
+  const [playerPhotoTeam, setPlayerPhotoTeam] = useState("");
+  const [playerPhotoName, setPlayerPhotoName] = useState("");
+  const [playerPhotoUploading, setPlayerPhotoUploading] = useState(false);
+  const [playerPhotoMsg, setPlayerPhotoMsg] = useState("");
+  const [playerPhotoOk, setPlayerPhotoOk] = useState(false);
 
   const fetchMatchupPreview = useCallback(async (dateStr) => {
     const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
@@ -375,10 +381,136 @@ export default function Shorts4Panel() {
 
   const rowBusy = busy || scheduleBusy;
 
+  const uploadPlayerPhoto = useCallback(async () => {
+    setPlayerPhotoMsg("");
+    setPlayerPhotoOk(false);
+    const team = String(playerPhotoTeam || "").trim();
+    const playerName = String(playerPhotoName || "").trim();
+    if (!team || !playerName) {
+      setPlayerPhotoMsg("팀명과 선수명을 입력하세요.");
+      return;
+    }
+    const file = playerPhotoFileRef.current?.files?.[0];
+    if (!file) {
+      setPlayerPhotoMsg("PNG 파일을 선택하세요.");
+      return;
+    }
+    setPlayerPhotoUploading(true);
+    try {
+      const imageBase64 = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => {
+          const dataUrl = String(fr.result || "");
+          const m = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
+          if (m) resolve(m[1].replace(/\s/g, ""));
+          else reject(new Error("PNG 파일만 업로드할 수 있습니다."));
+        };
+        fr.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+        fr.readAsDataURL(file);
+      });
+      const res = await postKbo({
+        action: "upload_player_image",
+        team,
+        playerName,
+        imageBase64,
+      });
+      if (!res || res.ok === false) {
+        throw new Error(String(res?.error || res?.message || "업로드 실패"));
+      }
+      clearPlayerImageCache();
+      setPlayerPhotoOk(true);
+      setPlayerPhotoMsg("✅ 업로드 완료");
+      if (playerPhotoFileRef.current) playerPhotoFileRef.current.value = "";
+    } catch (e) {
+      setPlayerPhotoOk(false);
+      setPlayerPhotoMsg(e?.message || String(e));
+    } finally {
+      setPlayerPhotoUploading(false);
+    }
+  }, [playerPhotoTeam, playerPhotoName]);
+
   return (
     <div className="section soft shorts4-root">
       <div className="section-title">4. 쇼츠-예상전력-비교</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+      <details className="shorts4-player-photo-mgmt" style={{ marginTop: 10 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 700 }}>선수 사진 관리</summary>
+        <div
+          style={{
+            marginTop: 10,
+            display: "grid",
+            gap: 8,
+            padding: "10px 0",
+            borderTop: "1px solid rgba(0,0,0,0.08)",
+          }}
+        >
+          <label className="muted" style={{ fontSize: 13 }}>
+            팀명 (파일명과 동일하게, 예: 삼성)
+            <input
+              type="text"
+              value={playerPhotoTeam}
+              onChange={(e) => {
+                setPlayerPhotoTeam(e.target.value);
+                setPlayerPhotoOk(false);
+                if (playerPhotoMsg === "✅ 업로드 완료") setPlayerPhotoMsg("");
+              }}
+              placeholder="삼성"
+              disabled={playerPhotoUploading}
+              style={{ width: "100%", boxSizing: "border-box", marginTop: 4 }}
+            />
+          </label>
+          <label className="muted" style={{ fontSize: 13 }}>
+            선수명
+            <input
+              type="text"
+              value={playerPhotoName}
+              onChange={(e) => {
+                setPlayerPhotoName(e.target.value);
+                setPlayerPhotoOk(false);
+                if (playerPhotoMsg === "✅ 업로드 완료") setPlayerPhotoMsg("");
+              }}
+              placeholder="홍길동"
+              disabled={playerPhotoUploading}
+              style={{ width: "100%", boxSizing: "border-box", marginTop: 4 }}
+            />
+          </label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              ref={playerPhotoFileRef}
+              type="file"
+              accept="image/png"
+              disabled={playerPhotoUploading}
+              style={{ display: "none" }}
+              onChange={() => {
+                setPlayerPhotoOk(false);
+                if (playerPhotoMsg === "✅ 업로드 완료") setPlayerPhotoMsg("");
+              }}
+            />
+            <button
+              type="button"
+              className="primary"
+              disabled={playerPhotoUploading}
+              onClick={() => playerPhotoFileRef.current?.click()}
+            >
+              파일 선택 (PNG)
+            </button>
+            <button
+              type="button"
+              className="primary primary-fill"
+              disabled={playerPhotoUploading}
+              onClick={() => void uploadPlayerPhoto()}
+            >
+              {playerPhotoUploading ? "업로드 중…" : "S3 업로드"}
+            </button>
+          </div>
+          {playerPhotoMsg ? (
+            <div className={playerPhotoOk ? "muted" : "result-error-light"} style={{ fontSize: 13 }}>
+              {playerPhotoMsg}
+            </div>
+          ) : null}
+        </div>
+      </details>
 
       <div
         style={{

@@ -2634,6 +2634,116 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "upload_player_image": {
+        const safePlayerImageSeg = (s) =>
+          String(s || "")
+            .trim()
+            .replace(/[/\\?*:|"<>]/g, "")
+            .replace(/\s+/g, "");
+        const teamSeg = safePlayerImageSeg(payload.team || payload.teamName || "");
+        const nameSeg = safePlayerImageSeg(
+          payload.playerName || payload.player || ""
+        );
+        if (!teamSeg || !nameSeg || nameSeg === "미정") {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error:
+                "team(팀명)과 playerName(선수명)이 필요합니다. 선수명은 비어 있을 수 없습니다.",
+            }),
+          };
+        }
+        let b64 = String(
+          payload.imageBase64 || payload.image_base64 || ""
+        ).trim();
+        const mData = /^data:image\/png;base64,(.+)$/i.exec(b64);
+        if (mData) b64 = mData[1].replace(/\s/g, "");
+        let buf;
+        try {
+          buf = Buffer.from(b64, "base64");
+        } catch {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "imageBase64가 올바른 base64가 아닙니다.",
+            }),
+          };
+        }
+        if (!buf || buf.length < 68) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "이미지 데이터가 너무 짧습니다.",
+            }),
+          };
+        }
+        if (buf.length > 6 * 1024 * 1024) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "이미지는 6MB 이하만 업로드할 수 있습니다.",
+            }),
+          };
+        }
+        const isPng =
+          buf[0] === 0x89 &&
+          buf[1] === 0x50 &&
+          buf[2] === 0x4e &&
+          buf[3] === 0x47;
+        if (!isPng) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "PNG 이미지(.png)만 업로드할 수 있습니다.",
+            }),
+          };
+        }
+        const key = `players/${teamSeg}-${nameSeg}.png`;
+        try {
+          const { s3, bucket, region } = videoEncodeAwsClients();
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: key,
+              Body: buf,
+              ContentType: "image/png",
+              CacheControl: "public, max-age=60",
+            })
+          );
+          const rgn = region || "ap-northeast-2";
+          const bkt = bucket || "kbo-video-export";
+          const url = `https://${bkt}.s3.${rgn}.amazonaws.com/${key}`;
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              action,
+              url,
+              key,
+              bucket: bkt,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[upload_player_image]", msg);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "elevenlabs_tts": {
         const jobId = String(payload.jobId || "").trim();
         const segRaw = payload.segIndex;
