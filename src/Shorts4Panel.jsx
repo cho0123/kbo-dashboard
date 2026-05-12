@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
@@ -189,94 +189,48 @@ function MatchupDetailCard({ game }) {
 
 export default function Shorts4Panel() {
   const [date, setDate] = useState(() => seoulToday());
-  const [listBusy, setListBusy] = useState(false);
-  const [gamesList, setGamesList] = useState([]);
-  const [listError, setListError] = useState(null);
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [committed, setCommitted] = useState(false);
-  const [loadBusy, setLoadBusy] = useState(false);
-  const [loadError, setLoadError] = useState(null);
-  const [detailGame, setDetailGame] = useState(null);
-
   const captureWrapRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [capturedSlides, setCapturedSlides] = useState([]);
 
+  const gamesList = useMemo(() => {
+    const g = Array.isArray(data?.games) ? data.games : [];
+    return g.slice(0, 5);
+  }, [data]);
+
+  const detailGame = gamesList[selectedIdx] ?? null;
+
   const slides = useMemo(() => {
-    if (!committed || !detailGame) return [];
+    if (!detailGame) return [];
     return [{ type: "matchup", game: detailGame }];
-  }, [committed, detailGame]);
+  }, [detailGame]);
 
-  const fetchDayGames = useCallback(async (dateStr) => {
-    const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
-    const res = await postKbo({ action: "matchup_preview", date: d });
-    if (res && res.ok === false) {
-      throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
-    }
-    const g = Array.isArray(res?.games) ? res.games.slice(0, 5) : [];
-    return g;
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setListBusy(true);
-    setListError(null);
-    setLoadError(null);
-    setCommitted(false);
-    setDetailGame(null);
-    setCapturedSlides([]);
-    (async () => {
-      try {
-        const g = await fetchDayGames(date);
-        if (cancelled) return;
-        setGamesList(g);
-        setSelectedIdx(0);
-      } catch (e) {
-        if (!cancelled) {
-          setListError(e?.message || String(e));
-          setGamesList([]);
-        }
-      } finally {
-        if (!cancelled) setListBusy(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [date, fetchDayGames]);
-
-  const selectedGame = gamesList[selectedIdx] ?? null;
-
-  const onLoadDetail = async () => {
-    if (!selectedGame) return;
-    setLoadBusy(true);
-    setLoadError(null);
+  const onGenerate = useCallback(async () => {
+    setBusy(true);
+    setError(null);
     try {
-      const g = await fetchDayGames(date);
-      const sid = String(selectedGame?.game_id ?? "").trim();
-      const hit = sid ? g.find((x) => String(x?.game_id ?? "").trim() === sid) : null;
-      const next = hit || g[selectedIdx] || null;
-      if (!next) {
-        setLoadError("선택한 경기 데이터를 찾을 수 없습니다.");
-        setCommitted(false);
-        setDetailGame(null);
-        return;
+      const d = String(date || "").trim().slice(0, 10) || seoulToday();
+      const res = await postKbo({ action: "matchup_preview", date: d });
+      if (res && res.ok === false) {
+        throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
       }
-      setGamesList(g);
-      setDetailGame(next);
-      setCommitted(true);
+      setData(res);
+      setSelectedIdx(0);
       setCapturedSlides([]);
     } catch (e) {
-      setLoadError(e?.message || String(e));
-      setCommitted(false);
-      setDetailGame(null);
+      setError(e?.message || String(e));
+      setData(null);
     } finally {
-      setLoadBusy(false);
+      setBusy(false);
     }
-  };
+  }, [date]);
 
   const captureAllSlides = async () => {
-    if (!committed || !detailGame || !slides.length) return;
+    if (!data || !slides.length) return;
     setCaptureBusy(true);
     try {
       const { default: html2canvas } = await import("html2canvas");
@@ -308,92 +262,131 @@ export default function Shorts4Panel() {
     }
   };
 
-  const downloadZip = async () => {
-    if (!capturedSlides.length) return;
-    const zip = new JSZip();
-    capturedSlides.forEach((item, i) => {
-      if (item.blob) {
-        zip.file(`shorts4_${date}_${String(i + 1).padStart(2, "0")}.png`, item.blob);
-      }
+  const html2canvasToBlob = async () => {
+    const el = captureWrapRef.current;
+    if (!el) return null;
+    await waitFontsReadyForCapture();
+    const { default: html2canvas } = await import("html2canvas");
+    const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
+    const c = await html2canvas(el, {
+      scale,
+      useCORS: true,
+      backgroundColor: "#f8f9fa",
     });
+    return new Promise((resolve, reject) => {
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
+    });
+  };
+
+  const downloadZip = async () => {
+    if (!data || busy) return;
+    const zip = new JSZip();
+    if (capturedSlides.length > 0) {
+      capturedSlides.forEach((item, i) => {
+        if (item.blob) {
+          zip.file(`shorts4_${date}_${String(i + 1).padStart(2, "0")}.png`, item.blob);
+        }
+      });
+    } else {
+      try {
+        const blob = await html2canvasToBlob();
+        if (!blob) return;
+        zip.file(`shorts4_${date}_01.png`, blob);
+      } catch {
+        return;
+      }
+    }
     const out = await zip.generateAsync({ type: "blob" });
     downloadBlob(out, `shorts4_${date}.zip`);
   };
 
-  const loadBtnBusy = listBusy || loadBusy;
-  const combinedError = listError || loadError;
-
   return (
     <div className="section soft shorts4-root">
       <div className="section-title">4. 쇼츠-예상전력-비교</div>
-      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 경기 선택 후 상세 로드</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
-      <div className="shorts4-vstack shorts4-vstack--top">
-        <input
-          type="date"
-          className="shorts4-input-full"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          disabled={listBusy}
-        />
-
-        <div className="shorts4-row2eq">
-          <button type="button" className="primary shorts4-flex1" onClick={() => setDate(seoulToday())} disabled={listBusy}>
-            오늘
-          </button>
-          <button
-            type="button"
-            className="primary shorts4-flex1"
-            onClick={() => setDate(addCalendarDayKst(date, 1))}
-            disabled={listBusy}
-          >
-            내일
-          </button>
-        </div>
-
-        <p className="muted shorts4-meta-line">
-          {listBusy ? "일정 불러오는 중…" : gamesList.length ? `경기 ${gamesList.length}건` : "경기 없음"}
-        </p>
-
-        {gamesList.length > 0 ? (
-          <div className="shorts4-tabs" role="tablist" aria-label="경기 선택">
-            {gamesList.map((g, i) => {
-              const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
-              return (
-                <button
-                  key={String(g?.game_id ?? i)}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === selectedIdx}
-                  className={`shorts4-tab${i === selectedIdx ? " active" : ""}`}
-                  onClick={() => {
-                    setSelectedIdx(i);
-                    setCommitted(false);
-                    setDetailGame(null);
-                    setCapturedSlides([]);
-                  }}
-                  disabled={listBusy}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          marginTop: 8,
+          flexWrap: "wrap",
+        }}
+      >
         <button
           type="button"
-          className="primary primary-fill shorts4-btn-full"
-          onClick={() => void onLoadDetail()}
-          disabled={!selectedGame || loadBtnBusy}
+          className="primary"
+          onClick={() => void captureAllSlides()}
+          disabled={!data || busy || captureBusy || !detailGame}
         >
-          {loadBusy ? "불러오는 중…" : "데이터 불러오기"}
+          {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
+        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}
+        </span>
+      </div>
+
+      <ShortsPresetPicker shortsType="shorts4" slides={capturedSlides} />
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={busy} />
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            const todayStr = new Date().toLocaleDateString("sv-SE", {
+              timeZone: "Asia/Seoul",
+            });
+            setDate(todayStr);
+          }}
+          disabled={busy}
+        >
+          오늘
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => setDate(addCalendarDayKst(date, 1))}
+          disabled={busy}
+        >
+          내일
+        </button>
+        <button type="button" className="primary" onClick={() => void onGenerate()} disabled={busy}>
+          {busy ? "불러오는 중…" : "데이터 불러오기"}
+        </button>
+        <button type="button" className="primary primary-fill" onClick={() => void downloadZip()} disabled={!data || busy}>
+          전체 ZIP 다운로드
         </button>
       </div>
 
-      {combinedError ? <pre className="result-error-light">{combinedError}</pre> : null}
+      {gamesList.length > 0 ? (
+        <div className="shorts4-tabs" style={{ marginTop: 10 }} role="tablist" aria-label="경기 선택">
+          {gamesList.map((g, i) => {
+            const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
+            return (
+              <button
+                key={String(g?.game_id ?? i)}
+                type="button"
+                role="tab"
+                aria-selected={i === selectedIdx}
+                className={`shorts4-tab${i === selectedIdx ? " active" : ""}`}
+                onClick={() => {
+                  setSelectedIdx(i);
+                  setCapturedSlides([]);
+                }}
+                disabled={busy}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-      {committed && detailGame ? (
+      {error ? <pre className="result-error-light">{error}</pre> : null}
+
+      {data && detailGame ? (
         <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
           <div style={{ flexShrink: 0 }}>
             <div className="shorts-capture-wrap">
@@ -425,31 +418,6 @@ export default function Shorts4Panel() {
           </div>
         </div>
       ) : null}
-
-      <div className="shorts4-vstack shorts4-vstack--actions">
-        <p className="muted shorts4-meta-line">{capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}</p>
-        <button
-          type="button"
-          className="primary primary-fill shorts4-btn-full"
-          onClick={() => void captureAllSlides()}
-          disabled={!committed || !detailGame || loadBtnBusy || captureBusy}
-        >
-          {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
-        </button>
-
-        <div className="shorts4-picker-wrap">
-          <ShortsPresetPicker shortsType="shorts4" slides={capturedSlides} />
-        </div>
-
-        <button
-          type="button"
-          className="primary primary-fill shorts4-btn-full"
-          onClick={() => void downloadZip()}
-          disabled={!capturedSlides.length}
-        >
-          전체 ZIP 다운로드
-        </button>
-      </div>
     </div>
   );
 }
