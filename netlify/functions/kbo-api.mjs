@@ -2380,6 +2380,79 @@ async function fetchLineupArrayForGameSide(db, gameId, side) {
   }
 }
 
+/** KBO schedule game_id 앞 8자리(YYYYMMDD)에서 시즌 연도 4자리 — 예: "20260513SSLG0" → "2026" */
+function extractScheduleYearFromGameId(gameId) {
+  const s = String(gameId || "").trim();
+  const y = s.slice(0, 4);
+  if (!/^\d{4}$/.test(y)) return null;
+  const n = Number(y);
+  if (!Number.isFinite(n) || n < 1990 || n > 2100) return null;
+  return y;
+}
+
+const NAVER_PITCH_TYPE_KO = {
+  FAST: "직구",
+  SLID: "슬라이더",
+  CHUP: "체인지업",
+  CURV: "커브",
+  CUTT: "커터",
+};
+
+function mapNaverPitchTypeCodeToKo(type) {
+  const code = String(type || "").trim().toUpperCase();
+  if (!code) return String(type || "").trim() || "";
+  return NAVER_PITCH_TYPE_KO[code] || String(type || "").trim();
+}
+
+/**
+ * 네이버 경기 프리뷰 API에서 선발 주구종(currentPitKindStats) 조회.
+ * @returns {{ home: Array<{name:string,ratio:number,speed:number|null}>, away: Array<...> } | null}
+ */
+async function fetchNaverPitchKindStats(gameId, gameYear) {
+  const gid = String(gameId || "").trim();
+  const gy = String(gameYear || "").trim();
+  if (!gid || !gy) return null;
+  const naverGameId = `${gid}${gy}`;
+  const url = `https://api-gw.sports.naver.com/schedule/games/${encodeURIComponent(naverGameId)}/preview`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const pd = json?.result?.previewData;
+    if (!pd || typeof pd !== "object") return null;
+
+    const mapSide = (starter) => {
+      const raw = starter?.currentPitKindStats;
+      if (!Array.isArray(raw) || raw.length === 0) return [];
+      const sorted = [...raw].sort((a, b) => (Number(b?.pit_rt) || 0) - (Number(a?.pit_rt) || 0));
+      const out = [];
+      for (const row of sorted) {
+        const ratioN = Number(row?.pit_rt);
+        if (!Number.isFinite(ratioN)) continue;
+        const speedN = Number(row?.speed);
+        const speed = Number.isFinite(speedN) ? Math.round(speedN) : null;
+        out.push({
+          name: mapNaverPitchTypeCodeToKo(row?.type),
+          ratio: Math.round(ratioN * 10) / 10,
+          speed,
+        });
+        if (out.length >= 4) break;
+      }
+      return out;
+    };
+
+    return {
+      home: mapSide(pd.homeStarter),
+      away: mapSide(pd.awayStarter),
+    };
+  } catch (e) {
+    console.warn("[fetchNaverPitchKindStats]", naverGameId, e?.message || e);
+    return null;
+  }
+}
+
 async function buildMatchupPreviewPayload(db, dateStr) {
   const { standings, year: standingsYear } = await fetchStandings2026Document(db);
   const findRankRow = (teamName) => {
@@ -2589,6 +2662,10 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
       : [];
 
+    const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
+    const naverPitchKinds =
+      game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
+
     games.push({
       game_id,
       game_date,
@@ -2626,6 +2703,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       head_to_head,
       home_lineup,
       away_lineup,
+      home_pitch_kinds: naverPitchKinds?.home ?? null,
+      away_pitch_kinds: naverPitchKinds?.away ?? null,
     });
   }
   return { ok: true, date: dateStr, games, standings };
