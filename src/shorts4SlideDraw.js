@@ -287,6 +287,89 @@ function starterWhipLineFromGame(g, side) {
   return `WHIP ${Number(whip).toFixed(2)}`;
 }
 
+/** 원정 선발 승패 (상단 스탯 블록용, 미집계 시 "- 승 - 패") */
+function awayStarterWlDisplay(g) {
+  const has = g?.away_starter_season_has_result === true;
+  const wv = Number(g?.away_starter_season_wins);
+  const lv = Number(g?.away_starter_season_losses);
+  if (has) {
+    const ws = Number.isFinite(wv) ? wv : 0;
+    const ls = Number.isFinite(lv) ? lv : 0;
+    return `${ws}승 ${ls}패`;
+  }
+  return "- 승 - 패";
+}
+
+function awayStarterWhipLabel(g) {
+  const whip = g?.away_starter_whip;
+  if (whip == null || !Number.isFinite(Number(whip))) return "WHIP : -";
+  return `WHIP : ${Number(whip).toFixed(2)}`;
+}
+
+/**
+ * 원정팀(상단 절반): 우측 상단 팀명·선수명 + 구분선, 사진 중심 x=w*0.25, 스탯은 사진 오른쪽 좌측 정렬
+ */
+function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto) {
+  const rPhoto = STARTER_FACE_BOX / 2;
+  const awayPhotoCx = w * 0.25;
+  const padR = 56;
+  const padL = 48;
+
+  const yTeam = 68;
+  const yPlayer = yTeam + 50;
+  const dividerY = yPlayer + 36;
+
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${STARTER_DETAIL_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  const rx = w - padR;
+  shadowTextSoft(ctx);
+  ctx.fillText(String(awayTeam || "—").trim() || "—", rx, yTeam);
+  ctx.fillText(` - ${String(as || "—").trim() || "—"}`, rx, yPlayer);
+  resetShadow(ctx);
+
+  ctx.save();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padL, dividerY);
+  ctx.lineTo(w - padL, dividerY);
+  ctx.stroke();
+  ctx.restore();
+
+  const awayCy = dividerY + rPhoto + 56;
+  const awayBoxTop = awayCy - rPhoto;
+
+  if (awayUsePhoto && awayImg) {
+    drawPortraitContain(ctx, awayImg, awayPhotoCx, awayBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
+  }
+
+  const sy = Number(g?.season_year);
+  const seasonLine = `${Number.isFinite(sy) && sy > 0 ? sy : 2026} 시즌`;
+  const era = g?.away_starter_era;
+  const statLines = [
+    seasonLine,
+    awayStarterWlDisplay(g),
+    `평균자책점(ERA) : ${fmtEra(era)}`,
+    awayStarterWhipLabel(g),
+  ];
+  const statX = awayPhotoCx + rPhoto + 28;
+  const totalStatH = (statLines.length - 1) * STARTER_DETAIL_LINE_GAP;
+  let statY = awayCy - totalStatH / 2;
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${STARTER_DETAIL_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  for (const line of statLines) {
+    shadowTextSoft(ctx);
+    ctx.fillText(line, statX, statY);
+    resetShadow(ctx);
+    statY += STARTER_DETAIL_LINE_GAP;
+  }
+}
+
 /** 사진 하단 기준 중앙 정렬, 6줄 동일 폰트·흰색 (내일프리뷰 하단과 동일 46px) */
 function drawStarterPortraitStatStack(ctx, cx, cy, rPhoto, g, side, teamFull, playerName) {
   const sy = Number(g?.season_year);
@@ -339,11 +422,8 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
 
   const rPhoto = STARTER_FACE_BOX / 2;
 
-  const awayFaceCx = w * 0.65 + 100;
   const homeFaceCx = w * 0.35 - 100;
-  const awayFaceTop = 56;
   const homeFaceTop = h / 2 + 156;
-  const awayCy = awayFaceTop + STARTER_FACE_BOX / 2 + 100;
   const homeCy = homeFaceTop + STARTER_FACE_BOX / 2 - 100;
 
   const hs = String(g?.home_starter || "미정").trim() || "미정";
@@ -356,17 +436,14 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
-  const awayBoxTop = awayCy - rPhoto;
+  drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto);
+
   const homeBoxTop = homeCy - rPhoto;
 
-  if (awayUsePhoto) {
-    drawPortraitContain(ctx, awayImg, awayFaceCx, awayBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
-  }
   if (homeUsePhoto) {
     drawPortraitContain(ctx, homeImg, homeFaceCx, homeBoxTop, STARTER_FACE_BOX, STARTER_FACE_BOX);
   }
 
-  drawStarterPortraitStatStack(ctx, awayFaceCx, awayCy, rPhoto, g, "away", awayTeam, as);
   drawStarterPortraitStatStack(ctx, homeFaceCx, homeCy, rPhoto, g, "home", homeTeam, hs);
 
   ctx.save();
