@@ -267,9 +267,15 @@ const STARTER_FACE_BOX = Math.round(530 * 0.7);
 /** drawTomorrowPreviewGameSlide 하단 텍스트와 동일: 800 46px Noto Sans KR */
 const STARTER_DETAIL_FONT_PX = 46;
 const STARTER_DETAIL_LINE_GAP = 54;
-/** 선발 슬라이드 헤더(구분선 위): 상세 텍스트보다 +3px */
-const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 3;
-const LOGO_HEADER_BOX = 60;
+/** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
+const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
+/** 헤더 로고: 세로 100px, 가로는 비율 유지(최대 폭 제한) */
+const LOGO_HEADER_H = 100;
+const LOGO_HEADER_MAX_W = 280;
+/** 원정·홈 헤더: 흰 구분선과 헤더 한 줄(세로 중심) 사이 간격을 동일하게 맞출 때 사용 */
+const STARTER_HEADER_GAP_LINE_TO_CENTER = 48;
+/** 원정·홈 공통: 흰 구분선 아래 얼굴 박스 상단까지 간격 */
+const STARTER_DIVIDER_TO_FACE_TOP = 56;
 
 function starterSeasonYearFromGame(g) {
   const sy = Number(g?.season_year);
@@ -287,12 +293,30 @@ function drawShorts4StarterHeaderDivider(ctx, w, pad, dividerY) {
   ctx.restore();
 }
 
-/** 구분선 위 헤더: 좌측 로고 + 한 줄 텍스트, 세로 중앙 정렬 */
-function drawShorts4StarterHeaderRow(ctx, centerY, padL, teamName, playerName, seasonYear, logoImg) {
-  const box = LOGO_HEADER_BOX;
-  const logoLeft = padL;
-  const logoTop = centerY - box / 2;
-  drawLogoInBox(ctx, logoLeft, logoTop, box, box, teamName, logoImg, drawTeamBadge);
+/** @returns {number} 사용한 로고 가로 폭(텍스트 시작 x 계산용) */
+function drawShorts4StarterHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg) {
+  const h = LOGO_HEADER_H;
+  if (!logoImg) {
+    drawLogoInBox(ctx, left, centerY - h / 2, h, h, teamName, null, drawTeamBadge);
+    return h;
+  }
+  const iw = Number(logoImg.naturalWidth || logoImg.width) || maxW;
+  const ih = Number(logoImg.naturalHeight || logoImg.height) || h;
+  let scale = h / ih;
+  let dw = iw * scale;
+  if (dw > maxW) {
+    scale = maxW / iw;
+    dw = iw * scale;
+  }
+  const dh = ih * scale;
+  ctx.drawImage(logoImg, left, centerY - dh / 2, dw, dh);
+  return dw;
+}
+
+/** 구분선 위 헤더: 좌측 로고(세로 100px) + 한 줄 텍스트, 세로 중앙 정렬 */
+function drawShorts4StarterHeaderRow(ctx, w, centerY, padL, teamName, playerName, seasonYear, logoImg) {
+  const maxLogoW = Math.min(LOGO_HEADER_MAX_W, Math.max(80, w - padL - 320));
+  const logoW = drawShorts4StarterHeaderLogo(ctx, padL, centerY, maxLogoW, teamName, logoImg);
   const tn = String(teamName || "—").trim() || "—";
   const pn = String(playerName || "—").trim() || "—";
   const line = `${tn} ${pn} · ${seasonYear} 시즌`;
@@ -301,7 +325,7 @@ function drawShorts4StarterHeaderRow(ctx, centerY, padL, teamName, playerName, s
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
   ctx.font = `800 ${STARTER_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  const textX = padL + box + 16;
+  const textX = padL + logoW + 16;
   shadowTextSoft(ctx);
   ctx.fillText(line, textX, centerY);
   resetShadow(ctx);
@@ -354,13 +378,13 @@ function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePho
   const awayPhotoCx = w * 0.25;
   const padL = 48;
 
-  const headerContentTop = 28;
   const dividerY = 154;
-  const headerCenterY = (headerContentTop + dividerY) / 2;
+  const headerCenterY = dividerY - STARTER_HEADER_GAP_LINE_TO_CENTER;
   const ak = teamKeyword(awayTeam);
   const awayLogoImg = logosByTeamKey?.[ak] ?? null;
   drawShorts4StarterHeaderRow(
     ctx,
+    w,
     headerCenterY,
     padL,
     awayTeam,
@@ -370,7 +394,7 @@ function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePho
   );
   drawShorts4StarterHeaderDivider(ctx, w, padL, dividerY);
 
-  const awayCy = dividerY + rPhoto + 56;
+  const awayCy = dividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
   const awayBoxTop = awayCy - rPhoto;
 
   if (awayUsePhoto && awayImg) {
@@ -441,19 +465,22 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
 }
 
 /**
- * 홈(하단): 흰 구분선 위 로고+한 줄 헤더. dividerY는 원래 얼굴 박스 상단(h/2+156)과 맞춤.
+ * 홈(하단): 흰 구분선 위 로고+한 줄 헤더.
+ * 상단과 동일하게 구분선~헤더 텍스트(세로 중심) 간격 = STARTER_HEADER_GAP_LINE_TO_CENTER 가 되도록
+ * headerContentTop(mid+92) 고정 시 dividerY = mid+188.
  * @returns {number} homeDividerY
  */
 function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) {
   const padL = 48;
   const mid = h * 0.5;
   const headerContentTop = mid + 92;
-  const dividerY = mid + 156;
+  const dividerY = mid + 92 + 2 * STARTER_HEADER_GAP_LINE_TO_CENTER;
   const headerCenterY = (headerContentTop + dividerY) / 2;
   const hk = teamKeyword(homeTeam);
   const homeLogoImg = logosByTeamKey?.[hk] ?? null;
   drawShorts4StarterHeaderRow(
     ctx,
+    w,
     headerCenterY,
     padL,
     homeTeam,
@@ -493,7 +520,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey || {});
 
   const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey || {});
-  const homeCy = homeDividerY + rPhoto + 56;
+  const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
   const homeFaceTop = homeCy - rPhoto;
 
   if (homeUsePhoto) {
