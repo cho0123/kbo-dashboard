@@ -9,6 +9,7 @@ import {
   drawTomorrowPreviewIntroSlide,
   SHORTS2_INTRO_TEAM_KEYS,
 } from "./shorts2TomorrowPreviewDraw.js";
+import { drawShorts4LineupSlide, drawShorts4StarterSlide } from "./shorts4SlideDraw.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -23,6 +24,9 @@ function slideExportKeyShorts4Capture(slide) {
     const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
     return p <= 4 ? "game_preview" : "game_preview_last";
   }
+  if (slide.type === "starter") return "starter";
+  if (slide.type === "home_lineup") return "home_lineup";
+  if (slide.type === "away_lineup") return "away_lineup";
   if (slide.type === "standings") return "standings";
   return "intro";
 }
@@ -175,6 +179,10 @@ export default function Shorts4Panel() {
         : [];
   }, [data]);
 
+  /**
+   * 최종 10장:
+   * 1 intro · 2~6 preview_game page 1~5 · 7 starter · 8 home_lineup · 9 away_lineup · 10 standings
+   */
   const slides = useMemo(() => {
     if (!data || !detailGame) return [];
     const g = detailGame;
@@ -182,6 +190,9 @@ export default function Shorts4Panel() {
     for (let page = 1; page <= 5; page++) {
       s.push({ type: "preview_game", game: g, page });
     }
+    s.push({ type: "starter", game: g });
+    s.push({ type: "home_lineup", game: g });
+    s.push({ type: "away_lineup", game: g });
     s.push({ type: "standings" });
     return s;
   }, [data, detailGame]);
@@ -218,6 +229,9 @@ export default function Shorts4Panel() {
       } else if (slide.type === "preview_game") {
         teamKeys.add(teamKeyword(slide.game?.home_team));
         teamKeys.add(teamKeyword(slide.game?.away_team));
+      } else if (slide.type === "starter" || slide.type === "home_lineup" || slide.type === "away_lineup") {
+        teamKeys.add(teamKeyword(slide.game?.home_team));
+        teamKeys.add(teamKeyword(slide.game?.away_team));
       } else if (slide.type === "standings") {
         for (const r of standings) {
           teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
@@ -239,6 +253,21 @@ export default function Shorts4Panel() {
 
       if (slide.type === "preview_game" && slide.game) {
         drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey, Number(slide.page) || 1);
+        return;
+      }
+
+      if (slide.type === "starter" && slide.game) {
+        drawShorts4StarterSlide(ctx, w, h, slide.game);
+        return;
+      }
+
+      if (slide.type === "home_lineup" && slide.game) {
+        drawShorts4LineupSlide(ctx, w, h, slide.game, "home");
+        return;
+      }
+
+      if (slide.type === "away_lineup" && slide.game) {
+        drawShorts4LineupSlide(ctx, w, h, slide.game, "away");
         return;
       }
 
@@ -477,10 +506,14 @@ export default function Shorts4Panel() {
               </button>
             </div>
             <div className="muted" style={{ marginTop: 10 }}>
-              - 슬라이드1: 인트로 (쇼츠2와 동일)
+              - 슬라이드1: 인트로 (쇼츠2)
               <br />
-              - 슬라이드2~6: 선택 경기 프리뷰(page 1~5, 쇼츠2와 동일)
-              <br />- 슬라이드7: KBO 순위
+              - 슬라이드2~6: 프리뷰 page 1~5 (쇼츠2)
+              <br />
+              - 슬라이드7: 선발 투수 (ERA·이닝·삼진)
+              <br />
+              - 슬라이드8~9: 홈/원정 예상 라인업
+              <br />- 슬라이드10: KBO 순위
             </div>
           </div>
         </div>
