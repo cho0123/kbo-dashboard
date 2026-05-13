@@ -278,20 +278,14 @@ const STARTER_PITCH_SEGMENTED_BAR_H = 120;
 const STARTER_PITCH_SEGMENTED_RADIUS = 8;
 const STARTER_PITCH_DIVIDER_W = 2;
 const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
-const STARTER_PITCH_TITLE_PX = 26;
-const STARTER_PITCH_GAP_TITLE_TO_BAR = 10;
-const STARTER_PITCH_NAME_INSIDE_PX = 22;
-const STARTER_PITCH_PCT_INSIDE_PX = 30;
-const STARTER_PITCH_SPD_INSIDE_PX = 20;
+const STARTER_PITCH_NAME_SPEED_PX = 30;
+const STARTER_PITCH_PCT_INSIDE_PX = 22;
 const STARTER_PITCH_AWAY_DIAG_PAD = 10;
 const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
-/** 구종별 배경(팀컬러와 무관하게 대비 유지) */
-const STARTER_PITCH_SEGMENT_FILLS = [
-  "#ffffff",
-  "rgba(255,255,255,0.75)",
-  "rgba(255,255,255,0.5)",
-  "rgba(255,255,255,0.3)",
-];
+const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
+const STARTER_PITCH_DIVIDER_COLOR = "#ffffff";
+/** 구종별 배경(선명한 대비 색) */
+const STARTER_PITCH_SEGMENT_FILLS = ["#FFD700", "#FF6B6B", "#4ECDC4", "#95E1D3"];
 const STARTER_STAT_LINE_COUNT = 4;
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
 const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
@@ -471,12 +465,11 @@ function splitSegmentPixelWidths(innerW, ratios) {
 
 /**
  * 사진·스탯 아래 중앙 주구종 분할 바 (최대 4구간). pitchKinds null이면 그리지 않음.
+ * @param {string} _teamName 호출부 호환용(미사용)
  * @param {"away"|"home"} region 원정: 사선 위로 클램프, 홈: 슬라이드 하단 여백
  */
-function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName, region, faceCy) {
+function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName, region, faceCy) {
   if (!pitchKinds || pitchKinds.length === 0) return;
-  const [teamColor] = teamGrad(teamName);
-  const dividerBg = teamColor;
 
   const barW = Math.floor(wCanvas * STARTER_PITCH_BAR_W_FRAC);
   const barLeft = Math.floor((wCanvas - barW) / 2);
@@ -498,24 +491,18 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName,
 
   const barH = STARTER_PITCH_SEGMENTED_BAR_H;
   const rr = STARTER_PITCH_SEGMENTED_RADIUS;
-  const titleBand = STARTER_PITCH_TITLE_PX + STARTER_PITCH_GAP_TITLE_TO_BAR;
 
-  let stackTop = contentBottom + STARTER_PITCH_GAP_CONTENT_TO_BAR;
-  let barTop = stackTop + titleBand;
+  let barTop = contentBottom + STARTER_PITCH_GAP_CONTENT_TO_BAR;
 
   if (region === "away") {
     const limBottom = diagTeamSplitLineYAtX(wCanvas, hCanvas, barLeft) - STARTER_PITCH_AWAY_DIAG_PAD;
     if (barTop + barH > limBottom) {
-      const over = barTop + barH - limBottom;
-      barTop -= over;
-      stackTop -= over;
+      barTop -= barTop + barH - limBottom;
     }
   } else {
     const limBottom = hCanvas - STARTER_PITCH_HOME_BOTTOM_PAD;
     if (barTop + barH > limBottom) {
-      const over = barTop + barH - limBottom;
-      barTop -= over;
-      stackTop -= over;
+      barTop -= barTop + barH - limBottom;
     }
   }
 
@@ -530,19 +517,12 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName,
   }
 
   ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${STARTER_PITCH_TITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("주구종", wCanvas / 2, stackTop);
-  resetShadow(ctx);
-  ctx.restore();
-
-  ctx.save();
   ctx.beginPath();
   ctx.roundRect(barLeft, barTop, barW, barH, rr);
   ctx.clip();
+
+  ctx.fillStyle = STARTER_PITCH_BAR_BG;
+  ctx.fillRect(barLeft, barTop, barW, barH);
 
   for (let i = 0; i < n; i++) {
     const { x: sx, w: sw } = segLayouts[i];
@@ -554,7 +534,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName,
 
   for (let i = 0; i < n - 1; i++) {
     const sx = segLayouts[i].x + segLayouts[i].w;
-    ctx.fillStyle = dividerBg;
+    ctx.fillStyle = STARTER_PITCH_DIVIDER_COLOR;
     ctx.fillRect(sx, barTop, STARTER_PITCH_DIVIDER_W, barH);
   }
   ctx.restore();
@@ -571,23 +551,23 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName,
       ? `${Math.abs(ratio - Math.round(ratio)) < 0.05 ? Math.round(ratio) : Number(ratio.toFixed(1))}%`
       : "—";
     const spdStr = Number.isFinite(sp) ? `${Math.round(sp)}` : "—";
-
-    const fillIdx = Math.min(i, STARTER_PITCH_SEGMENT_FILLS.length - 1);
-    const textColor = fillIdx === 0 ? teamColor : "#ffffff";
+    const nameSpeedLine = Number.isFinite(sp) ? `${name} ${spdStr}` : name;
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(sx, barTop, sw, barH);
     ctx.clip();
     ctx.textAlign = "center";
-    ctx.fillStyle = textColor;
-    ctx.font = `700 ${STARTER_PITCH_NAME_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#ffffff";
     ctx.textBaseline = "middle";
-    ctx.fillText(name, cx, barTop + barH * 0.22);
-    ctx.font = `800 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(pctStr, cx, barTop + barH * 0.5);
-    ctx.font = `600 ${STARTER_PITCH_SPD_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(spdStr, cx, barTop + barH * 0.78);
+    ctx.font = `800 ${STARTER_PITCH_NAME_SPEED_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(nameSpeedLine, cx, barTop + barH * 0.36);
+    resetShadow(ctx);
+    ctx.font = `700 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(pctStr, cx, barTop + barH * 0.72);
+    resetShadow(ctx);
     ctx.restore();
   }
 
@@ -697,7 +677,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const hs = String(g?.home_starter || "미정").trim() || "미정";
   const as = String(g?.away_starter || "미정").trim() || "미정";
 
-  const vsSizePx = 180;
+  const vsSizePx = 90;
 
   const awayImg = portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
   const homeImg = portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
@@ -721,7 +701,9 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   }
 
   ctx.save();
-  ctx.globalAlpha = 0.7;
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFD700";
   shadowTextSoft(ctx);
