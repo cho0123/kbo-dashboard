@@ -284,28 +284,44 @@ const STARTER_PITCH_SUMMARY_FONT_PX = 20;
 const STARTER_PITCH_AWAY_DIAG_PAD = 10;
 const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
 const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
-/** 구종 코드별 색 (팀컬러 무관, FAST/SLID/CHUP/CURV/CUTT) */
-const STARTER_PITCH_TYPE_FILL = {
+/** 구종 코드 → 세그먼트 색 (순서 index와 무관, 코드/한글 역매핑으로만 결정) */
+const STARTER_PITCH_CODE_COLOR = {
   FAST: "#C0392B",
-  SLID: "#1A5276",
-  CHUP: "#1E8449",
+  FOUR: "#C0392B",
+  TWOS: "#1A5276",
+  SINK: "#1A5276",
+  SLID: "#1E8449",
   CURV: "#6C3483",
+  CRVB: "#6C3483",
   CUTT: "#D35400",
+  CHUP: "#117A65",
+  CHNG: "#117A65",
+  SWEE: "#784212",
+  SLUR: "#784212",
+  SPLT: "#1C2833",
+  FORK: "#1C2833",
+  KNUC: "#2C3E50",
+  SCRW: "#2C3E50",
+  PALM: "#2C3E50",
 };
-const STARTER_PITCH_TYPE_FALLBACK = "#2C3E50";
+const STARTER_PITCH_SEGMENT_FALLBACK = "#2C3E50";
+/** 한글 구종명 → 영문 코드 (색상·표시 역조회용) */
 const STARTER_PITCH_KO_TO_CODE = {
   직구: "FAST",
-  포심: "FAST",
-  투심: "FAST",
+  포심: "FOUR",
+  투심: "TWOS",
   슬라이더: "SLID",
-  싱커: "SLID",
+  싱커: "SINK",
   체인지업: "CHUP",
-  스플리터: "CHUP",
-  포크볼: "CHUP",
+  스플리터: "SPLT",
+  포크볼: "FORK",
   커브: "CURV",
-  너클볼: "CURV",
+  너클볼: "KNUC",
   커터: "CUTT",
-  스크류볼: "SLID",
+  스크류볼: "SCRW",
+  스위퍼: "SWEE",
+  슬러브: "SLUR",
+  팜볼: "PALM",
 };
 /** 영문 구종 코드 → 한글 (표시용). 그 외 코드는 소문자로 그대로 */
 const STARTER_PITCH_CODE_TO_KO = {
@@ -321,6 +337,11 @@ const STARTER_PITCH_CODE_TO_KO = {
   FORK: "포크볼",
   KNUC: "너클볼",
   SCRW: "스크류볼",
+  SWEE: "스위퍼",
+  SLUR: "슬러브",
+  CRVB: "커브",
+  CHNG: "체인지업",
+  PALM: "팜볼",
 };
 const STARTER_STAT_LINE_COUNT = 4;
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
@@ -475,19 +496,26 @@ function pickStarterPitchKinds(g, side) {
   return rows.length ? rows : null;
 }
 
-/** pitch row: name(KO) 또는 type/code(영문)로 구종 색 고정 */
+/** pitch row: 구종 코드(또는 한글명 역매핑)로 세그먼트 색 — index와 무관 */
 function starterPitchKindSegmentFill(row) {
   const codeRaw = String(row?.type ?? row?.code ?? "").trim().toUpperCase();
-  if (codeRaw && STARTER_PITCH_TYPE_FILL[codeRaw]) return STARTER_PITCH_TYPE_FILL[codeRaw];
+  if (codeRaw && STARTER_PITCH_CODE_COLOR[codeRaw]) return STARTER_PITCH_CODE_COLOR[codeRaw];
   const name = String(row?.name || "").trim();
   const fromKo = STARTER_PITCH_KO_TO_CODE[name];
-  if (fromKo && STARTER_PITCH_TYPE_FILL[fromKo]) return STARTER_PITCH_TYPE_FILL[fromKo];
-  if (/커터/.test(name)) return STARTER_PITCH_TYPE_FILL.CUTT;
-  if (/커브/.test(name)) return STARTER_PITCH_TYPE_FILL.CURV;
-  if (/체인지업|체볼/i.test(name)) return STARTER_PITCH_TYPE_FILL.CHUP;
-  if (/슬라이더|슬라이드/.test(name)) return STARTER_PITCH_TYPE_FILL.SLID;
-  if (/직구|포심|패스트볼/i.test(name)) return STARTER_PITCH_TYPE_FILL.FAST;
-  return STARTER_PITCH_TYPE_FALLBACK;
+  if (fromKo && STARTER_PITCH_CODE_COLOR[fromKo]) return STARTER_PITCH_CODE_COLOR[fromKo];
+  if (/커터/.test(name)) return STARTER_PITCH_CODE_COLOR.CUTT;
+  if (/커브/.test(name)) return STARTER_PITCH_CODE_COLOR.CURV;
+  if (/체인지업|체볼/i.test(name)) return STARTER_PITCH_CODE_COLOR.CHUP;
+  if (/스플리터|스플릿/i.test(name)) return STARTER_PITCH_CODE_COLOR.SPLT;
+  if (/포크/i.test(name)) return STARTER_PITCH_CODE_COLOR.FORK;
+  if (/슬라이더|슬라이드/i.test(name)) return STARTER_PITCH_CODE_COLOR.SLID;
+  if (/스위퍼/i.test(name)) return STARTER_PITCH_CODE_COLOR.SWEE;
+  if (/팜볼/i.test(name)) return STARTER_PITCH_CODE_COLOR.PALM;
+  if (/직구|패스트볼/i.test(name)) return STARTER_PITCH_CODE_COLOR.FAST;
+  if (/포심/i.test(name)) return STARTER_PITCH_CODE_COLOR.FOUR;
+  if (/투심|투스트레이트/i.test(name)) return STARTER_PITCH_CODE_COLOR.TWOS;
+  if (/싱커/i.test(name)) return STARTER_PITCH_CODE_COLOR.SINK;
+  return STARTER_PITCH_SEGMENT_FALLBACK;
 }
 
 function starterPitchKindPctStr(ratio) {
