@@ -310,8 +310,9 @@ const STARTER_HEADER_GAP_LINE_TO_CENTER = 48;
 /** 원정·홈 공통: 흰 구분선 아래 얼굴 박스 상단까지 간격 */
 const STARTER_DIVIDER_TO_FACE_TOP = 56;
 
-/** 원정 상단 흰 구분선 y (기존 대비 +3px) */
+/** 원정 상단 흰 구분선 y (기존 대비 +3px). 원정 블록 전체 추가 하향은 STARTER_AWAY_BLOCK_SHIFT_Y */
 const STARTER_AWAY_DIVIDER_Y = 157;
+const STARTER_AWAY_BLOCK_SHIFT_Y = 5;
 
 function starterSeasonYearFromGame(g) {
   const sy = Number(g?.season_year);
@@ -600,7 +601,7 @@ function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUse
   const awayPhotoCx = w * 0.25;
   const padL = 48;
 
-  const dividerY = STARTER_AWAY_DIVIDER_Y;
+  const dividerY = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
   const headerCenterY = dividerY - STARTER_HEADER_GAP_LINE_TO_CENTER;
   const ak = teamKeyword(awayTeam);
   const awayLogoImg = logosByTeamKey?.[ak] ?? null;
