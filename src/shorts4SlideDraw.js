@@ -861,7 +861,7 @@ function fmtRankSuffix(r) {
 function hotPlayerStatLines(hp) {
   const o = hp && typeof hp === "object" ? hp : {};
   return [
-    `- 전경기 ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개${fmtRankSuffix(o.hr_rank)})`,
+    `- ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개${fmtRankSuffix(o.hr_rank)})`,
     `- ${fmtIntOrDash(o.h)}안타 (시즌 ${fmtIntOrDash(o.season_hit)}개)`,
     `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점${fmtRankSuffix(o.rbi_rank)})`,
     `- 타율 ${fmtDec3OrDash(o.season_avg)}${fmtRankSuffix(o.avg_rank)}`,
@@ -870,6 +870,7 @@ function hotPlayerStatLines(hp) {
   ];
 }
 
+/** @returns {number} 마지막 줄 텍스트의 하단 Y (다음 컨텐츠 배치용) */
 function drawHotPlayerStatBlock(ctx, statX, cy, hp) {
   const lines = hotPlayerStatLines(hp);
   const gap = HOT_STAT_LINE_GAP;
@@ -885,6 +886,69 @@ function drawHotPlayerStatBlock(ctx, statX, cy, hp) {
     resetShadow(ctx);
     y += gap;
   }
+  const lastCenterY = cy + totalH / 2;
+  return lastCenterY + HOT_STAT_FONT_PX / 2;
+}
+
+/** 순위 배지 스타일 상수 */
+const HOT_RANK_BADGE_PAD_X = 20;
+const HOT_RANK_BADGE_PAD_Y = 10;
+const HOT_RANK_BADGE_RADIUS = 8;
+const HOT_RANK_BADGE_GAP = 10;
+const HOT_RANK_BADGE_ROW_GAP = 12;
+const HOT_RANK_BADGE_TOP_GAP = 30;
+const HOT_RANK_BADGE_FONT_PX = 32;
+const HOT_RANK_BADGE_BG = "#FFD700";
+const HOT_RANK_BADGE_FG = "#1a1a1a";
+const HOT_RANK_BADGE_RIGHT_MARGIN = 40;
+const HOT_RANK_BADGE_FIELDS = [
+  { key: "avg_rank", label: "타율" },
+  { key: "hr_rank", label: "홈런" },
+  { key: "rbi_rank", label: "타점" },
+  { key: "ops_rank", label: "OPS" },
+  { key: "war_rank", label: "WAR" },
+];
+
+/**
+ * 스탯 블록 아래 골드 라운드 배지 행. 10위 이내(1~10)만 렌더.
+ * 캔버스 우측 여백을 넘으면 다음 줄로 줄바꿈.
+ */
+function drawHotPlayerRankBadges(ctx, leftX, topY, canvasW, hp) {
+  if (!hp || typeof hp !== "object") return;
+  const labels = [];
+  for (const f of HOT_RANK_BADGE_FIELDS) {
+    const r = Number(hp[f.key]);
+    if (!Number.isFinite(r) || r <= 0 || r > 10) continue;
+    labels.push(`${f.label} ${r}위`);
+  }
+  if (labels.length === 0) return;
+
+  ctx.save();
+  ctx.font = `800 ${HOT_RANK_BADGE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  const boxH = HOT_RANK_BADGE_FONT_PX + HOT_RANK_BADGE_PAD_Y * 2;
+  const maxRight = canvasW - HOT_RANK_BADGE_RIGHT_MARGIN;
+
+  let x = leftX;
+  let y = topY;
+  for (const label of labels) {
+    const textW = ctx.measureText(label).width;
+    const boxW = textW + HOT_RANK_BADGE_PAD_X * 2;
+    if (x > leftX && x + boxW > maxRight) {
+      x = leftX;
+      y += boxH + HOT_RANK_BADGE_ROW_GAP;
+    }
+    ctx.fillStyle = HOT_RANK_BADGE_BG;
+    ctx.beginPath();
+    ctx.roundRect(x, y, boxW, boxH, HOT_RANK_BADGE_RADIUS);
+    ctx.fill();
+    ctx.fillStyle = HOT_RANK_BADGE_FG;
+    ctx.fillText(label, x + HOT_RANK_BADGE_PAD_X, y + boxH / 2);
+    x += boxW + HOT_RANK_BADGE_GAP;
+  }
+  ctx.restore();
 }
 
 /** 헤더(팀로고 + "팀명 · 선수명") */
@@ -969,7 +1033,14 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     drawPortraitContain(ctx, homeImg, upperPhotoCx, upperBoxTop, faceBox, faceBox);
   }
   const upperStatX = upperPhotoCx + rPhoto + 28;
-  drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
+  const upperStatBottom = drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
+  drawHotPlayerRankBadges(
+    ctx,
+    upperStatX,
+    upperStatBottom + HOT_RANK_BADGE_TOP_GAP,
+    w,
+    homeHp
+  );
 
   const mid = h * 0.5;
   const lowerDividerY = mid + 92 + 2 * HOT_HEADER_GAP_LINE_TO_CENTER + 3;
@@ -986,7 +1057,14 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     drawPortraitContain(ctx, awayImg, lowerPhotoCx, lowerBoxTop, faceBox, faceBox);
   }
   const lowerStatX = lowerPhotoCx + rPhoto + 28;
-  drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
+  const lowerStatBottom = drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
+  drawHotPlayerRankBadges(
+    ctx,
+    lowerStatX,
+    lowerStatBottom + HOT_RANK_BADGE_TOP_GAP,
+    w,
+    awayHp
+  );
 }
 
 function sortLineupRows(rows) {
