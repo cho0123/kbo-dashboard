@@ -2453,6 +2453,73 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
   }
 }
 
+/**
+ * 직전 경기(gameId)의 batters 컬렉션에서 지정 팀 타자 중
+ * 홈런 많은 순 → 동률이면 안타 많은 순으로 1명 선정.
+ * @returns {{player:string, hr:number, h:number, rbi:number, avg:number|null, team:string}|null}
+ */
+async function pickHotPlayerForGame(db, gameId, teamName) {
+  if (!gameId || !teamName) return null;
+  const teamKey = normalizeTeamKey(teamName);
+  if (!teamKey) return null;
+  let batters = [];
+  try {
+    batters = await fetchBattersForGame(db, gameId);
+  } catch (e) {
+    console.warn("[pickHotPlayerForGame] fetchBatters", gameId, e?.message || e);
+    return null;
+  }
+  if (!Array.isArray(batters) || batters.length === 0) return null;
+
+  const ours = batters.filter((b) => {
+    const bt = normalizeTeamKey(pickTeamName(b));
+    return bt && bt === teamKey;
+  });
+  if (ours.length === 0) return null;
+
+  const scored = ours.map((b) => {
+    const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
+    const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
+    const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+    const ab = pickNum(b, ["ab", "AB", "at_bats", "타수"]);
+    const rawAvg = pickAny(b, [
+      "avg",
+      "AVG",
+      "batting_avg",
+      "battingAvg",
+      "bat_avg",
+      "batAvg",
+      "타율",
+    ]);
+    const avgNum = rawAvg == null ? null : Number(rawAvg);
+    const computed = ab > 0 ? h / ab : 0;
+    const avg =
+      avgNum != null && Number.isFinite(avgNum) && avgNum > 0
+        ? avgNum
+        : computed > 0
+          ? computed
+          : null;
+    return { b, hr, h, rbi, avg };
+  });
+
+  scored.sort((a, b) => {
+    if (b.hr !== a.hr) return b.hr - a.hr;
+    return b.h - a.h;
+  });
+  const top = scored[0];
+  if (!top) return null;
+  const player = pickPlayerName(top.b);
+  if (!player || player === "—") return null;
+  return {
+    player,
+    hr: Number(top.hr) || 0,
+    h: Number(top.h) || 0,
+    rbi: Number(top.rbi) || 0,
+    avg: top.avg != null && Number.isFinite(top.avg) ? top.avg : null,
+    team: pickTeamName(top.b) || teamName,
+  };
+}
+
 async function buildMatchupPreviewPayload(db, dateStr) {
   const { standings, year: standingsYear } = await fetchStandings2026Document(db);
   const findRankRow = (teamName) => {
@@ -2662,6 +2729,13 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
       : [];
 
+    const home_hot_player = prevHome
+      ? await pickHotPlayerForGame(db, prevHome.gid, home_team || "")
+      : null;
+    const away_hot_player = prevAway
+      ? await pickHotPlayerForGame(db, prevAway.gid, away_team || "")
+      : null;
+
     const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
     const naverPitchKinds =
       game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
@@ -2703,6 +2777,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       head_to_head,
       home_lineup,
       away_lineup,
+      home_hot_player,
+      away_hot_player,
       home_pitch_kinds: naverPitchKinds?.home ?? null,
       away_pitch_kinds: naverPitchKinds?.away ?? null,
     });

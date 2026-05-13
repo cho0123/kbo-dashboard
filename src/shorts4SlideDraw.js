@@ -824,6 +824,150 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   ctx.restore();
 }
 
+/** 핫플레이어 슬라이드 (슬라이드7과 동일 레이아웃, 상/하 팀 컬러 반전) */
+const HOT_FACE_BOX = STARTER_SLIDE_FACE_BOX;
+const HOT_STAT_FONT_PX = STARTER_SLIDE_STAT_FONT_PX;
+const HOT_STAT_LINE_GAP = STARTER_SLIDE_STAT_LINE_GAP;
+const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP;
+const HOT_HEADER_GAP_LINE_TO_CENTER = STARTER_HEADER_GAP_LINE_TO_CENTER;
+const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
+
+function fmtBattingAvg(v) {
+  if (v == null) return "-";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "-";
+  return n.toFixed(3);
+}
+
+function hotPlayerStatLines(hp) {
+  if (!hp || typeof hp !== "object") {
+    return ["- -안타", "- -홈런", "- -타점", "- 타율 : -"];
+  }
+  const h = Number.isFinite(Number(hp.h)) ? Number(hp.h) : 0;
+  const hr = Number.isFinite(Number(hp.hr)) ? Number(hp.hr) : 0;
+  const rbi = Number.isFinite(Number(hp.rbi)) ? Number(hp.rbi) : 0;
+  return [
+    `- ${h}안타`,
+    `- ${hr}홈런`,
+    `- ${rbi}타점`,
+    `- 타율 : ${fmtBattingAvg(hp.avg)}`,
+  ];
+}
+
+function drawHotPlayerStatBlock(ctx, statX, cy, hp) {
+  const lines = hotPlayerStatLines(hp);
+  const gap = HOT_STAT_LINE_GAP;
+  const totalH = (lines.length - 1) * gap;
+  let y = cy - totalH / 2;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${HOT_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  for (const line of lines) {
+    shadowTextSoft(ctx);
+    ctx.fillText(line, statX, y);
+    resetShadow(ctx);
+    y += gap;
+  }
+}
+
+/** 상단 헤더(팀로고 + "팀명 · 지난경기 핫플레이어") */
+function drawHotPlayerHeaderRow(ctx, w, centerY, padL, teamName, logoImg) {
+  const maxLogoW = Math.min(LOGO_HEADER_MAX_W, Math.max(80, w - padL - 320));
+  const logoW = drawShorts4StarterHeaderLogo(ctx, padL, centerY, maxLogoW, teamName, logoImg);
+  const tn = String(teamName || "—").trim() || "—";
+  const line = `${tn} · 지난경기 핫플레이어`;
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${HOT_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  const textX = padL + logoW + 16;
+  shadowTextSoft(ctx);
+  ctx.fillText(line, textX, centerY);
+  resetShadow(ctx);
+  ctx.restore();
+}
+
+/**
+ * 핫플레이어 슬라이드
+ * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어
+ * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어
+ * - VS 중앙, 슬라이드7과 동일 헤더/구분선/사진 레이아웃
+ *
+ * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
+ */
+export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
+  const homeTeam = String(g?.home_team || "홈");
+  const awayTeam = String(g?.away_team || "원정");
+
+  ctx.clearRect(0, 0, w, h);
+  diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
+  drawBaseballBackground(ctx);
+
+  const faceBox = HOT_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const padL = 48;
+  const vsSizePx = 90;
+
+  const homeHp = g?.home_hot_player ?? null;
+  const awayHp = g?.away_hot_player ?? null;
+  const homeName = String(homeHp?.player || "").trim();
+  const awayName = String(awayHp?.player || "").trim();
+
+  const homeImg =
+    portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
+  const awayImg =
+    portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
+  const homeUsePhoto = Boolean(homeImg) && homeName !== "";
+  const awayUsePhoto = Boolean(awayImg) && awayName !== "";
+
+  const upperDividerY = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
+  const upperHeaderCy = upperDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
+  const hk = teamKeyword(homeTeam);
+  const homeLogoImg = logosByTeamKey?.[hk] ?? null;
+  drawHotPlayerHeaderRow(ctx, w, upperHeaderCy, padL, homeTeam, homeLogoImg);
+  drawShorts4StarterHeaderDivider(ctx, w, padL, upperDividerY);
+
+  const upperPhotoCx = w * 0.25;
+  const upperCy = upperDividerY + rPhoto + HOT_DIVIDER_TO_FACE_TOP;
+  const upperBoxTop = upperCy - rPhoto;
+  if (homeUsePhoto) {
+    drawPortraitContain(ctx, homeImg, upperPhotoCx, upperBoxTop, faceBox, faceBox);
+  }
+  const upperStatX = upperPhotoCx + rPhoto + 28;
+  drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
+
+  const mid = h * 0.5;
+  const lowerDividerY = mid + 92 + 2 * HOT_HEADER_GAP_LINE_TO_CENTER + 3;
+  const lowerHeaderCy = lowerDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
+  const ak = teamKeyword(awayTeam);
+  const awayLogoImg = logosByTeamKey?.[ak] ?? null;
+  drawHotPlayerHeaderRow(ctx, w, lowerHeaderCy, padL, awayTeam, awayLogoImg);
+  drawShorts4StarterHeaderDivider(ctx, w, padL, lowerDividerY);
+
+  const lowerPhotoCx = w * 0.35 - 100;
+  const lowerCy = lowerDividerY + rPhoto + HOT_DIVIDER_TO_FACE_TOP;
+  const lowerBoxTop = lowerCy - rPhoto;
+  if (awayUsePhoto) {
+    drawPortraitContain(ctx, awayImg, lowerPhotoCx, lowerBoxTop, faceBox, faceBox);
+  }
+  const lowerStatX = lowerPhotoCx + rPhoto + 28;
+  drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", w / 2, h / 2);
+  resetShadow(ctx);
+  ctx.restore();
+}
+
 function sortLineupRows(rows) {
   if (!Array.isArray(rows)) return [];
   return [...rows].sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0));

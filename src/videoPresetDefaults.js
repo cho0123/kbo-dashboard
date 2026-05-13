@@ -12,6 +12,7 @@ export const SLIDE_KEYS_SHORTS4 = [
   "game_preview",
   "game_preview_last",
   "starter",
+  "hot_player",
   "home_lineup",
   "away_lineup",
   "standings",
@@ -38,12 +39,13 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠4: 인트로 + 프리뷰5p + 선발 + 라인업2 + 순위 (10장 캡처) */
+/** 쇼츠4: 인트로 + 프리뷰5p + 선발 + 핫플레이어 + 라인업2 + 순위 (11장 캡처) */
 export const DEFAULT_DURATION_SHORTS4 = {
   intro: 4.0,
   game_preview: 1.5,
   game_preview_last: 2.0,
   starter: 2.5,
+  hot_player: 2.5,
   home_lineup: 2.5,
   away_lineup: 2.5,
   standings: 4.0,
@@ -108,6 +110,7 @@ export function slideFrameCountForKey(shortsType, key) {
       game_preview: 4,
       game_preview_last: 1,
       starter: 1,
+      hot_player: 1,
       home_lineup: 1,
       away_lineup: 1,
       standings: 1,
@@ -141,6 +144,7 @@ export function slideFieldDefs(shortsType) {
       { key: "game_preview", label: "경기 프리뷰 (1~4페이지)" },
       { key: "game_preview_last", label: "경기 프리뷰 (5페이지)" },
       { key: "starter", label: "선발 투수" },
+      { key: "hot_player", label: "지난경기 핫플레이어" },
       { key: "home_lineup", label: "홈 예상 라인업" },
       { key: "away_lineup", label: "원정 예상 라인업" },
       { key: "standings", label: "팀순위" },
@@ -205,6 +209,7 @@ export function mergeSlides(shortsType, existing) {
     const gd = Number(ex.game_detail);
     if (Number.isFinite(gd)) {
       if (!Number.isFinite(Number(ex.starter))) ex.starter = gd;
+      if (!Number.isFinite(Number(ex.hot_player))) ex.hot_player = gd;
       if (!Number.isFinite(Number(ex.home_lineup))) ex.home_lineup = gd;
       if (!Number.isFinite(Number(ex.away_lineup))) ex.away_lineup = gd;
     }
