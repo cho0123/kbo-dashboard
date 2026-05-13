@@ -264,28 +264,24 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
-/** 선발 슬라이드만: 얼굴 박스 5% 확대 */
-const STARTER_SLIDE_FACE_BOX = Math.round(STARTER_FACE_BOX * 1.05);
+/** 선발 슬라이드: 기존 대비 5% 확대 후 5% 축소 */
+const STARTER_SLIDE_FACE_BOX = Math.round(STARTER_FACE_BOX * 1.05 * 0.95);
 /** drawTomorrowPreviewGameSlide 하단 텍스트와 동일: 800 46px Noto Sans KR */
 const STARTER_DETAIL_FONT_PX = 46;
 const STARTER_DETAIL_LINE_GAP = 54;
-/** 선발 슬라이드 오른쪽 스탯: 본문 +2px, 줄간격 ~1.45배 */
-const STARTER_SLIDE_STAT_FONT_PX = STARTER_DETAIL_FONT_PX + 2;
+/** 선발 슬라이드 오른쪽 스탯: 본문과 동일 px, 줄간격 ~1.45배 */
+const STARTER_SLIDE_STAT_FONT_PX = STARTER_DETAIL_FONT_PX;
 const STARTER_SLIDE_STAT_LINE_GAP = Math.round(STARTER_DETAIL_LINE_GAP * 1.45);
 /** 주구종 분할 바 (사진 아래 · 슬라이드 90% 너비 · 120px 높이) */
 const STARTER_PITCH_BAR_W_FRAC = 0.9;
 const STARTER_PITCH_SEGMENTED_BAR_H = 120;
-const STARTER_PITCH_SEGMENTED_RADIUS = 10;
-const STARTER_PITCH_DIVIDER_W = 6;
-const STARTER_PITCH_BORDER_W = 2;
 const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
-const STARTER_PITCH_NAME_SPEED_PX = 30;
-const STARTER_PITCH_PCT_INSIDE_PX = 22;
+const STARTER_PITCH_NAME_SPEED_PX = 31;
+const STARTER_PITCH_PCT_INSIDE_PX = 23;
 const STARTER_PITCH_MIN_SEG_W_FOR_TEXT = 30;
 const STARTER_PITCH_AWAY_DIAG_PAD = 10;
 const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
 const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
-const STARTER_PITCH_DIVIDER_COLOR = "#ffffff";
 /** 구종 코드별 색 (팀컬러 무관, FAST/SLID/CHUP/CURV/CUTT) */
 const STARTER_PITCH_TYPE_FILL = {
   FAST: "#C0392B",
@@ -512,8 +508,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
   const sumR = ratios.reduce((a, b) => a + b, 0);
   if (!(sumR > 0)) return;
 
-  const dividerTotal = (n - 1) * STARTER_PITCH_DIVIDER_W;
-  const innerW = Math.max(0, barW - dividerTotal);
+  const innerW = barW;
   const segWs = splitSegmentPixelWidths(innerW, ratios);
 
   const rPhoto = STARTER_SLIDE_FACE_BOX / 2;
@@ -522,7 +517,6 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
   const contentBottom = Math.max(photoBottom, statsBottom);
 
   const barH = STARTER_PITCH_SEGMENTED_BAR_H;
-  const rr = STARTER_PITCH_SEGMENTED_RADIUS;
 
   let barTop = contentBottom + STARTER_PITCH_GAP_CONTENT_TO_BAR;
 
@@ -545,12 +539,11 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     const cx = x + wSeg / 2;
     segLayouts.push({ x, w: wSeg, cx });
     x += wSeg;
-    if (i < n - 1) x += STARTER_PITCH_DIVIDER_W;
   }
 
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(barLeft, barTop, barW, barH, rr);
+  ctx.rect(barLeft, barTop, barW, barH);
   ctx.clip();
 
   ctx.fillStyle = STARTER_PITCH_BAR_BG;
@@ -563,11 +556,6 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     ctx.fillRect(sx, barTop, sw, barH);
   }
 
-  for (let i = 0; i < n - 1; i++) {
-    const sx = segLayouts[i].x + segLayouts[i].w;
-    ctx.fillStyle = STARTER_PITCH_DIVIDER_COLOR;
-    ctx.fillRect(sx, barTop, STARTER_PITCH_DIVIDER_W, barH);
-  }
   ctx.restore();
 
   for (let i = 0; i < n; i++) {
@@ -601,14 +589,6 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     resetShadow(ctx);
     ctx.restore();
   }
-
-  ctx.save();
-  ctx.strokeStyle = STARTER_PITCH_DIVIDER_COLOR;
-  ctx.lineWidth = STARTER_PITCH_BORDER_W;
-  ctx.beginPath();
-  ctx.roundRect(barLeft, barTop, barW, barH, rr);
-  ctx.stroke();
-  ctx.restore();
 }
 
 /**
