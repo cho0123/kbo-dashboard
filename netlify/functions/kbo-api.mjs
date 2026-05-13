@@ -3259,7 +3259,12 @@ ${JSON.stringify(games, null, 2)}`;
             .split(";")[0]
             .trim()
             .toLowerCase();
-          if (ct && ct !== "image/png") {
+          if (
+            ct &&
+            ct !== "image/png" &&
+            ct !== "application/octet-stream" &&
+            ct !== "binary/octet-stream"
+          ) {
             return {
               statusCode: 200,
               headers: corsHeaders(),
