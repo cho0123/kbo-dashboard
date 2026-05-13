@@ -301,6 +301,8 @@ export default function Shorts4Panel() {
 
       if (slide.type === "hot_player" && slide.game) {
         const g0 = slide.game;
+        console.log('[hot_player] home:', g0?.home_hot_player?.player, g0?.home_hot_player?.player_image_url);
+        console.log('[hot_player] away:', g0?.away_hot_player?.player, g0?.away_hot_player?.player_image_url);
         const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
         const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
         const [homePortrait, awayPortrait] = await Promise.all([
