@@ -1,5 +1,5 @@
 /**
- * One-off: writes public/players/default_player.png (210×262, gray + silhouette).
+ * One-off: writes public/players/default_player.png (210×262, solid #cccccc).
  * Run: node scripts/generate-default-player-png.mjs
  */
 import fs from "fs";
@@ -13,27 +13,7 @@ const OUT = path.join(ROOT, "public", "players", "default_player.png");
 
 const W = 210;
 const H = 262;
-
-function inSilhouette(x, y) {
-  const hx = 105;
-  const hy = 68;
-  const hr = 32;
-  if ((x - hx) ** 2 + (y - hy) ** 2 <= hr * hr) return true;
-  const cx = 105;
-  const cy = 158;
-  const rx = 44;
-  const ry = 82;
-  const dx = (x - cx) / rx;
-  const dy = (y - cy) / ry;
-  if (dx * dx + dy * dy <= 1) return true;
-  const bx = 105;
-  const by = 228;
-  const brx = 56;
-  const bry = 22;
-  const bdx = (x - bx) / brx;
-  const bdy = (y - by) / bry;
-  return bdx * bdx + bdy * bdy <= 1;
-}
+const BG = [0xcc, 0xcc, 0xcc];
 
 function crc32(buf) {
   let c = 0xffffffff;
@@ -87,10 +67,7 @@ function writePngRgb(w, h, rgbFn) {
   return Buffer.concat([sig, chunk("IHDR", ihdr), chunk("IDAT", idat), iend]);
 }
 
-const png = writePngRgb(W, H, (x, y) => {
-  if (inSilhouette(x, y)) return [0x55, 0x55, 0x55];
-  return [0xcc, 0xcc, 0xcc];
-});
+const png = writePngRgb(W, H, () => BG);
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, png);

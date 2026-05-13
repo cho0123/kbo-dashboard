@@ -723,6 +723,9 @@ function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUse
 
   if (awayUsePhoto && awayImg) {
     drawPortraitContain(ctx, awayImg, awayPhotoCx, awayBoxTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(awayImg)) {
+      drawDefaultPortraitNameOverlay(ctx, awayPhotoCx, awayBoxTop, faceBox, faceBox, as);
+    }
   }
 
   const statX = awayPhotoCx + rPhoto + 28;
@@ -743,6 +746,31 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
   const x = cx - dw / 2;
   const y = boxTop + (boxH - dh) / 2;
   ctx.drawImage(img, x, y, dw, dh);
+}
+
+const DEFAULT_PLAYER_SRC_MARK = "default_player.png";
+
+function isDefaultPlayerPortrait(img) {
+  if (!img) return false;
+  const s = String(img.currentSrc || img.src || "");
+  return s.includes(DEFAULT_PLAYER_SRC_MARK);
+}
+
+/** 기본 회색 placeholder 위에 선수명 (캔버스 좌표: cx=박스 가로중심). */
+function drawDefaultPortraitNameOverlay(ctx, cx, boxTop, boxW, boxH, name) {
+  const text = String(name || "").trim();
+  if (!text || text === "미정" || text === "—") return;
+  const fontPx = Math.min(44, Math.max(22, Math.floor(boxH / 5.5)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - boxW / 2, boxTop, boxW, boxH);
+  ctx.clip();
+  ctx.fillStyle = "#555555";
+  ctx.font = `800 ${fontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, cx, boxTop + boxH / 2);
+  ctx.restore();
 }
 
 /**
@@ -806,6 +834,9 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
 
   if (homeUsePhoto) {
     drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(homeImg)) {
+      drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
+    }
   }
 
   drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
@@ -1032,6 +1063,9 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   const upperBoxTop = upperCy - rPhoto;
   if (homeUsePhoto) {
     drawPortraitContain(ctx, homeImg, upperPhotoCx, upperBoxTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(homeImg)) {
+      drawDefaultPortraitNameOverlay(ctx, upperPhotoCx, upperBoxTop, faceBox, faceBox, homeName);
+    }
   }
   const upperStatX = upperPhotoCx + rPhoto + 28;
   const upperStatBottom = drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
@@ -1056,6 +1090,9 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   const lowerBoxTop = lowerCy - rPhoto;
   if (awayUsePhoto) {
     drawPortraitContain(ctx, awayImg, lowerPhotoCx, lowerBoxTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(awayImg)) {
+      drawDefaultPortraitNameOverlay(ctx, lowerPhotoCx, lowerBoxTop, faceBox, faceBox, awayName);
+    }
   }
   const lowerStatX = lowerPhotoCx + rPhoto + 28;
   const lowerStatBottom = drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
