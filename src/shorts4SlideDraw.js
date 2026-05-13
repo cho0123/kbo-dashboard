@@ -287,24 +287,24 @@ const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
 /** 구종 코드 → 세그먼트 색 (순서 index와 무관, 코드/한글 역매핑으로만 결정) */
 const STARTER_PITCH_CODE_COLOR = {
   FAST: "#C0392B",
-  FOUR: "#C0392B",
+  FOUR: "#E74C3C",
   TWOS: "#1A5276",
-  SINK: "#1A5276",
+  SINK: "#2980B9",
   SLID: "#1E8449",
+  SWEE: "#F39C12",
+  SLUR: "#D35400",
+  CUTT: "#E67E22",
   CURV: "#6C3483",
-  CRVB: "#6C3483",
-  CUTT: "#D35400",
+  CRVB: "#8E44AD",
   CHUP: "#117A65",
-  CHNG: "#117A65",
-  SWEE: "#784212",
-  SLUR: "#784212",
+  CHNG: "#148F77",
   SPLT: "#1C2833",
-  FORK: "#1C2833",
-  KNUC: "#2C3E50",
-  SCRW: "#2C3E50",
-  PALM: "#2C3E50",
+  FORK: "#2E4057",
+  KNUC: "#5D6D7E",
+  SCRW: "#5D6D7E",
+  PALM: "#5D6D7E",
 };
-const STARTER_PITCH_SEGMENT_FALLBACK = "#2C3E50";
+const STARTER_PITCH_SEGMENT_FALLBACK = "#5D6D7E";
 /** 한글 구종명 → 영문 코드 (색상·표시 역조회용) */
 const STARTER_PITCH_KO_TO_CODE = {
   직구: "FAST",
@@ -496,10 +496,25 @@ function pickStarterPitchKinds(g, side) {
   return rows.length ? rows : null;
 }
 
+/** type/code 등에서 구종 코드(대문자). pit_type 등 변형 필드 포함 */
+function starterPitchKindCodeUpper(row) {
+  const raw = row?.type ?? row?.code ?? row?.pitchType ?? row?.pitch_type ?? "";
+  return String(raw || "").trim().toUpperCase();
+}
+
+/** name 필드가 영문 코드만 담은 경우(예: TWOS) */
+function starterPitchKindNameAsCodeUpper(name) {
+  const t = String(name || "").trim().toUpperCase().replace(/\s+/g, "");
+  if (!t || !/^[A-Z]{2,5}$/.test(t)) return "";
+  return t;
+}
+
 /** pitch row: 구종 코드(또는 한글명 역매핑)로 세그먼트 색 — index와 무관 */
 function starterPitchKindSegmentFill(row) {
-  const codeRaw = String(row?.type ?? row?.code ?? "").trim().toUpperCase();
+  const codeRaw = starterPitchKindCodeUpper(row);
   if (codeRaw && STARTER_PITCH_CODE_COLOR[codeRaw]) return STARTER_PITCH_CODE_COLOR[codeRaw];
+  const nameAsCode = starterPitchKindNameAsCodeUpper(row?.name);
+  if (nameAsCode && STARTER_PITCH_CODE_COLOR[nameAsCode]) return STARTER_PITCH_CODE_COLOR[nameAsCode];
   const name = String(row?.name || "").trim();
   const fromKo = STARTER_PITCH_KO_TO_CODE[name];
   if (fromKo && STARTER_PITCH_CODE_COLOR[fromKo]) return STARTER_PITCH_CODE_COLOR[fromKo];
@@ -524,12 +539,14 @@ function starterPitchKindPctStr(ratio) {
   return Math.abs(n - Math.round(n)) < 0.05 ? `${Math.round(n)}%` : `${Number(n.toFixed(1))}%`;
 }
 
-/** 구종 라벨: 코드 한글 매핑 → 없으면 name → 없으면 영문 코드 소문자 */
+/** 구종 라벨: 코드 한글 매핑 → name이 영문 코드면 매핑 → 한글 name → 소문자 코드 */
 function starterPitchKindDisplayName(row) {
-  const code = String(row?.type ?? row?.code ?? "").trim().toUpperCase();
+  const code = starterPitchKindCodeUpper(row);
   if (code && STARTER_PITCH_CODE_TO_KO[code]) return STARTER_PITCH_CODE_TO_KO[code];
-  const name = String(row?.name || "").trim();
-  if (name) return name;
+  const nameRaw = String(row?.name || "").trim();
+  const nameCode = starterPitchKindNameAsCodeUpper(nameRaw);
+  if (nameCode && STARTER_PITCH_CODE_TO_KO[nameCode]) return STARTER_PITCH_CODE_TO_KO[nameCode];
+  if (nameRaw) return nameRaw;
   if (code) return code.toLowerCase();
   return "—";
 }
@@ -637,7 +654,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     const { x: sx, w: sw, cx } = segLayouts[i];
     if (sw <= 0 || sw < STARTER_PITCH_MIN_SEG_W_FOR_TEXT) continue;
 
-    const name = String(row.name || "").trim() || starterPitchKindDisplayName(row) || "—";
+    const name = starterPitchKindDisplayName(row);
     const ratio = Number(row.ratio);
     const sp = Number(row.speed);
     const pctStr = starterPitchKindPctStr(ratio);
