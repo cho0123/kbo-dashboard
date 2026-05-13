@@ -775,6 +775,7 @@ function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) 
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey 팀 로고(헤더)
  */
 export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
+  console.log('[draw] type:', 'drawShorts4StarterSlide', 'portraits:', portraits);
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   ctx.clearRect(0, 0, w, h);
@@ -994,6 +995,7 @@ function drawHotPlayerTopTitle(ctx, w) {
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  */
 export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
+  console.log('[draw] type:', 'drawShorts4HotPlayerSlide', 'portraits:', portraits);
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
 

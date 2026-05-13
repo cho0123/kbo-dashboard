@@ -223,127 +223,132 @@ export default function Shorts4Panel() {
   const paintSlideAt = useCallback(
     async (idx, canvas) => {
       if (!canvas) return;
-      await ensureCanvasFonts();
-      const w = 1080;
-      const h = 1920;
-      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      canvas.style.width = "360px";
-      canvas.style.height = "640px";
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const slide = slides[idx];
-      if (!slide) {
-        ctx.fillStyle = "#f8f9fa";
-        ctx.fillRect(0, 0, w, h);
-        return;
-      }
-
-      const standings = standingsRows;
-
-      const teamKeys = new Set();
-      if (slide.type === "intro") {
-        for (const tk of SHORTS2_INTRO_TEAM_KEYS) teamKeys.add(tk);
-      } else if (slide.type === "preview_game") {
-        teamKeys.add(teamKeyword(slide.game?.home_team));
-        teamKeys.add(teamKeyword(slide.game?.away_team));
-      } else if (
-        slide.type === "starter" ||
-        slide.type === "hot_player" ||
-        slide.type === "home_lineup" ||
-        slide.type === "away_lineup"
-      ) {
-        teamKeys.add(teamKeyword(slide.game?.home_team));
-        teamKeys.add(teamKeyword(slide.game?.away_team));
-      } else if (slide.type === "standings") {
-        for (const r of standings) {
-          teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
+      let slide;
+      try {
+        await ensureCanvasFonts();
+        const w = 1080;
+        const h = 1920;
+        const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = "360px";
+        canvas.style.height = "640px";
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        slide = slides[idx];
+        if (!slide) {
+          ctx.fillStyle = "#f8f9fa";
+          ctx.fillRect(0, 0, w, h);
+          return;
         }
-      }
 
-      const logosByTeamKey = {};
-      for (const tk of teamKeys) {
-        if (!tk) continue;
-        logosByTeamKey[tk] = await loadSvgLogo(tk);
-      }
+        const standings = standingsRows;
 
-      await loadShortsBaseballDecor();
+        const teamKeys = new Set();
+        if (slide.type === "intro") {
+          for (const tk of SHORTS2_INTRO_TEAM_KEYS) teamKeys.add(tk);
+        } else if (slide.type === "preview_game") {
+          teamKeys.add(teamKeyword(slide.game?.home_team));
+          teamKeys.add(teamKeyword(slide.game?.away_team));
+        } else if (
+          slide.type === "starter" ||
+          slide.type === "hot_player" ||
+          slide.type === "home_lineup" ||
+          slide.type === "away_lineup"
+        ) {
+          teamKeys.add(teamKeyword(slide.game?.home_team));
+          teamKeys.add(teamKeyword(slide.game?.away_team));
+        } else if (slide.type === "standings") {
+          for (const r of standings) {
+            teamKeys.add(teamKeyword(r?.team ?? r?.TEAM_NM ?? r?.team_name ?? r?.name ?? ""));
+          }
+        }
 
-      if (slide.type === "intro") {
-        drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
-        return;
-      }
+        const logosByTeamKey = {};
+        for (const tk of teamKeys) {
+          if (!tk) continue;
+          logosByTeamKey[tk] = await loadSvgLogo(tk);
+        }
 
-      if (slide.type === "preview_game" && slide.game) {
-        drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey, Number(slide.page) || 1);
-        return;
-      }
+        await loadShortsBaseballDecor();
 
-      if (slide.type === "starter" && slide.game) {
-        const g0 = slide.game;
-        const hk = teamKeyword(g0?.home_team);
-        const ak = teamKeyword(g0?.away_team);
-        const hsName = String(g0?.home_starter || "").trim();
-        const asName = String(g0?.away_starter || "").trim();
-        const homeStarterUrl = String(g0?.home_starter_image_url || "").trim();
-        const awayStarterUrl = String(g0?.away_starter_image_url || "").trim();
-        const [awayPortrait, homePortrait, defImg] = await Promise.all([
-          awayStarterUrl
-            ? loadPlayerImageFromNaverProxy(awayStarterUrl)
-            : loadPlayerImage(ak, asName),
-          homeStarterUrl
-            ? loadPlayerImageFromNaverProxy(homeStarterUrl)
-            : loadPlayerImage(hk, hsName),
-          loadDefaultPlayerImage(),
-        ]);
-        const awayFinal = awayPortrait ?? defImg;
-        const homeFinal = homePortrait ?? defImg;
-        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayFinal, home: homeFinal }, logosByTeamKey);
-        return;
-      }
+        if (slide.type === "intro") {
+          drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
+          return;
+        }
 
-      if (slide.type === "hot_player" && slide.game) {
-        const g0 = slide.game;
-        console.log('[hot_player] home:', g0?.home_hot_player?.player, g0?.home_hot_player?.player_image_url);
-        console.log('[hot_player] away:', g0?.away_hot_player?.player, g0?.away_hot_player?.player_image_url);
-        const hk = teamKeyword(g0?.home_team);
-        const ak = teamKeyword(g0?.away_team);
-        const homeName = String(g0?.home_hot_player?.player || "").trim();
-        const awayName = String(g0?.away_hot_player?.player || "").trim();
-        const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
-        const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
-        const [homePortrait, awayPortrait, defImg] = await Promise.all([
-          homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : loadPlayerImage(hk, homeName),
-          awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : loadPlayerImage(ak, awayName),
-          loadDefaultPlayerImage(),
-        ]);
-        const homeFinal = homePortrait ?? defImg;
-        const awayFinal = awayPortrait ?? defImg;
-        drawShorts4HotPlayerSlide(
-          ctx,
-          w,
-          h,
-          g0,
-          { home: homeFinal, away: awayFinal },
-          logosByTeamKey
-        );
-        return;
-      }
+        if (slide.type === "preview_game" && slide.game) {
+          drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey, Number(slide.page) || 1);
+          return;
+        }
 
-      if (slide.type === "home_lineup" && slide.game) {
-        drawShorts4LineupSlide(ctx, w, h, slide.game, "home");
-        return;
-      }
+        if (slide.type === "starter" && slide.game) {
+          const g0 = slide.game;
+          const hk = teamKeyword(g0?.home_team);
+          const ak = teamKeyword(g0?.away_team);
+          const hsName = String(g0?.home_starter || "").trim();
+          const asName = String(g0?.away_starter || "").trim();
+          const homeStarterUrl = String(g0?.home_starter_image_url || "").trim();
+          const awayStarterUrl = String(g0?.away_starter_image_url || "").trim();
+          const [awayPortrait, homePortrait, defImg] = await Promise.all([
+            awayStarterUrl
+              ? loadPlayerImageFromNaverProxy(awayStarterUrl)
+              : loadPlayerImage(ak, asName),
+            homeStarterUrl
+              ? loadPlayerImageFromNaverProxy(homeStarterUrl)
+              : loadPlayerImage(hk, hsName),
+            loadDefaultPlayerImage(),
+          ]);
+          const awayFinal = awayPortrait ?? defImg;
+          const homeFinal = homePortrait ?? defImg;
+          drawShorts4StarterSlide(ctx, w, h, g0, { away: awayFinal, home: homeFinal }, logosByTeamKey);
+          return;
+        }
 
-      if (slide.type === "away_lineup" && slide.game) {
-        drawShorts4LineupSlide(ctx, w, h, slide.game, "away");
-        return;
-      }
+        if (slide.type === "hot_player" && slide.game) {
+          const g0 = slide.game;
+          console.log('[hot_player] home:', g0?.home_hot_player?.player, g0?.home_hot_player?.player_image_url);
+          console.log('[hot_player] away:', g0?.away_hot_player?.player, g0?.away_hot_player?.player_image_url);
+          const hk = teamKeyword(g0?.home_team);
+          const ak = teamKeyword(g0?.away_team);
+          const homeName = String(g0?.home_hot_player?.player || "").trim();
+          const awayName = String(g0?.away_hot_player?.player || "").trim();
+          const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
+          const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
+          const [homePortrait, awayPortrait, defImg] = await Promise.all([
+            homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : loadPlayerImage(hk, homeName),
+            awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : loadPlayerImage(ak, awayName),
+            loadDefaultPlayerImage(),
+          ]);
+          const homeFinal = homePortrait ?? defImg;
+          const awayFinal = awayPortrait ?? defImg;
+          drawShorts4HotPlayerSlide(
+            ctx,
+            w,
+            h,
+            g0,
+            { home: homeFinal, away: awayFinal },
+            logosByTeamKey
+          );
+          return;
+        }
 
-      if (slide.type === "standings") {
-        drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
-        return;
+        if (slide.type === "home_lineup" && slide.game) {
+          drawShorts4LineupSlide(ctx, w, h, slide.game, "home");
+          return;
+        }
+
+        if (slide.type === "away_lineup" && slide.game) {
+          drawShorts4LineupSlide(ctx, w, h, slide.game, "away");
+          return;
+        }
+
+        if (slide.type === "standings") {
+          drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
+          return;
+        }
+      } catch (e) {
+        console.error('[paintSlideAt] error:', slide?.type, e);
       }
     },
     [slides, standingsRows, date, detailGame]
