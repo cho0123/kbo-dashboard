@@ -2453,6 +2453,153 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
   }
 }
 
+const NAVER_HITTER_SEASON_BASE =
+  "https://api-gw.sports.naver.com/statistics/categories/kbo/seasons";
+
+/**
+ * 네이버 KBO 시즌 타자 순위 100명(1~100위) 조회.
+ * 응답 result.seasonPlayerStats 배열을 그대로 반환. 실패 시 null.
+ * @param {number|string} seasonYear
+ * @returns {Promise<Array<object> | null>}
+ */
+async function fetchNaverHitterSeasonStats(seasonYear) {
+  const y = String(Number(seasonYear) || "").trim();
+  if (!y) return null;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=HITTER&page=1&pageSize=100`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = json?.result?.seasonPlayerStats;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    return arr;
+  } catch (e) {
+    console.warn("[fetchNaverHitterSeasonStats]", y, e?.message || e);
+    return null;
+  }
+}
+
+/** 각 부문 → (Naver 응답 필드 / 클라이언트 노출 키) 매핑 */
+const HITTER_RANK_FIELDS = [
+  { key: "hr_rank", stat: "hitterHr" },
+  { key: "rbi_rank", stat: "hitterRbi" },
+  { key: "avg_rank", stat: "hitterHra" },
+  { key: "ops_rank", stat: "hitterOps" },
+  { key: "war_rank", stat: "hitterWar" },
+];
+
+/**
+ * seasonPlayerStats → playerId/playerName 기반 부문별 Top-10 순위 인덱스.
+ * 동률 처리: standard competition ranking (예: 1, 2, 2, 4).
+ * 11위 이상은 인덱스에 누적되지 않음(조회 시 자연스레 null).
+ * @returns {Map<string, {hr_rank:number|null, rbi_rank:number|null, avg_rank:number|null, ops_rank:number|null, war_rank:number|null}>}
+ */
+function buildHitterRankIndex(statsArr) {
+  const idx = new Map();
+  if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
+
+  const ensure = (id) => {
+    if (!idx.has(id)) {
+      idx.set(id, {
+        hr_rank: null,
+        rbi_rank: null,
+        avg_rank: null,
+        ops_rank: null,
+        war_rank: null,
+      });
+    }
+    return idx.get(id);
+  };
+
+  for (const def of HITTER_RANK_FIELDS) {
+    const withVal = statsArr
+      .map((r) => ({ r, v: Number(r?.[def.stat]) }))
+      .filter((x) => Number.isFinite(x.v));
+    withVal.sort((a, b) => b.v - a.v);
+
+    let lastVal = null;
+    let lastRank = 0;
+    for (let i = 0; i < withVal.length; i++) {
+      const { r, v } = withVal[i];
+      const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
+      lastVal = v;
+      lastRank = rank;
+      if (rank > 10) continue;
+      const id = String(r?.playerId ?? r?.playerName ?? "").trim();
+      if (!id) continue;
+      ensure(id)[def.key] = rank;
+    }
+  }
+  return idx;
+}
+
+/**
+ * 핫플레이어 객체에 네이버 시즌스탯/순위/사진URL을 머지.
+ * 매칭: playerName === hp.player (한글 이름 직접 비교).
+ * statsArr가 없거나 매칭 실패해도 키는 모두 null로 채워서 반환.
+ */
+function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex) {
+  if (!hp || typeof hp !== "object") return hp;
+  const empty = {
+    season_hr: null,
+    season_rbi: null,
+    season_hit: null,
+    season_avg: null,
+    season_obp: null,
+    season_ops: null,
+    season_war: null,
+    hr_rank: null,
+    rbi_rank: null,
+    avg_rank: null,
+    ops_rank: null,
+    war_rank: null,
+    player_image_url: null,
+  };
+  if (!Array.isArray(statsArr) || statsArr.length === 0) {
+    return { ...hp, ...empty };
+  }
+  const name = String(hp.player || "").trim();
+  if (!name) return { ...hp, ...empty };
+
+  const row = statsArr.find(
+    (r) => String(r?.playerName || "").trim() === name
+  );
+  if (!row) return { ...hp, ...empty };
+
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const id = String(row?.playerId ?? row?.playerName ?? "").trim();
+  const ranks = (id && rankIndex?.get(id)) || {
+    hr_rank: null,
+    rbi_rank: null,
+    avg_rank: null,
+    ops_rank: null,
+    war_rank: null,
+  };
+
+  return {
+    ...hp,
+    season_hr: num(row.hitterHr),
+    season_rbi: num(row.hitterRbi),
+    season_hit: num(row.hitterHit),
+    season_avg: num(row.hitterHra),
+    season_obp: num(row.hitterObp),
+    season_ops: num(row.hitterOps),
+    season_war: num(row.hitterWar),
+    hr_rank: ranks.hr_rank,
+    rbi_rank: ranks.rbi_rank,
+    avg_rank: ranks.avg_rank,
+    ops_rank: ranks.ops_rank,
+    war_rank: ranks.war_rank,
+    player_image_url: row?.playerImageUrl || null,
+  };
+}
+
 /**
  * 직전 경기(gameId)의 batters 컬렉션에서 지정 팀 타자 중
  * 홈런 많은 순 → 동률이면 타점 많은 순 → 동률이면 안타 많은 순으로 1명 선정.
@@ -2561,6 +2708,9 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonFrom = `${seasonYear}-01-01`;
   const seasonTo = `${seasonYear}-12-31`;
   const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
+
+  const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
+  const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
 
   const gamesByTeam = new Map();
   const pushTeamGame = (team, item) => {
@@ -2730,12 +2880,22 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
       : [];
 
-    const home_hot_player = prevHome
+    const home_hot_player_raw = prevHome
       ? await pickHotPlayerForGame(db, prevHome.gid, home_team || "")
       : null;
-    const away_hot_player = prevAway
+    const away_hot_player_raw = prevAway
       ? await pickHotPlayerForGame(db, prevAway.gid, away_team || "")
       : null;
+    const home_hot_player = enrichHotPlayerWithSeasonStats(
+      home_hot_player_raw,
+      seasonHitterStats,
+      hitterRankIndex
+    );
+    const away_hot_player = enrichHotPlayerWithSeasonStats(
+      away_hot_player_raw,
+      seasonHitterStats,
+      hitterRankIndex
+    );
 
     const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
     const naverPitchKinds =
