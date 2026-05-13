@@ -275,17 +275,34 @@ const STARTER_SLIDE_STAT_LINE_GAP = Math.round(STARTER_DETAIL_LINE_GAP * 1.45);
 /** 주구종 분할 바 (사진 아래 · 슬라이드 90% 너비 · 120px 높이) */
 const STARTER_PITCH_BAR_W_FRAC = 0.9;
 const STARTER_PITCH_SEGMENTED_BAR_H = 120;
-const STARTER_PITCH_SEGMENTED_RADIUS = 8;
-const STARTER_PITCH_DIVIDER_W = 2;
+const STARTER_PITCH_SEGMENTED_RADIUS = 10;
+const STARTER_PITCH_DIVIDER_W = 6;
+const STARTER_PITCH_BORDER_W = 2;
 const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
 const STARTER_PITCH_NAME_SPEED_PX = 30;
 const STARTER_PITCH_PCT_INSIDE_PX = 22;
+const STARTER_PITCH_MIN_SEG_W_FOR_TEXT = 30;
 const STARTER_PITCH_AWAY_DIAG_PAD = 10;
 const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
 const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
 const STARTER_PITCH_DIVIDER_COLOR = "#ffffff";
-/** 구종별 배경(선명한 대비 색) */
-const STARTER_PITCH_SEGMENT_FILLS = ["#FFD700", "#FF6B6B", "#4ECDC4", "#95E1D3"];
+/** 구종 코드별 색 (팀컬러 무관, FAST/SLID/CHUP/CURV/CUTT) */
+const STARTER_PITCH_TYPE_FILL = {
+  FAST: "#C0392B",
+  SLID: "#1A5276",
+  CHUP: "#1E8449",
+  CURV: "#6C3483",
+  CUTT: "#D35400",
+};
+const STARTER_PITCH_TYPE_FALLBACK = "#2C3E50";
+const STARTER_PITCH_KO_TO_CODE = {
+  직구: "FAST",
+  포심: "FAST",
+  슬라이더: "SLID",
+  체인지업: "CHUP",
+  커브: "CURV",
+  커터: "CUTT",
+};
 const STARTER_STAT_LINE_COUNT = 4;
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
 const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
@@ -438,6 +455,21 @@ function pickStarterPitchKinds(g, side) {
   return rows.length ? rows : null;
 }
 
+/** pitch row: name(KO) 또는 type/code(영문)로 구종 색 고정 */
+function starterPitchKindSegmentFill(row) {
+  const codeRaw = String(row?.type ?? row?.code ?? "").trim().toUpperCase();
+  if (codeRaw && STARTER_PITCH_TYPE_FILL[codeRaw]) return STARTER_PITCH_TYPE_FILL[codeRaw];
+  const name = String(row?.name || "").trim();
+  const fromKo = STARTER_PITCH_KO_TO_CODE[name];
+  if (fromKo && STARTER_PITCH_TYPE_FILL[fromKo]) return STARTER_PITCH_TYPE_FILL[fromKo];
+  if (/커터/.test(name)) return STARTER_PITCH_TYPE_FILL.CUTT;
+  if (/커브/.test(name)) return STARTER_PITCH_TYPE_FILL.CURV;
+  if (/체인지업|체볼/i.test(name)) return STARTER_PITCH_TYPE_FILL.CHUP;
+  if (/슬라이더|슬라이드/.test(name)) return STARTER_PITCH_TYPE_FILL.SLID;
+  if (/직구|포심|패스트볼/i.test(name)) return STARTER_PITCH_TYPE_FILL.FAST;
+  return STARTER_PITCH_TYPE_FALLBACK;
+}
+
 /** 분할 바 가로폭(구간 합)에 맞춰 정수 픽셀 너비 배분 */
 function splitSegmentPixelWidths(innerW, ratios) {
   const n = ratios.length;
@@ -527,8 +559,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
   for (let i = 0; i < n; i++) {
     const { x: sx, w: sw } = segLayouts[i];
     if (sw <= 0) continue;
-    const fillIdx = Math.min(i, STARTER_PITCH_SEGMENT_FILLS.length - 1);
-    ctx.fillStyle = STARTER_PITCH_SEGMENT_FILLS[fillIdx];
+    ctx.fillStyle = starterPitchKindSegmentFill(pitchKinds[i]);
     ctx.fillRect(sx, barTop, sw, barH);
   }
 
@@ -542,7 +573,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
   for (let i = 0; i < n; i++) {
     const row = pitchKinds[i];
     const { x: sx, w: sw, cx } = segLayouts[i];
-    if (sw <= 0) continue;
+    if (sw <= 0 || sw < STARTER_PITCH_MIN_SEG_W_FOR_TEXT) continue;
 
     const name = String(row.name || "").trim() || "—";
     const ratio = Number(row.ratio);
@@ -562,18 +593,18 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     ctx.textBaseline = "middle";
     ctx.font = `800 ${STARTER_PITCH_NAME_SPEED_PX}px "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(nameSpeedLine, cx, barTop + barH * 0.36);
+    ctx.fillText(nameSpeedLine, cx, barTop + barH * 0.32);
     resetShadow(ctx);
     ctx.font = `700 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
-    ctx.fillText(pctStr, cx, barTop + barH * 0.72);
+    ctx.fillText(pctStr, cx, barTop + barH * 0.78);
     resetShadow(ctx);
     ctx.restore();
   }
 
   ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = STARTER_PITCH_DIVIDER_COLOR;
+  ctx.lineWidth = STARTER_PITCH_BORDER_W;
   ctx.beginPath();
   ctx.roundRect(barLeft, barTop, barW, barH, rr);
   ctx.stroke();
