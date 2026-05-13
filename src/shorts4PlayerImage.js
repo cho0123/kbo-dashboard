@@ -22,6 +22,7 @@ export function clearPlayerImageCache() {
   __playerImgCache.clear();
   __urlImgCache.clear();
   __naverProxyImgCache.clear();
+  __defaultPlayerImgCache.clear();
   __playerImgBust += 1;
 }
 
@@ -30,6 +31,38 @@ const __urlImgCache = new Map();
 
 /** Netlify `proxy_player_image` 경유 네이버 선수 사진 캐시 */
 const __naverProxyImgCache = new Map();
+
+/** `public/players/default_player.png` (실루엣) */
+const __defaultPlayerImgCache = new Map();
+const DEFAULT_PLAYER_PUBLIC_URL = "/players/default_player.png";
+
+/**
+ * 캔버스에 그릴 수 있는지 여부 (로드 완료·가로 픽셀 존재).
+ * @param {HTMLImageElement|null|undefined} img
+ * @returns {HTMLImageElement|null}
+ */
+export function drawableShorts4Portrait(img) {
+  return img && img.complete && img.naturalWidth ? img : null;
+}
+
+/**
+ * 선수 사진이 없을 때 쓰는 기본 실루엣 PNG (`public/players/default_player.png`).
+ * @returns {Promise<HTMLImageElement | null>}
+ */
+export async function loadDefaultPlayerImage() {
+  const key = DEFAULT_PLAYER_PUBLIC_URL;
+  if (__defaultPlayerImgCache.has(key)) return await __defaultPlayerImgCache.get(key);
+
+  const p = new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = key;
+  });
+  __defaultPlayerImgCache.set(key, p);
+  return await p;
+}
 
 /**
  * 임의의 절대 URL에서 선수 사진을 로드. crossOrigin="anonymous"로 캔버스 사용 안전.

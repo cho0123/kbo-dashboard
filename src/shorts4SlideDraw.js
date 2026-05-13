@@ -3,7 +3,7 @@
  * 쇼츠1/2 draw 함수는 수정하지 않음.
  */
 import { drawBaseballBackground } from "./shortsBaseballDecor.js";
-import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
+import { drawableShorts4Portrait } from "./shorts4PlayerImage.js";
 
 function fmtTeamShort(team) {
   const t = String(team || "").trim();
@@ -791,8 +791,8 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
 
   const vsSizePx = 90;
 
-  const awayImg = portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
-  const homeImg = portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
+  const awayImg = drawableShorts4Portrait(portraits?.away);
+  const homeImg = drawableShorts4Portrait(portraits?.home);
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
@@ -1012,10 +1012,8 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   const homeName = String(homeHp?.player || "").trim();
   const awayName = String(awayHp?.player || "").trim();
 
-  const homeImg =
-    portraits?.home && portraits.home.complete && portraits.home.naturalWidth ? portraits.home : null;
-  const awayImg =
-    portraits?.away && portraits.away.complete && portraits.away.naturalWidth ? portraits.away : null;
+  const homeImg = drawableShorts4Portrait(portraits?.home);
+  const awayImg = drawableShorts4Portrait(portraits?.away);
   const homeUsePhoto = Boolean(homeImg) && homeName !== "";
   const awayUsePhoto = Boolean(awayImg) && awayName !== "";
 

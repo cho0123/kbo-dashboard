@@ -16,6 +16,7 @@ import {
 } from "./shorts4SlideDraw.js";
 import {
   clearPlayerImageCache,
+  loadDefaultPlayerImage,
   loadPlayerImage,
   loadPlayerImageFromNaverProxy,
 } from "./shorts4PlayerImage.js";
@@ -287,15 +288,18 @@ export default function Shorts4Panel() {
         const asName = String(g0?.away_starter || "").trim();
         const homeStarterUrl = String(g0?.home_starter_image_url || "").trim();
         const awayStarterUrl = String(g0?.away_starter_image_url || "").trim();
-        const [awayPortrait, homePortrait] = await Promise.all([
+        const [awayPortrait, homePortrait, defImg] = await Promise.all([
           awayStarterUrl
             ? loadPlayerImageFromNaverProxy(awayStarterUrl)
             : loadPlayerImage(ak, asName),
           homeStarterUrl
             ? loadPlayerImageFromNaverProxy(homeStarterUrl)
             : loadPlayerImage(hk, hsName),
+          loadDefaultPlayerImage(),
         ]);
-        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayPortrait, home: homePortrait }, logosByTeamKey);
+        const awayFinal = awayPortrait ?? defImg;
+        const homeFinal = homePortrait ?? defImg;
+        drawShorts4StarterSlide(ctx, w, h, g0, { away: awayFinal, home: homeFinal }, logosByTeamKey);
         return;
       }
 
@@ -309,16 +313,19 @@ export default function Shorts4Panel() {
         const awayName = String(g0?.away_hot_player?.player || "").trim();
         const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
         const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
-        const [homePortrait, awayPortrait] = await Promise.all([
+        const [homePortrait, awayPortrait, defImg] = await Promise.all([
           homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : loadPlayerImage(hk, homeName),
           awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : loadPlayerImage(ak, awayName),
+          loadDefaultPlayerImage(),
         ]);
+        const homeFinal = homePortrait ?? defImg;
+        const awayFinal = awayPortrait ?? defImg;
         drawShorts4HotPlayerSlide(
           ctx,
           w,
           h,
           g0,
-          { home: homePortrait, away: awayPortrait },
+          { home: homeFinal, away: awayFinal },
           logosByTeamKey
         );
         return;
