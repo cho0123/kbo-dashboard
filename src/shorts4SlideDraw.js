@@ -3,6 +3,7 @@
  * 쇼츠1/2 draw 함수는 수정하지 않음.
  */
 import { drawBaseballBackground } from "./shortsBaseballDecor.js";
+import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import { drawableShorts4Portrait } from "./shorts4PlayerImage.js";
 
 function fmtTeamShort(team) {
