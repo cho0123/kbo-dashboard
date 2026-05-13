@@ -58,25 +58,37 @@ export async function loadPlayerImageFromUrl(url) {
  * @returns {Promise<HTMLImageElement | null>}
  */
 export async function loadPlayerImageFromNaverProxy(url) {
+  console.log('[proxy] url:', url);
   const u = String(url || "").trim();
-  if (!u) return null;
+  if (!u) {
+    console.log('[proxy] fail:', url);
+    return null;
+  }
   if (__naverProxyImgCache.has(u)) return await __naverProxyImgCache.get(u);
 
   const p = (async () => {
     try {
       const res = await postKbo({ action: "proxy_player_image", url: u });
       if (!res || res.ok !== true || typeof res.data !== "string" || !res.data) {
+        console.log('[proxy] fail:', url);
         return null;
       }
       const mime = String(res.contentType || "image/png").trim() || "image/png";
       const dataUrl = `data:${mime};base64,${String(res.data).replace(/\s/g, "")}`;
       return await new Promise((resolve) => {
         const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
+        img.onload = () => {
+          console.log('[proxy] success:', url);
+          resolve(img);
+        };
+        img.onerror = () => {
+          console.log('[proxy] fail:', url);
+          resolve(null);
+        };
         img.src = dataUrl;
       });
     } catch {
+      console.log('[proxy] fail:', url);
       return null;
     }
   })();

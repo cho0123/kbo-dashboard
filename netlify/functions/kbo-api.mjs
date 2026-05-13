@@ -3298,12 +3298,14 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
         try {
+          console.log('[proxy] fetching:', rawUrl);
           const upstream = await fetch(rawUrl, {
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (compatible; KboDashboard/1.0; +https://github.com/cho0123/kbo-dashboard)",
             },
           });
+          console.log('[proxy] status:', upstream.status);
           if (!upstream.ok) {
             return {
               statusCode: 200,
