@@ -2481,6 +2481,50 @@ async function fetchNaverHitterSeasonStats(seasonYear) {
   }
 }
 
+/**
+ * 네이버 KBO 시즌 투수 순위 100명(1~100위) 조회.
+ * 응답 result.seasonPlayerStats 배열을 그대로 반환. 실패 시 null.
+ * @param {number|string} seasonYear
+ * @returns {Promise<Array<object> | null>}
+ */
+async function fetchNaverPitcherSeasonStats(seasonYear) {
+  const y = String(Number(seasonYear) || "").trim();
+  if (!y) return null;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=100`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = json?.result?.seasonPlayerStats;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    return arr;
+  } catch (e) {
+    console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
+    return null;
+  }
+}
+
+/**
+ * seasonPitcherStats에서 playerName이 선발 투수명과 일치하는 행의 playerImageUrl.
+ * @param {Array<object>|null|undefined} statsArr
+ * @param {string|null|undefined} starterName
+ * @returns {string|null}
+ */
+function findPitcherImageUrlByStarterName(statsArr, starterName) {
+  if (!Array.isArray(statsArr) || statsArr.length === 0) return null;
+  const name = String(starterName || "").replace(/\s+/g, " ").trim();
+  if (!name) return null;
+  const row = statsArr.find(
+    (r) => String(r?.playerName || "").replace(/\s+/g, " ").trim() === name
+  );
+  if (!row) return null;
+  const url = row?.playerImageUrl ?? row?.player_image_url;
+  const u = url != null ? String(url).trim() : "";
+  return u || null;
+}
+
 /** 각 부문 → (Naver 응답 필드 / 클라이언트 노출 키) 매핑 */
 const HITTER_RANK_FIELDS = [
   { key: "hr_rank", stat: "hitterHr" },
@@ -2711,6 +2755,7 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
+  const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
 
   const gamesByTeam = new Map();
   const pushTeamGame = (team, item) => {
@@ -2901,6 +2946,15 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const naverPitchKinds =
       game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
 
+    const home_starter_image_url = findPitcherImageUrlByStarterName(
+      seasonPitcherStats,
+      home_starter
+    );
+    const away_starter_image_url = findPitcherImageUrlByStarterName(
+      seasonPitcherStats,
+      away_starter
+    );
+
     games.push({
       game_id,
       game_date,
@@ -2911,6 +2965,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_team,
       home_starter,
       away_starter,
+      home_starter_image_url,
+      away_starter_image_url,
       home_starter_era,
       away_starter_era,
       home_starter_season_wins: homeWlWhip.wins,
