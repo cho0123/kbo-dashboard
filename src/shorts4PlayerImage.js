@@ -2,6 +2,8 @@
  * 쇼츠4 선발 선수 사진 — S3 `players/{팀}-{선수명}.png`
  */
 
+import { postKbo } from "./api.js";
+
 const PLAYER_IMAGE_S3_BASE =
   "https://kbo-video-export.s3.ap-northeast-2.amazonaws.com/players/";
 
@@ -19,11 +21,15 @@ function safeFileSegment(s) {
 export function clearPlayerImageCache() {
   __playerImgCache.clear();
   __urlImgCache.clear();
+  __naverProxyImgCache.clear();
   __playerImgBust += 1;
 }
 
 /** URL 기반 선수 이미지 로드 캐시 (네이버 사진 등 임의 URL용) */
 const __urlImgCache = new Map();
+
+/** Netlify `proxy_player_image` 경유 네이버 선수 사진 캐시 */
+const __naverProxyImgCache = new Map();
 
 /**
  * 임의의 절대 URL에서 선수 사진을 로드. crossOrigin="anonymous"로 캔버스 사용 안전.
@@ -43,6 +49,38 @@ export async function loadPlayerImageFromUrl(url) {
     img.src = u;
   });
   __urlImgCache.set(u, p);
+  return await p;
+}
+
+/**
+ * Netlify 함수로 네이버 선수 사진을 프록시해 Image로 로드 (캔버스 사용 안전).
+ * @param {string} url `https://sports-phinf.pstatic.net/player/kbo/default/*.png`
+ * @returns {Promise<HTMLImageElement | null>}
+ */
+export async function loadPlayerImageFromNaverProxy(url) {
+  const u = String(url || "").trim();
+  if (!u) return null;
+  if (__naverProxyImgCache.has(u)) return await __naverProxyImgCache.get(u);
+
+  const p = (async () => {
+    try {
+      const res = await postKbo({ action: "proxy_player_image", url: u });
+      if (!res || res.ok !== true || typeof res.data !== "string" || !res.data) {
+        return null;
+      }
+      const mime = String(res.contentType || "image/png").trim() || "image/png";
+      const dataUrl = `data:${mime};base64,${String(res.data).replace(/\s/g, "")}`;
+      return await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      });
+    } catch {
+      return null;
+    }
+  })();
+  __naverProxyImgCache.set(u, p);
   return await p;
 }
 

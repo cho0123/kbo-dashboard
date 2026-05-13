@@ -3216,6 +3216,95 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "proxy_player_image": {
+        const rawUrl = String(payload.url || "").trim();
+        const PROXY_PLAYER_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+        const isAllowedNaverKboDefaultPng = (urlStr) => {
+          try {
+            const u = new URL(urlStr);
+            if (u.protocol !== "https:") return false;
+            if (u.hostname !== "sports-phinf.pstatic.net") return false;
+            const p = u.pathname;
+            const prefix = "/player/kbo/default/";
+            if (!p.startsWith(prefix) || !p.endsWith(".png")) return false;
+            const file = p.slice(prefix.length);
+            if (!file || file.includes("/") || file.includes("..")) return false;
+            return /^[^/]+\.png$/i.test(file);
+          } catch {
+            return false;
+          }
+        };
+        if (!isAllowedNaverKboDefaultPng(rawUrl)) {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false }),
+          };
+        }
+        try {
+          const upstream = await fetch(rawUrl, {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (compatible; KboDashboard/1.0; +https://github.com/cho0123/kbo-dashboard)",
+            },
+          });
+          if (!upstream.ok) {
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false }),
+            };
+          }
+          const ct = String(upstream.headers.get("content-type") || "")
+            .split(";")[0]
+            .trim()
+            .toLowerCase();
+          if (ct && ct !== "image/png") {
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false }),
+            };
+          }
+          const ab = await upstream.arrayBuffer();
+          if (!ab || ab.byteLength < 68 || ab.byteLength > PROXY_PLAYER_IMAGE_MAX_BYTES) {
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false }),
+            };
+          }
+          const buf = Buffer.from(ab);
+          const isPng =
+            buf[0] === 0x89 &&
+            buf[1] === 0x50 &&
+            buf[2] === 0x4e &&
+            buf[3] === 0x47;
+          if (!isPng) {
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({ ok: false }),
+            };
+          }
+          const data = buf.toString("base64");
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              data,
+              contentType: "image/png",
+            }),
+          };
+        } catch {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false }),
+          };
+        }
+      }
       case "elevenlabs_tts": {
         const jobId = String(payload.jobId || "").trim();
         const segRaw = payload.segIndex;

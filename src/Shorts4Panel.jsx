@@ -17,7 +17,7 @@ import {
 import {
   clearPlayerImageCache,
   loadPlayerImage,
-  loadPlayerImageFromUrl,
+  loadPlayerImageFromNaverProxy,
 } from "./shorts4PlayerImage.js";
 import "./Shorts4Panel.css";
 
@@ -285,9 +285,15 @@ export default function Shorts4Panel() {
         const ak = teamKeyword(g0?.away_team);
         const hsName = String(g0?.home_starter || "").trim();
         const asName = String(g0?.away_starter || "").trim();
+        const homeStarterUrl = String(g0?.home_starter_image_url || "").trim();
+        const awayStarterUrl = String(g0?.away_starter_image_url || "").trim();
         const [awayPortrait, homePortrait] = await Promise.all([
-          loadPlayerImage(ak, asName),
-          loadPlayerImage(hk, hsName),
+          awayStarterUrl
+            ? loadPlayerImageFromNaverProxy(awayStarterUrl)
+            : loadPlayerImage(ak, asName),
+          homeStarterUrl
+            ? loadPlayerImageFromNaverProxy(homeStarterUrl)
+            : loadPlayerImage(hk, hsName),
         ]);
         drawShorts4StarterSlide(ctx, w, h, g0, { away: awayPortrait, home: homePortrait }, logosByTeamKey);
         return;
@@ -298,8 +304,8 @@ export default function Shorts4Panel() {
         const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
         const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
         const [homePortrait, awayPortrait] = await Promise.all([
-          homeUrl ? loadPlayerImageFromUrl(homeUrl) : Promise.resolve(null),
-          awayUrl ? loadPlayerImageFromUrl(awayUrl) : Promise.resolve(null),
+          homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : Promise.resolve(null),
+          awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : Promise.resolve(null),
         ]);
         drawShorts4HotPlayerSlide(
           ctx,
