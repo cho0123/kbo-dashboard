@@ -272,20 +272,26 @@ const STARTER_DETAIL_LINE_GAP = 54;
 /** 선발 슬라이드 오른쪽 스탯: 본문 +2px, 줄간격 ~1.45배 */
 const STARTER_SLIDE_STAT_FONT_PX = STARTER_DETAIL_FONT_PX + 2;
 const STARTER_SLIDE_STAT_LINE_GAP = Math.round(STARTER_DETAIL_LINE_GAP * 1.45);
-/** 주구종 분할 바 (스탯보다 작은 라벨) */
-const STARTER_PITCH_LABEL_NAME_PX = 22;
-const STARTER_PITCH_LABEL_META_PX = 20;
-const STARTER_PITCH_LABEL_LINE = 24;
-const STARTER_PITCH_LABEL_LINES = 3;
-const STARTER_PITCH_GAP_LABEL_TO_BAR = 10;
-const STARTER_PITCH_SEGMENTED_BAR_H = 60;
+/** 주구종 분할 바 (사진 아래 · 슬라이드 90% 너비 · 120px 높이) */
+const STARTER_PITCH_BAR_W_FRAC = 0.9;
+const STARTER_PITCH_SEGMENTED_BAR_H = 120;
 const STARTER_PITCH_SEGMENTED_RADIUS = 8;
 const STARTER_PITCH_DIVIDER_W = 2;
-const STARTER_PITCH_SEGMENT_OPACITY = [1, 0.8, 0.6, 0.4];
-const STARTER_PITCH_SUBTITLE_PX = 28;
-const STARTER_PITCH_GAP_BAR_TO_SUBTITLE = 12;
-const STARTER_PITCH_AFTER_STATS = 26;
-const STARTER_PITCH_PAD_RIGHT = 48;
+const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
+const STARTER_PITCH_TITLE_PX = 26;
+const STARTER_PITCH_GAP_TITLE_TO_BAR = 10;
+const STARTER_PITCH_NAME_INSIDE_PX = 22;
+const STARTER_PITCH_PCT_INSIDE_PX = 30;
+const STARTER_PITCH_SPD_INSIDE_PX = 20;
+const STARTER_PITCH_AWAY_DIAG_PAD = 10;
+const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
+/** 구종별 배경(팀컬러와 무관하게 대비 유지) */
+const STARTER_PITCH_SEGMENT_FILLS = [
+  "#ffffff",
+  "rgba(255,255,255,0.75)",
+  "rgba(255,255,255,0.5)",
+  "rgba(255,255,255,0.3)",
+];
 const STARTER_STAT_LINE_COUNT = 4;
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
 const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
@@ -413,6 +419,21 @@ function starterStatLastLineCenterY(cy) {
   return firstY + (n - 1) * gap;
 }
 
+/** 스탯 블록 하단(대략) — 사진 아래 바 배치 시 max(사진, 스탯)용 */
+function starterStatBlockBottomY(faceCy) {
+  const lastCy = starterStatLastLineCenterY(faceCy);
+  return lastCy + STARTER_SLIDE_STAT_LINE_GAP * 0.48 + STARTER_SLIDE_STAT_FONT_PX * 0.42;
+}
+
+/** diagTeamColorsOnly / diagTeamGradient 와 동일한 팀컬러 경계선의 y (주구종 바가 상단에 걸리지 않도록) */
+function diagTeamSplitLineYAtX(w, h, x) {
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
+  return yL + ((yR - yL) * x) / w;
+}
+
 function pickStarterPitchKinds(g, side) {
   const key = side === "away" ? "away_pitch_kinds" : "home_pitch_kinds";
   const arr = g?.[key];
@@ -421,18 +442,6 @@ function pickStarterPitchKinds(g, side) {
     .filter((x) => x && typeof x === "object" && Number.isFinite(Number(x.ratio)))
     .slice(0, 4);
   return rows.length ? rows : null;
-}
-
-/** #RRGGBB → rgba(..., a). 팀 그라데이션 첫 색 외 형식이면 회색 기본 */
-function teamColorToRgba(hex, alpha) {
-  const h = String(hex || "").trim();
-  const m = h.match(/^#([0-9a-fA-F]{6})$/);
-  if (!m) return `rgba(200,200,200,${alpha})`;
-  const v = m[1];
-  const r = parseInt(v.slice(0, 2), 16);
-  const g = parseInt(v.slice(2, 4), 16);
-  const b = parseInt(v.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 /** 분할 바 가로폭(구간 합)에 맞춰 정수 픽셀 너비 배분 */
@@ -461,14 +470,16 @@ function splitSegmentPixelWidths(innerW, ratios) {
 }
 
 /**
- * 스탯 아래 주구종 분할 바 (최대 4구간). pitchKinds null이면 그리지 않음.
- * @param {number} stackTop 바 위 라벨 블록 상단 y
+ * 사진·스탯 아래 중앙 주구종 분할 바 (최대 4구간). pitchKinds null이면 그리지 않음.
+ * @param {"away"|"home"} region 원정: 사선 위로 클램프, 홈: 슬라이드 하단 여백
  */
-function drawStarterPitchKindsBlock(ctx, statX, stackTop, wCanvas, pitchKinds, teamName) {
+function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, teamName, region, faceCy) {
   if (!pitchKinds || pitchKinds.length === 0) return;
   const [teamColor] = teamGrad(teamName);
-  const padR = STARTER_PITCH_PAD_RIGHT;
-  const barW = wCanvas - padR - statX;
+  const dividerBg = teamColor;
+
+  const barW = Math.floor(wCanvas * STARTER_PITCH_BAR_W_FRAC);
+  const barLeft = Math.floor((wCanvas - barW) / 2);
   if (barW < 120) return;
 
   const n = pitchKinds.length;
@@ -480,14 +491,33 @@ function drawStarterPitchKindsBlock(ctx, statX, stackTop, wCanvas, pitchKinds, t
   const innerW = Math.max(0, barW - dividerTotal);
   const segWs = splitSegmentPixelWidths(innerW, ratios);
 
-  const labelBlockH =
-    (STARTER_PITCH_LABEL_LINES - 1) * STARTER_PITCH_LABEL_LINE +
-    Math.max(STARTER_PITCH_LABEL_NAME_PX, STARTER_PITCH_LABEL_META_PX) +
-    10;
-  const barTop = stackTop + labelBlockH + STARTER_PITCH_GAP_LABEL_TO_BAR;
-  const barLeft = statX;
+  const rPhoto = STARTER_SLIDE_FACE_BOX / 2;
+  const photoBottom = faceCy + rPhoto;
+  const statsBottom = starterStatBlockBottomY(faceCy);
+  const contentBottom = Math.max(photoBottom, statsBottom);
+
   const barH = STARTER_PITCH_SEGMENTED_BAR_H;
   const rr = STARTER_PITCH_SEGMENTED_RADIUS;
+  const titleBand = STARTER_PITCH_TITLE_PX + STARTER_PITCH_GAP_TITLE_TO_BAR;
+
+  let stackTop = contentBottom + STARTER_PITCH_GAP_CONTENT_TO_BAR;
+  let barTop = stackTop + titleBand;
+
+  if (region === "away") {
+    const limBottom = diagTeamSplitLineYAtX(wCanvas, hCanvas, barLeft) - STARTER_PITCH_AWAY_DIAG_PAD;
+    if (barTop + barH > limBottom) {
+      const over = barTop + barH - limBottom;
+      barTop -= over;
+      stackTop -= over;
+    }
+  } else {
+    const limBottom = hCanvas - STARTER_PITCH_HOME_BOTTOM_PAD;
+    if (barTop + barH > limBottom) {
+      const over = barTop + barH - limBottom;
+      barTop -= over;
+      stackTop -= over;
+    }
+  }
 
   const segLayouts = [];
   let x = barLeft;
@@ -503,32 +533,13 @@ function drawStarterPitchKindsBlock(ctx, statX, stackTop, wCanvas, pitchKinds, t
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${STARTER_PITCH_TITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("주구종", wCanvas / 2, stackTop);
+  resetShadow(ctx);
+  ctx.restore();
 
-  for (let i = 0; i < n; i++) {
-    const row = pitchKinds[i];
-    const name = String(row.name || "").trim() || "—";
-    const ratio = Number(row.ratio);
-    const sp = Number(row.speed);
-    const pctStr = Number.isFinite(ratio)
-      ? `${Math.abs(ratio - Math.round(ratio)) < 0.05 ? Math.round(ratio) : Number(ratio.toFixed(1))}%`
-      : "—";
-    const spdStr = Number.isFinite(sp) ? `${Math.round(sp)}` : "—";
-    const { cx } = segLayouts[i];
-
-    let ty = stackTop;
-    ctx.font = `700 ${STARTER_PITCH_LABEL_NAME_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(name, cx, ty);
-    resetShadow(ctx);
-    ty += STARTER_PITCH_LABEL_LINE;
-    ctx.font = `600 ${STARTER_PITCH_LABEL_META_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(pctStr, cx, ty);
-    ty += STARTER_PITCH_LABEL_LINE;
-    ctx.fillText(spdStr, cx, ty);
-    resetShadow(ctx);
-  }
-
+  ctx.save();
   ctx.beginPath();
   ctx.roundRect(barLeft, barTop, barW, barH, rr);
   ctx.clip();
@@ -536,18 +547,49 @@ function drawStarterPitchKindsBlock(ctx, statX, stackTop, wCanvas, pitchKinds, t
   for (let i = 0; i < n; i++) {
     const { x: sx, w: sw } = segLayouts[i];
     if (sw <= 0) continue;
-    const op = STARTER_PITCH_SEGMENT_OPACITY[Math.min(i, STARTER_PITCH_SEGMENT_OPACITY.length - 1)];
-    ctx.fillStyle = teamColorToRgba(teamColor, op);
+    const fillIdx = Math.min(i, STARTER_PITCH_SEGMENT_FILLS.length - 1);
+    ctx.fillStyle = STARTER_PITCH_SEGMENT_FILLS[fillIdx];
     ctx.fillRect(sx, barTop, sw, barH);
   }
 
   for (let i = 0; i < n - 1; i++) {
     const sx = segLayouts[i].x + segLayouts[i].w;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = dividerBg;
     ctx.fillRect(sx, barTop, STARTER_PITCH_DIVIDER_W, barH);
   }
-
   ctx.restore();
+
+  for (let i = 0; i < n; i++) {
+    const row = pitchKinds[i];
+    const { x: sx, w: sw, cx } = segLayouts[i];
+    if (sw <= 0) continue;
+
+    const name = String(row.name || "").trim() || "—";
+    const ratio = Number(row.ratio);
+    const sp = Number(row.speed);
+    const pctStr = Number.isFinite(ratio)
+      ? `${Math.abs(ratio - Math.round(ratio)) < 0.05 ? Math.round(ratio) : Number(ratio.toFixed(1))}%`
+      : "—";
+    const spdStr = Number.isFinite(sp) ? `${Math.round(sp)}` : "—";
+
+    const fillIdx = Math.min(i, STARTER_PITCH_SEGMENT_FILLS.length - 1);
+    const textColor = fillIdx === 0 ? teamColor : "#ffffff";
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, barTop, sw, barH);
+    ctx.clip();
+    ctx.textAlign = "center";
+    ctx.fillStyle = textColor;
+    ctx.font = `700 ${STARTER_PITCH_NAME_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, cx, barTop + barH * 0.22);
+    ctx.font = `800 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(pctStr, cx, barTop + barH * 0.5);
+    ctx.font = `600 ${STARTER_PITCH_SPD_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(spdStr, cx, barTop + barH * 0.78);
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
@@ -556,23 +598,12 @@ function drawStarterPitchKindsBlock(ctx, statX, stackTop, wCanvas, pitchKinds, t
   ctx.roundRect(barLeft, barTop, barW, barH, rr);
   ctx.stroke();
   ctx.restore();
-
-  ctx.save();
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${STARTER_PITCH_SUBTITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  const subY = barTop + barH + STARTER_PITCH_GAP_BAR_TO_SUBTITLE;
-  shadowTextSoft(ctx);
-  ctx.fillText("주구종", statX, subY);
-  resetShadow(ctx);
-  ctx.restore();
 }
 
 /**
  * 원정팀(상단 절반): 헤더(로고+한줄)·구분선, 사진 중심 x=w*0.25, 스탯은 사진 오른쪽 좌측 정렬
  */
-function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey) {
+function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey) {
   const faceBox = STARTER_SLIDE_FACE_BOX;
   const rPhoto = faceBox / 2;
   const awayPhotoCx = w * 0.25;
@@ -605,9 +636,7 @@ function drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePho
   drawStarterSlideRightStatBlock(ctx, statX, awayCy, g, "away");
   const awayKinds = pickStarterPitchKinds(g, "away");
   if (awayKinds) {
-    const lastStatY = starterStatLastLineCenterY(awayCy);
-    const pitchStackTop = lastStatY + STARTER_SLIDE_STAT_FONT_PX * 0.62 + STARTER_PITCH_AFTER_STATS;
-    drawStarterPitchKindsBlock(ctx, statX, pitchStackTop, w, awayKinds, awayTeam);
+    drawStarterPitchKindsBlock(ctx, w, h, awayKinds, awayTeam, "away", awayCy);
   }
 }
 
@@ -675,7 +704,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   const awayUsePhoto = Boolean(awayImg) && as !== "미정";
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
 
-  drawAwayStarterUpperLayout(ctx, w, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey || {});
+  drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey || {});
 
   const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey || {});
   const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
@@ -688,10 +717,7 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
   const homeKinds = pickStarterPitchKinds(g, "home");
   if (homeKinds) {
-    const statX = homeFaceCx + rPhoto + 28;
-    const lastStatY = starterStatLastLineCenterY(homeCy);
-    const pitchStackTop = lastStatY + STARTER_SLIDE_STAT_FONT_PX * 0.62 + STARTER_PITCH_AFTER_STATS;
-    drawStarterPitchKindsBlock(ctx, statX, pitchStackTop, w, homeKinds, homeTeam);
+    drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
   }
 
   ctx.save();
