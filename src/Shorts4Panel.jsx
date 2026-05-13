@@ -14,7 +14,11 @@ import {
   drawShorts4LineupSlide,
   drawShorts4StarterSlide,
 } from "./shorts4SlideDraw.js";
-import { clearPlayerImageCache, loadPlayerImage } from "./shorts4PlayerImage.js";
+import {
+  clearPlayerImageCache,
+  loadPlayerImage,
+  loadPlayerImageFromUrl,
+} from "./shorts4PlayerImage.js";
 import "./Shorts4Panel.css";
 
 const SHORTS_EXPORT_W = 1080;
@@ -291,13 +295,11 @@ export default function Shorts4Panel() {
 
       if (slide.type === "hot_player" && slide.game) {
         const g0 = slide.game;
-        const hk = teamKeyword(g0?.home_team);
-        const ak = teamKeyword(g0?.away_team);
-        const homeHpName = String(g0?.home_hot_player?.player || "").trim();
-        const awayHpName = String(g0?.away_hot_player?.player || "").trim();
+        const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
+        const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
         const [homePortrait, awayPortrait] = await Promise.all([
-          loadPlayerImage(hk, homeHpName),
-          loadPlayerImage(ak, awayHpName),
+          homeUrl ? loadPlayerImageFromUrl(homeUrl) : Promise.resolve(null),
+          awayUrl ? loadPlayerImageFromUrl(awayUrl) : Promise.resolve(null),
         ]);
         drawShorts4HotPlayerSlide(
           ctx,

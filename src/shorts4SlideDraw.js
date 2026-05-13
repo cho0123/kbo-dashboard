@@ -838,24 +838,35 @@ const HOT_TITLE_CENTER_Y = 92;
 const HOT_UPPER_DIVIDER_Y =
   STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y + 60;
 
-function fmtBattingAvg(v) {
-  if (v == null) return "-";
+function fmtIntOrDash(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return "-";
-  return n.toFixed(3);
+  return Number.isFinite(n) ? String(Math.round(n)) : "-";
+}
+
+function fmtDec3OrDash(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : "-";
+}
+
+function fmtDec2OrDash(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : "-";
+}
+
+function fmtRankSuffix(r) {
+  const n = Number(r);
+  return Number.isFinite(n) && n > 0 ? ` · ${n}위` : "";
 }
 
 function hotPlayerStatLines(hp) {
-  if (!hp || typeof hp !== "object") {
-    return ["- -안타  -홈런", "- -타점", "- 타율 : -"];
-  }
-  const h = Number.isFinite(Number(hp.h)) ? Number(hp.h) : 0;
-  const hr = Number.isFinite(Number(hp.hr)) ? Number(hp.hr) : 0;
-  const rbi = Number.isFinite(Number(hp.rbi)) ? Number(hp.rbi) : 0;
+  const o = hp && typeof hp === "object" ? hp : {};
   return [
-    `- ${h}안타  ${hr}홈런`,
-    `- ${rbi}타점`,
-    `- 타율 : ${fmtBattingAvg(hp.avg)}`,
+    `- 전경기 ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개${fmtRankSuffix(o.hr_rank)})`,
+    `- ${fmtIntOrDash(o.h)}안타 (시즌 ${fmtIntOrDash(o.season_hit)}개)`,
+    `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점${fmtRankSuffix(o.rbi_rank)})`,
+    `- 타율 ${fmtDec3OrDash(o.season_avg)}${fmtRankSuffix(o.avg_rank)}`,
+    `- OPS ${fmtDec3OrDash(o.season_ops)}${fmtRankSuffix(o.ops_rank)}`,
+    `- WAR ${fmtDec2OrDash(o.season_war)}${fmtRankSuffix(o.war_rank)}`,
   ];
 }
 
