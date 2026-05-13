@@ -303,11 +303,15 @@ export default function Shorts4Panel() {
         const g0 = slide.game;
         console.log('[hot_player] home:', g0?.home_hot_player?.player, g0?.home_hot_player?.player_image_url);
         console.log('[hot_player] away:', g0?.away_hot_player?.player, g0?.away_hot_player?.player_image_url);
+        const hk = teamKeyword(g0?.home_team);
+        const ak = teamKeyword(g0?.away_team);
+        const homeName = String(g0?.home_hot_player?.player || "").trim();
+        const awayName = String(g0?.away_hot_player?.player || "").trim();
         const homeUrl = String(g0?.home_hot_player?.player_image_url || "").trim();
         const awayUrl = String(g0?.away_hot_player?.player_image_url || "").trim();
         const [homePortrait, awayPortrait] = await Promise.all([
-          homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : Promise.resolve(null),
-          awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : Promise.resolve(null),
+          homeUrl ? loadPlayerImageFromNaverProxy(homeUrl) : loadPlayerImage(hk, homeName),
+          awayUrl ? loadPlayerImageFromNaverProxy(awayUrl) : loadPlayerImage(ak, awayName),
         ]);
         drawShorts4HotPlayerSlide(
           ctx,
