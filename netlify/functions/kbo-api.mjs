@@ -2455,7 +2455,7 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
 
 /**
  * 직전 경기(gameId)의 batters 컬렉션에서 지정 팀 타자 중
- * 홈런 많은 순 → 동률이면 안타 많은 순으로 1명 선정.
+ * 홈런 많은 순 → 동률이면 타점 많은 순 → 동률이면 안타 많은 순으로 1명 선정.
  * @returns {{player:string, hr:number, h:number, rbi:number, avg:number|null, team:string}|null}
  */
 async function pickHotPlayerForGame(db, gameId, teamName) {
@@ -2504,6 +2504,7 @@ async function pickHotPlayerForGame(db, gameId, teamName) {
 
   scored.sort((a, b) => {
     if (b.hr !== a.hr) return b.hr - a.hr;
+    if (b.rbi !== a.rbi) return b.rbi - a.rbi;
     return b.h - a.h;
   });
   const top = scored[0];
