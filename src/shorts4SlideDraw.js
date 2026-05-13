@@ -831,6 +831,12 @@ const HOT_STAT_LINE_GAP = STARTER_SLIDE_STAT_LINE_GAP;
 const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP;
 const HOT_HEADER_GAP_LINE_TO_CENTER = STARTER_HEADER_GAP_LINE_TO_CENTER;
 const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
+/** 최상단 타이틀 */
+const HOT_TITLE_FONT_PX = 58;
+const HOT_TITLE_CENTER_Y = 92;
+/** 상단 헤더 영역을 타이틀만큼 아래로 밀어줌 */
+const HOT_UPPER_DIVIDER_Y =
+  STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y + 60;
 
 function fmtBattingAvg(v) {
   if (v == null) return "-";
@@ -841,14 +847,13 @@ function fmtBattingAvg(v) {
 
 function hotPlayerStatLines(hp) {
   if (!hp || typeof hp !== "object") {
-    return ["- -안타", "- -홈런", "- -타점", "- 타율 : -"];
+    return ["- -안타  -홈런", "- -타점", "- 타율 : -"];
   }
   const h = Number.isFinite(Number(hp.h)) ? Number(hp.h) : 0;
   const hr = Number.isFinite(Number(hp.hr)) ? Number(hp.hr) : 0;
   const rbi = Number.isFinite(Number(hp.rbi)) ? Number(hp.rbi) : 0;
   return [
-    `- ${h}안타`,
-    `- ${hr}홈런`,
+    `- ${h}안타  ${hr}홈런`,
     `- ${rbi}타점`,
     `- 타율 : ${fmtBattingAvg(hp.avg)}`,
   ];
@@ -871,12 +876,13 @@ function drawHotPlayerStatBlock(ctx, statX, cy, hp) {
   }
 }
 
-/** 상단 헤더(팀로고 + "팀명 · 지난경기 핫플레이어") */
-function drawHotPlayerHeaderRow(ctx, w, centerY, padL, teamName, logoImg) {
+/** 헤더(팀로고 + "팀명 · 선수명") */
+function drawHotPlayerHeaderRow(ctx, w, centerY, padL, teamName, playerName, logoImg) {
   const maxLogoW = Math.min(LOGO_HEADER_MAX_W, Math.max(80, w - padL - 320));
   const logoW = drawShorts4StarterHeaderLogo(ctx, padL, centerY, maxLogoW, teamName, logoImg);
   const tn = String(teamName || "—").trim() || "—";
-  const line = `${tn} · 지난경기 핫플레이어`;
+  const pn = String(playerName || "—").trim() || "—";
+  const line = `${tn} · ${pn}`;
   ctx.save();
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -889,11 +895,25 @@ function drawHotPlayerHeaderRow(ctx, w, centerY, padL, teamName, logoImg) {
   ctx.restore();
 }
 
+/** 최상단 "지난경기 핫플레이어" 타이틀 */
+function drawHotPlayerTopTitle(ctx, w) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `900 ${HOT_TITLE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("지난경기 핫플레이어", w / 2, HOT_TITLE_CENTER_Y);
+  resetShadow(ctx);
+  ctx.restore();
+}
+
 /**
  * 핫플레이어 슬라이드
+ * - 최상단: "지난경기 핫플레이어" 타이틀
  * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어
  * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어
- * - VS 중앙, 슬라이드7과 동일 헤더/구분선/사진 레이아웃
+ * - 각 섹션 헤더: 팀로고 + "팀명 · 선수명" + 흰 구분선
  *
  * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
@@ -906,10 +926,11 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
   drawBaseballBackground(ctx);
 
+  drawHotPlayerTopTitle(ctx, w);
+
   const faceBox = HOT_FACE_BOX;
   const rPhoto = faceBox / 2;
   const padL = 48;
-  const vsSizePx = 90;
 
   const homeHp = g?.home_hot_player ?? null;
   const awayHp = g?.away_hot_player ?? null;
@@ -923,11 +944,11 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   const homeUsePhoto = Boolean(homeImg) && homeName !== "";
   const awayUsePhoto = Boolean(awayImg) && awayName !== "";
 
-  const upperDividerY = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
+  const upperDividerY = HOT_UPPER_DIVIDER_Y;
   const upperHeaderCy = upperDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
   const hk = teamKeyword(homeTeam);
   const homeLogoImg = logosByTeamKey?.[hk] ?? null;
-  drawHotPlayerHeaderRow(ctx, w, upperHeaderCy, padL, homeTeam, homeLogoImg);
+  drawHotPlayerHeaderRow(ctx, w, upperHeaderCy, padL, homeTeam, homeName, homeLogoImg);
   drawShorts4StarterHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;
@@ -944,7 +965,7 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   const lowerHeaderCy = lowerDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
   const ak = teamKeyword(awayTeam);
   const awayLogoImg = logosByTeamKey?.[ak] ?? null;
-  drawHotPlayerHeaderRow(ctx, w, lowerHeaderCy, padL, awayTeam, awayLogoImg);
+  drawHotPlayerHeaderRow(ctx, w, lowerHeaderCy, padL, awayTeam, awayName, awayLogoImg);
   drawShorts4StarterHeaderDivider(ctx, w, padL, lowerDividerY);
 
   const lowerPhotoCx = w * 0.35 - 100;
@@ -955,17 +976,6 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   }
   const lowerStatX = lowerPhotoCx + rPhoto + 28;
   drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
-
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `1000 ${vsSizePx}px "${FONT_TITLE}", system-ui, sans-serif`;
-  ctx.fillStyle = "#FFD700";
-  shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, h / 2);
-  resetShadow(ctx);
-  ctx.restore();
 }
 
 function sortLineupRows(rows) {
