@@ -2482,7 +2482,7 @@ async function fetchNaverHitterSeasonStats(seasonYear) {
 }
 
 /**
- * 네이버 KBO 시즌 투수 순위 100명(1~100위) 조회.
+ * 네이버 KBO 시즌 투수 순위 200명(1~200위) 조회.
  * 응답 result.seasonPlayerStats 배열을 그대로 반환. 실패 시 null.
  * @param {number|string} seasonYear
  * @returns {Promise<Array<object> | null>}
@@ -2490,7 +2490,7 @@ async function fetchNaverHitterSeasonStats(seasonYear) {
 async function fetchNaverPitcherSeasonStats(seasonYear) {
   const y = String(Number(seasonYear) || "").trim();
   if (!y) return null;
-  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=100`;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=200`;
   try {
     const res = await fetch(url, {
       headers: { Referer: "https://m.sports.naver.com" },
