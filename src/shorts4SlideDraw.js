@@ -378,10 +378,10 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam);
 
   const logoBox = 550;
-  const awayLogoX = w - 450;
-  const awayLogoY = h * 0.18;
-  const homeLogoX = -100;
-  const homeLogoY = h * 0.52;
+  const awayLogoX = w - 350;
+  const awayLogoY = h * 0.42;
+  const homeLogoX = -50;
+  const homeLogoY = h * 0.43;
 
   ctx.save();
   clipIntroDiagUpperRegion(ctx, w, h);
