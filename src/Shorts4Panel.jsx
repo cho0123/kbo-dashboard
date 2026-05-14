@@ -4,13 +4,10 @@ import { postKbo, seoulToday } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
 import { drawStandingsSlide, loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
-import {
-  drawTomorrowPreviewGameSlide,
-  drawTomorrowPreviewIntroSlide,
-  SHORTS2_INTRO_TEAM_KEYS,
-} from "./shorts2TomorrowPreviewDraw.js";
+import { drawTomorrowPreviewGameSlide } from "./shorts2TomorrowPreviewDraw.js";
 import {
   drawShorts4HotPlayerSlide,
+  drawShorts4IntroSlide,
   drawShorts4LineupSlide,
   drawShorts4StarterSlide,
 } from "./shorts4SlideDraw.js";
@@ -246,7 +243,8 @@ export default function Shorts4Panel() {
 
         const teamKeys = new Set();
         if (slide.type === "intro") {
-          for (const tk of SHORTS2_INTRO_TEAM_KEYS) teamKeys.add(tk);
+          teamKeys.add(teamKeyword(detailGame?.home_team));
+          teamKeys.add(teamKeyword(detailGame?.away_team));
         } else if (slide.type === "preview_game") {
           teamKeys.add(teamKeyword(slide.game?.home_team));
           teamKeys.add(teamKeyword(slide.game?.away_team));
@@ -273,7 +271,7 @@ export default function Shorts4Panel() {
         await loadShortsBaseballDecor();
 
         if (slide.type === "intro") {
-          drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
+          drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
           return;
         }
 

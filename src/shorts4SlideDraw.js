@@ -28,6 +28,28 @@ const TEAM_GRAD = {
   키움: ["#d870a0", "#d870a0"],
 };
 
+/** 쇼츠4 인트로 등 전용 팀 강조 단색 (TEAM_GRAD와 별도) */
+const TEAM_STRONG_COLOR = {
+  삼성: "#0055A4",
+  LG: "#C0001C",
+  KT: "#2B2B2B",
+  SSG: "#CE0E2D",
+  NC: "#071D49",
+  두산: "#131230",
+  KIA: "#EA0029",
+  롯데: "#002B7F",
+  한화: "#FF6600",
+  키움: "#820024",
+};
+
+function getTeamStrongColor(teamName) {
+  const kw = teamKeyword(teamName);
+  const strong = kw ? TEAM_STRONG_COLOR[kw] : undefined;
+  if (strong) return strong;
+  const [g0] = teamGrad(teamName);
+  return g0 || "#131922";
+}
+
 function teamGrad(teamName) {
   return TEAM_GRAD[teamKeyword(teamName)] || ["#0c0f14", "#131922"];
 }
@@ -41,6 +63,16 @@ function fmtKoreanLongDate(iso) {
   const d = Number(m[3]);
   const wk = new Date(s).toLocaleDateString("ko-KR", { weekday: "short" });
   return `${y}년 ${mo}월 ${d}일 (${wk})`;
+}
+
+/** `series_game_number` 등 API 연동 시 상단 뱃지 (없으면 빈 문자열) */
+function fmtSeriesGameBadgeForIntro(g) {
+  if (!g || typeof g !== "object") return "";
+  const n = Number(g.series_game_number);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const total = Number(g.series_length ?? g.series_games ?? g.series_round_games ?? 0);
+  if (Number.isFinite(total) && total > 1) return `${Math.round(total)}연전 ${Math.round(n)}차전`;
+  return `${Math.round(n)}차전`;
 }
 
 function shadowTextSoft(ctx) {
@@ -100,6 +132,33 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.lineTo(0, h);
   ctx.closePath();
   ctx.fillStyle = s;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
+  ctx.stroke();
+}
+
+/**
+ * 인트로용: 화면 왼쪽·대각 위쪽 = 홈 강조색, 오른쪽·아래 = 원정 강조색 (기존 사선과 동일 기하)
+ */
+function diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = getTeamStrongColor(awayTeam);
+  ctx.fillRect(0, 0, w, h);
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
+  ctx.beginPath();
+  ctx.moveTo(0, yL);
+  ctx.lineTo(w, yR);
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = getTeamStrongColor(homeTeam);
   ctx.fill();
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 5;
@@ -262,6 +321,84 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
     ctx.fillText(homeLines[i], w * 0.28, blockY + i * lineH);
     ctx.fillText(awayLines[i], w * 0.72, blockY + i * lineH);
   }
+}
+
+/**
+ * 쇼츠4 전용 인트로 — 강조 단색 사선 배경, VS·로고·팀명, 날짜(+연차전 뱃지는 필드 있을 때만)
+ * @param {string} date
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
+ * @param {{ home_team?: string, away_team?: string, game_date?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
+ */
+export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
+  const homeTeam = String(firstGame?.home_team || "홈").trim() || "홈";
+  const awayTeam = String(firstGame?.away_team || "원정").trim() || "원정";
+  const hk = teamKeyword(homeTeam);
+  const ak = teamKeyword(awayTeam);
+  const homeImg = logosByTeamKey?.[hk] ?? null;
+  const awayImg = logosByTeamKey?.[ak] ?? null;
+
+  diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam);
+
+  const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
+  const badge = fmtSeriesGameBadgeForIntro(firstGame);
+
+  const topY = 168;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(dateStr, w / 2, topY);
+  resetShadow(ctx);
+  if (badge) {
+    ctx.font = `800 38px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    shadowTextSoft(ctx);
+    ctx.fillText(badge, w / 2, topY + 58);
+    resetShadow(ctx);
+  }
+  ctx.restore();
+
+  const logoBox = 300;
+  const logoY = 400;
+  const leftCx = w * 0.26;
+  const rightCx = w * 0.74;
+  drawLogoInBox(ctx, leftCx - logoBox / 2, logoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  drawLogoInBox(ctx, rightCx - logoBox / 2, logoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
+
+  const vsY = Math.round(h * 0.51);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `1000 118px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
+  shadowTextSoft(ctx);
+  ctx.fillText("VS", w / 2, vsY);
+  resetShadow(ctx);
+  ctx.restore();
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const nameY = logoY + logoBox + 52;
+  shadowTextSoft(ctx);
+  ctx.fillText(homeTeam, leftCx, nameY);
+  ctx.fillText(awayTeam, rightCx, nameY);
+  resetShadow(ctx);
+  ctx.restore();
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  shadowTextSoft(ctx);
+  ctx.fillText("GAME PREVIEW", w / 2, h - 110);
+  resetShadow(ctx);
+  ctx.restore();
 }
 
 const STARTER_FACE_BOX = Math.round(530 * 0.7);
