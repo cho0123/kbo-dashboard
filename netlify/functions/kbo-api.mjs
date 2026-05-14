@@ -2640,12 +2640,139 @@ function buildHitterRankIndex(statsArr) {
   return idx;
 }
 
+const NAVER_M_SPORTS_FETCH_HEADERS = {
+  Referer: "https://m.sports.naver.com",
+  "User-Agent":
+    "Mozilla/5.0 (compatible; kbo-dashboard-netlify/1.0; +https://github.com/cho0123/kbo-dashboard)",
+};
+
+function pickImageUrlFromNaverPlayerDetail(player) {
+  if (!player || typeof player !== "object") return null;
+  const direct = player.playerImageUrl ?? player.player_image_url;
+  if (direct != null && String(direct).trim()) return String(direct).trim();
+  const prof = player.profile;
+  if (typeof prof === "string" && prof.trim()) {
+    try {
+      const o = JSON.parse(prof);
+      const im = o?.image ?? o?.profileImage;
+      if (im != null && String(im).trim()) return String(im).trim();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+/** search/players 응답 형태가 문서화되어 있지 않아 result 전역에서 playerId+이름 후보 수집 */
+function extractPlayerIdFromNaverSearchJson(json, wantName) {
+  const want = String(wantName || "").trim();
+  if (!json || typeof json !== "object" || !want) return null;
+  const candidates = [];
+  const pushRow = (row) => {
+    if (!row || typeof row !== "object") return;
+    const id = row.playerId ?? row.id ?? row.player_id;
+    const nm = String(row.playerName ?? row.name ?? row.player_name ?? "").trim();
+    if (id == null || !nm) return;
+    candidates.push({ id: String(id).trim(), nm });
+  };
+  const scan = (obj, depth) => {
+    if (!obj || typeof obj !== "object" || depth > 10) return;
+    if (Array.isArray(obj)) {
+      for (const x of obj) scan(x, depth + 1);
+      return;
+    }
+    pushRow(obj);
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (Array.isArray(v)) for (const x of v) scan(x, depth + 1);
+      else if (v && typeof v === "object") scan(v, depth + 1);
+    }
+  };
+  scan(json.result ?? json, 0);
+  const hit = candidates.find((c) => c.nm === want);
+  return hit?.id ?? null;
+}
+
+/** GET …/search/players?query=&category=kbo (사용자 지정). 404 등이면 null */
+async function searchNaverKboPlayerId(name) {
+  const want = String(name || "").trim();
+  if (!want) return null;
+  const url = `https://api-gw.sports.naver.com/search/players?query=${encodeURIComponent(
+    want
+  )}&category=kbo`;
+  try {
+    const res = await fetch(url, { headers: NAVER_M_SPORTS_FETCH_HEADERS });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return extractPlayerIdFromNaverSearchJson(json, want);
+  } catch (e) {
+    console.warn("[searchNaverKboPlayerId]", want, e?.message || e);
+    return null;
+  }
+}
+
+/**
+ * 시즌 타자 목록 넓게 조회 후 이름 정확 일치로 playerId (search API 미가동/404 대비).
+ */
+async function findNaverHitterPlayerIdInWideSeasonList(seasonYear, wantName) {
+  const y = String(Number(seasonYear) || "").trim();
+  const want = String(wantName || "").trim();
+  if (!y || !want) return null;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=HITTER&page=1&pageSize=500`;
+  try {
+    const res = await fetch(url, { headers: { Referer: "https://m.sports.naver.com" } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = json?.result?.seasonPlayerStats;
+    if (!Array.isArray(arr)) return null;
+    const row = arr.find((r) => String(r?.playerName || "").trim() === want);
+    return row?.playerId != null ? String(row.playerId).trim() : null;
+  } catch (e) {
+    console.warn("[findNaverHitterPlayerIdInWideSeasonList]", y, want, e?.message || e);
+    return null;
+  }
+}
+
+/**
+ * 선수별 시즌 타자 스탯. 사용자 지정 URL이 403인 환경이 있어 categories 단일 선수 URL을 폴백으로 사용.
+ */
+async function fetchNaverHitterSeasonDetailForPlayerId(seasonYear, playerId) {
+  const y = String(Number(seasonYear) || "").trim();
+  const id = String(playerId || "").trim();
+  if (!y || !id) return null;
+  const primary = `https://api-gw.sports.naver.com/statistics/players/${id}/seasons?category=kbo&season=${y}`;
+  try {
+    const res = await fetch(primary, { headers: NAVER_M_SPORTS_FETCH_HEADERS });
+    if (res.ok) {
+      const json = await res.json();
+      const hs = json?.result?.hitterStats;
+      const pl = json?.result?.player;
+      if (hs && typeof hs === "object") return { player: pl ?? null, hitterStats: hs };
+    }
+  } catch (e) {
+    console.warn("[fetchNaverHitterSeasonDetailForPlayerId] primary", id, e?.message || e);
+  }
+  try {
+    const fb = `${NAVER_HITTER_SEASON_BASE}/${y}/players/${id}`;
+    const res2 = await fetch(fb, { headers: NAVER_M_SPORTS_FETCH_HEADERS });
+    if (!res2.ok) return null;
+    const j2 = await res2.json();
+    const player = j2?.result?.player ?? null;
+    const hitterStats = j2?.result?.hitterStats ?? null;
+    if (!hitterStats || typeof hitterStats !== "object") return null;
+    return { player, hitterStats };
+  } catch (e2) {
+    console.warn("[fetchNaverHitterSeasonDetailForPlayerId] fallback", id, e2?.message || e2);
+    return null;
+  }
+}
+
 /**
  * 핫플레이어 객체에 네이버 시즌스탯/순위/사진URL을 머지.
- * 매칭: playerName === hp.player (한글 이름 직접 비교).
- * statsArr가 없거나 매칭 실패해도 키는 모두 null로 채워서 반환.
+ * 매칭: (1) 시즌 랭킹 배열 playerName === hp.player (2) search/players → 개별 시즌 API (3) 넓은 목록에서 이름 일치 → 개별 API.
+ * statsArr가 없거나 최종 매칭 실패 시 키는 모두 null로 채워서 반환.
  */
-function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex) {
+async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYear) {
   if (!hp || typeof hp !== "object") return hp;
   const empty = {
     season_hr: null,
@@ -2662,48 +2789,64 @@ function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex) {
     war_rank: null,
     player_image_url: null,
   };
-  if (!Array.isArray(statsArr) || statsArr.length === 0) {
-    return { ...hp, ...empty };
-  }
-  const name = String(hp.player || "").trim();
-  if (!name) return { ...hp, ...empty };
-
-  const matchedRow = statsArr.find(
-    (r) => String(r?.playerName || "").trim() === name
-  );
-  console.log("[enrich] player:", hp?.player, "found:", !!matchedRow);
-  if (!matchedRow) return { ...hp, ...empty };
-
   const num = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
 
-  const id = String(matchedRow?.playerId ?? matchedRow?.playerName ?? "").trim();
-  const ranks = (id && rankIndex?.get(id)) || {
+  const mergeFromHitterStats = (hs, ranks, imageUrl) => ({
+    ...hp,
+    season_hr: num(hs.hitterHr),
+    season_rbi: num(hs.hitterRbi),
+    season_hit: num(hs.hitterHit),
+    season_avg: num(hs.hitterHra),
+    season_obp: num(hs.hitterObp),
+    season_ops: num(hs.hitterOps),
+    season_war: num(hs.hitterWar),
+    hr_rank: ranks.hr_rank,
+    rbi_rank: ranks.rbi_rank,
+    avg_rank: ranks.avg_rank,
+    ops_rank: ranks.ops_rank,
+    war_rank: ranks.war_rank,
+    player_image_url: imageUrl,
+  });
+
+  const name = String(hp.player || "").trim();
+  if (!name) return { ...hp, ...empty };
+
+  const matchedRow =
+    Array.isArray(statsArr) && statsArr.length > 0
+      ? statsArr.find((r) => String(r?.playerName || "").trim() === name)
+      : null;
+  console.log("[enrich] player:", hp?.player, "found:", !!matchedRow);
+  if (matchedRow) {
+    const id = String(matchedRow?.playerId ?? matchedRow?.playerName ?? "").trim();
+    const ranks = (id && rankIndex?.get(id)) || {
+      hr_rank: null,
+      rbi_rank: null,
+      avg_rank: null,
+      ops_rank: null,
+      war_rank: null,
+    };
+    return mergeFromHitterStats(matchedRow, ranks, matchedRow?.playerImageUrl || null);
+  }
+
+  let pid = await searchNaverKboPlayerId(name);
+  if (!pid) pid = await findNaverHitterPlayerIdInWideSeasonList(seasonYear, name);
+  if (!pid) return { ...hp, ...empty };
+
+  const detail = await fetchNaverHitterSeasonDetailForPlayerId(seasonYear, pid);
+  if (!detail?.hitterStats) return { ...hp, ...empty };
+
+  const ranks = (pid && rankIndex?.get(pid)) || {
     hr_rank: null,
     rbi_rank: null,
     avg_rank: null,
     ops_rank: null,
     war_rank: null,
   };
-
-  return {
-    ...hp,
-    season_hr: num(matchedRow.hitterHr),
-    season_rbi: num(matchedRow.hitterRbi),
-    season_hit: num(matchedRow.hitterHit),
-    season_avg: num(matchedRow.hitterHra),
-    season_obp: num(matchedRow.hitterObp),
-    season_ops: num(matchedRow.hitterOps),
-    season_war: num(matchedRow.hitterWar),
-    hr_rank: ranks.hr_rank,
-    rbi_rank: ranks.rbi_rank,
-    avg_rank: ranks.avg_rank,
-    ops_rank: ranks.ops_rank,
-    war_rank: ranks.war_rank,
-    player_image_url: matchedRow?.playerImageUrl || null,
-  };
+  const img = pickImageUrlFromNaverPlayerDetail(detail.player);
+  return mergeFromHitterStats(detail.hitterStats, ranks, img);
 }
 
 /**
@@ -3000,16 +3143,20 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const away_hot_player_raw = prevAway
       ? await pickHotPlayerForGame(db, prevAway.gid, away_team || "")
       : null;
-    const home_hot_player = enrichHotPlayerWithSeasonStats(
-      home_hot_player_raw,
-      seasonHitterStats,
-      hitterRankIndex
-    );
-    const away_hot_player = enrichHotPlayerWithSeasonStats(
-      away_hot_player_raw,
-      seasonHitterStats,
-      hitterRankIndex
-    );
+    const [home_hot_player, away_hot_player] = await Promise.all([
+      enrichHotPlayerWithSeasonStats(
+        home_hot_player_raw,
+        seasonHitterStats,
+        hitterRankIndex,
+        seasonYear
+      ),
+      enrichHotPlayerWithSeasonStats(
+        away_hot_player_raw,
+        seasonHitterStats,
+        hitterRankIndex,
+        seasonYear
+      ),
+    ]);
 
     const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
     const naverPitchKinds =
