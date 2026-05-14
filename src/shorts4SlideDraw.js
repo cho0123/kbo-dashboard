@@ -354,7 +354,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
 
-  const dateY = h * 0.08;
+  const dateY = h * 0.08 + 10;
   const dateFontPx = Math.round(w * 0.085);
   const seriesFontPx = Math.max(22, Math.round(dateFontPx * 0.38));
 
@@ -381,6 +381,25 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
+  const matchupStr = `${homeTeam} : ${awayTeam}`;
+  const matchupY = dateY + dateFontPx + 30;
+  const matchupTargetW = w * 0.65;
+  let matchupFontPx = Math.round(w * 0.11);
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let guard = 0; guard < 80; guard += 1) {
+    ctx.font = `700 ${matchupFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+    if (ctx.measureText(matchupStr).width <= matchupTargetW) break;
+    matchupFontPx = Math.max(14, matchupFontPx - 2);
+  }
+  ctx.fillStyle = "#ffffff";
+  shadowTextSoft(ctx);
+  ctx.fillText(matchupStr, w / 2, matchupY);
+  resetShadow(ctx);
+  ctx.restore();
+
+  const previewY = matchupY + matchupFontPx + 30;
   const previewLabel = "전력 미리보기";
   const previewTargetW = w * 0.75;
   let previewFontPx = Math.round(w * 0.13);
@@ -394,7 +413,6 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   }
   ctx.fillStyle = getTeamStrongColor(awayTeam);
   shadowTextSoft(ctx);
-  const previewY = dateY + dateFontPx + 60;
   ctx.fillText(previewLabel, w / 2, previewY);
   resetShadow(ctx);
   ctx.restore();
@@ -402,7 +420,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const logoBox = 380;
   const homeCx = w * 0.75;
   const homeLogoX = homeCx - logoBox / 2;
-  const homeLogoY = h * 0.42;
+  const homeLogoY = h * 0.28;
   const awayCx = w * 0.25;
   const awayLogoX = awayCx - logoBox / 2;
   const awayLogoY = h * 0.5;
