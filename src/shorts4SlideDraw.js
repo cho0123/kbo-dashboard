@@ -354,25 +354,26 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const badge = fmtSeriesGameBadgeForIntro(firstGame);
 
-  const topY = 168;
+  const dateY = h * 0.12;
+  const dateFontPx = Math.round(w * 0.085);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `700 ${dateFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(dateStr, w / 2, topY);
+  ctx.fillText(dateStr, w / 2, dateY);
   resetShadow(ctx);
   if (badge) {
-    ctx.font = `800 38px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `800 ${Math.max(24, Math.round(dateFontPx * 0.45))}px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.95)";
     shadowTextSoft(ctx);
-    ctx.fillText(badge, w / 2, topY + 58);
+    ctx.fillText(badge, w / 2, dateY + Math.round(dateFontPx * 0.72));
     resetShadow(ctx);
   }
   ctx.restore();
 
-  const headerBottom = badge ? topY + 58 + 80 : topY + 80;
+  const headerBottom = badge ? dateY + dateFontPx * 0.55 + 58 + 72 : dateY + dateFontPx * 0.55 + 72;
   const homeCx = w * 0.65 + 10;
   const awayCx = w * 0.35 - 10;
   const linePad = 18;
@@ -412,6 +413,15 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
   }
 
+  logoBox = Math.max(96, Math.round(logoBox * 0.8));
+  {
+    const homeLeft = homeCx - logoBox / 2;
+    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
+    homeLogoY = homeLogoBottom - logoBox;
+    const awayRight = awayCx + logoBox / 2;
+    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
+  }
+
   const homeDrawX = homeCx - logoBox / 2;
   const homeDrawY = homeLogoY + 70;
   const awayDrawX = awayCx - logoBox / 2;
@@ -426,9 +436,11 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.textBaseline = "middle";
   ctx.font = `800 ${introVsFontPx}px "${FONT_BODY}", "Noto Sans KR", system-ui, sans-serif`;
   ctx.fillStyle = "#ffffff";
+  ctx.globalAlpha = 0.8;
   shadowTextSoft(ctx);
   ctx.fillText("VS", w / 2, vsY);
   resetShadow(ctx);
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   ctx.save();
