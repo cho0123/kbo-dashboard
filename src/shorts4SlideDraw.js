@@ -354,83 +354,48 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const badge = fmtSeriesGameBadgeForIntro(firstGame);
 
-  const topY = 168;
+  const dateY = h * 0.08;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 52px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(dateStr, w / 2, topY);
+  ctx.fillText(dateStr, w / 2, dateY);
   resetShadow(ctx);
   if (badge) {
     ctx.font = `800 38px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.95)";
     shadowTextSoft(ctx);
-    ctx.fillText(badge, w / 2, topY + 58);
+    ctx.fillText(badge, w / 2, dateY + 52);
     resetShadow(ctx);
   }
   ctx.restore();
 
-  const headerBottom = badge ? topY + 58 + 80 : topY + 80;
+  const logoBox = 300;
   const homeCx = w * 0.65;
+  const homeCy = h * 0.25;
   const awayCx = w * 0.35;
-  const linePad = 18;
-  const vsGap = 52;
-  const footerReserve = 200;
-  /** drawTomorrowPreviewGameSlide VS와 동일 계열(1000 + FONT_TITLE), 인트로 기존 118px 대비 +50% */
-  const introVsFontPx = Math.round(118 * 1.5);
-
-  let logoBox = Math.min(750, w - 100);
-  let homeLogoY = 0;
-  let awayLogoY = 0;
-  while (logoBox >= 120) {
-    const homeLeft = homeCx - logoBox / 2;
-    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
-    homeLogoY = homeLogoBottom - logoBox;
-    const awayRight = awayCx + logoBox / 2;
-    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-    const homeDrawTop = homeLogoY + 80;
-    const awayDrawTop = awayLogoY - 80;
-    if (
-      homeDrawTop >= headerBottom + 4 &&
-      homeCx - logoBox / 2 + 10 >= 8 &&
-      awayCx + logoBox / 2 - 10 <= w - 8 &&
-      homeDrawTop + logoBox + vsGap <= awayDrawTop &&
-      awayDrawTop + logoBox + 48 < h - footerReserve
-    ) {
-      break;
-    }
-    logoBox -= 8;
-  }
-  if (logoBox < 120) {
-    logoBox = 120;
-    const homeLeft = homeCx - logoBox / 2;
-    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
-    homeLogoY = homeLogoBottom - logoBox;
-    const awayRight = awayCx + logoBox / 2;
-    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-  }
-
-  const homeDrawX = homeCx - logoBox / 2 + 10;
-  const homeDrawY = homeLogoY + 80;
-  const awayDrawX = awayCx - logoBox / 2 - 10;
-  const awayDrawY = awayLogoY - 80;
-  const vsY = Math.round((homeDrawY + logoBox + awayDrawY) / 2);
+  const awayCy = h * 0.72;
+  const homeDrawX = homeCx - logoBox / 2;
+  const homeDrawY = homeCy - logoBox / 2;
+  const awayDrawX = awayCx - logoBox / 2;
+  const awayDrawY = awayCy - logoBox / 2;
 
   drawLogoInBox(ctx, homeDrawX, homeDrawY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  drawLogoInBox(ctx, awayDrawX, awayDrawY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
 
+  /** 직전 VS 177px 대비 +50% — Noto Sans KR Bold(800) */
+  const introVsFontPx = Math.round(177 * 1.5);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `1000 ${introVsFontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `800 ${introVsFontPx}px "${FONT_BODY}", "Noto Sans KR", system-ui, sans-serif`;
   ctx.fillStyle = "#FFD700";
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, vsY);
+  ctx.fillText("VS", w / 2, h / 2);
   resetShadow(ctx);
   ctx.restore();
-
-  drawLogoInBox(ctx, awayDrawX, awayDrawY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
 
   ctx.save();
   ctx.textAlign = "center";
@@ -438,7 +403,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   shadowTextSoft(ctx);
-  ctx.fillText("GAME PREVIEW", w / 2, h - 110);
+  ctx.fillText("GAME PREVIEW", w / 2, h * 0.92);
   resetShadow(ctx);
   ctx.restore();
 }
