@@ -360,14 +360,35 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   }
   ctx.restore();
 
-  const logoBox = 300;
-  const logoY = 400;
-  const leftCx = w * 0.26;
-  const rightCx = w * 0.74;
-  drawLogoInBox(ctx, leftCx - logoBox / 2, logoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
-  drawLogoInBox(ctx, rightCx - logoBox / 2, logoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
-
+  /** 기존 300px 기준 2.5배(750) — VS 위·아래 여백·가로 한도 안에서만 사용 */
+  const introLogoBoxTarget = Math.round(300 * 2.5);
+  const headerBottom = badge ? topY + 58 + 80 : topY + 80;
+  const footerReserve = 200;
   const vsY = Math.round(h * 0.51);
+  const gapVs = 58;
+  const gapName = 44;
+  const homeNameY = vsY - gapVs;
+  const awayLogoY = vsY + gapVs;
+  const spaceAbove = Math.max(0, homeNameY - gapName - headerBottom - 8);
+  const spaceBelow = Math.max(0, h - footerReserve - 90 - gapName - awayLogoY);
+  const logoBox = Math.min(introLogoBoxTarget, w - 100, spaceAbove, spaceBelow);
+
+  const homeCx = w * 0.6;
+  const awayCx = w * 0.4;
+  const homeLogoY = homeNameY - gapName - logoBox;
+
+  drawLogoInBox(ctx, homeCx - logoBox / 2, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(homeTeam, homeCx, homeNameY);
+  resetShadow(ctx);
+  ctx.restore();
+
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -378,15 +399,15 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
+  drawLogoInBox(ctx, awayCx - logoBox / 2, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
+
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
-  const nameY = logoY + logoBox + 52;
   shadowTextSoft(ctx);
-  ctx.fillText(homeTeam, leftCx, nameY);
-  ctx.fillText(awayTeam, rightCx, nameY);
+  ctx.fillText(awayTeam, awayCx, awayLogoY + logoBox + gapName);
   resetShadow(ctx);
   ctx.restore();
 
