@@ -1181,6 +1181,7 @@ function sortLineupRows(rows) {
 
 /**
  * 예상 라인업 테이블 (타순·포지션·선수명)
+ * 배경: 해당 팀 단색 전면 → 야구공 데코 → 헤더(로고·중앙 타이틀·구분선·부제) → 테이블
  * @param {"home"|"away"} side
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  */
@@ -1190,47 +1191,47 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   const awayTeam = String(g?.away_team || "원정");
   const teamName = isHome ? homeTeam : awayTeam;
   const rowsRaw = isHome ? g?.home_lineup : g?.away_lineup;
-  const opp = isHome ? awayTeam : homeTeam;
 
   ctx.clearRect(0, 0, w, h);
-  diagTeamColorsOnly(ctx, w, h, teamName, opp);
+  const [solidBg] = teamGrad(teamName);
+  ctx.fillStyle = solidBg || "#131922";
+  ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
-  const LINEUP_TITLE_LOGO = 120;
-  const padL = 48;
-  const titleCy = SAFE_TOP + 80;
-  const textLeft = padL + LINEUP_TITLE_LOGO + 24;
+  const LOGO_X = 60;
+  const LOGO_BOX = 300;
+  const logoTop = SAFE_TOP + 24;
+  const titleCy = logoTop + LOGO_BOX / 2;
   const tk = teamKeyword(teamName);
   const teamLogoImg = logosByTeamKey?.[tk] ?? null;
 
-  drawLogoInBox(
-    ctx,
-    padL,
-    titleCy - LINEUP_TITLE_LOGO / 2,
-    LINEUP_TITLE_LOGO,
-    LINEUP_TITLE_LOGO,
-    teamName,
-    teamLogoImg,
-    drawTeamBadge
-  );
+  drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, teamLogoImg, drawTeamBadge);
 
   const titleFontPx = 64;
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 ${titleFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${teamName} 예상 라인업`, textLeft, titleCy);
+  ctx.fillText(`${teamName} 예상 라인업`, w / 2, titleCy);
   resetShadow(ctx);
+
+  const divY = titleCy + Math.round(titleFontPx * 0.55);
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.05, divY);
+  ctx.lineTo(w * 0.95, divY);
+  ctx.stroke();
 
   const subFontPx = Math.round(titleFontPx * 0.7);
   ctx.font = `600 ${subFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.65)";
   ctx.textBaseline = "top";
-  ctx.fillText("(직전경기 기준)", textLeft, titleCy + titleFontPx * 0.35);
+  ctx.fillText("(직전경기 기준)", w / 2, divY + 14);
 
   const rows = sortLineupRows(rowsRaw).slice(0, 9);
-  const tableTop = SAFE_TOP + 200;
+  const tableTop = divY + 14 + subFontPx + 32;
   const rowH = 118;
   const colX = [88, 200, 320];
 
