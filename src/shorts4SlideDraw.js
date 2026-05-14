@@ -1182,8 +1182,9 @@ function sortLineupRows(rows) {
 /**
  * 예상 라인업 테이블 (타순·포지션·선수명)
  * @param {"home"|"away"} side
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  */
-export function drawShorts4LineupSlide(ctx, w, h, g, side) {
+export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null) {
   const isHome = side === "home";
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
@@ -1191,18 +1192,45 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side) {
   const rowsRaw = isHome ? g?.home_lineup : g?.away_lineup;
   const opp = isHome ? awayTeam : homeTeam;
 
-  shorts4MatchupBackground(ctx, w, h, teamName, opp);
+  ctx.clearRect(0, 0, w, h);
+  diagTeamColorsOnly(ctx, w, h, teamName, opp);
+  drawBaseballBackground(ctx);
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
+  const LINEUP_TITLE_LOGO = 120;
+  const padL = 48;
+  const titleCy = SAFE_TOP + 80;
+  const textLeft = padL + LINEUP_TITLE_LOGO + 24;
+  const tk = teamKeyword(teamName);
+  const teamLogoImg = logosByTeamKey?.[tk] ?? null;
+
+  drawLogoInBox(
+    ctx,
+    padL,
+    titleCy - LINEUP_TITLE_LOGO / 2,
+    LINEUP_TITLE_LOGO,
+    LINEUP_TITLE_LOGO,
+    teamName,
+    teamLogoImg,
+    drawTeamBadge
+  );
+
+  const titleFontPx = 64;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 64px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `900 ${titleFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${teamName} 예상 라인업`, w / 2, SAFE_TOP + 88);
+  ctx.fillText(`${teamName} 예상 라인업`, textLeft, titleCy);
   resetShadow(ctx);
 
+  const subFontPx = Math.round(titleFontPx * 0.7);
+  ctx.font = `600 ${subFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.textBaseline = "top";
+  ctx.fillText("(직전경기 기준)", textLeft, titleCy + titleFontPx * 0.35);
+
   const rows = sortLineupRows(rowsRaw).slice(0, 9);
-  const tableTop = SAFE_TOP + 160;
+  const tableTop = SAFE_TOP + 200;
   const rowH = 118;
   const colX = [88, 200, 320];
 

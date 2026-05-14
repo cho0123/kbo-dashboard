@@ -338,12 +338,12 @@ export default function Shorts4Panel() {
         }
 
         if (slide.type === "home_lineup" && slide.game) {
-          drawShorts4LineupSlide(ctx, w, h, slide.game, "home");
+          drawShorts4LineupSlide(ctx, w, h, slide.game, "home", logosByTeamKey);
           return;
         }
 
         if (slide.type === "away_lineup" && slide.game) {
-          drawShorts4LineupSlide(ctx, w, h, slide.game, "away");
+          drawShorts4LineupSlide(ctx, w, h, slide.game, "away", logosByTeamKey);
           return;
         }
 
