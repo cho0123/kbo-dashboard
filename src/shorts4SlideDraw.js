@@ -862,15 +862,16 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
 const HOT_FACE_BOX = STARTER_SLIDE_FACE_BOX;
 const HOT_STAT_FONT_PX = STARTER_SLIDE_STAT_FONT_PX;
 const HOT_STAT_LINE_GAP = STARTER_SLIDE_STAT_LINE_GAP;
-const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP;
+/** 슬라이드8만: 선발(56) 대비 위로 당겨 사진·스탯 블록 상승 */
+const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP - 30;
 const HOT_HEADER_GAP_LINE_TO_CENTER = STARTER_HEADER_GAP_LINE_TO_CENTER;
 const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
 /** 상단(홈) 구역: 슬라이드7 원정과 동일 dividerY (헤더·사진·스탯 y) */
 const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
 const HOT_LAST_GAME_HERO_FONT_PX = 80;
-/** 홈런·안타·타점 스탯 블록 세로 중심 이동 (기준 cy 대비; 이전 +40px 대비 40px 위 = 0) */
-const HOT_STAT_BLOCK_SHIFT_Y = 0;
+/** 홈런·안타·타점 스탯 블록 세로 중심 이동 (기준 cy 대비) */
+const HOT_STAT_BLOCK_SHIFT_Y = -20;
 /** 타율·OPS·WAR 바 하단 요약 줄 높이 (구종바 summary와 동일 계산) */
 const HOT_TRIPLE_SUMMARY_BLOCK_H = STARTER_PITCH_SUMMARY_GAP + STARTER_PITCH_SUMMARY_FONT_PX + 6;
 /** 타율·OPS·WAR 컬러바 — 구종 분할바와 동일 너비/높이 스타일 */
