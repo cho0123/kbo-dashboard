@@ -153,32 +153,28 @@ function introDiagBoundaryYAtX(w, h, x) {
   return yL + (yR - yL) * t;
 }
 
-/** diagIntroStrongSplit 홈(사선 위) 영역과 동일한 폴리곤으로 clip */
+/** 사선 위(상단 홈 컬러) 영역 — introDiagBoundaryYAtX 기준 */
 function clipIntroDiagUpperRegion(ctx, w, h) {
-  const splitY = h * 0.5;
-  const tilt = h * 0.1;
-  const yL = splitY - tilt;
-  const yR = splitY + tilt;
+  const diagY_left = introDiagBoundaryYAtX(w, h, 0);
+  const diagY_right = introDiagBoundaryYAtX(w, h, w);
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(w, 0);
-  ctx.lineTo(w, yR);
-  ctx.lineTo(0, yL);
+  ctx.lineTo(w, diagY_right);
+  ctx.lineTo(0, diagY_left);
   ctx.closePath();
   ctx.clip();
 }
 
-/** diagIntroStrongSplit 원정(사선 아래) 영역과 동일한 폴리곤으로 clip */
+/** 사선 아래(하단 원정 컬러) 영역 — introDiagBoundaryYAtX 기준 */
 function clipIntroDiagLowerRegion(ctx, w, h) {
-  const splitY = h * 0.5;
-  const tilt = h * 0.1;
-  const yL = splitY - tilt;
-  const yR = splitY + tilt;
+  const diagY_left = introDiagBoundaryYAtX(w, h, 0);
+  const diagY_right = introDiagBoundaryYAtX(w, h, w);
   ctx.beginPath();
-  ctx.moveTo(0, yL);
-  ctx.lineTo(w, yR);
+  ctx.moveTo(0, h);
   ctx.lineTo(w, h);
-  ctx.lineTo(0, h);
+  ctx.lineTo(w, diagY_right);
+  ctx.lineTo(0, diagY_left);
   ctx.closePath();
   ctx.clip();
 }
@@ -381,20 +377,20 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
 
   diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam);
 
-  const logoBox = 600;
-  const homeLogoX = w * 0.25 - 300;
-  const homeLogoY = h * 0.05;
-  const awayLogoX = w * 0.75 - 300;
-  const awayLogoY = h * 0.5;
+  const logoBox = 550;
+  const awayLogoX = w * 0.1;
+  const awayLogoY = h * 0.25;
+  const homeLogoX = w * 0.55;
+  const homeLogoY = h * 0.45;
 
   ctx.save();
   clipIntroDiagUpperRegion(ctx, w, h);
-  drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
   ctx.restore();
 
   ctx.save();
   clipIntroDiagLowerRegion(ctx, w, h);
-  drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
+  drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
   ctx.restore();
 
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
