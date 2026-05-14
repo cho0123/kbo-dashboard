@@ -352,10 +352,26 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam);
 
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
-  const badge = fmtSeriesGameBadgeForIntro(firstGame);
+  const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
 
   const dateY = h * 0.12;
   const dateFontPx = Math.round(w * 0.085);
+  const previewFontPx = Math.round(w * 0.075);
+  const seriesFontPx = Math.max(22, Math.round(dateFontPx * 0.38));
+
+  if (seriesBadge) {
+    const seriesY = dateY - Math.round(dateFontPx * 0.52) - 14 - Math.round(seriesFontPx * 0.45);
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${seriesFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(seriesBadge, w / 2, seriesY);
+    resetShadow(ctx);
+    ctx.restore();
+  }
+
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -364,18 +380,23 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   shadowTextSoft(ctx);
   ctx.fillText(dateStr, w / 2, dateY);
   resetShadow(ctx);
-  if (badge) {
-    ctx.font = `800 ${Math.max(24, Math.round(dateFontPx * 0.45))}px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.95)";
-    shadowTextSoft(ctx);
-    ctx.fillText(badge, w / 2, dateY + Math.round(dateFontPx * 0.72));
-    resetShadow(ctx);
-  }
   ctx.restore();
 
-  const headerBottom = badge ? dateY + dateFontPx * 0.55 + 58 + 72 : dateY + dateFontPx * 0.55 + 72;
-  const homeCx = w * 0.65 + 10;
-  const awayCx = w * 0.35 - 10;
+  const previewY = dateY + dateFontPx + 20;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = getTeamStrongColor(awayTeam);
+  ctx.font = `800 ${previewFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText("전력 미리보기", w / 2, previewY);
+  resetShadow(ctx);
+  ctx.restore();
+
+  const headerBottom =
+    previewY + Math.round(previewFontPx * 0.55) + (seriesBadge ? 40 : 56);
+  const homeCx = w * 0.75;
+  const awayCx = w * 0.25;
   const linePad = 18;
   const vsGap = 52;
   const footerReserve = 200;

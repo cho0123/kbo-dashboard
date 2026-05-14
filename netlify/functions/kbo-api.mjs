@@ -3174,6 +3174,98 @@ async function pickHotPlayerForGame(db, gameId, teamName) {
   };
 }
 
+/**
+ * 시즌 전체 경기에서 동일 팀 페어(홈/원정 무관)를 날짜순으로 두고,
+ * 연일(캘린더 간격 ≤ 1일)로 이어지는 구간을 한 연전으로 본다.
+ * 현재 `game_id`·`game_date`가 속한 구간의 길이와 차전(1부터)을 반환.
+ * @returns {{ series_length: number, series_game_number: number }}
+ */
+function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team) {
+  const hKey = normalizeTeamKey(home_team || "");
+  const aKey = normalizeTeamKey(away_team || "");
+  const gidNeedle = String(game_id ?? "").trim();
+  const dateNeedle = safeIsoDate(game_date || "");
+  if (!hKey || !aKey || !dateNeedle) return { series_length: 0, series_game_number: 0 };
+
+  const pairKeySorted = [hKey, aKey].sort().join("|");
+
+  const teamOf = (g, side) => {
+    const raw =
+      side === "home"
+        ? g?.home_team ?? g?.home ?? g?.homeTeam ?? ""
+        : g?.away_team ?? g?.away ?? g?.awayTeam ?? "";
+    return normalizeTeamKey(String(raw || ""));
+  };
+  const gdate = (g) => safeIsoDate(g?.game_date || g?.gameDate || "");
+  const gidOf = (g) => String(g?.game_id ?? g?.gameId ?? "").trim();
+
+  const list = (seasonGames || []).filter((g) => {
+    const hh = teamOf(g, "home");
+    const aa = teamOf(g, "away");
+    if (!hh || !aa) return false;
+    if ([hh, aa].sort().join("|") !== pairKeySorted) return false;
+    return Boolean(gdate(g));
+  });
+
+  if (gidNeedle && !list.some((g) => gidOf(g) === gidNeedle)) {
+    list.push({
+      game_id: gidNeedle,
+      game_date: dateNeedle,
+      home_team,
+      away_team,
+    });
+  }
+
+  list.sort((a, b) => {
+    const da = gdate(a);
+    const db = gdate(b);
+    if (da !== db) return da.localeCompare(db);
+    return gidOf(a).localeCompare(gidOf(b));
+  });
+
+  const dayDiff = (isoA, isoB) => {
+    const s0 = String(isoA || "").slice(0, 10);
+    const s1 = String(isoB || "").slice(0, 10);
+    const t0 = new Date(`${s0}T12:00:00`).getTime();
+    const t1 = new Date(`${s1}T12:00:00`).getTime();
+    if (!Number.isFinite(t0) || !Number.isFinite(t1)) return 999;
+    return Math.round((t1 - t0) / 86400000);
+  };
+
+  const runs = [];
+  let run = [];
+  for (const g of list) {
+    const d = gdate(g);
+    if (!run.length) {
+      run.push(g);
+      continue;
+    }
+    const prevD = gdate(run[run.length - 1]);
+    if (dayDiff(prevD, d) <= 1) run.push(g);
+    else {
+      runs.push(run);
+      run = [g];
+    }
+  }
+  if (run.length) runs.push(run);
+
+  for (const r of runs) {
+    if (gidNeedle) {
+      const byId = r.findIndex((g) => gidOf(g) === gidNeedle);
+      if (byId >= 0) {
+        return { series_length: r.length, series_game_number: byId + 1 };
+      }
+    }
+  }
+  for (const r of runs) {
+    const byDate = r.findIndex((g) => gdate(g) === dateNeedle);
+    if (byDate >= 0) {
+      return { series_length: r.length, series_game_number: byDate + 1 };
+    }
+  }
+  return { series_length: 0, series_game_number: 0 };
+}
+
 async function buildMatchupPreviewPayload(db, dateStr) {
   const { standings, year: standingsYear } = await fetchStandings2026Document(db);
   const findRankRow = (teamName) => {
@@ -3445,6 +3537,14 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const naverPitchKinds =
       game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
 
+    const seriesRaw = computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team);
+    const seriesLen = Number(seriesRaw?.series_length);
+    const seriesNum = Number(seriesRaw?.series_game_number);
+    const series_length =
+      Number.isFinite(seriesLen) && seriesLen > 1 ? Math.round(seriesLen) : null;
+    const series_game_number =
+      series_length != null && Number.isFinite(seriesNum) && seriesNum > 0 ? Math.round(seriesNum) : null;
+
     const home_starter_image_url = findPitcherImageUrlByStarterName(
       seasonPitcherStats,
       home_starter
@@ -3501,6 +3601,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_hot_player,
       home_pitch_kinds: naverPitchKinds?.home ?? null,
       away_pitch_kinds: naverPitchKinds?.away ?? null,
+      series_length,
+      series_game_number,
     });
   }
   return { ok: true, date: dateStr, games, standings };
