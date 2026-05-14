@@ -2577,7 +2577,7 @@ function buildTeamBattingAvgByNormKey(teamStatsArr) {
   if (!Array.isArray(teamStatsArr)) return m;
   for (const r of teamStatsArr) {
     const label =
-      pickStr(r, ["keyword", "teamName", "teamShortName"]) ||
+      pickStr(r, ["teamShortName", "teamName", "keyword"]) ||
       String(r?.teamName || r?.teamShortName || "").trim();
     if (!label) continue;
     const key = normalizeTeamKey(label);
