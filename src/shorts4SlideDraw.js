@@ -869,6 +869,10 @@ const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
 const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
 const HOT_LAST_GAME_HERO_FONT_PX = 80;
+/** 홈런·안타·타점 스탯 블록 세로 중심 이동 */
+const HOT_STAT_BLOCK_SHIFT_Y = 100;
+/** 타율·OPS·WAR 바 하단 요약 줄 높이 (구종바 summary와 동일 계산) */
+const HOT_TRIPLE_SUMMARY_BLOCK_H = STARTER_PITCH_SUMMARY_GAP + STARTER_PITCH_SUMMARY_FONT_PX + 6;
 /** 타율·OPS·WAR 컬러바 — 구종 분할바와 동일 너비/높이 스타일 */
 const HOT_TRIPLE_BAR_W_FRAC = STARTER_PITCH_BAR_W_FRAC;
 const HOT_TRIPLE_BAR_H = STARTER_PITCH_SEGMENTED_BAR_H;
@@ -890,25 +894,12 @@ function fmtDec3OrDash(v) {
   return Number.isFinite(n) ? n.toFixed(3) : "-";
 }
 
-function fmtDec2OrDash(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n.toFixed(2) : "-";
-}
-
-function fmtRankSuffix(r) {
-  const n = Number(r);
-  return Number.isFinite(n) && n > 0 ? ` · ${n}위` : "";
-}
-
 function hotPlayerStatLines(hp) {
   const o = hp && typeof hp === "object" ? hp : {};
   return [
-    `- ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개${fmtRankSuffix(o.hr_rank)})`,
+    `- ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개)`,
     `- ${fmtIntOrDash(o.h)}안타 (시즌 ${fmtIntOrDash(o.season_hit)}개)`,
-    `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점${fmtRankSuffix(o.rbi_rank)})`,
-    `- 타율 ${fmtDec3OrDash(o.season_avg)}${fmtRankSuffix(o.avg_rank)}`,
-    `- OPS ${fmtDec3OrDash(o.season_ops)}${fmtRankSuffix(o.ops_rank)}`,
-    `- WAR ${fmtDec2OrDash(o.season_war)}${fmtRankSuffix(o.war_rank)}`,
+    `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점)`,
   ];
 }
 
@@ -945,25 +936,25 @@ const HOT_RANK_BADGE_FG = "#1a1a1a";
 const HOT_RANK_BADGE_RIGHT_MARGIN = 40;
 const HOT_RANK_BADGE_FIELDS = [
   { key: "avg_rank", label: "타율" },
-  { key: "hr_rank", label: "홈런" },
-  { key: "rbi_rank", label: "타점" },
   { key: "ops_rank", label: "OPS" },
   { key: "war_rank", label: "WAR" },
+  { key: "hr_rank", label: "홈런" },
+  { key: "rbi_rank", label: "타점" },
 ];
 
 /**
- * 스탯 블록 아래 골드 라운드 배지 행. 10위 이내(1~10)만 렌더.
- * 캔버스 우측 여백을 넘으면 다음 줄로 줄바꿈.
+ * 스탯 텍스트 아래 골드 라운드 배지 행. 10위 이내(1~10)만 렌더.
+ * @returns {number} 배지 영역 하단 y (배지 없으면 topY)
  */
 function drawHotPlayerRankBadges(ctx, leftX, topY, canvasW, hp) {
-  if (!hp || typeof hp !== "object") return;
+  if (!hp || typeof hp !== "object") return topY;
   const labels = [];
   for (const f of HOT_RANK_BADGE_FIELDS) {
     const r = Number(hp[f.key]);
     if (!Number.isFinite(r) || r <= 0 || r > 10) continue;
     labels.push(`${f.label} ${r}위`);
   }
-  if (labels.length === 0) return;
+  if (labels.length === 0) return topY;
 
   ctx.save();
   ctx.font = `800 ${HOT_RANK_BADGE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
@@ -975,6 +966,7 @@ function drawHotPlayerRankBadges(ctx, leftX, topY, canvasW, hp) {
 
   let x = leftX;
   let y = topY;
+  let maxBottom = topY;
   for (const label of labels) {
     const textW = ctx.measureText(label).width;
     const boxW = textW + HOT_RANK_BADGE_PAD_X * 2;
@@ -988,9 +980,11 @@ function drawHotPlayerRankBadges(ctx, leftX, topY, canvasW, hp) {
     ctx.fill();
     ctx.fillStyle = HOT_RANK_BADGE_FG;
     ctx.fillText(label, x + HOT_RANK_BADGE_PAD_X, y + boxH / 2);
+    maxBottom = Math.max(maxBottom, y + boxH);
     x += boxW + HOT_RANK_BADGE_GAP;
   }
   ctx.restore();
+  return maxBottom;
 }
 
 /** 헤더(팀로고 + "팀명 · 선수명") */
@@ -1040,9 +1034,9 @@ function hotPlayerTripleStatRatios(hp) {
 }
 
 /**
- * 스탯 블록 아래 타율/OPS/WAR 가로 분할 바 (구종바와 동일 높이·배경·텍스트 위치).
+ * 스탯 블록 아래 타율/OPS/WAR 가로 분할 바 + 하단 요약 한 줄(구종바 summary와 동일 스타일).
  * @param {"upper"|"lower"} verticalZone 상단(홈): 대각선 아래 침범 방지, 하단(원정): 캔버스 하단 여백
- * @returns {number} 바 하단 y; 그리지 않으면 topBelowStats
+ * @returns {number} 요약 줄까지 포함한 하단 y; 그리지 않으면 topBelowStats
  */
 function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, verticalZone) {
   if (!hp || typeof hp !== "object") return topBelowStats;
@@ -1054,14 +1048,19 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
 
   const segWs = splitSegmentPixelWidths(barW, ratios);
   const barH = HOT_TRIPLE_BAR_H;
+  const summaryBlockH = HOT_TRIPLE_SUMMARY_BLOCK_H;
   let barTop = topBelowStats + HOT_TRIPLE_BAR_GAP;
 
   if (verticalZone === "upper") {
     const lim = diagTeamSplitLineYAtX(wCanvas, hCanvas, barLeft) - STARTER_PITCH_AWAY_DIAG_PAD;
-    if (barTop + barH > lim) barTop = Math.max(topBelowStats + 4, lim - barH);
+    if (barTop + barH + summaryBlockH > lim) {
+      barTop = Math.max(topBelowStats + 4, lim - barH - summaryBlockH);
+    }
   } else {
     const lim = hCanvas - STARTER_PITCH_HOME_BOTTOM_PAD;
-    if (barTop + barH > lim) barTop = Math.max(topBelowStats + 4, lim - barH);
+    if (barTop + barH + summaryBlockH > lim) {
+      barTop = Math.max(topBelowStats + 4, lim - barH - summaryBlockH);
+    }
   }
 
   const avgN = Number(hp.season_avg);
@@ -1115,7 +1114,19 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
     x += sw;
   }
 
-  return barTop + barH;
+  const summaryLine = `타율 ${valueStrs[0]}  OPS ${valueStrs[1]}  WAR ${valueStrs[2]}`;
+  const summaryTop = barTop + barH + STARTER_PITCH_SUMMARY_GAP;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `500 ${STARTER_PITCH_SUMMARY_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(summaryLine, wCanvas / 2, summaryTop);
+  resetShadow(ctx);
+  ctx.restore();
+
+  return barTop + barH + summaryBlockH;
 }
 
 /**
@@ -1123,7 +1134,7 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
  * - 세로 중앙(h/2): "LAST GAME HERO" (슬라이드7 VS와 동일 계열 타이포·골드, 반 경계 근처, 컨텐츠 위에 마지막 그림)
  * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어 — 레이아웃 y는 슬라이드7 원정과 동일
  * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어
- * - 스탯 아래: 타율·OPS·WAR 컬러 분할바(구종바와 동일 120px·90% 너비)
+ * - 스탯(홈런·안타·타점) 아래 순위 배지 → 타율·OPS·WAR 바 및 하단 요약 텍스트
  * - 각 섹션 헤더: 팀로고 + "팀명 · 선수명" + 흰 구분선
  *
  * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
@@ -1169,15 +1180,20 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     }
   }
   const upperStatX = upperPhotoCx + rPhoto + 28;
-  const upperStatBottom = drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
-  const upperAfterBar = drawHotPlayerAvgOpsWarBar(ctx, w, h, upperStatBottom, homeHp, "upper");
-  drawHotPlayerRankBadges(
+  const upperStatBottom = drawHotPlayerStatBlock(
     ctx,
     upperStatX,
-    upperAfterBar + HOT_RANK_BADGE_TOP_GAP,
+    upperCy + HOT_STAT_BLOCK_SHIFT_Y,
+    homeHp
+  );
+  const upperBadgesBottom = drawHotPlayerRankBadges(
+    ctx,
+    upperStatX,
+    upperStatBottom + HOT_RANK_BADGE_TOP_GAP,
     w,
     homeHp
   );
+  drawHotPlayerAvgOpsWarBar(ctx, w, h, upperBadgesBottom, homeHp, "upper");
 
   const mid = h * 0.5;
   const lowerDividerY = mid + 92 + 2 * HOT_HEADER_GAP_LINE_TO_CENTER + 3;
@@ -1197,15 +1213,20 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     }
   }
   const lowerStatX = lowerPhotoCx + rPhoto + 28;
-  const lowerStatBottom = drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
-  const lowerAfterBar = drawHotPlayerAvgOpsWarBar(ctx, w, h, lowerStatBottom, awayHp, "lower");
-  drawHotPlayerRankBadges(
+  const lowerStatBottom = drawHotPlayerStatBlock(
     ctx,
     lowerStatX,
-    lowerAfterBar + HOT_RANK_BADGE_TOP_GAP,
+    lowerCy + HOT_STAT_BLOCK_SHIFT_Y,
+    awayHp
+  );
+  const lowerBadgesBottom = drawHotPlayerRankBadges(
+    ctx,
+    lowerStatX,
+    lowerStatBottom + HOT_RANK_BADGE_TOP_GAP,
     w,
     awayHp
   );
+  drawHotPlayerAvgOpsWarBar(ctx, w, h, lowerBadgesBottom, awayHp, "lower");
 
   drawHotPlayerLastGameHeroTitle(ctx, w, h);
 }
