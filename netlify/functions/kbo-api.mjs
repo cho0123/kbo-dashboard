@@ -2712,7 +2712,8 @@ async function searchNaverKboPlayerId(name) {
 }
 
 /**
- * 시즌 타자 목록 넓게 조회 후 이름 정확 일치로 playerId (search API 미가동/404 대비).
+ * 시즌 타자 목록 넓게 조회 후 이름 정확 일치 (search API 미가동/404 대비).
+ * @returns {Promise<{ playerId: string, playerImageUrl: string | null } | null>}
  */
 async function findNaverHitterPlayerIdInWideSeasonList(seasonYear, wantName) {
   const y = String(Number(seasonYear) || "").trim();
@@ -2726,7 +2727,12 @@ async function findNaverHitterPlayerIdInWideSeasonList(seasonYear, wantName) {
     const arr = json?.result?.seasonPlayerStats;
     if (!Array.isArray(arr)) return null;
     const row = arr.find((r) => String(r?.playerName || "").trim() === want);
-    return row?.playerId != null ? String(row.playerId).trim() : null;
+    if (row?.playerId == null) return null;
+    const playerId = String(row.playerId).trim();
+    const rawImg = row?.playerImageUrl;
+    const playerImageUrl =
+      rawImg != null && String(rawImg).trim() ? String(rawImg).trim() : null;
+    return { playerId, playerImageUrl };
   } catch (e) {
     console.warn("[findNaverHitterPlayerIdInWideSeasonList]", y, want, e?.message || e);
     return null;
@@ -2769,7 +2775,7 @@ async function fetchNaverHitterSeasonDetailForPlayerId(seasonYear, playerId) {
 
 /**
  * 핫플레이어 객체에 네이버 시즌스탯/순위/사진URL을 머지.
- * 매칭: (1) 시즌 랭킹 배열 playerName === hp.player (2) search/players → 개별 시즌 API (3) 넓은 목록에서 이름 일치 → 개별 API.
+ * 매칭: (1) 시즌 랭킹 배열 playerName === hp.player (2) search/players → 개별 시즌 API (3) 넓은 목록에서 이름 일치 시 목록의 playerImageUrl 사용 + 개별 API는 스탯만.
  * statsArr가 없거나 최종 매칭 실패 시 키는 모두 null로 채워서 반환.
  */
 async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYear) {
@@ -2832,7 +2838,14 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
   }
 
   let pid = await searchNaverKboPlayerId(name);
-  if (!pid) pid = await findNaverHitterPlayerIdInWideSeasonList(seasonYear, name);
+  let imageUrlFromWideList = null;
+  if (!pid) {
+    const wide = await findNaverHitterPlayerIdInWideSeasonList(seasonYear, name);
+    if (wide?.playerId) {
+      pid = wide.playerId;
+      imageUrlFromWideList = wide.playerImageUrl;
+    }
+  }
   if (!pid) return { ...hp, ...empty };
 
   const detail = await fetchNaverHitterSeasonDetailForPlayerId(seasonYear, pid);
@@ -2845,7 +2858,10 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     ops_rank: null,
     war_rank: null,
   };
-  const imageUrl = pickImageUrlFromNaverPlayerDetail(detail.player);
+  const imageUrl =
+    (imageUrlFromWideList && String(imageUrlFromWideList).trim()) ||
+    pickImageUrlFromNaverPlayerDetail(detail.player) ||
+    null;
   console.log("[enrich fallback] player_image_url:", imageUrl);
   return mergeFromHitterStats(detail.hitterStats, ranks, imageUrl);
 }
