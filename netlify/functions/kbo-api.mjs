@@ -3147,12 +3147,16 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
     const prevHome = findPrevGameSideForTeam(seasonGames, homeKey, game_date, game_id);
     const prevAway = findPrevGameSideForTeam(seasonGames, awayKey, game_date, game_id);
+    console.log('[lineup debug] prevHome:', JSON.stringify(prevHome));
+    console.log('[lineup debug] prevAway:', JSON.stringify(prevAway));
     const home_lineup = prevHome
       ? await fetchLineupArrayForGameSide(db, prevHome.gid, prevHome.side)
       : [];
     const away_lineup = prevAway
       ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
       : [];
+    console.log('[lineup debug] home_lineup length:', home_lineup?.length);
+    console.log('[lineup debug] away_lineup length:', away_lineup?.length);
 
     const home_hot_player_raw = prevHome
       ? await pickHotPlayerForGame(db, prevHome.gid, home_team || "")
