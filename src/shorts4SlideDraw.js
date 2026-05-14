@@ -336,7 +336,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 /**
- * 쇼츠4 전용 인트로 — 강조 단색 사선 배경, VS·로고·팀명, 날짜(+연차전 뱃지는 필드 있을 때만)
+ * 쇼츠4 전용 인트로 — 강조 단색 사선 배경, VS·로고, 날짜(+연차전 뱃지는 필드 있을 때만)
  * @param {string} date
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
@@ -376,29 +376,28 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const homeCx = w * 0.65;
   const awayCx = w * 0.35;
   const linePad = 18;
-  const gapName = 44;
   const vsGap = 52;
   const footerReserve = 200;
+  /** 직전 VS 118px 대비 +50% */
+  const introVsFontPx = Math.round(118 * 1.5);
 
   let logoBox = Math.min(750, w - 100);
   let homeLogoY = 0;
-  let homeNameY = 0;
   let awayLogoY = 0;
-  let awayNameY = 0;
   while (logoBox >= 120) {
     const homeLeft = homeCx - logoBox / 2;
     const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
     homeLogoY = homeLogoBottom - logoBox;
-    homeNameY = homeLogoY + logoBox + gapName;
     const awayRight = awayCx + logoBox / 2;
     awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-    awayNameY = awayLogoY + logoBox + gapName;
+    const homeDrawTop = homeLogoY + 70;
+    const awayDrawTop = awayLogoY - 70;
     if (
-      homeLogoY >= headerBottom + 4 &&
-      homeLeft >= 8 &&
-      awayRight <= w - 8 &&
-      homeNameY + vsGap <= awayLogoY &&
-      awayNameY + 40 < h - footerReserve
+      homeDrawTop >= headerBottom + 4 &&
+      homeCx - logoBox / 2 + 10 >= 8 &&
+      awayCx + logoBox / 2 - 10 <= w - 8 &&
+      homeDrawTop + logoBox + vsGap <= awayDrawTop &&
+      awayDrawTop + logoBox + 48 < h - footerReserve
     ) {
       break;
     }
@@ -409,44 +408,26 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     const homeLeft = homeCx - logoBox / 2;
     const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
     homeLogoY = homeLogoBottom - logoBox;
-    homeNameY = homeLogoY + logoBox + gapName;
     const awayRight = awayCx + logoBox / 2;
     awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-    awayNameY = awayLogoY + logoBox + gapName;
   }
 
-  drawLogoInBox(ctx, homeCx - logoBox / 2, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  const homeDrawX = homeCx - logoBox / 2 + 10;
+  const homeDrawY = homeLogoY + 70;
+  const awayDrawX = awayCx - logoBox / 2 - 10;
+  const awayDrawY = awayLogoY - 70;
+  const vsY = Math.round((homeDrawY + logoBox + awayDrawY) / 2);
+
+  drawLogoInBox(ctx, homeDrawX, homeDrawY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  drawLogoInBox(ctx, awayDrawX, awayDrawY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
 
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(homeTeam, homeCx, homeNameY);
-  resetShadow(ctx);
-  ctx.restore();
-
-  const vsY = Math.round((homeNameY + awayLogoY) / 2);
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `1000 118px "${FONT_TITLE}", system-ui, sans-serif`;
-  ctx.fillStyle = "#FFD700";
+  ctx.font = `800 ${introVsFontPx}px "${FONT_BODY}", "Noto Sans KR", system-ui, sans-serif`;
+  ctx.fillStyle = "#ffffff";
   shadowTextSoft(ctx);
   ctx.fillText("VS", w / 2, vsY);
-  resetShadow(ctx);
-  ctx.restore();
-
-  drawLogoInBox(ctx, awayCx - logoBox / 2, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
-
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(awayTeam, awayCx, awayNameY);
   resetShadow(ctx);
   ctx.restore();
 
