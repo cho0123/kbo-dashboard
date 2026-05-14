@@ -881,7 +881,7 @@ const HOT_TRIPLE_MIN_SEG_W_FOR_TEXT = 50;
 const HOT_TRIPLE_BASE_AVG = 0.4;
 const HOT_TRIPLE_BASE_OPS = 1.2;
 const HOT_TRIPLE_BASE_WAR = 6.0;
-const HOT_TRIPLE_BAR_COLORS = ["#C0392B", "#1A5276", "#1E8449"];
+const HOT_TRIPLE_BAR_COLORS = ["#E53935", "#1E88E5", "#43A047"];
 const HOT_TRIPLE_BAR_LABELS = ["타율", "OPS", "WAR"];
 
 function fmtIntOrDash(v) {
@@ -934,8 +934,8 @@ const HOT_RANK_BADGE_FONT_PX = 32;
 const HOT_GAP_STAT_TO_BADGES = 15;
 /** 순위 배지 영역 하단 → 타율/OPS/WAR 바 상단 */
 const HOT_GAP_BADGE_BOTTOM_TO_BAR = 15;
-const HOT_RANK_BADGE_BG = "#FFD700";
-const HOT_RANK_BADGE_FG = "#1a1a1a";
+const HOT_RANK_BADGE_BG = "#FF6F00";
+const HOT_RANK_BADGE_FG = "#ffffff";
 const HOT_RANK_BADGE_RIGHT_MARGIN = 40;
 const HOT_RANK_BADGE_FIELDS = [
   { key: "avg_rank", label: "타율" },
