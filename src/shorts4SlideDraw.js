@@ -1179,9 +1179,25 @@ function sortLineupRows(rows) {
   return [...rows].sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0));
 }
 
+/** game.home_lineup / away_lineup 행을 { order, pos, player }로 통일 (API·스키마 별칭 허용) */
+function normalizeLineupRowsForDraw(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((row) => {
+    if (!row || typeof row !== "object") {
+      return { order: 0, pos: "—", player: "—" };
+    }
+    const orderRaw = row.order ?? row.lineup_order ?? row.lineupOrder ?? row.batOrder;
+    const orderN = Number(orderRaw);
+    const order = Number.isFinite(orderN) && orderN > 0 ? orderN : 0;
+    const pos = String(row.pos ?? row.position ?? row.posName ?? "").trim() || "—";
+    const player = String(row.player ?? row.name ?? row.hitter ?? row.batterName ?? "").trim() || "—";
+    return { order, pos, player };
+  });
+}
+
 /**
  * 예상 라인업 테이블 (타순·포지션·선수명)
- * 배경: 해당 팀 단색 전면 → 야구공 데코 → 헤더(로고·중앙 타이틀·구분선·부제) → 테이블
+ * 배경: 해당 팀 단색 전면 → 야구공 데코 → 헤더(로고·타이틀·구분선·부제) → 테이블
  * @param {"home"|"away"} side
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  */
@@ -1191,6 +1207,7 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   const awayTeam = String(g?.away_team || "원정");
   const teamName = isHome ? homeTeam : awayTeam;
   const rowsRaw = isHome ? g?.home_lineup : g?.away_lineup;
+  const rowsNormalized = normalizeLineupRowsForDraw(rowsRaw);
 
   ctx.clearRect(0, 0, w, h);
   const [solidBg] = teamGrad(teamName);
@@ -1198,22 +1215,24 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
+  const HEADER_Y_SHIFT = -50;
   const LOGO_X = 60;
   const LOGO_BOX = 300;
-  const logoTop = SAFE_TOP + 24;
+  const logoTop = SAFE_TOP + 24 + HEADER_Y_SHIFT;
   const titleCy = logoTop + LOGO_BOX / 2;
+  const titleTextX = Math.max(LOGO_X + LOGO_BOX + 20, Math.round(w * 0.45));
   const tk = teamKeyword(teamName);
   const teamLogoImg = logosByTeamKey?.[tk] ?? null;
 
   drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, teamLogoImg, drawTeamBadge);
 
   const titleFontPx = 64;
-  ctx.textAlign = "center";
+  ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 ${titleFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(`${teamName} 예상 라인업`, w / 2, titleCy);
+  ctx.fillText(`${teamName} 예상 라인업`, titleTextX, titleCy);
   resetShadow(ctx);
 
   const divY = titleCy + Math.round(titleFontPx * 0.55);
@@ -1227,10 +1246,11 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   const subFontPx = Math.round(titleFontPx * 0.7);
   ctx.font = `600 ${subFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillText("(직전경기 기준)", w / 2, divY + 14);
 
-  const rows = sortLineupRows(rowsRaw).slice(0, 9);
+  const rows = sortLineupRows(rowsNormalized).slice(0, 9);
   const tableTop = divY + 14 + subFontPx + 32;
   const rowH = 118;
   const colX = [88, 200, 320];
