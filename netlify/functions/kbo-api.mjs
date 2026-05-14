@@ -2453,6 +2453,63 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
   }
 }
 
+/**
+ * 네이버 preview API의 fullLineUp 한 팀분을 { order, pos, player } 배열로 변환.
+ * 투수(position === "1" 또는 batorder 없음) 제외, batorder 오름차순.
+ * @param {unknown} fullLineUp
+ * @returns {Array<{ order: number, pos: string, player: string }>}
+ */
+function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
+  if (!Array.isArray(fullLineUp)) return [];
+  const rows = [];
+  for (const row of fullLineUp) {
+    const pos = row?.position != null ? String(row.position).trim() : "";
+    const batorder = row?.batorder;
+    if (pos === "1" || batorder == null || batorder === "") continue;
+    const order = Number(batorder);
+    if (!Number.isFinite(order)) continue;
+    const player = row?.playerName != null ? String(row.playerName).trim() : "";
+    if (!player) continue;
+    const posLabel = row?.positionName != null ? String(row.positionName).trim() : "";
+    rows.push({ order, pos: posLabel, player });
+  }
+  rows.sort((a, b) => a.order - b.order);
+  return rows;
+}
+
+/**
+ * 네이버 경기 프리뷰 API에서 홈/원정 타자 라인업(fullLineUp) 조회.
+ * @returns {Promise<{ home: Array<{ order: number, pos: string, player: string }>, away: Array<...> } | null>}
+ */
+async function fetchNaverLineupFromPreview(gameId, gameYear) {
+  const gid = String(gameId || "").trim();
+  const gy = String(gameYear || "").trim();
+  if (!gid || !gy) return null;
+  const naverGameId = gid.endsWith(gy) ? gid : `${gid}${gy}`;
+  const url = `https://api-gw.sports.naver.com/schedule/games/${encodeURIComponent(naverGameId)}/preview`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const pd = json?.result?.previewData;
+    if (!pd || typeof pd !== "object") return null;
+
+    const homeRaw = pd?.homeTeamLineUp?.fullLineUp;
+    const awayRaw = pd?.awayTeamLineUp?.fullLineUp;
+    if (!Array.isArray(homeRaw) || !Array.isArray(awayRaw)) return null;
+
+    return {
+      home: transformNaverPreviewFullLineUpToBatters(homeRaw),
+      away: transformNaverPreviewFullLineUpToBatters(awayRaw),
+    };
+  } catch (e) {
+    console.warn("[fetchNaverLineupFromPreview]", naverGameId, e?.message || e);
+    return null;
+  }
+}
+
 const NAVER_HITTER_SEASON_BASE =
   "https://api-gw.sports.naver.com/statistics/categories/kbo/seasons";
 
@@ -3149,12 +3206,26 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const prevAway = findPrevGameSideForTeam(seasonGames, awayKey, game_date, game_id);
     console.log('[lineup debug] prevHome:', JSON.stringify(prevHome));
     console.log('[lineup debug] prevAway:', JSON.stringify(prevAway));
-    const home_lineup = prevHome
-      ? await fetchLineupArrayForGameSide(db, prevHome.gid, prevHome.side)
-      : [];
-    const away_lineup = prevAway
-      ? await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side)
-      : [];
+    let home_lineup = [];
+    if (prevHome) {
+      const yH = extractScheduleYearFromGameId(prevHome.gid) || String(seasonYear);
+      const nvH = await fetchNaverLineupFromPreview(prevHome.gid, yH);
+      if (nvH) {
+        home_lineup = prevHome.side === "home" ? nvH.home : nvH.away;
+      } else {
+        home_lineup = await fetchLineupArrayForGameSide(db, prevHome.gid, prevHome.side);
+      }
+    }
+    let away_lineup = [];
+    if (prevAway) {
+      const yA = extractScheduleYearFromGameId(prevAway.gid) || String(seasonYear);
+      const nvA = await fetchNaverLineupFromPreview(prevAway.gid, yA);
+      if (nvA) {
+        away_lineup = prevAway.side === "home" ? nvA.home : nvA.away;
+      } else {
+        away_lineup = await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side);
+      }
+    }
     console.log('[lineup debug] home_lineup length:', home_lineup?.length);
     console.log('[lineup debug] away_lineup length:', away_lineup?.length);
 
