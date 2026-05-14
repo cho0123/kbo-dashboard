@@ -870,7 +870,7 @@ const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
 const HOT_LAST_GAME_HERO_FONT_PX = 80;
 /** 홈런·안타·타점 스탯 블록 세로 중심 이동 (기준 cy 대비) */
-const HOT_STAT_BLOCK_SHIFT_Y = -60;
+const HOT_STAT_BLOCK_SHIFT_Y = -30;
 /** 타율·OPS·WAR 바 하단 요약 줄 높이 (구종바 summary와 동일 계산) */
 const HOT_TRIPLE_SUMMARY_BLOCK_H = STARTER_PITCH_SUMMARY_GAP + STARTER_PITCH_SUMMARY_FONT_PX + 6;
 /** 타율·OPS·WAR 컬러바 — 구종 분할바와 동일 너비/높이 스타일 */
