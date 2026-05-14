@@ -2845,8 +2845,9 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     ops_rank: null,
     war_rank: null,
   };
-  const img = pickImageUrlFromNaverPlayerDetail(detail.player);
-  return mergeFromHitterStats(detail.hitterStats, ranks, img);
+  const imageUrl = pickImageUrlFromNaverPlayerDetail(detail.player);
+  console.log("[enrich fallback] player_image_url:", imageUrl);
+  return mergeFromHitterStats(detail.hitterStats, ranks, imageUrl);
 }
 
 /**
