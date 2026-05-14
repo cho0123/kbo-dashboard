@@ -1195,6 +1195,39 @@ function pickGameLineupRowsForSlide(g, isHome) {
   }
   return [];
 }
+
+/** API `prev_hr` 등으로 직전경기 한 줄 텍스트 생성 (Firestore 매칭 결과용) */
+function formatPrevGameLineFromPrevStats(row) {
+  if (!row || typeof row !== "object") return "—";
+  const hrV = row.prev_hr ?? row.prevHr;
+  const hV = row.prev_h ?? row.prevH;
+  const rbiV = row.prev_rbi ?? row.prevRbi;
+  const avgV = row.prev_avg ?? row.prevAvg;
+
+  const toIntOrNull = (v) => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n);
+  };
+
+  const hr = toIntOrNull(hrV);
+  const h = toIntOrNull(hV);
+  const rbi = toIntOrNull(rbiV);
+  const hasAny = hr !== null || h !== null || rbi !== null;
+  if (!hasAny) return "—";
+
+  const hrDisp = hr !== null ? hr : 0;
+  const hDisp = h !== null ? h : 0;
+  const rbiDisp = rbi !== null ? rbi : 0;
+  let out = `${hrDisp}홈런 ${hDisp}안타 ${rbiDisp}타점`;
+  if (avgV != null && avgV !== "") {
+    const avgN = Number(avgV);
+    if (Number.isFinite(avgN)) out += ` ${avgN.toFixed(3)}`;
+  }
+  return out;
+}
+
 function normalizeLineupRowsForDraw(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.map((row) => {
@@ -1206,8 +1239,7 @@ function normalizeLineupRowsForDraw(raw) {
     const order = Number.isFinite(orderN) && orderN > 0 ? orderN : 0;
     const pos = String(row.pos ?? row.position ?? row.posName ?? "").trim() || "—";
     const player = String(row.player ?? row.name ?? row.hitter ?? row.batterName ?? "").trim() || "—";
-    const prevRaw = row.prev_game ?? row.prevGame ?? row.last_game ?? "";
-    const prev_game = String(prevRaw).trim() || "—";
+    const prev_game = formatPrevGameLineFromPrevStats(row);
     return { order, pos, player, prev_game };
   });
 }
