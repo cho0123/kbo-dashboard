@@ -865,12 +865,10 @@ const HOT_STAT_LINE_GAP = STARTER_SLIDE_STAT_LINE_GAP;
 const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP;
 const HOT_HEADER_GAP_LINE_TO_CENTER = STARTER_HEADER_GAP_LINE_TO_CENTER;
 const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
-/** 최상단 타이틀 */
-const HOT_TITLE_FONT_PX = 58;
-const HOT_TITLE_CENTER_Y = 92;
-/** 상단 헤더 영역을 타이틀만큼 아래로 밀어줌 */
-const HOT_UPPER_DIVIDER_Y =
-  STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y + 60;
+/** 상단(홈) 구역: 슬라이드7 원정과 동일 dividerY (헤더·사진·스탯 y) */
+const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
+/** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
+const HOT_LAST_GAME_HERO_FONT_PX = 80;
 
 function fmtIntOrDash(v) {
   const n = Number(v);
@@ -1004,23 +1002,23 @@ function drawHotPlayerHeaderRow(ctx, w, centerY, padL, teamName, playerName, log
   ctx.restore();
 }
 
-/** 최상단 "지난경기 핫플레이어" 타이틀 */
-function drawHotPlayerTopTitle(ctx, w) {
+/** 슬라이드 세로 중앙(w/2, h/2) — 슬라이드7 VS와 유사: 골드·볼드·이탤릭·Gmarket Sans */
+function drawHotPlayerLastGameHeroTitle(ctx, w, h) {
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `900 ${HOT_TITLE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `italic 1000 ${HOT_LAST_GAME_HERO_FONT_PX}px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFD700";
   shadowTextSoft(ctx);
-  ctx.fillText("지난경기 핫플레이어", w / 2, HOT_TITLE_CENTER_Y);
+  ctx.fillText("LAST GAME HERO", w / 2, h / 2);
   resetShadow(ctx);
   ctx.restore();
 }
 
 /**
  * 핫플레이어 슬라이드
- * - 최상단: "지난경기 핫플레이어" 타이틀
- * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어
+ * - 세로 중앙(h/2): "LAST GAME HERO" (슬라이드7 VS와 동일 계열 타이포·골드, 반 경계 근처, 컨텐츠 위에 마지막 그림)
+ * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어 — 레이아웃 y는 슬라이드7 원정과 동일
  * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어
  * - 각 섹션 헤더: 팀로고 + "팀명 · 선수명" + 흰 구분선
  *
@@ -1035,8 +1033,6 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   ctx.clearRect(0, 0, w, h);
   diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
   drawBaseballBackground(ctx);
-
-  drawHotPlayerTopTitle(ctx, w);
 
   const faceBox = HOT_FACE_BOX;
   const rPhoto = faceBox / 2;
@@ -1104,6 +1100,8 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     w,
     awayHp
   );
+
+  drawHotPlayerLastGameHeroTitle(ctx, w, h);
 }
 
 function sortLineupRows(rows) {
