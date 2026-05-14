@@ -262,7 +262,21 @@ export function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, f
   ctx.restore();
 }
 
-export function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey, pageIndex = 5) {
+/**
+ * @param {Record<string, unknown> | null | undefined} drawOpts
+ *  - starterBoxBg: 선발 박스 배경 (쇼츠4 등에서만 지정; 미지정 시 팀 배경 밝기 기반 기본값)
+ *  - short4ExtraStats: true면 순위표 승률·팀 타율 줄 추가(쇼츠4 전용)
+ */
+export function drawTomorrowPreviewGameSlide(
+  ctx,
+  w,
+  h,
+  date,
+  g,
+  logosByTeamKey,
+  pageIndex = 5,
+  drawOpts = null
+) {
   const homeTeam = String(g?.home_team || "").trim();
   const awayTeam = String(g?.away_team || "").trim();
 
@@ -403,9 +417,13 @@ export function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey,
     return (r + g + b) / 3;
   };
   const awayHex2 = teamGrad(awayTeam)?.[1] || "";
-  const awayAvg = avgRgbFromHex(awayHex2);
-  const isAwayBgBright = typeof awayAvg === "number" ? awayAvg >= 128 : false;
-  const starterBoxBg = isAwayBgBright ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.15)";
+  const awayAvgRgb = avgRgbFromHex(awayHex2);
+  const isAwayBgBright = typeof awayAvgRgb === "number" ? awayAvgRgb >= 128 : false;
+  const starterBoxBgDefault = isAwayBgBright ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.15)";
+  const starterBoxBg =
+    typeof drawOpts?.starterBoxBg === "string" && drawOpts.starterBoxBg.trim()
+      ? drawOpts.starterBoxBg.trim()
+      : starterBoxBgDefault;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -472,15 +490,36 @@ export function drawTomorrowPreviewGameSlide(ctx, w, h, date, g, logosByTeamKey,
     ctx.fillText(`- ${h2hText}`, x0, y0);
   }
 
+  const fmtStat3 = (v) =>
+    v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(3) : "—";
+
   if (pageIndex >= 3) {
     y0 += lineGap;
     ctx.font = baseFont;
     ctx.fillText(`- ${homeRecText}`, x0, y0);
+    if (drawOpts?.short4ExtraStats) {
+      y0 += lineGap;
+      ctx.font = baseFont;
+      ctx.fillText(
+        `- 승률 : 홈팀(${fmtStat3(g?.home_win_rate)}) | 원정팀(${fmtStat3(g?.away_win_rate)})`,
+        x0,
+        y0
+      );
+    }
   }
   if (pageIndex >= 4) {
     y0 += lineGap;
     ctx.font = baseFont;
     ctx.fillText(`- ${awayRecText}`, x0, y0);
+    if (drawOpts?.short4ExtraStats) {
+      y0 += lineGap;
+      ctx.font = baseFont;
+      ctx.fillText(
+        `- 타율 : 홈팀(${fmtStat3(g?.home_avg)}) | 원정팀(${fmtStat3(g?.away_avg)})`,
+        x0,
+        y0
+      );
+    }
   }
   if (pageIndex >= 5) {
     y0 += lineGap;

@@ -2482,6 +2482,58 @@ async function fetchNaverHitterSeasonStats(seasonYear) {
 }
 
 /**
+ * 네이버 KBO 시즌 팀 타자(팀 타율 등) 조회. result.seasonTeamStats 배열.
+ * @param {number|string} seasonYear
+ * @returns {Promise<Array<object> | null>}
+ */
+async function fetchNaverTeamSeasonHitterStats(seasonYear) {
+  const y = String(Number(seasonYear) || "").trim();
+  if (!y) return null;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/teams?playerType=HITTER&page=1&pageSize=30`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = json?.result?.seasonTeamStats;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    return arr;
+  } catch (e) {
+    console.warn("[fetchNaverTeamSeasonHitterStats]", y, e?.message || e);
+    return null;
+  }
+}
+
+/** seasonTeamStats → normalizeTeamKey → 팀 타율(offenseHra) */
+function buildTeamBattingAvgByNormKey(teamStatsArr) {
+  const m = new Map();
+  if (!Array.isArray(teamStatsArr)) return m;
+  for (const r of teamStatsArr) {
+    const label =
+      pickStr(r, ["keyword", "teamName", "teamShortName"]) ||
+      String(r?.teamName || r?.teamShortName || "").trim();
+    if (!label) continue;
+    const key = normalizeTeamKey(label);
+    if (!key) continue;
+    const hra = Number(r?.offenseHra);
+    if (!Number.isFinite(hra)) continue;
+    m.set(key, hra);
+  }
+  return m;
+}
+
+/** 승/(승+패), 소수 3자리(반올림). 분모 0이면 null */
+function winRateFromWinsLosses3(wins, losses) {
+  const w = Number(wins);
+  const l = Number(losses);
+  if (!Number.isFinite(w) || !Number.isFinite(l)) return null;
+  const d = w + l;
+  if (d <= 0) return null;
+  return Math.round((w / d) * 1000) / 1000;
+}
+
+/**
  * 네이버 KBO 시즌 투수 순위 200명(1~200위) 조회.
  * 응답 result.seasonPlayerStats 배열을 그대로 반환. 실패 시 null.
  * @param {number|string} seasonYear
@@ -2756,6 +2808,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
+  const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
+  const teamBattingAvgByNorm = buildTeamBattingAvgByNormKey(seasonTeamHitterStats || []);
 
   const gamesByTeam = new Map();
   const pushTeamGame = (team, item) => {
@@ -2896,9 +2950,13 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
     const home_rank = toRankObj(findRankRow(home_team));
     const away_rank = toRankObj(findRankRow(away_team));
+    const home_win_rate = winRateFromWinsLosses3(home_rank?.wins, home_rank?.losses);
+    const away_win_rate = winRateFromWinsLosses3(away_rank?.wins, away_rank?.losses);
 
     const homeKey = normalizeTeamKey(home_team || "");
     const awayKey = normalizeTeamKey(away_team || "");
+    const home_avg = teamBattingAvgByNorm.get(homeKey) ?? null;
+    const away_avg = teamBattingAvgByNorm.get(awayKey) ?? null;
     const home_record = homeOnlyRecordByTeam.get(homeKey) || { win: 0, draw: 0, lose: 0 };
     const away_record = awayOnlyRecordByTeam.get(awayKey) || { win: 0, draw: 0, lose: 0 };
     const home_last5 = last5ByTeam.get(homeKey) || [];
@@ -2987,6 +3045,10 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_starter_so: awPitch?.so ?? null,
       home_rank,
       away_rank,
+      home_win_rate,
+      away_win_rate,
+      home_avg,
+      away_avg,
       home_record,
       away_record,
       home_last5,
