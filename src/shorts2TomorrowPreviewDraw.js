@@ -266,6 +266,7 @@ export function drawTomorrowPreviewIntroSlide(ctx, w, h, date, logosByTeamKey, f
  * @param {Record<string, unknown> | null | undefined} drawOpts
  *  - starterBoxBg: 선발 박스 배경 (쇼츠4 등에서만 지정; 미지정 시 팀 배경 밝기 기반 기본값)
  *  - short4ExtraStats: true면 순위표 승률·팀 타율 줄 추가(쇼츠4 전용)
+ *  - hideHomeAwayRecordLines: true면 홈/원정 연고지 전적 두 줄 미표시(쇼츠4 등)
  */
 export function drawTomorrowPreviewGameSlide(
   ctx,
@@ -493,29 +494,39 @@ export function drawTomorrowPreviewGameSlide(
   const fmtStat3 = (v) =>
     v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(3) : "—";
 
+  const hideRecLines = drawOpts?.hideHomeAwayRecordLines === true;
+  const homeLabel = homeTeam || "홈";
+  const awayLabel = awayTeam || "원정";
+
   if (pageIndex >= 3) {
-    y0 += lineGap;
-    ctx.font = baseFont;
-    ctx.fillText(`- ${homeRecText}`, x0, y0);
+    if (!hideRecLines) {
+      y0 += lineGap;
+      ctx.font = baseFont;
+      ctx.fillText(`- ${homeRecText}`, x0, y0);
+    }
     if (drawOpts?.short4ExtraStats) {
       y0 += lineGap;
       ctx.font = baseFont;
       ctx.fillText(
-        `- 승률 : 홈팀(${fmtStat3(g?.home_win_rate)}) | 원정팀(${fmtStat3(g?.away_win_rate)})`,
+        `- 승률 : ${homeLabel}(${fmtStat3(g?.home_win_rate)}) | ${awayLabel}(${fmtStat3(
+          g?.away_win_rate
+        )})`,
         x0,
         y0
       );
     }
   }
   if (pageIndex >= 4) {
-    y0 += lineGap;
-    ctx.font = baseFont;
-    ctx.fillText(`- ${awayRecText}`, x0, y0);
+    if (!hideRecLines) {
+      y0 += lineGap;
+      ctx.font = baseFont;
+      ctx.fillText(`- ${awayRecText}`, x0, y0);
+    }
     if (drawOpts?.short4ExtraStats) {
       y0 += lineGap;
       ctx.font = baseFont;
       ctx.fillText(
-        `- 타율 : 홈팀(${fmtStat3(g?.home_avg)}) | 원정팀(${fmtStat3(g?.away_avg)})`,
+        `- 타율 : ${homeLabel}(${fmtStat3(g?.home_avg)}) | ${awayLabel}(${fmtStat3(g?.away_avg)})`,
         x0,
         y0
       );
