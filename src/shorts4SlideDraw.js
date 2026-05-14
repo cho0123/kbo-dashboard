@@ -354,9 +354,8 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
 
-  const dateY = h * 0.12;
+  const dateY = h * 0.08;
   const dateFontPx = Math.round(w * 0.085);
-  const previewFontPx = Math.round(w * 0.075);
   const seriesFontPx = Math.max(22, Math.round(dateFontPx * 0.38));
 
   if (seriesBadge) {
@@ -382,76 +381,37 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
-  const previewY = dateY + dateFontPx + 20;
+  const previewLabel = "전력 미리보기";
+  const previewTargetW = w * 0.75;
+  let previewFontPx = Math.round(w * 0.13);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  for (let guard = 0; guard < 80; guard += 1) {
+    ctx.font = `800 ${previewFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+    if (ctx.measureText(previewLabel).width <= previewTargetW) break;
+    previewFontPx = Math.max(16, previewFontPx - 2);
+  }
   ctx.fillStyle = getTeamStrongColor(awayTeam);
-  ctx.font = `800 ${previewFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("전력 미리보기", w / 2, previewY);
+  const previewY = dateY + dateFontPx + 20;
+  ctx.fillText(previewLabel, w / 2, previewY);
   resetShadow(ctx);
   ctx.restore();
 
-  const headerBottom =
-    previewY + Math.round(previewFontPx * 0.55) + (seriesBadge ? 40 : 56);
+  const logoBox = 380;
   const homeCx = w * 0.75;
+  const homeLogoX = homeCx - logoBox / 2;
+  const homeLogoY = h * 0.15;
   const awayCx = w * 0.25;
-  const linePad = 18;
-  const vsGap = 52;
-  const footerReserve = 200;
+  const awayLogoX = awayCx - logoBox / 2;
+  const awayLogoY = h * 0.55;
+
+  drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+  drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
+
   /** 직전 VS 118px 대비 +50% */
   const introVsFontPx = Math.round(118 * 1.5);
-
-  let logoBox = Math.min(750, w - 100);
-  let homeLogoY = 0;
-  let awayLogoY = 0;
-  while (logoBox >= 120) {
-    const homeLeft = homeCx - logoBox / 2;
-    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
-    homeLogoY = homeLogoBottom - logoBox;
-    const awayRight = awayCx + logoBox / 2;
-    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-    const homeDrawY = homeLogoY + 70;
-    const awayDrawY = awayLogoY - 70;
-    if (
-      homeDrawY >= headerBottom + 4 &&
-      homeLeft >= 8 &&
-      awayRight <= w - 8 &&
-      homeLogoY + logoBox + vsGap <= awayLogoY &&
-      awayDrawY + logoBox + 48 < h - footerReserve
-    ) {
-      break;
-    }
-    logoBox -= 8;
-  }
-  if (logoBox < 120) {
-    logoBox = 120;
-    const homeLeft = homeCx - logoBox / 2;
-    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
-    homeLogoY = homeLogoBottom - logoBox;
-    const awayRight = awayCx + logoBox / 2;
-    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-  }
-
-  logoBox = Math.max(96, Math.round(logoBox * 0.8));
-  {
-    const homeLeft = homeCx - logoBox / 2;
-    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
-    homeLogoY = homeLogoBottom - logoBox;
-    const awayRight = awayCx + logoBox / 2;
-    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
-  }
-
-  const homeDrawX = homeCx - logoBox / 2;
-  const homeDrawY = homeLogoY + 70;
-  const awayDrawX = awayCx - logoBox / 2;
-  const awayDrawY = awayLogoY - 70;
-  const vsY = Math.round((homeDrawY + logoBox + awayDrawY) / 2);
-
-  drawLogoInBox(ctx, homeDrawX, homeDrawY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
-  drawLogoInBox(ctx, awayDrawX, awayDrawY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
-
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -459,7 +419,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.fillStyle = "#ffffff";
   ctx.globalAlpha = 0.8;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, vsY);
+  ctx.fillText("VS", w / 2, h / 2);
   resetShadow(ctx);
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -470,7 +430,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   shadowTextSoft(ctx);
-  ctx.fillText("GAME PREVIEW", w / 2, h - 110);
+  ctx.fillText("GAME PREVIEW", w / 2, h * 0.92);
   resetShadow(ctx);
   ctx.restore();
 }
