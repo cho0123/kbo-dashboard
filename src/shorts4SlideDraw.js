@@ -1199,20 +1199,22 @@ function normalizeLineupRowsForDraw(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.map((row) => {
     if (!row || typeof row !== "object") {
-      return { order: 0, pos: "—", player: "—" };
+      return { order: 0, pos: "—", player: "—", prev_game: "—" };
     }
     const orderRaw = row.order ?? row.lineup_order ?? row.lineupOrder ?? row.batOrder;
     const orderN = Number(orderRaw);
     const order = Number.isFinite(orderN) && orderN > 0 ? orderN : 0;
     const pos = String(row.pos ?? row.position ?? row.posName ?? "").trim() || "—";
     const player = String(row.player ?? row.name ?? row.hitter ?? row.batterName ?? "").trim() || "—";
-    return { order, pos, player };
+    const prevRaw = row.prev_game ?? row.prevGame ?? row.last_game ?? "";
+    const prev_game = String(prevRaw).trim() || "—";
+    return { order, pos, player, prev_game };
   });
 }
 
 /**
- * 예상 라인업 테이블 (타순·포지션·선수명)
- * 배경: 해당 팀 단색 전면 → 야구공 데코 → 헤더(타이틀·부제·흰선·로고) → 테이블
+ * 예상 라인업 테이블 (타순·포지션·선수·직전경기)
+ * 배경: 해당 팀 단색 전면 → 야구공 데코 → 로고·타이틀·흰선 → 테이블
  * @param {"home"|"away"} side
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  */
@@ -1236,14 +1238,22 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   const HEADER_Y_SHIFT = -50;
   const LOGO_X = 60;
   const LOGO_BOX = 300;
-  const logoTop = SAFE_TOP + 24 + HEADER_Y_SHIFT;
-  const titleCy = logoTop + LOGO_BOX / 2;
+  const titleFontPx = 64;
+  const subFontPx = Math.round(titleFontPx * 0.7);
+  const legacyLogoTop = SAFE_TOP + 24 + HEADER_Y_SHIFT;
+  const legacyTitleCy = legacyLogoTop + LOGO_BOX / 2;
+  const legacySubtitleY = legacyTitleCy + Math.round(titleFontPx * 0.42);
+  const divY = legacySubtitleY + subFontPx + 12;
+
+  const titleCy = divY - 20 - titleFontPx / 2;
+  const logoTop = titleCy - LOGO_BOX / 2;
   const titleTextX = Math.max(LOGO_X + LOGO_BOX + 20, Math.round(w * 0.45));
   const lineStartX = LOGO_X + LOGO_BOX + 16;
   const tk = teamKeyword(teamName);
   const teamLogoImg = logosByTeamKey?.[tk] ?? null;
 
-  const titleFontPx = 64;
+  drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, teamLogoImg, drawTeamBadge);
+
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
@@ -1252,14 +1262,6 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   ctx.fillText(`${teamName} 예상 라인업`, titleTextX, titleCy);
   resetShadow(ctx);
 
-  const subFontPx = Math.round(titleFontPx * 0.7);
-  const subtitleY = titleCy + Math.round(titleFontPx * 0.42);
-  ctx.font = `600 ${subFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.textBaseline = "top";
-  ctx.fillText("(직전경기 기준)", titleTextX, subtitleY);
-
-  const divY = subtitleY + subFontPx + 12;
   ctx.strokeStyle = "rgba(255,255,255,0.9)";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -1267,35 +1269,41 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   ctx.lineTo(w * 0.95, divY);
   ctx.stroke();
 
-  drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, teamLogoImg, drawTeamBadge);
-
   const rows = sortLineupRows(rowsNormalized).slice(0, 9);
-  const tableTop = divY + 32;
+  const tableTop = divY + 32 + 40;
+  const headerTextY = tableTop + 20;
   const rowH = 118;
-  const colX = [88, 200, 320];
+  const colX = [88, 200, 318, 638];
+  const noteFontPx = Math.max(12, subFontPx - 8);
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
   ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("타순", colX[0], tableTop);
-  ctx.fillText("포지션", colX[1], tableTop);
-  ctx.fillText("선수", colX[2], tableTop);
+  ctx.fillText("타순", colX[0], headerTextY);
+  ctx.fillText("포지션", colX[1], headerTextY);
+  ctx.fillText("선수", colX[2], headerTextY);
+  ctx.fillText("직전경기", colX[3], headerTextY);
   ctx.beginPath();
-  ctx.moveTo(64, tableTop + 12);
-  ctx.lineTo(w - 64, tableTop + 12);
+  ctx.moveTo(64, headerTextY + 12);
+  ctx.lineTo(w - 64, headerTextY + 12);
   ctx.stroke();
 
+  const firstRowY = headerTextY + 52;
+  let lastRowBottom = headerTextY + 12;
   for (let i = 0; i < 9; i++) {
-    const y = tableTop + 56 + i * rowH;
-    const r = rows[i] || { order: i + 1, pos: "—", player: "—" };
+    const y = firstRowY + i * rowH;
+    const r = rows[i] || { order: i + 1, pos: "—", player: "—", prev_game: "—" };
     const ord = Number.isFinite(Number(r.order)) && Number(r.order) > 0 ? String(r.order) : String(i + 1);
     ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.12)";
     ctx.beginPath();
     ctx.roundRect(64, y - 42, w - 128, rowH - 10, 12);
     ctx.fill();
+    lastRowBottom = y - 42 + (rowH - 10);
     ctx.fillStyle = "#FFFFFF";
+    ctx.textBaseline = "middle";
     ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillText(ord, colX[0], y);
     ctx.font = `600 40px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1303,7 +1311,24 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
     ctx.fillText(String(r.pos || "—").slice(0, 4), colX[1], y);
     ctx.fillStyle = "#FFFFFF";
     ctx.font = `600 40px "${FONT_BODY}", system-ui, sans-serif`;
-    const pname = String(r.player || "—").slice(0, 18);
+    const pname = String(r.player || "—").slice(0, 14);
     ctx.fillText(pname, colX[2], y);
+    const prevLine = String(r.prev_game || "—").trim() || "—";
+    ctx.font = `600 26px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    const prevMaxW = w - colX[3] - 72;
+    let prevDraw = prevLine;
+    for (let guard = 0; guard < 120; guard += 1) {
+      if (prevDraw.length <= 3 || ctx.measureText(prevDraw).width <= prevMaxW) break;
+      prevDraw = `${prevDraw.slice(0, Math.max(1, prevDraw.length - 2))}…`;
+    }
+    ctx.fillText(prevDraw, colX[3], y);
   }
+
+  const captionY = lastRowBottom + 18;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.font = `600 ${noteFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText("(직전경기 기준)", w - 64, captionY);
 }

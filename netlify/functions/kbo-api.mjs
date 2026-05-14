@@ -2454,10 +2454,32 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
 }
 
 /**
- * 네이버 preview API의 fullLineUp 한 팀분을 { order, pos, player } 배열로 변환.
+ * fullLineUp 원소에 직전경기 스탯(hr/h/rbi/avg)이 있으면 한 줄로, 없으면 null.
+ * @param {Record<string, unknown>} row
+ * @returns {string | null}
+ */
+function prevGameLineFromNaverLineupRow(row) {
+  if (!row || typeof row !== "object") return null;
+  const pick = (k) => {
+    if (!Object.prototype.hasOwnProperty.call(row, k)) return null;
+    const v = row[k];
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const hr = pick("hr");
+  const h = pick("h");
+  const rbi = pick("rbi");
+  const avg = pick("avg");
+  if (hr === null || h === null || rbi === null || avg === null) return null;
+  return `${Math.round(hr)}홈런 ${Math.round(h)}안타 ${Math.round(rbi)}타점 ${avg.toFixed(3)}`;
+}
+
+/**
+ * 네이버 preview API의 fullLineUp 한 팀분을 { order, pos, player, prev_game } 배열로 변환.
  * 투수(position === "1" 또는 batorder 없음) 제외, batorder 오름차순.
  * @param {unknown} fullLineUp
- * @returns {Array<{ order: number, pos: string, player: string }>}
+ * @returns {Array<{ order: number, pos: string, player: string, prev_game: string }>}
  */
 function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
   if (!Array.isArray(fullLineUp)) return [];
@@ -2471,7 +2493,13 @@ function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
     const player = row?.playerName != null ? String(row.playerName).trim() : "";
     if (!player) continue;
     const posLabel = row?.positionName != null ? String(row.positionName).trim() : "";
-    rows.push({ order, pos: posLabel, player });
+    const prevLine = prevGameLineFromNaverLineupRow(row);
+    rows.push({
+      order,
+      pos: posLabel,
+      player,
+      prev_game: prevLine != null ? prevLine : "—",
+    });
   }
   rows.sort((a, b) => a.order - b.order);
   return rows;
@@ -2479,7 +2507,7 @@ function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
 
 /**
  * 네이버 경기 프리뷰 API에서 홈/원정 타자 라인업(fullLineUp) 조회.
- * @returns {Promise<{ home: Array<{ order: number, pos: string, player: string }>, away: Array<...> } | null>}
+ * @returns {Promise<{ home: Array<{ order: number, pos: string, player: string, prev_game: string }>, away: Array<...> } | null>}
  */
 async function fetchNaverLineupFromPreview(gameId, gameYear) {
   const gid = String(gameId || "").trim();
