@@ -394,7 +394,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   }
   ctx.fillStyle = getTeamStrongColor(awayTeam);
   shadowTextSoft(ctx);
-  const previewY = dateY + dateFontPx + 20;
+  const previewY = dateY + dateFontPx + 60;
   ctx.fillText(previewLabel, w / 2, previewY);
   resetShadow(ctx);
   ctx.restore();
@@ -402,10 +402,10 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const logoBox = 380;
   const homeCx = w * 0.75;
   const homeLogoX = homeCx - logoBox / 2;
-  const homeLogoY = h * 0.15;
+  const homeLogoY = h * 0.42;
   const awayCx = w * 0.25;
   const awayLogoX = awayCx - logoBox / 2;
-  const awayLogoY = h * 0.55;
+  const awayLogoY = h * 0.5;
 
   drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
   drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
@@ -419,7 +419,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.fillStyle = "#ffffff";
   ctx.globalAlpha = 0.8;
   shadowTextSoft(ctx);
-  ctx.fillText("VS", w / 2, h / 2);
+  ctx.fillText("VS", w / 2, h * 0.5);
   resetShadow(ctx);
   ctx.globalAlpha = 1;
   ctx.restore();
