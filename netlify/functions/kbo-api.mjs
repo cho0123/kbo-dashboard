@@ -1823,6 +1823,144 @@ async function fetchBattersForGame(db, gameId) {
   return out;
 }
 
+/** 라인업 선수명 ↔ Firestore batter `pickPlayerName` 키 정규화 (24자 컷 일치) */
+function lineupPlayerKeyFromName(nameRaw) {
+  const k = pickPlayerName({ player: nameRaw });
+  return k && k !== "—" ? k : "";
+}
+
+/**
+ * batters 문서 한 건에서 직전경기 타격 핵심 스탯 추출.
+ * @returns {{ hr: number, h: number, rbi: number, avg: number|null }}
+ */
+function batterPrevGameCoreStatsFromRow(b) {
+  if (!b || typeof b !== "object") {
+    return { hr: 0, h: 0, rbi: 0, avg: null };
+  }
+  const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
+  const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
+  const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+  const ab = pickNum(b, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  const rawAvg = pickAny(b, [
+    "avg",
+    "AVG",
+    "batting_avg",
+    "battingAvg",
+    "bat_avg",
+    "batAvg",
+    "타율",
+  ]);
+  const avgNum = rawAvg == null ? null : Number(rawAvg);
+  const computed = ab > 0 ? h / ab : 0;
+  const avg =
+    avgNum != null && Number.isFinite(avgNum) && avgNum > 0
+      ? avgNum
+      : computed > 0
+        ? computed
+        : null;
+  return {
+    hr: Number(hr) || 0,
+    h: Number(h) || 0,
+    rbi: Number(rbi) || 0,
+    avg: avg != null && Number.isFinite(avg) ? avg : null,
+  };
+}
+
+/**
+ * 직전 경기 game_id의 batters 전체를 한 번 읽어 선수명 → 스탯 맵 구축 (경기당 1회 조회).
+ * @returns {Promise<Map<string, { hr: number, h: number, rbi: number, avg: number|null }>>}
+ */
+async function buildBatterPrevStatsByPlayerNameForGame(db, prevGameId) {
+  const m = new Map();
+  const gid = String(prevGameId || "").trim();
+  if (!gid) return m;
+  let rows = [];
+  try {
+    rows = await fetchBattersForGame(db, gid);
+  } catch (e) {
+    console.warn("[buildBatterPrevStatsByPlayerNameForGame]", gid, e?.message || e);
+    return m;
+  }
+  for (const b of rows || []) {
+    const pn = pickPlayerName(b);
+    if (!pn || pn === "—") continue;
+    if (m.has(pn)) continue;
+    m.set(pn, batterPrevGameCoreStatsFromRow(b));
+  }
+  return m;
+}
+
+/**
+ * batters 컬렉션: game_id == prevGameId 이고 player명이 일치하는 행의 직전경기 타격 스탯.
+ * `gidCache`에 Map<gameId, Map<playerKey, stats>> 를 넘기면 경기당 batters 조회는 1회로 묶임.
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {string} playerName
+ * @param {string} prevGameId
+ * @param {Map<string, Map<string, { hr: number, h: number, rbi: number, avg: number|null }>>|null} [gidCache]
+ * @returns {Promise<{ hr: number, h: number, rbi: number, avg: number|null }|null>}
+ */
+async function fetchBatterPrevGameStats(db, playerName, prevGameId, gidCache = null) {
+  const gid = String(prevGameId || "").trim();
+  const nameKey = lineupPlayerKeyFromName(playerName);
+  if (!gid || !nameKey) return null;
+  let inner = gidCache?.get(gid);
+  if (!inner) {
+    inner = await buildBatterPrevStatsByPlayerNameForGame(db, gid);
+    if (gidCache) gidCache.set(gid, inner);
+  }
+  const st = inner.get(nameKey);
+  return st ?? null;
+}
+
+/**
+ * 라인업 배열 각 원소에 Firestore 직전경기 타격 스탯(prev_hr 등) 병합.
+ * @param {import("firebase-admin/firestore").Firestore} db
+ * @param {unknown} lineup
+ * @param {string|null|undefined} prevGameId
+ * @param {Map<string, Map<string, { hr: number, h: number, rbi: number, avg: number|null }>>} gidCache
+ */
+async function enrichLineupWithPrevBatterFirestore(db, lineup, prevGameId, gidCache) {
+  if (!Array.isArray(lineup) || lineup.length === 0) return Array.isArray(lineup) ? lineup : [];
+  const gid = String(prevGameId || "").trim();
+  if (!gid) {
+    return lineup.map((row) => {
+      const o = row && typeof row === "object" ? { ...row } : {};
+      return {
+        ...o,
+        prev_hr: o.prev_hr ?? null,
+        prev_h: o.prev_h ?? null,
+        prev_rbi: o.prev_rbi ?? null,
+        prev_avg: o.prev_avg ?? null,
+      };
+    });
+  }
+  if (!gidCache.has(gid)) {
+    gidCache.set(gid, await buildBatterPrevStatsByPlayerNameForGame(db, gid));
+  }
+  const map = gidCache.get(gid) || new Map();
+  return lineup.map((row) => {
+    const o = row && typeof row === "object" ? { ...row } : {};
+    const pname = lineupPlayerKeyFromName(o.player ?? o.name ?? "");
+    const st = pname ? map.get(pname) ?? null : null;
+    if (!st) {
+      return {
+        ...o,
+        prev_hr: o.prev_hr ?? null,
+        prev_h: o.prev_h ?? null,
+        prev_rbi: o.prev_rbi ?? null,
+        prev_avg: o.prev_avg ?? null,
+      };
+    }
+    return {
+      ...o,
+      prev_hr: st.hr,
+      prev_h: st.h,
+      prev_rbi: st.rbi,
+      prev_avg: st.avg,
+    };
+  });
+}
+
 const TEAM_STADIUM = {
   KT: "수원KT위즈파크",
   LG: "잠실야구장",
@@ -3273,6 +3411,14 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     }
     console.log('[lineup debug] home_lineup length:', home_lineup?.length);
     console.log('[lineup debug] away_lineup length:', away_lineup?.length);
+
+    const lineupPrevBattersCache = new Map();
+    const [home_lineup_enriched, away_lineup_enriched] = await Promise.all([
+      enrichLineupWithPrevBatterFirestore(db, home_lineup, prevHome?.gid, lineupPrevBattersCache),
+      enrichLineupWithPrevBatterFirestore(db, away_lineup, prevAway?.gid, lineupPrevBattersCache),
+    ]);
+    home_lineup = home_lineup_enriched;
+    away_lineup = away_lineup_enriched;
 
     const home_hot_player_raw = prevHome
       ? await pickHotPlayerForGame(db, prevHome.gid, home_team || "")
