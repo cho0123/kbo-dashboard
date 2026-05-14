@@ -1271,9 +1271,9 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
 
   const rows = sortLineupRows(rowsNormalized).slice(0, 9);
   const tableTop = divY + 32 + 40;
-  const headerTextY = tableTop + 20;
+  const headerTextY = tableTop + 20 + 40;
   const rowH = 118;
-  const colX = [88, 200, 318, 638];
+  const colX = [88, 200, 368, 638];
   const noteFontPx = Math.max(12, subFontPx - 8);
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
@@ -1291,7 +1291,7 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   ctx.lineTo(w - 64, headerTextY + 12);
   ctx.stroke();
 
-  const firstRowY = headerTextY + 52;
+  const firstRowY = headerTextY + 52 + 60;
   let lastRowBottom = headerTextY + 12;
   for (let i = 0; i < 9; i++) {
     const y = firstRowY + i * rowH;
@@ -1325,7 +1325,7 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
     ctx.fillText(prevDraw, colX[3], y);
   }
 
-  const captionY = lastRowBottom + 18;
+  const captionY = lastRowBottom + 18 + 60;
   ctx.textAlign = "right";
   ctx.textBaseline = "top";
   ctx.font = `600 ${noteFontPx}px "${FONT_BODY}", system-ui, sans-serif`;

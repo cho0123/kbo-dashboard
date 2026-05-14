@@ -2454,25 +2454,35 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
 }
 
 /**
- * fullLineUp 원소에 직전경기 스탯(hr/h/rbi/avg)이 있으면 한 줄로, 없으면 null.
+ * fullLineUp 타자 행에서 직전·최근 타격 요약 한 줄 (홈런/안타/타점/타율).
+ * 네이버는 행 루트 또는 recentFiveGamesStats 등에 hit·hra(문자) 등으로 내려주는 경우가 많음.
  * @param {Record<string, unknown>} row
  * @returns {string | null}
  */
 function prevGameLineFromNaverLineupRow(row) {
   if (!row || typeof row !== "object") return null;
-  const pick = (k) => {
-    if (!Object.prototype.hasOwnProperty.call(row, k)) return null;
-    const v = row[k];
-    if (v == null || v === "") return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+
+  const lineFromParts = (hrV, hV, rbiV, avgV) => {
+    const hr = Number(hrV);
+    const h = Number(hV);
+    const rbi = Number(rbiV);
+    const avg = Number(avgV);
+    if (![hr, h, rbi, avg].every((n) => Number.isFinite(n))) return null;
+    return `${Math.round(hr)}홈런 ${Math.round(h)}안타 ${Math.round(rbi)}타점 ${avg.toFixed(3)}`;
   };
-  const hr = pick("hr");
-  const h = pick("h");
-  const rbi = pick("rbi");
-  const avg = pick("avg");
-  if (hr === null || h === null || rbi === null || avg === null) return null;
-  return `${Math.round(hr)}홈런 ${Math.round(h)}안타 ${Math.round(rbi)}타점 ${avg.toFixed(3)}`;
+
+  const tryObj = (o) => {
+    if (!o || typeof o !== "object") return null;
+    const hV = o.h != null ? o.h : o.hit;
+    const avgV = o.avg != null ? o.avg : o.hra;
+    return lineFromParts(o.hr, hV, o.rbi, avgV);
+  };
+
+  const a = tryObj(row);
+  if (a) return a;
+  const b = tryObj(row.recentFiveGamesStats);
+  if (b) return b;
+  return null;
 }
 
 /**
@@ -2483,6 +2493,13 @@ function prevGameLineFromNaverLineupRow(row) {
  */
 function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
   if (!Array.isArray(fullLineUp)) return [];
+  if (fullLineUp.length > 1) {
+    try {
+      console.log("[lineup row]", JSON.stringify(fullLineUp[1]));
+    } catch (e) {
+      console.log("[lineup row]", fullLineUp[1]);
+    }
+  }
   const rows = [];
   for (const row of fullLineUp) {
     const pos = row?.position != null ? String(row.position).trim() : "";
