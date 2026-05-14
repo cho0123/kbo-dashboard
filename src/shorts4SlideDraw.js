@@ -142,11 +142,23 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
 }
 
 /**
- * 인트로용: 화면 왼쪽·대각 위쪽 = 홈 강조색, 오른쪽·아래 = 원정 강조색 (기존 사선과 동일 기하)
+ * 인트로 사선 (0,yL)-(w,yR) 위쪽 y값 — x에 따라 선형 보간
+ */
+function introDiagBoundaryYAtX(w, h, x) {
+  const splitY = h * 0.5;
+  const tilt = h * 0.1;
+  const yL = splitY - tilt;
+  const yR = splitY + tilt;
+  const t = Math.max(0, Math.min(1, x / w));
+  return yL + (yR - yL) * t;
+}
+
+/**
+ * 인트로용: 사선 위쪽 = 홈 강조색, 아래쪽 = 원정 강조색
  */
 function diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam) {
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = getTeamStrongColor(awayTeam);
+  ctx.fillStyle = getTeamStrongColor(homeTeam);
   ctx.fillRect(0, 0, w, h);
   const splitY = h * 0.5;
   const tilt = h * 0.1;
@@ -158,7 +170,7 @@ function diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam) {
   ctx.lineTo(w, h);
   ctx.lineTo(0, h);
   ctx.closePath();
-  ctx.fillStyle = getTeamStrongColor(homeTeam);
+  ctx.fillStyle = getTeamStrongColor(awayTeam);
   ctx.fill();
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 5;
@@ -360,22 +372,48 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   }
   ctx.restore();
 
-  /** 기존 300px 기준 2.5배(750) — VS 위·아래 여백·가로 한도 안에서만 사용 */
-  const introLogoBoxTarget = Math.round(300 * 2.5);
   const headerBottom = badge ? topY + 58 + 80 : topY + 80;
-  const footerReserve = 200;
-  const vsY = Math.round(h * 0.51);
-  const gapVs = 58;
+  const homeCx = w * 0.65;
+  const awayCx = w * 0.35;
+  const linePad = 18;
   const gapName = 44;
-  const homeNameY = vsY - gapVs;
-  const awayLogoY = vsY + gapVs;
-  const spaceAbove = Math.max(0, homeNameY - gapName - headerBottom - 8);
-  const spaceBelow = Math.max(0, h - footerReserve - 90 - gapName - awayLogoY);
-  const logoBox = Math.min(introLogoBoxTarget, w - 100, spaceAbove, spaceBelow);
+  const vsGap = 52;
+  const footerReserve = 200;
 
-  const homeCx = w * 0.6;
-  const awayCx = w * 0.4;
-  const homeLogoY = homeNameY - gapName - logoBox;
+  let logoBox = Math.min(750, w - 100);
+  let homeLogoY = 0;
+  let homeNameY = 0;
+  let awayLogoY = 0;
+  let awayNameY = 0;
+  while (logoBox >= 120) {
+    const homeLeft = homeCx - logoBox / 2;
+    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
+    homeLogoY = homeLogoBottom - logoBox;
+    homeNameY = homeLogoY + logoBox + gapName;
+    const awayRight = awayCx + logoBox / 2;
+    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
+    awayNameY = awayLogoY + logoBox + gapName;
+    if (
+      homeLogoY >= headerBottom + 4 &&
+      homeLeft >= 8 &&
+      awayRight <= w - 8 &&
+      homeNameY + vsGap <= awayLogoY &&
+      awayNameY + 40 < h - footerReserve
+    ) {
+      break;
+    }
+    logoBox -= 8;
+  }
+  if (logoBox < 120) {
+    logoBox = 120;
+    const homeLeft = homeCx - logoBox / 2;
+    const homeLogoBottom = introDiagBoundaryYAtX(w, h, homeLeft) - linePad;
+    homeLogoY = homeLogoBottom - logoBox;
+    homeNameY = homeLogoY + logoBox + gapName;
+    const awayRight = awayCx + logoBox / 2;
+    awayLogoY = introDiagBoundaryYAtX(w, h, awayRight) + linePad;
+    awayNameY = awayLogoY + logoBox + gapName;
+  }
 
   drawLogoInBox(ctx, homeCx - logoBox / 2, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
 
@@ -389,6 +427,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
+  const vsY = Math.round((homeNameY + awayLogoY) / 2);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -407,7 +446,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(awayTeam, awayCx, awayLogoY + logoBox + gapName);
+  ctx.fillText(awayTeam, awayCx, awayNameY);
   resetShadow(ctx);
   ctx.restore();
 
