@@ -869,6 +869,16 @@ const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
 const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
 const HOT_LAST_GAME_HERO_FONT_PX = 80;
+/** 타율·OPS·WAR 컬러바 — 구종 분할바와 동일 너비/높이 스타일 */
+const HOT_TRIPLE_BAR_W_FRAC = STARTER_PITCH_BAR_W_FRAC;
+const HOT_TRIPLE_BAR_H = STARTER_PITCH_SEGMENTED_BAR_H;
+const HOT_TRIPLE_BAR_GAP = STARTER_PITCH_GAP_CONTENT_TO_BAR;
+const HOT_TRIPLE_MIN_SEG_W_FOR_TEXT = 50;
+const HOT_TRIPLE_BASE_AVG = 0.4;
+const HOT_TRIPLE_BASE_OPS = 1.2;
+const HOT_TRIPLE_BASE_WAR = 6.0;
+const HOT_TRIPLE_BAR_COLORS = ["#C0392B", "#1A5276", "#1E8449"];
+const HOT_TRIPLE_BAR_LABELS = ["타율", "OPS", "WAR"];
 
 function fmtIntOrDash(v) {
   const n = Number(v);
@@ -1015,11 +1025,105 @@ function drawHotPlayerLastGameHeroTitle(ctx, w, h) {
   ctx.restore();
 }
 
+/** (값/기준) 가중치 3개 — 합 0이면 균등 1,1,1 */
+function hotPlayerTripleStatRatios(hp) {
+  if (!hp || typeof hp !== "object") return [1, 1, 1];
+  const avg = Number(hp.season_avg);
+  const ops = Number(hp.season_ops);
+  const war = Number(hp.season_war);
+  const w0 = Number.isFinite(avg) && avg >= 0 ? avg / HOT_TRIPLE_BASE_AVG : 0;
+  const w1 = Number.isFinite(ops) && ops >= 0 ? ops / HOT_TRIPLE_BASE_OPS : 0;
+  const w2 = Number.isFinite(war) && war >= 0 ? war / HOT_TRIPLE_BASE_WAR : 0;
+  const arr = [w0, w1, w2];
+  const s = arr.reduce((a, b) => a + b, 0);
+  return s > 0 ? arr : [1, 1, 1];
+}
+
+/**
+ * 스탯 블록 아래 타율/OPS/WAR 가로 분할 바 (구종바와 동일 높이·배경·텍스트 위치).
+ * @param {"upper"|"lower"} verticalZone 상단(홈): 대각선 아래 침범 방지, 하단(원정): 캔버스 하단 여백
+ * @returns {number} 바 하단 y; 그리지 않으면 topBelowStats
+ */
+function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, verticalZone) {
+  if (!hp || typeof hp !== "object") return topBelowStats;
+
+  const ratios = hotPlayerTripleStatRatios(hp);
+  const barW = Math.floor(wCanvas * HOT_TRIPLE_BAR_W_FRAC);
+  const barLeft = Math.floor((wCanvas - barW) / 2);
+  if (barW < 120) return topBelowStats;
+
+  const segWs = splitSegmentPixelWidths(barW, ratios);
+  const barH = HOT_TRIPLE_BAR_H;
+  let barTop = topBelowStats + HOT_TRIPLE_BAR_GAP;
+
+  if (verticalZone === "upper") {
+    const lim = diagTeamSplitLineYAtX(wCanvas, hCanvas, barLeft) - STARTER_PITCH_AWAY_DIAG_PAD;
+    if (barTop + barH > lim) barTop = Math.max(topBelowStats + 4, lim - barH);
+  } else {
+    const lim = hCanvas - STARTER_PITCH_HOME_BOTTOM_PAD;
+    if (barTop + barH > lim) barTop = Math.max(topBelowStats + 4, lim - barH);
+  }
+
+  const avgN = Number(hp.season_avg);
+  const opsN = Number(hp.season_ops);
+  const warN = Number(hp.season_war);
+  const valueStrs = [
+    Number.isFinite(avgN) ? avgN.toFixed(3) : "—",
+    Number.isFinite(opsN) ? opsN.toFixed(3) : "—",
+    Number.isFinite(warN) ? warN.toFixed(2) : "—",
+  ];
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(barLeft, barTop, barW, barH);
+  ctx.clip();
+  ctx.fillStyle = STARTER_PITCH_BAR_BG;
+  ctx.fillRect(barLeft, barTop, barW, barH);
+  let x = barLeft;
+  for (let i = 0; i < 3; i++) {
+    const sw = segWs[i] || 0;
+    if (sw > 0) {
+      ctx.fillStyle = HOT_TRIPLE_BAR_COLORS[i];
+      ctx.fillRect(x, barTop, sw, barH);
+    }
+    x += sw;
+  }
+  ctx.restore();
+
+  x = barLeft;
+  for (let i = 0; i < 3; i++) {
+    const sw = segWs[i] || 0;
+    const cx = x + sw / 2;
+    if (sw > 0 && sw >= HOT_TRIPLE_MIN_SEG_W_FOR_TEXT) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, barTop, sw, barH);
+      ctx.clip();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `800 ${STARTER_PITCH_NAME_SPEED_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(HOT_TRIPLE_BAR_LABELS[i], cx, barTop + barH * 0.32);
+      resetShadow(ctx);
+      ctx.font = `700 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(valueStrs[i], cx, barTop + barH * 0.78);
+      resetShadow(ctx);
+      ctx.restore();
+    }
+    x += sw;
+  }
+
+  return barTop + barH;
+}
+
 /**
  * 핫플레이어 슬라이드
  * - 세로 중앙(h/2): "LAST GAME HERO" (슬라이드7 VS와 동일 계열 타이포·골드, 반 경계 근처, 컨텐츠 위에 마지막 그림)
  * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어 — 레이아웃 y는 슬라이드7 원정과 동일
  * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어
+ * - 스탯 아래: 타율·OPS·WAR 컬러 분할바(구종바와 동일 120px·90% 너비)
  * - 각 섹션 헤더: 팀로고 + "팀명 · 선수명" + 흰 구분선
  *
  * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
@@ -1066,10 +1170,11 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   }
   const upperStatX = upperPhotoCx + rPhoto + 28;
   const upperStatBottom = drawHotPlayerStatBlock(ctx, upperStatX, upperCy, homeHp);
+  const upperAfterBar = drawHotPlayerAvgOpsWarBar(ctx, w, h, upperStatBottom, homeHp, "upper");
   drawHotPlayerRankBadges(
     ctx,
     upperStatX,
-    upperStatBottom + HOT_RANK_BADGE_TOP_GAP,
+    upperAfterBar + HOT_RANK_BADGE_TOP_GAP,
     w,
     homeHp
   );
@@ -1093,10 +1198,11 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   }
   const lowerStatX = lowerPhotoCx + rPhoto + 28;
   const lowerStatBottom = drawHotPlayerStatBlock(ctx, lowerStatX, lowerCy, awayHp);
+  const lowerAfterBar = drawHotPlayerAvgOpsWarBar(ctx, w, h, lowerStatBottom, awayHp, "lower");
   drawHotPlayerRankBadges(
     ctx,
     lowerStatX,
-    lowerStatBottom + HOT_RANK_BADGE_TOP_GAP,
+    lowerAfterBar + HOT_RANK_BADGE_TOP_GAP,
     w,
     awayHp
   );
