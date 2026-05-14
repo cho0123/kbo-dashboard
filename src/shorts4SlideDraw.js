@@ -869,8 +869,8 @@ const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
 const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
 const HOT_LAST_GAME_HERO_FONT_PX = 80;
-/** 홈런·안타·타점 스탯 블록 세로 중심 이동 (+40px, 이전 +100px 대비 60px 위) */
-const HOT_STAT_BLOCK_SHIFT_Y = 40;
+/** 홈런·안타·타점 스탯 블록 세로 중심 이동 (기준 cy 대비; 이전 +40px 대비 40px 위 = 0) */
+const HOT_STAT_BLOCK_SHIFT_Y = 0;
 /** 타율·OPS·WAR 바 하단 요약 줄 높이 (구종바 summary와 동일 계산) */
 const HOT_TRIPLE_SUMMARY_BLOCK_H = STARTER_PITCH_SUMMARY_GAP + STARTER_PITCH_SUMMARY_FONT_PX + 6;
 /** 타율·OPS·WAR 컬러바 — 구종 분할바와 동일 너비/높이 스타일 */
@@ -931,6 +931,11 @@ const HOT_RANK_BADGE_GAP = 10;
 const HOT_RANK_BADGE_ROW_GAP = 12;
 const HOT_RANK_BADGE_TOP_GAP = 30;
 const HOT_RANK_BADGE_FONT_PX = 32;
+/** 배지 영역 예약 높이(최대 3줄). 바 y는 스탯 하단·고정 오프셋만 사용(배지 개수 무관) */
+const HOT_BADGE_AREA_RESERVED_H =
+  (HOT_RANK_BADGE_FONT_PX + HOT_RANK_BADGE_PAD_Y * 2) * 3 + HOT_RANK_BADGE_ROW_GAP * 2;
+/** 예약 배지 영역 하단 → 타율/OPS/WAR 바 상단 (고정) */
+const HOT_GAP_BADGE_AREA_TO_BAR = 20;
 const HOT_RANK_BADGE_BG = "#FFD700";
 const HOT_RANK_BADGE_FG = "#1a1a1a";
 const HOT_RANK_BADGE_RIGHT_MARGIN = 40;
@@ -1129,6 +1134,17 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
   return barTop + barH + summaryBlockH;
 }
 
+/** 스탯 블록 하단 기준 → drawHotPlayerAvgOpsWarBar의 topBelowStats 인자(바 상단 = 반환값 + HOT_TRIPLE_BAR_GAP) */
+function hotPlayerTripleBarTopBelowStatsAnchor(statBottomY) {
+  return (
+    statBottomY +
+    HOT_RANK_BADGE_TOP_GAP +
+    HOT_BADGE_AREA_RESERVED_H +
+    HOT_GAP_BADGE_AREA_TO_BAR -
+    HOT_TRIPLE_BAR_GAP
+  );
+}
+
 /**
  * 핫플레이어 슬라이드
  * - 세로 중앙(h/2): "LAST GAME HERO" (슬라이드7 VS와 동일 계열 타이포·골드, 반 경계 근처, 컨텐츠 위에 마지막 그림)
@@ -1186,14 +1202,21 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     upperCy + HOT_STAT_BLOCK_SHIFT_Y,
     homeHp
   );
-  const upperBadgesBottom = drawHotPlayerRankBadges(
+  drawHotPlayerRankBadges(
     ctx,
     upperStatX,
     upperStatBottom + HOT_RANK_BADGE_TOP_GAP,
     w,
     homeHp
   );
-  drawHotPlayerAvgOpsWarBar(ctx, w, h, upperBadgesBottom, homeHp, "upper");
+  drawHotPlayerAvgOpsWarBar(
+    ctx,
+    w,
+    h,
+    hotPlayerTripleBarTopBelowStatsAnchor(upperStatBottom),
+    homeHp,
+    "upper"
+  );
 
   const mid = h * 0.5;
   const lowerDividerY = mid + 92 + 2 * HOT_HEADER_GAP_LINE_TO_CENTER + 3;
@@ -1219,14 +1242,21 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
     lowerCy + HOT_STAT_BLOCK_SHIFT_Y,
     awayHp
   );
-  const lowerBadgesBottom = drawHotPlayerRankBadges(
+  drawHotPlayerRankBadges(
     ctx,
     lowerStatX,
     lowerStatBottom + HOT_RANK_BADGE_TOP_GAP,
     w,
     awayHp
   );
-  drawHotPlayerAvgOpsWarBar(ctx, w, h, lowerBadgesBottom, awayHp, "lower");
+  drawHotPlayerAvgOpsWarBar(
+    ctx,
+    w,
+    h,
+    hotPlayerTripleBarTopBelowStatsAnchor(lowerStatBottom),
+    awayHp,
+    "lower"
+  );
 
   drawHotPlayerLastGameHeroTitle(ctx, w, h);
 }
