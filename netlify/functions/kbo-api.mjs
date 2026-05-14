@@ -2668,17 +2668,18 @@ function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex) {
   const name = String(hp.player || "").trim();
   if (!name) return { ...hp, ...empty };
 
-  const row = statsArr.find(
+  const matchedRow = statsArr.find(
     (r) => String(r?.playerName || "").trim() === name
   );
-  if (!row) return { ...hp, ...empty };
+  console.log("[enrich] player:", hp?.player, "found:", !!matchedRow);
+  if (!matchedRow) return { ...hp, ...empty };
 
   const num = (v) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
 
-  const id = String(row?.playerId ?? row?.playerName ?? "").trim();
+  const id = String(matchedRow?.playerId ?? matchedRow?.playerName ?? "").trim();
   const ranks = (id && rankIndex?.get(id)) || {
     hr_rank: null,
     rbi_rank: null,
@@ -2689,19 +2690,19 @@ function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex) {
 
   return {
     ...hp,
-    season_hr: num(row.hitterHr),
-    season_rbi: num(row.hitterRbi),
-    season_hit: num(row.hitterHit),
-    season_avg: num(row.hitterHra),
-    season_obp: num(row.hitterObp),
-    season_ops: num(row.hitterOps),
-    season_war: num(row.hitterWar),
+    season_hr: num(matchedRow.hitterHr),
+    season_rbi: num(matchedRow.hitterRbi),
+    season_hit: num(matchedRow.hitterHit),
+    season_avg: num(matchedRow.hitterHra),
+    season_obp: num(matchedRow.hitterObp),
+    season_ops: num(matchedRow.hitterOps),
+    season_war: num(matchedRow.hitterWar),
     hr_rank: ranks.hr_rank,
     rbi_rank: ranks.rbi_rank,
     avg_rank: ranks.avg_rank,
     ops_rank: ranks.ops_rank,
     war_rank: ranks.war_rank,
-    player_image_url: row?.playerImageUrl || null,
+    player_image_url: matchedRow?.playerImageUrl || null,
   };
 }
 
@@ -2815,6 +2816,7 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
 
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
+  console.log("[season] hitter count:", seasonHitterStats?.length);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
   const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
