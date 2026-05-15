@@ -3181,11 +3181,23 @@ async function pickHotPlayerForGame(db, gameId, teamName) {
  * @returns {{ series_length: number, series_game_number: number }}
  */
 function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team) {
+  const finish = (series_length, series_game_number) => {
+    console.log(
+      "[series]",
+      game_id,
+      "series_game_number:",
+      series_game_number,
+      "series_length:",
+      series_length
+    );
+    return { series_length, series_game_number };
+  };
+
   const hKey = normalizeTeamKey(home_team || "");
   const aKey = normalizeTeamKey(away_team || "");
   const gidNeedle = String(game_id ?? "").trim();
   const dateNeedle = safeIsoDate(game_date || "");
-  if (!hKey || !aKey || !dateNeedle) return { series_length: 0, series_game_number: 0 };
+  if (!hKey || !aKey || !dateNeedle) return finish(0, 0);
 
   const pairKeySorted = [hKey, aKey].sort().join("|");
 
@@ -3253,17 +3265,17 @@ function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, a
     if (gidNeedle) {
       const byId = r.findIndex((g) => gidOf(g) === gidNeedle);
       if (byId >= 0) {
-        return { series_length: r.length, series_game_number: byId + 1 };
+        return finish(r.length, byId + 1);
       }
     }
   }
   for (const r of runs) {
     const byDate = r.findIndex((g) => gdate(g) === dateNeedle);
     if (byDate >= 0) {
-      return { series_length: r.length, series_game_number: byDate + 1 };
+      return finish(r.length, byDate + 1);
     }
   }
-  return { series_length: 0, series_game_number: 0 };
+  return finish(0, 0);
 }
 
 async function buildMatchupPreviewPayload(db, dateStr) {
