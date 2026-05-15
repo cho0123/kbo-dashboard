@@ -141,71 +141,6 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.stroke();
 }
 
-/**
- * 인트로 사선 (0,yL)-(w,yR) 위쪽 y값 — x에 따라 선형 보간
- */
-function introDiagBoundaryYAtX(w, h, x) {
-  const splitY = h * 0.5;
-  const tilt = h * 0.1;
-  const yL = splitY - tilt;
-  const yR = splitY + tilt;
-  const t = Math.max(0, Math.min(1, x / w));
-  return yL + (yR - yL) * t;
-}
-
-/** 사선 위(상단 홈 컬러) 영역 — introDiagBoundaryYAtX 기준 */
-function clipIntroDiagUpperRegion(ctx, w, h) {
-  const diagY_left = introDiagBoundaryYAtX(w, h, 0);
-  const diagY_right = introDiagBoundaryYAtX(w, h, w);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(w, 0);
-  ctx.lineTo(w, diagY_right);
-  ctx.lineTo(0, diagY_left);
-  ctx.closePath();
-  ctx.clip();
-}
-
-/** 사선 아래(하단 원정 컬러) 영역 — introDiagBoundaryYAtX 기준 */
-function clipIntroDiagLowerRegion(ctx, w, h) {
-  const diagY_left = introDiagBoundaryYAtX(w, h, 0);
-  const diagY_right = introDiagBoundaryYAtX(w, h, w);
-  ctx.beginPath();
-  ctx.moveTo(0, h);
-  ctx.lineTo(w, h);
-  ctx.lineTo(w, diagY_right);
-  ctx.lineTo(0, diagY_left);
-  ctx.closePath();
-  ctx.clip();
-}
-
-/**
- * 인트로용: 사선 위쪽 = 홈 강조색, 아래쪽 = 원정 강조색
- */
-function diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam) {
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = getTeamStrongColor(homeTeam);
-  ctx.fillRect(0, 0, w, h);
-  const splitY = h * 0.5;
-  const tilt = h * 0.1;
-  const yL = splitY - tilt;
-  const yR = splitY + tilt;
-  ctx.beginPath();
-  ctx.moveTo(0, yL);
-  ctx.lineTo(w, yR);
-  ctx.lineTo(w, h);
-  ctx.lineTo(0, h);
-  ctx.closePath();
-  ctx.fillStyle = getTeamStrongColor(awayTeam);
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(0, yL);
-  ctx.lineTo(w, yR);
-  ctx.stroke();
-}
-
 function shorts4MatchupBackground(ctx, w, h, homeTeam, awayTeam) {
   ctx.clearRect(0, 0, w, h);
   diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
@@ -362,7 +297,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 /**
- * 쇼츠4 전용 인트로 — 강조 단색 사선 배경, 로고, 날짜·팀명·연차전(필드 있을 때만)·하단 전력 미리보기
+ * 쇼츠4 전용 인트로 — 홈→원정 세로 그라데이션 배경, 로고, 날짜·팀명·연차전(필드 있을 때만)·하단 전력 미리보기
  * @param {string} date
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
@@ -375,7 +310,12 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const homeImg = logosByTeamKey?.[hk] ?? null;
   const awayImg = logosByTeamKey?.[ak] ?? null;
 
-  diagIntroStrongSplit(ctx, w, h, homeTeam, awayTeam);
+  ctx.clearRect(0, 0, w, h);
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, getTeamStrongColor(homeTeam));
+  grad.addColorStop(1, getTeamStrongColor(awayTeam));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
 
   const logoBox = 800;
   const logoHalf = logoBox / 2;
@@ -388,15 +328,8 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const homeLogoX = homeCx - logoHalf;
   const homeLogoY = homeCy - logoHalf;
 
-  ctx.save();
-  clipIntroDiagUpperRegion(ctx, w, h);
   drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
-  ctx.restore();
-
-  ctx.save();
-  clipIntroDiagLowerRegion(ctx, w, h);
   drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
-  ctx.restore();
 
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
