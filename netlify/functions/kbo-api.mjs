@@ -3176,8 +3176,8 @@ async function pickHotPlayerForGame(db, gameId, teamName) {
 
 /**
  * 시즌 전체 경기에서 동일 팀 페어(홈/원정 무관)를 날짜순으로 두고,
- * 연일(캘린더 간격 ≤ 1일)로 이어지는 구간을 한 연전으로 본다.
- * 현재 `game_id`·`game_date`가 속한 구간의 길이와 차전(1부터)을 반환.
+ * 현재 경기 기준으로 앞뒤 연속 날짜(캘린더 간격 ≤ 1일) 구간 전체를 한 연전으로 본다.
+ * (1차전 당일에도 DB에 이후 경기가 있으면 전체 연전 길이를 반환)
  * @returns {{ series_length: number, series_game_number: number }}
  */
 function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team) {
@@ -3244,38 +3244,27 @@ function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, a
     return Math.round((t1 - t0) / 86400000);
   };
 
-  const runs = [];
-  let run = [];
-  for (const g of list) {
-    const d = gdate(g);
-    if (!run.length) {
-      run.push(g);
-      continue;
-    }
-    const prevD = gdate(run[run.length - 1]);
-    if (dayDiff(prevD, d) <= 1) run.push(g);
-    else {
-      runs.push(run);
-      run = [g];
-    }
+  let currentIdx = -1;
+  if (gidNeedle) {
+    currentIdx = list.findIndex((g) => gidOf(g) === gidNeedle);
   }
-  if (run.length) runs.push(run);
+  if (currentIdx < 0) {
+    currentIdx = list.findIndex((g) => gdate(g) === dateNeedle);
+  }
+  if (currentIdx < 0) return finish(0, 0);
 
-  for (const r of runs) {
-    if (gidNeedle) {
-      const byId = r.findIndex((g) => gidOf(g) === gidNeedle);
-      if (byId >= 0) {
-        return finish(r.length, byId + 1);
-      }
-    }
+  let start = currentIdx;
+  let end = currentIdx;
+  while (start > 0 && dayDiff(gdate(list[start - 1]), gdate(list[start])) <= 1) {
+    start -= 1;
   }
-  for (const r of runs) {
-    const byDate = r.findIndex((g) => gdate(g) === dateNeedle);
-    if (byDate >= 0) {
-      return finish(r.length, byDate + 1);
-    }
+  while (end < list.length - 1 && dayDiff(gdate(list[end]), gdate(list[end + 1])) <= 1) {
+    end += 1;
   }
-  return finish(0, 0);
+
+  const series_length = end - start + 1;
+  const series_game_number = currentIdx - start + 1;
+  return finish(series_length, series_game_number);
 }
 
 async function buildMatchupPreviewPayload(db, dateStr) {
