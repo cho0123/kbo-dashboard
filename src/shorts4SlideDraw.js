@@ -405,8 +405,9 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     ctx.restore();
   }
 
-  const venueStr = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
-  if (venueStr) {
+  const venueRaw = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
+  if (venueRaw) {
+    const venueStr = `- ${venueRaw} -`;
     const venueFontPx = Math.round(w * 0.04);
     const venueY = seriesBadge ? seriesLineY + seriesFontPx + 20 : dividerLineY + 70;
     ctx.save();
@@ -418,22 +419,21 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     ctx.restore();
   }
 
-  const previewY = h * 0.88;
+  const logoBottomY = homeLogoY + logoBox;
+  const gamePreviewY = h * 0.93 - 50;
   const previewLabel = "전력 미리보기";
-  const previewTargetW = w * 0.75;
-  let previewFontPx = Math.round(w * 0.13);
+  const previewY = logoBottomY + (gamePreviewY - logoBottomY) / 2;
+  const previewFontPx = Math.round(w * 0.13);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let guard = 0; guard < 80; guard += 1) {
-    ctx.font = `800 ${previewFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-    if (ctx.measureText(previewLabel).width <= previewTargetW) break;
-    previewFontPx = Math.max(16, previewFontPx - 2);
-  }
-  ctx.fillStyle = getTeamStrongColor(homeTeam);
-  shadowTextSoft(ctx);
+  ctx.font = `800 ${previewFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 8;
+  ctx.lineJoin = "round";
+  ctx.strokeText(previewLabel, w / 2, previewY);
+  ctx.fillStyle = getTeamStrongColor(awayTeam);
   ctx.fillText(previewLabel, w / 2, previewY);
-  resetShadow(ctx);
   ctx.restore();
 
   ctx.save();
@@ -442,7 +442,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   shadowTextSoft(ctx);
-  ctx.fillText("GAME PREVIEW", w / 2, h * 0.93);
+  ctx.fillText("GAME PREVIEW", w / 2, gamePreviewY);
   resetShadow(ctx);
   ctx.restore();
 }
