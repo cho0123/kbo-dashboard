@@ -1675,12 +1675,16 @@ const TEAM_ERA_CODE_MAP = {
   키움: ["WO", "HI"],
 };
 
-function gameIdContainsTeamCode(gameIdRaw, allowedCodes) {
+function gameIdContainsTeamCode(gameIdRaw, allowedCodes, sideRaw) {
   const s = String(gameIdRaw ?? "").trim();
   if (s.length < 12 || !Array.isArray(allowedCodes) || !allowedCodes.length) return false;
-  const homeCode = s.slice(8, 10);
-  const awayCode = s.slice(10, 12);
-  return allowedCodes.includes(homeCode) || allowedCodes.includes(awayCode);
+  /** koreabaseball game_id: YYYYMMDD + 원정 2자 + 홈 2자 (예: SKHH0 = SSG 원정 vs 한화 홈) */
+  const awayCodeInId = s.slice(8, 10);
+  const homeCodeInId = s.slice(10, 12);
+  const side = String(sideRaw ?? "").trim().toLowerCase();
+  if (side === "away") return allowedCodes.includes(awayCodeInId);
+  if (side === "home") return allowedCodes.includes(homeCodeInId);
+  return allowedCodes.includes(awayCodeInId) || allowedCodes.includes(homeCodeInId);
 }
 
 function resolveTeamEraGameCodes(teamNameRaw) {
@@ -1745,7 +1749,7 @@ async function fetchLatestSeasonEraByPitcherName(
   let filteredRows;
   if (allowedCodes?.length) {
     filteredRows = pool.filter((r) =>
-      gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes)
+      gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes, r?.side)
     );
     if (filteredRows.length) pool = filteredRows;
   }
