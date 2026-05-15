@@ -405,9 +405,8 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     ctx.restore();
   }
 
-  const venueRaw = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
-  if (venueRaw) {
-    const venueStr = `- ${venueRaw} -`;
+  const venueStr = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
+  if (venueStr) {
     const venueFontPx = Math.round(w * 0.04);
     const venueY = seriesBadge ? seriesLineY + seriesFontPx + 20 : dividerLineY + 70;
     ctx.save();
@@ -432,7 +431,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.lineWidth = 8;
   ctx.lineJoin = "round";
   ctx.strokeText(previewLabel, w / 2, previewY);
-  ctx.fillStyle = getTeamStrongColor(awayTeam);
+  ctx.fillStyle = getTeamStrongColor(homeTeam);
   ctx.fillText(previewLabel, w / 2, previewY);
   ctx.restore();
 
