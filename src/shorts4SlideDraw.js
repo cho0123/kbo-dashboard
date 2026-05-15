@@ -317,8 +317,8 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  const logoBox = 250;
-  const logoHalf = 125;
+  const logoBox = 370;
+  const logoHalf = 185;
   const homeCx = w * 0.75;
   const homeCy = h * 0.5;
   const homeLogoX = homeCx - logoHalf;
@@ -330,6 +330,14 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
 
   drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
   drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `800 160px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.fillText("VS", w / 2, h / 2);
+  ctx.restore();
 
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
