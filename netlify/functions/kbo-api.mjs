@@ -1775,7 +1775,7 @@ async function fetchLatestSeasonEraByPitcherName(
   };
   rows.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
 
-  // pick first non-null era, prefer same season year if year field exists
+  // pick first non-null era — 해당 시즌(year) 문서만 사용 (이전 시즌 폴백 없음)
   const y = Number(seasonYear) || 2026;
   const pickFrom = (arr) => {
     for (const r of arr) {
@@ -1785,7 +1785,11 @@ async function fetchLatestSeasonEraByPitcherName(
     return null;
   };
   const sameYear = rows.filter((r) => Number(r?.year) === y);
-  let pool = sameYear.length ? sameYear : rows;
+  if (!sameYear.length) {
+    cacheMap?.set(key, null);
+    return null;
+  }
+  let pool = sameYear;
   const allowedCodes = resolveTeamEraGameCodes(teamName);
   let filteredRows;
   if (allowedCodes?.length) {
@@ -2421,9 +2425,15 @@ async function fetchLatestStarterIpSoBeforeDate(
     if (!gd || gd >= beforeDateIso) return false;
     return __starterBoolTrue(r?.is_starter ?? r?.isStarter);
   });
+  const y = Number(seasonYear) || 2026;
+  const sameYearStarter = rowsOkRaw.filter((r) => Number(r?.year) === y);
+  if (!sameYearStarter.length) {
+    cacheMap?.set(key, null);
+    return null;
+  }
   const rowsOk = teamName
-    ? filterPitcherRowsByTeamName(rowsOkRaw, seasonYear, teamName)
-    : rowsOkRaw;
+    ? filterPitcherRowsByTeamName(sameYearStarter, seasonYear, teamName)
+    : sameYearStarter;
   rowsOk.sort((a, b) => {
     const sa = `${safeIsoDate(a?.game_date || a?.gameDate || "")}__${String(a?.game_id || a?.gameId || "")}`;
     const sb = `${safeIsoDate(b?.game_date || b?.gameDate || "")}__${String(b?.game_id || b?.gameId || "")}`;
@@ -2539,18 +2549,14 @@ async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap
     return empty;
   }
 
-  const seasonFrom = `${y}-01-01`;
-  const seasonTo = `${y}-12-31`;
-  const isInSeason = (r) => {
-    const yr = Number(r?.year);
-    if (Number.isFinite(yr) && yr === y) return true;
-    const gd = safeIsoDate(r?.game_date || r?.gameDate || "");
-    return !!gd && gd >= seasonFrom && gd <= seasonTo;
-  };
-  const seasonRowsRaw = (rows || []).filter(isInSeason);
+  const sameYearRows = (rows || []).filter((r) => Number(r?.year) === y);
+  if (!sameYearRows.length) {
+    cacheMap?.set(key, null);
+    return null;
+  }
   const seasonRows = teamName
-    ? filterPitcherRowsByTeamName(seasonRowsRaw, seasonYear, teamName)
-    : seasonRowsRaw;
+    ? filterPitcherRowsByTeamName(sameYearRows, seasonYear, teamName)
+    : sameYearRows;
 
   let wins = 0;
   let losses = 0;
@@ -3564,43 +3570,43 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const homeWlWhip =
       home_starter == null
         ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : await fetchPitcherSeasonWlWhip(
+        : (await fetchPitcherSeasonWlWhip(
             db,
             seasonYear,
             home_starter,
             __starterWlWhipCache,
             home_team
-          );
+          )) ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
     const awayWlWhip =
       away_starter == null
         ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : await fetchPitcherSeasonWlWhip(
+        : (await fetchPitcherSeasonWlWhip(
             db,
             seasonYear,
             away_starter,
             __starterWlWhipCache,
             away_team
-          );
+          )) ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
 
     const hsPitch = home_starter
-      ? await fetchLatestStarterIpSoBeforeDate(
-          db,
-          seasonYear,
-          home_starter,
-          game_date,
-          __starterIpSoCache,
-          home_team
-        )
+      ? (await fetchLatestStarterIpSoBeforeDate(
+            db,
+            seasonYear,
+            home_starter,
+            game_date,
+            __starterIpSoCache,
+            home_team
+          )) ?? { ip: null, so: null }
       : { ip: null, so: null };
     const awPitch = away_starter
-      ? await fetchLatestStarterIpSoBeforeDate(
-          db,
-          seasonYear,
-          away_starter,
-          game_date,
-          __starterIpSoCache,
-          away_team
-        )
+      ? (await fetchLatestStarterIpSoBeforeDate(
+            db,
+            seasonYear,
+            away_starter,
+            game_date,
+            __starterIpSoCache,
+            away_team
+          )) ?? { ip: null, so: null }
       : { ip: null, so: null };
 
     const home_rank = toRankObj(findRankRow(home_team));
