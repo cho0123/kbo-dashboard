@@ -372,7 +372,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
-  const dividerLineY = matchupY + mFontPx + 30;
+  const dividerLineY = matchupY + mFontPx / 2 + 20;
   const dividerLineW = w * 0.6;
   ctx.save();
   ctx.strokeStyle = "#ffffff";
@@ -383,7 +383,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.stroke();
   ctx.restore();
 
-  const seriesLineY = dividerLineY + 40;
+  const seriesLineY = dividerLineY + 50;
   let seriesFontPx = 0;
   if (seriesBadge) {
     const seriesTargetW = w * 0.6;
@@ -408,7 +408,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const venueStr = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
   if (venueStr) {
     const venueFontPx = Math.round(w * 0.04);
-    const venueY = seriesBadge ? seriesLineY + seriesFontPx + 20 : dividerLineY + 60;
+    const venueY = seriesBadge ? seriesLineY + seriesFontPx + 20 : dividerLineY + 70;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
