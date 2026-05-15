@@ -1661,10 +1661,55 @@ function safeEraNumber(v) {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-async function fetchLatestSeasonEraByPitcherName(db, seasonYear, pitcherNameRaw, cacheMap) {
+/** 선발 ERA 조회 시 game_id 팀코드 매칭 (팀명 → 2글자 코드) */
+const TEAM_ERA_CODE_MAP = {
+  SSG: ["SK", "SS"],
+  한화: ["HH"],
+  KT: ["KT"],
+  LG: ["LG"],
+  삼성: ["SS"],
+  두산: ["OB"],
+  KIA: ["HT"],
+  롯데: ["LT"],
+  NC: ["NC"],
+  키움: ["WO", "HI"],
+};
+
+function gameIdContainsTeamCode(gameIdRaw, allowedCodes) {
+  const s = String(gameIdRaw ?? "").trim();
+  if (s.length < 12 || !Array.isArray(allowedCodes) || !allowedCodes.length) return false;
+  const homeCode = s.slice(8, 10);
+  const awayCode = s.slice(10, 12);
+  return allowedCodes.includes(homeCode) || allowedCodes.includes(awayCode);
+}
+
+function resolveTeamEraGameCodes(teamNameRaw) {
+  const s = String(teamNameRaw || "").trim();
+  if (!s) return null;
+  if (TEAM_ERA_CODE_MAP[s]) return TEAM_ERA_CODE_MAP[s];
+  const norm = normalizeTeamKey(s);
+  if (TEAM_ERA_CODE_MAP[norm]) return TEAM_ERA_CODE_MAP[norm];
+  if (TEAM_CODE_MAP[norm]) return TEAM_CODE_MAP[norm];
+  for (const [name, codes] of Object.entries(TEAM_ERA_CODE_MAP)) {
+    if (norm.includes(name) || s.includes(name)) return codes;
+  }
+  for (const [full, codes] of Object.entries(TEAM_CODE_MAP)) {
+    if (norm.includes(full) || s.includes(full)) return codes;
+  }
+  return null;
+}
+
+async function fetchLatestSeasonEraByPitcherName(
+  db,
+  seasonYear,
+  pitcherNameRaw,
+  cacheMap,
+  teamName
+) {
   const name = normalizePitcherNameForMatch(pitcherNameRaw);
   if (!name) return null;
-  const key = `${seasonYear}:${name}`;
+  const teamNorm = teamName ? normalizeTeamKey(teamName) : "";
+  const key = teamNorm ? `${seasonYear}:${name}:${teamNorm}` : `${seasonYear}:${name}`;
   if (cacheMap?.has(key)) return cacheMap.get(key);
 
   let rows = [];
@@ -1695,7 +1740,15 @@ async function fetchLatestSeasonEraByPitcherName(db, seasonYear, pitcherNameRaw,
     return null;
   };
   const sameYear = rows.filter((r) => Number(r?.year) === y);
-  const eraPicked = pickFrom(sameYear.length ? sameYear : rows);
+  let pool = sameYear.length ? sameYear : rows;
+  const allowedCodes = resolveTeamEraGameCodes(teamName);
+  if (allowedCodes?.length) {
+    const teamFiltered = pool.filter((r) =>
+      gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes)
+    );
+    if (teamFiltered.length) pool = teamFiltered;
+  }
+  const eraPicked = pickFrom(pool);
 
   cacheMap?.set(key, eraPicked);
   return eraPicked;
@@ -3418,11 +3471,23 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const home_starter_era =
       home_starter == null
         ? null
-        : await fetchLatestSeasonEraByPitcherName(db, seasonYear, home_starter, __starterEraCache);
+        : await fetchLatestSeasonEraByPitcherName(
+            db,
+            seasonYear,
+            home_starter,
+            __starterEraCache,
+            home_team
+          );
     const away_starter_era =
       away_starter == null
         ? null
-        : await fetchLatestSeasonEraByPitcherName(db, seasonYear, away_starter, __starterEraCache);
+        : await fetchLatestSeasonEraByPitcherName(
+            db,
+            seasonYear,
+            away_starter,
+            __starterEraCache,
+            away_team
+          );
 
     const homeWlWhip =
       home_starter == null
