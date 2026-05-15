@@ -134,7 +134,7 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide },
 });
 
 export default function Shorts4Panel() {
-  const [date, setDate] = useState(() => seoulToday());
+  const [date, setDate] = useState(() => addCalendarDayKst(seoulToday(), 1));
   const [tabGames, setTabGames] = useState([]);
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [data, setData] = useState(null);
