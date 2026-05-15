@@ -297,7 +297,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
 }
 
 /**
- * 쇼츠4 전용 인트로 — 홈→원정 세로 그라데이션 배경, 로고, 날짜·팀명·연차전(필드 있을 때만)·하단 전력 미리보기
+ * 쇼츠4 전용 인트로 — 차전 홀수: 상단 홈→하단 원정 그라데이션 / 짝수: 상단 원정→하단 홈
  * @param {string} date
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, venue?: string, stadium?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
@@ -310,10 +310,17 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const homeImg = logosByTeamKey?.[hk] ?? null;
   const awayImg = logosByTeamKey?.[ak] ?? null;
 
+  const seriesNum = Number(firstGame?.series_game_number);
+  const isEvenSeriesGame =
+    Number.isFinite(seriesNum) && seriesNum > 0 && seriesNum % 2 === 0;
+  const gradTopTeam = isEvenSeriesGame ? awayTeam : homeTeam;
+  const gradBottomTeam = isEvenSeriesGame ? homeTeam : awayTeam;
+  const previewAccentTeam = isEvenSeriesGame ? awayTeam : homeTeam;
+
   ctx.clearRect(0, 0, w, h);
   const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, getTeamStrongColor(homeTeam));
-  grad.addColorStop(1, getTeamStrongColor(awayTeam));
+  grad.addColorStop(0, getTeamStrongColor(gradTopTeam));
+  grad.addColorStop(1, getTeamStrongColor(gradBottomTeam));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
@@ -431,7 +438,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.lineWidth = 8;
   ctx.lineJoin = "round";
   ctx.strokeText(previewLabel, w / 2, previewY);
-  ctx.fillStyle = getTeamStrongColor(homeTeam);
+  ctx.fillStyle = getTeamStrongColor(previewAccentTeam);
   ctx.fillText(previewLabel, w / 2, previewY);
   ctx.restore();
 
