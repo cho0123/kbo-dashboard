@@ -11,8 +11,12 @@ export const SLIDE_KEYS_SHORTS4 = [
   "intro",
   "game_preview",
   "game_preview_last",
-  "starter",
-  "hot_player",
+  "starter_step1",
+  "starter_step2",
+  "starter_step3",
+  "hot_player_step1",
+  "hot_player_step2",
+  "hot_player_step3",
   "home_lineup",
   "away_lineup",
   "standings",
@@ -39,13 +43,17 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠4: 인트로 + 프리뷰5p + 선발 + 핫플레이어 + 라인업2 + 순위 (11장 캡처) */
+/** 쇼츠4: 인트로 + 프리뷰5p + 선발3 + 핫플레이어3 + 라인업2 + 순위 (15장 캡처) */
 export const DEFAULT_DURATION_SHORTS4 = {
   intro: 4.0,
   game_preview: 1.5,
   game_preview_last: 2.0,
-  starter: 2.5,
-  hot_player: 2.5,
+  starter_step1: 1.5,
+  starter_step2: 1.5,
+  starter_step3: 2.5,
+  hot_player_step1: 1.5,
+  hot_player_step2: 1.5,
+  hot_player_step3: 2.5,
   home_lineup: 2.5,
   away_lineup: 2.5,
   standings: 4.0,
@@ -109,8 +117,12 @@ export function slideFrameCountForKey(shortsType, key) {
       intro: 1,
       game_preview: 4,
       game_preview_last: 1,
-      starter: 1,
-      hot_player: 1,
+      starter_step1: 1,
+      starter_step2: 1,
+      starter_step3: 1,
+      hot_player_step1: 1,
+      hot_player_step2: 1,
+      hot_player_step3: 1,
       home_lineup: 1,
       away_lineup: 1,
       standings: 1,
@@ -143,8 +155,12 @@ export function slideFieldDefs(shortsType) {
       { key: "intro", label: "인트로" },
       { key: "game_preview", label: "경기 프리뷰 (1~4페이지)" },
       { key: "game_preview_last", label: "경기 프리뷰 (5페이지)" },
-      { key: "starter", label: "선발 투수" },
-      { key: "hot_player", label: "지난경기 핫플레이어" },
+      { key: "starter_step1", label: "선발 투수 (1단계)" },
+      { key: "starter_step2", label: "선발 투수 (2단계)" },
+      { key: "starter_step3", label: "선발 투수 (3단계)" },
+      { key: "hot_player_step1", label: "핫플레이어 (1단계)" },
+      { key: "hot_player_step2", label: "핫플레이어 (2단계)" },
+      { key: "hot_player_step3", label: "핫플레이어 (3단계)" },
       { key: "home_lineup", label: "홈 예상 라인업" },
       { key: "away_lineup", label: "원정 예상 라인업" },
       { key: "standings", label: "팀순위" },
@@ -208,10 +224,20 @@ export function mergeSlides(shortsType, existing) {
     }
     const gd = Number(ex.game_detail);
     if (Number.isFinite(gd)) {
-      if (!Number.isFinite(Number(ex.starter))) ex.starter = gd;
-      if (!Number.isFinite(Number(ex.hot_player))) ex.hot_player = gd;
       if (!Number.isFinite(Number(ex.home_lineup))) ex.home_lineup = gd;
       if (!Number.isFinite(Number(ex.away_lineup))) ex.away_lineup = gd;
+    }
+    const st = Number(ex.starter);
+    if (Number.isFinite(st)) {
+      for (const k of ["starter_step1", "starter_step2", "starter_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = st;
+      }
+    }
+    const hp = Number(ex.hot_player);
+    if (Number.isFinite(hp)) {
+      for (const k of ["hot_player_step1", "hot_player_step2", "hot_player_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = hp;
+      }
     }
   }
   const out = { ...base };

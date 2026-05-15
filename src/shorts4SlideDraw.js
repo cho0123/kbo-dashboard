@@ -982,52 +982,8 @@ function drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey) 
   return dividerY;
 }
 
-/**
- * @param {{ away?: HTMLImageElement | null, home?: HTMLImageElement | null } | null | undefined} portraits
- * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey 팀 로고(헤더)
- */
-export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
-  console.log('[draw] type:', 'drawShorts4StarterSlide', 'portraits:', portraits);
-  const homeTeam = String(g?.home_team || "홈");
-  const awayTeam = String(g?.away_team || "원정");
-  ctx.clearRect(0, 0, w, h);
-  diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
-  drawBaseballBackground(ctx);
-
-  const faceBox = STARTER_SLIDE_FACE_BOX;
-  const rPhoto = faceBox / 2;
-
-  const homeFaceCx = w * 0.35 - 100;
-
-  const hs = String(g?.home_starter || "미정").trim() || "미정";
-  const as = String(g?.away_starter || "미정").trim() || "미정";
-
+function drawStarterSlideVs(ctx, w, h) {
   const vsSizePx = 90;
-
-  const awayImg = drawableShorts4Portrait(portraits?.away);
-  const homeImg = drawableShorts4Portrait(portraits?.home);
-  const awayUsePhoto = Boolean(awayImg) && as !== "미정";
-  const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
-
-  drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey || {});
-
-  const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logosByTeamKey || {});
-  const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
-  const homeFaceTop = homeCy - rPhoto;
-
-  if (homeUsePhoto) {
-    drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
-    if (isDefaultPlayerPortrait(homeImg)) {
-      drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
-    }
-  }
-
-  drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
-  const homeKinds = pickStarterPitchKinds(g, "home");
-  if (homeKinds) {
-    drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
-  }
-
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.textAlign = "center";
@@ -1038,6 +994,63 @@ export function drawShorts4StarterSlide(ctx, w, h, g, portraits = null, logosByT
   ctx.fillText("VS", w / 2, h / 2);
   resetShadow(ctx);
   ctx.restore();
+}
+
+/**
+ * @param {{ away?: HTMLImageElement | null, home?: HTMLImageElement | null } | null | undefined} portraits
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey 팀 로고(헤더)
+ * @param {1 | 2 | 3} [step] 1=상단(원정)만 · 2=상단+VS · 3=전체(기존)
+ */
+export function drawShorts4StarterSlide(
+  ctx,
+  w,
+  h,
+  g,
+  portraits = null,
+  logosByTeamKey = null,
+  step = 3
+) {
+  const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
+  console.log("[draw] type:", "drawShorts4StarterSlide", "step:", stepN, "portraits:", portraits);
+  const homeTeam = String(g?.home_team || "홈");
+  const awayTeam = String(g?.away_team || "원정");
+  ctx.clearRect(0, 0, w, h);
+  diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
+  drawBaseballBackground(ctx);
+
+  const faceBox = STARTER_SLIDE_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const homeFaceCx = w * 0.35 - 100;
+  const hs = String(g?.home_starter || "미정").trim() || "미정";
+  const as = String(g?.away_starter || "미정").trim() || "미정";
+  const awayImg = drawableShorts4Portrait(portraits?.away);
+  const homeImg = drawableShorts4Portrait(portraits?.home);
+  const awayUsePhoto = Boolean(awayImg) && as !== "미정";
+  const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
+  const logos = logosByTeamKey || {};
+
+  drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
+
+  if (stepN >= 3) {
+    const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
+    const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
+    const homeFaceTop = homeCy - rPhoto;
+    if (homeUsePhoto) {
+      drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
+      if (isDefaultPlayerPortrait(homeImg)) {
+        drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
+      }
+    }
+    drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
+    const homeKinds = pickStarterPitchKinds(g, "home");
+    if (homeKinds) {
+      drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
+    }
+  }
+
+  if (stepN >= 2) {
+    drawStarterSlideVs(ctx, w, h);
+  }
 }
 
 /** 핫플레이어 슬라이드 (슬라이드7과 동일 레이아웃, 상/하 팀 컬러 반전) */
@@ -1266,40 +1279,20 @@ function hotPlayerContentBottom(statBottomY, faceCy) {
   return Math.max(photoBottom, statBottomY);
 }
 
-/**
- * 핫플레이어 슬라이드
- * - 세로 중앙(h/2): "LAST GAME HERO" (슬라이드7 VS와 동일 계열 타이포·골드, 반 경계 근처, 컨텐츠 위에 마지막 그림)
- * - 상단(절반): 홈팀 컬러 + 홈팀 핫플레이어 — 레이아웃 y는 슬라이드7 원정과 동일
- * - 하단(절반): 원정팀 컬러 + 원정팀 핫플레이어 — 구분선 y는 슬라이드7 홈과 동일 식
- * - 사진+스탯(홈런·안타·타점, 순위는 괄호 인라인) → 타율/OPS/WAR 바+요약(바 하단에 타율·OPS·WAR 순위 인라인)
- * - 각 섹션 헤더: 팀로고 + "팀명 · 선수명" + 흰 구분선
- *
- * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
- * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
- */
-export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosByTeamKey = null) {
-  console.log('[draw] type:', 'drawShorts4HotPlayerSlide', 'portraits:', portraits);
-  const homeTeam = String(g?.home_team || "홈");
-  const awayTeam = String(g?.away_team || "원정");
-
-  ctx.clearRect(0, 0, w, h);
-  diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
-  drawBaseballBackground(ctx);
-
+function drawHotPlayerHomeUpperBlock(
+  ctx,
+  w,
+  h,
+  homeTeam,
+  homeHp,
+  homeName,
+  homeImg,
+  homeUsePhoto,
+  logosByTeamKey
+) {
   const faceBox = HOT_FACE_BOX;
   const rPhoto = faceBox / 2;
   const padL = 48;
-
-  const homeHp = g?.home_hot_player ?? null;
-  const awayHp = g?.away_hot_player ?? null;
-  const homeName = String(homeHp?.player || "").trim();
-  const awayName = String(awayHp?.player || "").trim();
-
-  const homeImg = drawableShorts4Portrait(portraits?.home);
-  const awayImg = drawableShorts4Portrait(portraits?.away);
-  const homeUsePhoto = Boolean(homeImg) && homeName !== "";
-  const awayUsePhoto = Boolean(awayImg) && awayName !== "";
-
   const upperDividerY = HOT_UPPER_DIVIDER_Y;
   const upperHeaderCy = upperDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
   const hk = teamKeyword(homeTeam);
@@ -1325,7 +1318,22 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   );
   const upperContentBottom = hotPlayerContentBottom(upperStatBottom, upperCy);
   drawHotPlayerAvgOpsWarBar(ctx, w, h, upperContentBottom, homeHp, "upper");
+}
 
+function drawHotPlayerAwayLowerBlock(
+  ctx,
+  w,
+  h,
+  awayTeam,
+  awayHp,
+  awayName,
+  awayImg,
+  awayUsePhoto,
+  logosByTeamKey
+) {
+  const faceBox = HOT_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const padL = 48;
   const mid = h * 0.5;
   const lowerDividerY = mid + 92 + 2 * STARTER_HEADER_GAP_LINE_TO_CENTER + 3;
   const lowerHeaderCy = lowerDividerY - HOT_HEADER_GAP_LINE_TO_CENTER;
@@ -1352,8 +1360,73 @@ export function drawShorts4HotPlayerSlide(ctx, w, h, g, portraits = null, logosB
   );
   const lowerContentBottom = hotPlayerContentBottom(lowerStatBottom, lowerCy);
   drawHotPlayerAvgOpsWarBar(ctx, w, h, lowerContentBottom, awayHp, "lower");
+}
 
-  drawHotPlayerLastGameHeroTitle(ctx, w, h);
+/**
+ * 핫플레이어 슬라이드
+ * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
+ * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
+ * @param {1 | 2 | 3} [step] 1=상단(홈)만 · 2=상단+LAST GAME HERO · 3=전체(기존)
+ */
+export function drawShorts4HotPlayerSlide(
+  ctx,
+  w,
+  h,
+  g,
+  portraits = null,
+  logosByTeamKey = null,
+  step = 3
+) {
+  const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
+  console.log("[draw] type:", "drawShorts4HotPlayerSlide", "step:", stepN, "portraits:", portraits);
+  const homeTeam = String(g?.home_team || "홈");
+  const awayTeam = String(g?.away_team || "원정");
+
+  ctx.clearRect(0, 0, w, h);
+  diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
+  drawBaseballBackground(ctx);
+
+  const homeHp = g?.home_hot_player ?? null;
+  const awayHp = g?.away_hot_player ?? null;
+  const homeName = String(homeHp?.player || "").trim();
+  const awayName = String(awayHp?.player || "").trim();
+  const homeImg = drawableShorts4Portrait(portraits?.home);
+  const awayImg = drawableShorts4Portrait(portraits?.away);
+  const homeUsePhoto = Boolean(homeImg) && homeName !== "";
+  const awayUsePhoto = Boolean(awayImg) && awayName !== "";
+  const logos = logosByTeamKey || {};
+
+  if (stepN >= 1) {
+    drawHotPlayerHomeUpperBlock(
+      ctx,
+      w,
+      h,
+      homeTeam,
+      homeHp,
+      homeName,
+      homeImg,
+      homeUsePhoto,
+      logos
+    );
+  }
+
+  if (stepN >= 3) {
+    drawHotPlayerAwayLowerBlock(
+      ctx,
+      w,
+      h,
+      awayTeam,
+      awayHp,
+      awayName,
+      awayImg,
+      awayUsePhoto,
+      logos
+    );
+  }
+
+  if (stepN >= 2) {
+    drawHotPlayerLastGameHeroTitle(ctx, w, h);
+  }
 }
 
 function sortLineupRows(rows) {

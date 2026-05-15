@@ -31,8 +31,14 @@ function slideExportKeyShorts4Capture(slide) {
     const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
     return p <= 4 ? "game_preview" : "game_preview_last";
   }
-  if (slide.type === "starter") return "starter";
-  if (slide.type === "hot_player") return "hot_player";
+  if (slide.type === "starter") {
+    const st = Math.min(3, Math.max(1, Number(slide.step) || 1));
+    return st === 1 ? "starter_step1" : st === 2 ? "starter_step2" : "starter_step3";
+  }
+  if (slide.type === "hot_player") {
+    const st = Math.min(3, Math.max(1, Number(slide.step) || 1));
+    return st === 1 ? "hot_player_step1" : st === 2 ? "hot_player_step2" : "hot_player_step3";
+  }
   if (slide.type === "home_lineup") return "home_lineup";
   if (slide.type === "away_lineup") return "away_lineup";
   if (slide.type === "standings") return "standings";
@@ -194,9 +200,9 @@ export default function Shorts4Panel() {
   }, [data]);
 
   /**
-   * 최종 11장:
-   * 1 intro · 2~6 preview_game page 1~5 · 7 starter · 8 hot_player ·
-   * 9 home_lineup · 10 away_lineup · 11 standings
+   * 최종 15장:
+   * 1 intro · 2~6 preview · 7~9 starter step1~3 · 10~12 hot_player step1~3 ·
+   * 13~14 lineup · 15 standings
    */
   const slides = useMemo(() => {
     if (!data || !detailGame) return [];
@@ -205,8 +211,12 @@ export default function Shorts4Panel() {
     for (let page = 1; page <= 5; page++) {
       s.push({ type: "preview_game", game: g, page });
     }
-    s.push({ type: "starter", game: g });
-    s.push({ type: "hot_player", game: g });
+    for (let step = 1; step <= 3; step += 1) {
+      s.push({ type: "starter", game: g, step });
+    }
+    for (let step = 1; step <= 3; step += 1) {
+      s.push({ type: "hot_player", game: g, step });
+    }
     s.push({ type: "home_lineup", game: g });
     s.push({ type: "away_lineup", game: g });
     s.push({ type: "standings" });
@@ -303,7 +313,16 @@ export default function Shorts4Panel() {
           ]);
           const awayFinal = awayPortrait ?? defImg;
           const homeFinal = homePortrait ?? defImg;
-          drawShorts4StarterSlide(ctx, w, h, g0, { away: awayFinal, home: homeFinal }, logosByTeamKey);
+          const starterStep = Math.min(3, Math.max(1, Number(slide.step) || 3));
+          drawShorts4StarterSlide(
+            ctx,
+            w,
+            h,
+            g0,
+            { away: awayFinal, home: homeFinal },
+            logosByTeamKey,
+            starterStep
+          );
           return;
         }
 
@@ -324,13 +343,15 @@ export default function Shorts4Panel() {
           ]);
           const homeFinal = homePortrait ?? defImg;
           const awayFinal = awayPortrait ?? defImg;
+          const hotStep = Math.min(3, Math.max(1, Number(slide.step) || 3));
           drawShorts4HotPlayerSlide(
             ctx,
             w,
             h,
             g0,
             { home: homeFinal, away: awayFinal },
-            logosByTeamKey
+            logosByTeamKey,
+            hotStep
           );
           return;
         }
@@ -713,12 +734,12 @@ export default function Shorts4Panel() {
               <br />
               - 슬라이드2~6: 프리뷰 page 1~5 (쇼츠2)
               <br />
-              - 슬라이드7: 선발 투수 (ERA·이닝·삼진)
+              - 슬라이드7~9: 선발 투수 (1→2→3단계 점진 공개)
               <br />
-              - 슬라이드8: 지난경기 핫플레이어 (홈/원정 타자)
+              - 슬라이드10~12: 지난경기 핫플레이어 (1→2→3단계)
               <br />
-              - 슬라이드9~10: 홈/원정 예상 라인업
-              <br />- 슬라이드11: KBO 순위
+              - 슬라이드13~14: 홈/원정 예상 라인업
+              <br />- 슬라이드15: KBO 순위
             </div>
           </div>
         </div>
