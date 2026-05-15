@@ -372,7 +372,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   resetShadow(ctx);
   ctx.restore();
 
-  const dividerLineY = matchupY + mFontPx / 2 + 20;
+  const dividerLineY = matchupY + mFontPx + 30;
   const dividerLineW = w * 0.6;
   ctx.save();
   ctx.strokeStyle = "#ffffff";
@@ -383,10 +383,11 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.stroke();
   ctx.restore();
 
-  let contentY = dividerLineY + 30;
+  const seriesLineY = dividerLineY + 40;
+  let seriesFontPx = 0;
   if (seriesBadge) {
     const seriesTargetW = w * 0.6;
-    let seriesFontPx = Math.round(w * 0.09);
+    seriesFontPx = Math.round(w * 0.09);
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -395,25 +396,25 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
       seriesFontPx += 2;
       ctx.font = `700 ${seriesFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
     }
+    seriesFontPx = Math.max(12, Math.round(seriesFontPx * 0.6));
+    ctx.font = `700 ${seriesFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "#ffffff";
     shadowTextSoft(ctx);
-    ctx.fillText(seriesBadge, w / 2, contentY);
+    ctx.fillText(seriesBadge, w / 2, seriesLineY);
     resetShadow(ctx);
     ctx.restore();
-    contentY = contentY + seriesFontPx / 2 + 25;
-  } else {
-    contentY = dividerLineY + 55;
   }
 
   const venueStr = String(firstGame?.venue ?? firstGame?.stadium ?? "").trim();
   if (venueStr) {
     const venueFontPx = Math.round(w * 0.04);
+    const venueY = seriesBadge ? seriesLineY + seriesFontPx + 20 : dividerLineY + 60;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.font = `500 ${venueFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(venueStr, w / 2, contentY);
+    ctx.fillText(venueStr, w / 2, venueY);
     ctx.restore();
   }
 
