@@ -317,16 +317,16 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  const logoBox = 800;
-  const logoHalf = logoBox / 2;
-  const awayCx = w * 0.65;
-  const awayCy = h * 0.5 - 80;
-  const awayLogoX = awayCx - logoHalf;
-  const awayLogoY = awayCy - logoHalf;
-  const homeCx = w * 0.35;
-  const homeCy = h * 0.5 + 80;
+  const logoBox = 250;
+  const logoHalf = 125;
+  const homeCx = w * 0.75;
+  const homeCy = h * 0.5;
   const homeLogoX = homeCx - logoHalf;
   const homeLogoY = homeCy - logoHalf;
+  const awayCx = w * 0.25;
+  const awayCy = h * 0.5;
+  const awayLogoX = awayCx - logoHalf;
+  const awayLogoY = awayCy - logoHalf;
 
   drawLogoInBox(ctx, awayLogoX, awayLogoY, logoBox, logoBox, awayTeam, awayImg, drawTeamBadge);
   drawLogoInBox(ctx, homeLogoX, homeLogoY, logoBox, logoBox, homeTeam, homeImg, drawTeamBadge);
