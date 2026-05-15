@@ -1462,7 +1462,6 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
   const y = Number(season) || 2026;
   const from = `${y}-01-01`;
   const to = `${y}-12-31`;
-  console.log("[h2h] teams:", teamA, "vs", teamB, "season:", y);
 
   const keyOf = (nameRaw) => {
     const s = String(nameRaw || "").trim();
@@ -1480,9 +1479,7 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
   if (!aKey || !bKey) return { win: 0, draw: 0, lose: 0 };
 
   const rows = await fetchGamesDateRange(db, from, to);
-  console.log("[h2h] games fetched:", Array.isArray(rows) ? rows.length : 0);
   const out = { win: 0, draw: 0, lose: 0 };
-  let matched = 0;
 
   for (const g of rows || []) {
     const gd = String(g?.game_date || g?.gameDate || "");
@@ -1493,7 +1490,6 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
     const isMatch =
       (hKey === aKey && awKey === bKey) || (hKey === bKey && awKey === aKey);
     if (!isMatch) continue;
-    matched += 1;
 
     const hsRaw = g?.home_score;
     const asRaw = g?.away_score;
@@ -1517,8 +1513,6 @@ async function fetchHeadToHeadRecord(db, teamA, teamB, season) {
     else out.lose += 1;
   }
 
-  console.log("[h2h] matched games:", matched);
-  console.log("[h2h] result:", out);
   return out;
 }
 
@@ -1791,21 +1785,14 @@ async function fetchLatestSeasonEraByPitcherName(
   }
   let pool = sameYear;
   const allowedCodes = resolveTeamEraGameCodes(teamName);
-  let filteredRows;
   if (allowedCodes?.length) {
-    filteredRows = pool.filter((r) =>
+    const teamFiltered = pool.filter((r) =>
       gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes, r?.side)
     );
-    if (filteredRows.length) pool = filteredRows;
+    if (teamFiltered.length) pool = teamFiltered;
   }
 
-  console.log('[era debug] 화이트 rows:', rows.map((r) => r.game_id + ':' + r.era));
-  console.log('[era debug] teamCodes for 한화:', TEAM_ERA_CODE_MAP['한화']);
-  console.log('[era debug] filtered:', filteredRows?.map((r) => r.game_id));
-
-  const eraPicked = pickFrom(pool);
-  const result = eraPicked;
-  console.log('[era]', name, 'team:', teamName, 'era:', result);
+  const result = pickFrom(pool);
 
   cacheMap?.set(key, result);
   return result;
@@ -2754,13 +2741,6 @@ function prevGameLineFromNaverLineupRow(row) {
  */
 function transformNaverPreviewFullLineUpToBatters(fullLineUp) {
   if (!Array.isArray(fullLineUp)) return [];
-  if (fullLineUp.length > 1) {
-    try {
-      console.log("[lineup row]", JSON.stringify(fullLineUp[1]));
-    } catch (e) {
-      console.log("[lineup row]", fullLineUp[1]);
-    }
-  }
   const rows = [];
   for (const row of fullLineUp) {
     const pos = row?.position != null ? String(row.position).trim() : "";
@@ -3195,7 +3175,6 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     Array.isArray(statsArr) && statsArr.length > 0
       ? statsArr.find((r) => String(r?.playerName || "").trim() === name)
       : null;
-  console.log("[enrich] player:", hp?.player, "found:", !!matchedRow);
   if (matchedRow) {
     const id = String(matchedRow?.playerId ?? matchedRow?.playerName ?? "").trim();
     const ranks = (id && rankIndex?.get(id)) || {
@@ -3233,7 +3212,6 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     (imageUrlFromWideList && String(imageUrlFromWideList).trim()) ||
     pickImageUrlFromNaverPlayerDetail(detail.player) ||
     null;
-  console.log("[enrich fallback] player_image_url:", imageUrl);
   return mergeFromHitterStats(detail.hitterStats, ranks, imageUrl);
 }
 
@@ -3312,17 +3290,10 @@ async function pickHotPlayerForGame(db, gameId, teamName) {
  * @returns {{ series_length: number, series_game_number: number }}
  */
 function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team) {
-  const finish = (series_length, series_game_number) => {
-    console.log(
-      "[series]",
-      game_id,
-      "series_game_number:",
-      series_game_number,
-      "series_length:",
-      series_length
-    );
-    return { series_length, series_game_number };
-  };
+  const finish = (series_length, series_game_number) => ({
+    series_length,
+    series_game_number,
+  });
 
   const hKey = normalizeTeamKey(home_team || "");
   const aKey = normalizeTeamKey(away_team || "");
@@ -3440,7 +3411,6 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
 
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
-  console.log("[season] hitter count:", seasonHitterStats?.length);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
   const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
@@ -3637,8 +3607,6 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
     const prevHome = findPrevGameSideForTeam(seasonGames, homeKey, game_date, game_id);
     const prevAway = findPrevGameSideForTeam(seasonGames, awayKey, game_date, game_id);
-    console.log('[lineup debug] prevHome:', JSON.stringify(prevHome));
-    console.log('[lineup debug] prevAway:', JSON.stringify(prevAway));
     let home_lineup = [];
     if (prevHome) {
       const yH = extractScheduleYearFromGameId(prevHome.gid) || String(seasonYear);
@@ -3659,8 +3627,6 @@ async function buildMatchupPreviewPayload(db, dateStr) {
         away_lineup = await fetchLineupArrayForGameSide(db, prevAway.gid, prevAway.side);
       }
     }
-    console.log('[lineup debug] home_lineup length:', home_lineup?.length);
-    console.log('[lineup debug] away_lineup length:', away_lineup?.length);
 
     const lineupPrevBattersCache = new Map();
     const [home_lineup_enriched, away_lineup_enriched] = await Promise.all([
@@ -4063,14 +4029,12 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
         try {
-          console.log('[proxy] fetching:', rawUrl);
           const upstream = await fetch(rawUrl, {
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (compatible; KboDashboard/1.0; +https://github.com/cho0123/kbo-dashboard)",
             },
           });
-          console.log('[proxy] status:', upstream.status);
           if (!upstream.ok) {
             return {
               statusCode: 200,
