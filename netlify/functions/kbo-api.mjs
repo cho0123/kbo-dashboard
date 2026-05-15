@@ -1703,6 +1703,47 @@ function resolveTeamEraGameCodes(teamNameRaw) {
   return null;
 }
 
+/** Firestore pitchers 행: 시즌 연도 우선 후 teamName·side·game_id 팀코드 필터 (결과 없으면 폴백) */
+function filterPitcherRowsByTeamName(rows, seasonYear, teamNameRaw) {
+  const y = Number(seasonYear) || 2026;
+  let pool = rows || [];
+  const sameYear = pool.filter((r) => Number(r?.year) === y);
+  if (sameYear.length) pool = sameYear;
+  const allowedCodes = resolveTeamEraGameCodes(teamNameRaw);
+  if (allowedCodes?.length) {
+    const teamFiltered = pool.filter((r) =>
+      gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes, r?.side)
+    );
+    if (teamFiltered.length) pool = teamFiltered;
+  }
+  return pool;
+}
+
+function naverPitcherRowHasTeamField(row) {
+  const tn = String(row?.teamName ?? row?.team_name ?? "").trim();
+  const ts = String(row?.teamShortName ?? row?.team_short_name ?? "").trim();
+  return !!(tn || ts);
+}
+
+function naverPitcherRowMatchesTeamName(row, teamNameRaw) {
+  const want = normalizeTeamKey(teamNameRaw || "");
+  if (!want) return true;
+  const parts = [
+    row?.teamName,
+    row?.team_name,
+    row?.teamShortName,
+    row?.team_short_name,
+  ]
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean);
+  if (!parts.length) return true;
+  for (const p of parts) {
+    const got = normalizeTeamKey(p);
+    if (got === want || got.includes(want) || want.includes(got)) return true;
+  }
+  return false;
+}
+
 async function fetchLatestSeasonEraByPitcherName(
   db,
   seasonYear,
@@ -2355,11 +2396,15 @@ async function fetchLatestStarterIpSoBeforeDate(
   seasonYear,
   pitcherNameRaw,
   beforeDateIso,
-  cacheMap
+  cacheMap,
+  teamName
 ) {
   const name = normalizePitcherNameForMatch(pitcherNameRaw);
   if (!name || !beforeDateIso) return { ip: null, so: null };
-  const key = `${seasonYear}:${name}:ipso:${beforeDateIso}`;
+  const teamNorm = teamName ? normalizeTeamKey(teamName) : "";
+  const key = teamNorm
+    ? `${seasonYear}:${name}:${teamNorm}:ipso:${beforeDateIso}`
+    : `${seasonYear}:${name}:ipso:${beforeDateIso}`;
   if (cacheMap?.has(key)) return cacheMap.get(key);
   let rows = [];
   try {
@@ -2371,11 +2416,14 @@ async function fetchLatestStarterIpSoBeforeDate(
     cacheMap?.set(key, empty);
     return empty;
   }
-  const rowsOk = (rows || []).filter((r) => {
+  const rowsOkRaw = (rows || []).filter((r) => {
     const gd = safeIsoDate(r?.game_date || r?.gameDate || "");
     if (!gd || gd >= beforeDateIso) return false;
     return __starterBoolTrue(r?.is_starter ?? r?.isStarter);
   });
+  const rowsOk = teamName
+    ? filterPitcherRowsByTeamName(rowsOkRaw, seasonYear, teamName)
+    : rowsOkRaw;
   rowsOk.sort((a, b) => {
     const sa = `${safeIsoDate(a?.game_date || a?.gameDate || "")}__${String(a?.game_id || a?.gameId || "")}`;
     const sb = `${safeIsoDate(b?.game_date || b?.gameDate || "")}__${String(b?.game_id || b?.gameId || "")}`;
@@ -2470,14 +2518,15 @@ function computeSeasonWhipFromPitcherRows(rows) {
   return (sumH + sumBB) / (sumOuts / 3);
 }
 
-async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap) {
+async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap, teamName) {
   const name = normalizePitcherNameForMatch(pitcherNameRaw);
   const y = Number(seasonYear) || 2026;
   const empty = { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
   if (!name) {
     return empty;
   }
-  const key = `${y}:wlwhip:${name}`;
+  const teamNorm = teamName ? normalizeTeamKey(teamName) : "";
+  const key = teamNorm ? `${y}:wlwhip:${name}:${teamNorm}` : `${y}:wlwhip:${name}`;
   if (cacheMap?.has(key)) return cacheMap.get(key);
 
   let rows = [];
@@ -2498,7 +2547,10 @@ async function fetchPitcherSeasonWlWhip(db, seasonYear, pitcherNameRaw, cacheMap
     const gd = safeIsoDate(r?.game_date || r?.gameDate || "");
     return !!gd && gd >= seasonFrom && gd <= seasonTo;
   };
-  const seasonRows = (rows || []).filter(isInSeason);
+  const seasonRowsRaw = (rows || []).filter(isInSeason);
+  const seasonRows = teamName
+    ? filterPitcherRowsByTeamName(seasonRowsRaw, seasonYear, teamName)
+    : seasonRowsRaw;
 
   let wins = 0;
   let losses = 0;
@@ -2874,18 +2926,26 @@ async function fetchNaverPitcherSeasonStats(seasonYear) {
 
 /**
  * seasonPitcherStats에서 playerName이 선발 투수명과 일치하는 행의 playerImageUrl.
+ * teamName이 있고 응답에 팀 필드가 있으면 팀명도 비교.
  * @param {Array<object>|null|undefined} statsArr
  * @param {string|null|undefined} starterName
+ * @param {string|null|undefined} teamName
  * @returns {string|null}
  */
-function findPitcherImageUrlByStarterName(statsArr, starterName) {
+function findPitcherImageUrlByStarterName(statsArr, starterName, teamName) {
   if (!Array.isArray(statsArr) || statsArr.length === 0) return null;
   const name = String(starterName || "").replace(/\s+/g, " ").trim();
   if (!name) return null;
-  const row = statsArr.find(
+  const nameMatches = statsArr.filter(
     (r) => String(r?.playerName || "").replace(/\s+/g, " ").trim() === name
   );
-  if (!row) return null;
+  if (!nameMatches.length) return null;
+  let row = nameMatches[0];
+  const teamTrim = String(teamName || "").trim();
+  if (teamTrim && nameMatches.some(naverPitcherRowHasTeamField)) {
+    const teamRow = nameMatches.find((r) => naverPitcherRowMatchesTeamName(r, teamTrim));
+    if (teamRow) row = teamRow;
+  }
   const url = row?.playerImageUrl ?? row?.player_image_url;
   const u = url != null ? String(url).trim() : "";
   return u || null;
@@ -3504,11 +3564,23 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const homeWlWhip =
       home_starter == null
         ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : await fetchPitcherSeasonWlWhip(db, seasonYear, home_starter, __starterWlWhipCache);
+        : await fetchPitcherSeasonWlWhip(
+            db,
+            seasonYear,
+            home_starter,
+            __starterWlWhipCache,
+            home_team
+          );
     const awayWlWhip =
       away_starter == null
         ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : await fetchPitcherSeasonWlWhip(db, seasonYear, away_starter, __starterWlWhipCache);
+        : await fetchPitcherSeasonWlWhip(
+            db,
+            seasonYear,
+            away_starter,
+            __starterWlWhipCache,
+            away_team
+          );
 
     const hsPitch = home_starter
       ? await fetchLatestStarterIpSoBeforeDate(
@@ -3516,7 +3588,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
           seasonYear,
           home_starter,
           game_date,
-          __starterIpSoCache
+          __starterIpSoCache,
+          home_team
         )
       : { ip: null, so: null };
     const awPitch = away_starter
@@ -3525,7 +3598,8 @@ async function buildMatchupPreviewPayload(db, dateStr) {
           seasonYear,
           away_starter,
           game_date,
-          __starterIpSoCache
+          __starterIpSoCache,
+          away_team
         )
       : { ip: null, so: null };
 
@@ -3625,11 +3699,13 @@ async function buildMatchupPreviewPayload(db, dateStr) {
 
     const home_starter_image_url = findPitcherImageUrlByStarterName(
       seasonPitcherStats,
-      home_starter
+      home_starter,
+      home_team
     );
     const away_starter_image_url = findPitcherImageUrlByStarterName(
       seasonPitcherStats,
-      away_starter
+      away_starter,
+      away_team
     );
 
     games.push({
