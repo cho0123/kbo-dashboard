@@ -319,11 +319,11 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
 
   const logoBox = 370;
   const logoHalf = 185;
-  const homeCx = w * 0.75;
+  const homeCx = w * 0.82;
   const homeCy = h * 0.5;
   const homeLogoX = homeCx - logoHalf;
   const homeLogoY = homeCy - logoHalf;
-  const awayCx = w * 0.25;
+  const awayCx = w * 0.18;
   const awayCy = h * 0.5;
   const awayLogoX = awayCx - logoHalf;
   const awayLogoY = awayCy - logoHalf;
@@ -334,15 +334,15 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `800 160px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.font = `800 80px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#ffffff";
   ctx.fillText("VS", w / 2, h / 2);
   ctx.restore();
 
   const dateStr = fmtKoreanLongDate(firstGame?.game_date || date);
   const seriesBadge = fmtSeriesGameBadgeForIntro(firstGame);
 
-  const dateY = h * 0.08 + 10;
+  const dateY = h * 0.08 + 30;
   const dateFontPx = Math.round(w * 0.085);
 
   ctx.save();
@@ -356,7 +356,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   ctx.restore();
 
   const matchupStr = `${homeTeam} : ${awayTeam}`;
-  const matchupY = dateY + dateFontPx + 40;
+  const matchupY = (dateY + h * 0.5) / 2;
   let mFontPx = 80;
   ctx.save();
   ctx.textAlign = "center";
