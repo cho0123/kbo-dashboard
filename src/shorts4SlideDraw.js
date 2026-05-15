@@ -421,7 +421,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const logoBottomY = homeLogoY + logoBox;
   const gamePreviewY = h * 0.93 - 50;
   const previewLabel = "전력 미리보기";
-  const previewY = logoBottomY + (gamePreviewY - logoBottomY) / 2;
+  const previewY = logoBottomY + (gamePreviewY - logoBottomY) / 2 - 30;
   const previewFontPx = Math.round(w * 0.13);
   ctx.save();
   ctx.textAlign = "center";
@@ -1366,7 +1366,7 @@ function drawHotPlayerAwayLowerBlock(
  * 핫플레이어 슬라이드
  * @param {{ home?: HTMLImageElement | null, away?: HTMLImageElement | null } | null | undefined} portraits
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
- * @param {1 | 2 | 3} [step] 1=상단(홈)만 · 2=상단+LAST GAME HERO · 3=전체(기존)
+ * @param {1 | 2 | 3} [step] 1=LAST GAME HERO만 · 2=상단(홈)+HERO · 3=전체(기존)
  */
 export function drawShorts4HotPlayerSlide(
   ctx,
@@ -1396,7 +1396,7 @@ export function drawShorts4HotPlayerSlide(
   const awayUsePhoto = Boolean(awayImg) && awayName !== "";
   const logos = logosByTeamKey || {};
 
-  if (stepN >= 1) {
+  if (stepN >= 2) {
     drawHotPlayerHomeUpperBlock(
       ctx,
       w,
@@ -1424,7 +1424,7 @@ export function drawShorts4HotPlayerSlide(
     );
   }
 
-  if (stepN >= 2) {
+  if (stepN >= 1) {
     drawHotPlayerLastGameHeroTitle(ctx, w, h);
   }
 }
