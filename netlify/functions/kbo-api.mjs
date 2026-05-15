@@ -5461,7 +5461,8 @@ ${JSON.stringify(games, null, 2)}`;
                       db,
                       2026,
                       hs,
-                      __starterEraCache
+                      __starterEraCache,
+                      homeNextGame?.home_team ?? homeNextGame?.homeTeam
                     )
                   : null;
               const away_starter_era =
@@ -5470,7 +5471,8 @@ ${JSON.stringify(games, null, 2)}`;
                       db,
                       2026,
                       as,
-                      __starterEraCache
+                      __starterEraCache,
+                      homeNextGame?.away_team ?? homeNextGame?.awayTeam
                     )
                   : null;
               homeNextGame = {
@@ -5499,7 +5501,8 @@ ${JSON.stringify(games, null, 2)}`;
                       db,
                       2026,
                       hs,
-                      __starterEraCache
+                      __starterEraCache,
+                      awayNextGame?.home_team ?? awayNextGame?.homeTeam
                     )
                   : null;
               const away_starter_era =
@@ -5508,7 +5511,8 @@ ${JSON.stringify(games, null, 2)}`;
                       db,
                       2026,
                       as,
-                      __starterEraCache
+                      __starterEraCache,
+                      awayNextGame?.away_team ?? awayNextGame?.awayTeam
                     )
                   : null;
               awayNextGame = {
@@ -5827,7 +5831,8 @@ ${JSON.stringify(games, null, 2)}`;
                   db,
                   seasonYear,
                   home_starter,
-                  __starterEraCache
+                  __starterEraCache,
+                  home_team
                 );
           const away_starter_era =
             away_starter == null
@@ -5836,7 +5841,8 @@ ${JSON.stringify(games, null, 2)}`;
                   db,
                   seasonYear,
                   away_starter,
-                  __starterEraCache
+                  __starterEraCache,
+                  away_team
                 );
 
           const home_rank = toRankObj(findRankRow(home_team));
