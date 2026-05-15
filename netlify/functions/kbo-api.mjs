@@ -1749,9 +1749,11 @@ async function fetchLatestSeasonEraByPitcherName(
     if (teamFiltered.length) pool = teamFiltered;
   }
   const eraPicked = pickFrom(pool);
+  const result = eraPicked;
+  console.log('[era]', name, 'team:', teamName, 'era:', result);
 
-  cacheMap?.set(key, eraPicked);
-  return eraPicked;
+  cacheMap?.set(key, result);
+  return result;
 }
 
 function slimGameResultRow(g) {
