@@ -1742,12 +1742,18 @@ async function fetchLatestSeasonEraByPitcherName(
   const sameYear = rows.filter((r) => Number(r?.year) === y);
   let pool = sameYear.length ? sameYear : rows;
   const allowedCodes = resolveTeamEraGameCodes(teamName);
+  let filteredRows;
   if (allowedCodes?.length) {
-    const teamFiltered = pool.filter((r) =>
+    filteredRows = pool.filter((r) =>
       gameIdContainsTeamCode(r?.game_id ?? r?.gameId, allowedCodes)
     );
-    if (teamFiltered.length) pool = teamFiltered;
+    if (filteredRows.length) pool = filteredRows;
   }
+
+  console.log('[era debug] 화이트 rows:', rows.map((r) => r.game_id + ':' + r.era));
+  console.log('[era debug] teamCodes for 한화:', TEAM_ERA_CODE_MAP['한화']);
+  console.log('[era debug] filtered:', filteredRows?.map((r) => r.game_id));
+
   const eraPicked = pickFrom(pool);
   const result = eraPicked;
   console.log('[era]', name, 'team:', teamName, 'era:', result);
