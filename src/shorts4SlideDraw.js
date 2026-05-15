@@ -1501,20 +1501,22 @@ function normalizeLineupRowsForDraw(raw) {
 
 /**
  * 예상 라인업 테이블 (타순·포지션·선수·직전경기)
- * 배경: 해당 팀 단색 전면 → 야구공 데코 → 로고·타이틀·흰선 → 테이블
  * @param {"home"|"away"} side
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
+ * @param {1 | 2 | 3} [step] 1=로고·팀명·타이틀 · 2=+헤더·빈박스 · 3=전체(기존)
  */
-export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null) {
+export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null, step = 3) {
+  const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
   const isHome = String(side || "").toLowerCase() === "home";
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
   const teamName = isHome ? homeTeam : awayTeam;
 
-  console.log("[lineup]", side, g?.home_lineup?.length, g?.away_lineup?.length);
+  console.log("[lineup]", side, "step:", stepN, g?.home_lineup?.length, g?.away_lineup?.length);
 
   const rowsRaw = pickGameLineupRowsForSlide(g, isHome);
   const rowsNormalized = normalizeLineupRowsForDraw(rowsRaw);
+  const rows = sortLineupRows(rowsNormalized).slice(0, 9);
 
   ctx.clearRect(0, 0, w, h);
   const [solidBg] = teamGrad(teamName);
@@ -1556,9 +1558,9 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   ctx.lineTo(w * 0.95, divY);
   ctx.stroke();
 
-  const rows = sortLineupRows(rowsNormalized).slice(0, 9);
+  if (stepN < 2) return;
+
   const tableTop = divY + 32 + 40;
-  /** 헤더 구분선 위 앵커(기존 헤더 텍스트 baseline 근처) — firstRowY 간격 유지 */
   const headerDividerAnchorY = tableTop + 20 + 40;
   const headerLineY = headerDividerAnchorY + 12;
   const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
@@ -1586,8 +1588,6 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
   let lastRowBottom = headerLineY;
   for (let i = 0; i < 9; i++) {
     const y = firstRowY + i * rowH;
-    const r = rows[i] || { order: i + 1, pos: "—", player: "—", prev_game: "—" };
-    const ord = Number.isFinite(Number(r.order)) && Number(r.order) > 0 ? String(r.order) : String(i + 1);
     const rowBoxTop = y - 42;
     const rowBoxH = rowH - 10;
     const rowTextCy = rowBoxTop + rowBoxH / 2;
@@ -1596,6 +1596,11 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
     ctx.roundRect(64, rowBoxTop, w - 128, rowBoxH, 12);
     ctx.fill();
     lastRowBottom = rowBoxTop + rowBoxH;
+
+    if (stepN < 3) continue;
+
+    const r = rows[i] || { order: i + 1, pos: "—", player: "—", prev_game: "—" };
+    const ord = Number.isFinite(Number(r.order)) && Number(r.order) > 0 ? String(r.order) : String(i + 1);
     ctx.fillStyle = "#FFFFFF";
     ctx.textBaseline = "middle";
     ctx.font = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1619,10 +1624,12 @@ export function drawShorts4LineupSlide(ctx, w, h, g, side, logosByTeamKey = null
     ctx.fillText(prevDraw, colX[3], rowTextCy);
   }
 
-  const captionY = lastRowBottom + 8;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "top";
-  ctx.font = `600 ${noteFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.fillText("(직전경기 기준)", w - 64, captionY);
+  if (stepN >= 3) {
+    const captionY = lastRowBottom + 8;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.font = `600 ${noteFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText("(직전경기 기준)", w - 64, captionY);
+  }
 }

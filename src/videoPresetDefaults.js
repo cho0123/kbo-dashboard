@@ -17,8 +17,12 @@ export const SLIDE_KEYS_SHORTS4 = [
   "hot_player_step1",
   "hot_player_step2",
   "hot_player_step3",
-  "home_lineup",
-  "away_lineup",
+  "home_lineup_step1",
+  "home_lineup_step2",
+  "home_lineup_step3",
+  "away_lineup_step1",
+  "away_lineup_step2",
+  "away_lineup_step3",
   "standings",
 ];
 export const SLIDE_KEYS_SHORTS2 = [
@@ -43,7 +47,7 @@ export const DEFAULT_DURATION_SHORTS2 = {
   standings: 4.0,
 };
 
-/** 쇼츠4: 인트로 + 프리뷰5p + 선발3 + 핫플레이어3 + 라인업2 + 순위 (15장 캡처) */
+/** 쇼츠4: 인트로 + 프리뷰5p + 선발3 + 핫플레이어3 + 라인업6 + 순위 (19장 캡처) */
 export const DEFAULT_DURATION_SHORTS4 = {
   intro: 4.0,
   game_preview: 1.5,
@@ -54,8 +58,12 @@ export const DEFAULT_DURATION_SHORTS4 = {
   hot_player_step1: 1.5,
   hot_player_step2: 1.5,
   hot_player_step3: 2.5,
-  home_lineup: 2.5,
-  away_lineup: 2.5,
+  home_lineup_step1: 1.5,
+  home_lineup_step2: 1.5,
+  home_lineup_step3: 2.5,
+  away_lineup_step1: 1.5,
+  away_lineup_step2: 1.5,
+  away_lineup_step3: 2.5,
   standings: 4.0,
 };
 
@@ -123,8 +131,12 @@ export function slideFrameCountForKey(shortsType, key) {
       hot_player_step1: 1,
       hot_player_step2: 1,
       hot_player_step3: 1,
-      home_lineup: 1,
-      away_lineup: 1,
+      home_lineup_step1: 1,
+      home_lineup_step2: 1,
+      home_lineup_step3: 1,
+      away_lineup_step1: 1,
+      away_lineup_step2: 1,
+      away_lineup_step3: 1,
       standings: 1,
     };
     return m[key] ?? 1;
@@ -161,8 +173,12 @@ export function slideFieldDefs(shortsType) {
       { key: "hot_player_step1", label: "핫플레이어 (1단계)" },
       { key: "hot_player_step2", label: "핫플레이어 (2단계)" },
       { key: "hot_player_step3", label: "핫플레이어 (3단계)" },
-      { key: "home_lineup", label: "홈 예상 라인업" },
-      { key: "away_lineup", label: "원정 예상 라인업" },
+      { key: "home_lineup_step1", label: "홈 라인업 (1단계)" },
+      { key: "home_lineup_step2", label: "홈 라인업 (2단계)" },
+      { key: "home_lineup_step3", label: "홈 라인업 (3단계)" },
+      { key: "away_lineup_step1", label: "원정 라인업 (1단계)" },
+      { key: "away_lineup_step2", label: "원정 라인업 (2단계)" },
+      { key: "away_lineup_step3", label: "원정 라인업 (3단계)" },
       { key: "standings", label: "팀순위" },
     ];
   }
@@ -223,9 +239,25 @@ export function mergeSlides(shortsType, existing) {
       ex.game_preview_last = Number(ex.game_detail);
     }
     const gd = Number(ex.game_detail);
-    if (Number.isFinite(gd)) {
-      if (!Number.isFinite(Number(ex.home_lineup))) ex.home_lineup = gd;
-      if (!Number.isFinite(Number(ex.away_lineup))) ex.away_lineup = gd;
+    const hl = Number(ex.home_lineup);
+    if (Number.isFinite(hl)) {
+      for (const k of ["home_lineup_step1", "home_lineup_step2", "home_lineup_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = hl;
+      }
+    } else if (Number.isFinite(gd)) {
+      for (const k of ["home_lineup_step1", "home_lineup_step2", "home_lineup_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = gd;
+      }
+    }
+    const al = Number(ex.away_lineup);
+    if (Number.isFinite(al)) {
+      for (const k of ["away_lineup_step1", "away_lineup_step2", "away_lineup_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = al;
+      }
+    } else if (Number.isFinite(gd)) {
+      for (const k of ["away_lineup_step1", "away_lineup_step2", "away_lineup_step3"]) {
+        if (!Number.isFinite(Number(ex[k]))) ex[k] = gd;
+      }
     }
     const st = Number(ex.starter);
     if (Number.isFinite(st)) {
