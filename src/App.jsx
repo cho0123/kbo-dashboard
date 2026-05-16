@@ -10,6 +10,7 @@ import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import Shorts4Panel from "./Shorts4Panel.jsx";
 import Shorts5Panel from "./Shorts5Panel.jsx";
+import VideoPrep from "./VideoPrep.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
 import { drawBaseballBackground, loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
@@ -4140,6 +4141,20 @@ export default function App() {
                   </a>
                 </div>
               </div>
+
+              <div className="side-group">
+                <div className="side-group-title">영상 준비</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("video_prep");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
             </div>
           )}
 
@@ -4906,6 +4921,14 @@ export default function App() {
                     <VideoPresetsPanel />
                   ) : activeKey === "music_library" ? (
                     <MusicLibraryPanel />
+                  ) : activeKey === "video_prep" ? (
+                    <VideoPrep
+                      onJobReady={(jobId) => {
+                        const id = String(jobId || "").trim();
+                        if (id) setShorts3JobId(id);
+                        setActiveKey("shorts3_highlight");
+                      }}
+                    />
                   ) : activeKey === "shorts_slides" ? (
                     <Card8Shorts defaultDate={shDate} onShortsDateChange={setShDate} />
                   ) : activeKey === "shorts_tomorrow_preview" ? (

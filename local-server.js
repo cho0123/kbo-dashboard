@@ -6,18 +6,123 @@ import {
   readdirSync,
   readFileSync,
   statSync,
+  unlinkSync,
+  writeFileSync,
 } from "fs";
 import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import express from "express";
+import multer from "multer";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3838;
+const CLIPS_DIR = join(__dirname, "clips");
+const CLIP_TMP_DIR = join(CLIPS_DIR, "tmp");
+const FFMPEG_EXE = join(__dirname, "ffmpeg.exe");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+
+function pathRootPrefix() {
+  return resolve(__dirname) + (process.platform === "win32" ? "\\" : "/");
+}
+
+function assertPathUnderProject(absPath) {
+  const resolved = resolve(absPath);
+  const root = pathRootPrefix();
+  if (!resolved.startsWith(root)) {
+    throw new Error("허용되지 않은 경로입니다.");
+  }
+  if (!existsSync(resolved)) {
+    throw new Error("파일이 없습니다.");
+  }
+  return resolved;
+}
+
+function ensureClipsDir() {
+  mkdirSync(CLIPS_DIR, { recursive: true });
+}
+
+function ensureClipTmpDir() {
+  ensureClipsDir();
+  mkdirSync(CLIP_TMP_DIR, { recursive: true });
+}
+
+const clipFileUpload = multer({
+  storage: multer.diskStorage({
+    destination(_req, _file, cb) {
+      try {
+        ensureClipTmpDir();
+        cb(null, CLIP_TMP_DIR);
+      } catch (e) {
+        cb(e instanceof Error ? e : new Error(String(e)));
+      }
+    },
+    filename(_req, file, cb) {
+      const raw = basename(String(file.originalname || "upload.mp4"));
+      const extMatch = raw.match(/\.(mp4|mov|avi)$/i);
+      const ext = extMatch ? extMatch[0] : ".mp4";
+      cb(null, `in_${randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 4 * 1024 * 1024 * 1024 },
+});
+
+async function performClip(inputResolved, startTime, endTime, outputName) {
+  ensureClipsDir();
+  const safeName = sanitizeClipFileName(outputName);
+  const clipPath = join(CLIPS_DIR, safeName);
+
+  await runSpawn(FFMPEG_EXE, [
+    "-y",
+    "-ss",
+    startTime,
+    "-to",
+    endTime,
+    "-i",
+    inputResolved,
+    "-c",
+    "copy",
+    clipPath,
+  ]);
+
+  const size = statSync(clipPath).size;
+  return { clipPath, size };
+}
+
+function sanitizeClipFileName(name) {
+  let s = String(name || "clip").trim();
+  s = s.replace(/[/\\?%*:|"<>]/g, "_").replace(/\.\./g, "_");
+  if (!s) s = "clip";
+  if (!/\.mp4$/i.test(s)) s += ".mp4";
+  return s;
+}
+
+function ffmpegConcatListPath(p) {
+  return String(p).replace(/\\/g, "/").replace(/'/g, "'\\''");
+}
+
+function runSpawn(cmd, args, cwd = __dirname) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { cwd, windowsHide: true, shell: false });
+    let combined = "";
+    const append = (buf) => {
+      combined += buf.toString();
+    };
+    proc.stdout?.on("data", append);
+    proc.stderr?.on("data", append);
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve(combined);
+      else {
+        const tail = combined.trim().slice(-2000);
+        reject(new Error(tail || `${basename(cmd)} 종료 코드 ${code}`));
+      }
+    });
+  });
+}
 
 function videoEncodeAwsClients() {
   const region = process.env.KBO_AWS_REGION || "ap-northeast-2";
@@ -242,6 +347,166 @@ app.post("/upload", async (req, res) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return res.status(500).json({ ok: false, error: `S3 업로드 실패: ${msg}` });
+  }
+});
+
+app.post("/clip", (req, res, next) => {
+  clipFileUpload.single("file")(req, res, (err) => {
+    if (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({ ok: false, error: msg });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const body = req.body || {};
+  const uploadedPath =
+    req.file?.path != null ? String(req.file.path).trim() : "";
+
+  let inputPath = uploadedPath;
+  let startTime = "";
+  let endTime = "";
+  let outputName;
+
+  if (uploadedPath) {
+    startTime =
+      body.startTime != null ? String(body.startTime).trim() : "";
+    endTime = body.endTime != null ? String(body.endTime).trim() : "";
+    outputName = body.outputName;
+  } else {
+    inputPath =
+      typeof body.inputPath === "string" ? body.inputPath.trim() : "";
+    startTime = body.startTime != null ? String(body.startTime).trim() : "";
+    endTime = body.endTime != null ? String(body.endTime).trim() : "";
+    outputName = body.outputName;
+  }
+
+  if (!inputPath) {
+    return res.status(400).json({
+      ok: false,
+      error:
+        req.is("multipart/form-data") || req.file
+          ? "file이 필요합니다."
+          : "inputPath가 필요합니다.",
+    });
+  }
+  if (!startTime || !endTime) {
+    return res.status(400).json({ ok: false, error: "startTime, endTime이 필요합니다." });
+  }
+
+  if (!existsSync(FFMPEG_EXE)) {
+    return res.status(500).json({
+      ok: false,
+      error: "ffmpeg.exe가 프로젝트 폴더에 없습니다.",
+    });
+  }
+
+  try {
+    const inputResolved = assertPathUnderProject(inputPath);
+    const result = await performClip(inputResolved, startTime, endTime, outputName);
+    return res.json({ ok: true, ...result });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: msg });
+  } finally {
+    if (req.file?.path) {
+      try {
+        unlinkSync(req.file.path);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+});
+
+app.post("/merge-upload", async (req, res) => {
+  const body = req.body || {};
+  const clips = Array.isArray(body.clips) ? body.clips : [];
+  const jobId =
+    typeof body.jobId === "string" && body.jobId.trim()
+      ? body.jobId.trim()
+      : randomUUID();
+
+  if (!clips.length) {
+    return res.status(400).json({ ok: false, error: "clips 배열이 필요합니다." });
+  }
+
+  if (!existsSync(FFMPEG_EXE)) {
+    return res.status(500).json({
+      ok: false,
+      error: "ffmpeg.exe가 프로젝트 폴더에 없습니다.",
+    });
+  }
+
+  const toDelete = new Set();
+  let concatListPath = null;
+  let mergedPath = null;
+
+  try {
+    ensureClipsDir();
+    const resolvedClips = clips.map((p) => {
+      const s = typeof p === "string" ? p.trim() : "";
+      if (!s) throw new Error("clips 항목 경로가 비어 있습니다.");
+      return assertPathUnderProject(s);
+    });
+
+    concatListPath = join(CLIPS_DIR, `concat_${jobId}.txt`);
+    const listBody = resolvedClips
+      .map((p) => `file '${ffmpegConcatListPath(p)}'`)
+      .join("\n");
+    writeFileSync(concatListPath, listBody, "utf8");
+    toDelete.add(concatListPath);
+
+    mergedPath = join(CLIPS_DIR, `merged_${jobId}.mp4`);
+    await runSpawn(FFMPEG_EXE, [
+      "-y",
+      "-f",
+      "concat",
+      "-safe",
+      "0",
+      "-i",
+      concatListPath,
+      "-c",
+      "copy",
+      mergedPath,
+    ]);
+    toDelete.add(mergedPath);
+
+    const { s3, bucket } = videoEncodeAwsClients();
+    const key = `jobs/${jobId}/source.mp4`;
+    const bodyBuf = readFileSync(mergedPath);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: bodyBuf,
+        ContentType: "video/mp4",
+      })
+    );
+
+    for (const p of resolvedClips) {
+      toDelete.add(p);
+    }
+
+    for (const p of toDelete) {
+      try {
+        if (p && existsSync(p)) unlinkSync(p);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+
+    return res.json({ ok: true, jobId, bucket, key });
+  } catch (e) {
+    for (const p of toDelete) {
+      try {
+        if (p && existsSync(p)) unlinkSync(p);
+      } catch {
+        // ignore
+      }
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: msg });
   }
 });
 

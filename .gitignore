@@ -32,3 +32,6 @@ test.mp4
 
 # 로컬 다운로드 서버 저장 폴더
 downloads/
+
+# ffmpeg 클립 출력 / 임시 업로드
+clips/
