@@ -4142,19 +4142,6 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="side-group">
-                <div className="side-group-title">영상 준비</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("video_prep");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
             </div>
           )}
 
