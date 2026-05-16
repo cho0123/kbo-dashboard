@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const LOCAL_SERVER = "http://localhost:3838";
 
@@ -30,6 +30,32 @@ function formatTimeDigitsInput(raw) {
   if (len <= 2) return digits;
   if (len <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
   return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`;
+}
+
+function formatSecondsToTimeInput(sec) {
+  const total = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+function resolvePreviewSrcForFile(file, streamPath) {
+  const pathFromProp =
+    typeof streamPath === "string" ? streamPath.trim() : "";
+  const pathFromFile =
+    file && typeof file.path === "string" ? file.path.trim() : "";
+  const diskPath = pathFromProp || pathFromFile;
+  if (diskPath) {
+    return {
+      src: `${LOCAL_SERVER}/stream?path=${encodeURIComponent(diskPath)}`,
+      isBlob: false,
+    };
+  }
+  if (file) {
+    return { src: URL.createObjectURL(file), isBlob: true };
+  }
+  return { src: null, isBlob: false };
 }
 
 function isAllowedVideoFile(file) {
@@ -121,9 +147,12 @@ const fieldStyle = { width: "100%", boxSizing: "border-box", marginTop: 4 };
 const rowStyle = { display: "grid", gap: 10, marginTop: 10 };
 const labelStyle = { display: "block", fontWeight: 700, fontSize: 13 };
 
-export default function VideoPrep({ onJobReady }) {
+export default function VideoPrep({ onJobReady, streamPath }) {
   const videoInputRef = useRef(null);
+  const previewVideoRef = useRef(null);
+  const previewBlobUrlRef = useRef(null);
   const [videoFile, setVideoFile] = useState(null);
+  const [previewSrc, setPreviewSrc] = useState(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [clipName, setClipName] = useState("");
@@ -132,10 +161,49 @@ export default function VideoPrep({ onJobReady }) {
   const [mergeBusy, setMergeBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const onVideoFileChange = useCallback((e) => {
-    const f = e.target.files?.[0] ?? null;
-    setVideoFile(f);
-    setError(null);
+  const clearPreviewBlob = useCallback(() => {
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+  }, []);
+
+  const applyPreviewFile = useCallback(
+    (f) => {
+      clearPreviewBlob();
+      const { src, isBlob } = resolvePreviewSrcForFile(f, streamPath);
+      if (isBlob && src) previewBlobUrlRef.current = src;
+      setPreviewSrc(src);
+    },
+    [clearPreviewBlob, streamPath]
+  );
+
+  useEffect(() => () => clearPreviewBlob(), [clearPreviewBlob]);
+
+  useEffect(() => {
+    if (videoFile) applyPreviewFile(videoFile);
+  }, [streamPath, videoFile, applyPreviewFile]);
+
+  const onVideoFileChange = useCallback(
+    (e) => {
+      const f = e.target.files?.[0] ?? null;
+      setVideoFile(f);
+      applyPreviewFile(f);
+      setError(null);
+    },
+    [applyPreviewFile]
+  );
+
+  const applyCurrentTimeToStart = useCallback(() => {
+    const v = previewVideoRef.current;
+    if (!v) return;
+    setStartTime(formatTimeDigitsInput(formatSecondsToTimeInput(v.currentTime)));
+  }, []);
+
+  const applyCurrentTimeToEnd = useCallback(() => {
+    const v = previewVideoRef.current;
+    if (!v) return;
+    setEndTime(formatTimeDigitsInput(formatSecondsToTimeInput(v.currentTime)));
   }, []);
 
   const handleCut = useCallback(async () => {
@@ -176,6 +244,8 @@ export default function VideoPrep({ onJobReady }) {
         },
       ]);
       setVideoFile(null);
+      clearPreviewBlob();
+      setPreviewSrc(null);
       if (videoInputRef.current) videoInputRef.current.value = "";
       setStartTime("");
       setEndTime("");
@@ -185,7 +255,7 @@ export default function VideoPrep({ onJobReady }) {
     } finally {
       setClipBusy(false);
     }
-  }, [videoFile, startTime, endTime, clipName, clips]);
+  }, [videoFile, startTime, endTime, clipName, clips, clearPreviewBlob]);
 
   const removeClip = useCallback((id) => {
     setClips((prev) => prev.filter((c) => c.id !== id));
@@ -285,6 +355,50 @@ export default function VideoPrep({ onJobReady }) {
               : "선택 없음 — mp4 · mov · avi"}
           </span>
         </div>
+
+        {previewSrc ? (
+          <div style={{ marginTop: 10 }}>
+            <video
+              ref={previewVideoRef}
+              src={previewSrc}
+              controls
+              preload="metadata"
+              style={{
+                width: "100%",
+                maxHeight: 280,
+                borderRadius: 8,
+                background: "#000",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              <button
+                type="button"
+                className="primary"
+                disabled={rowBusy}
+                onClick={applyCurrentTimeToStart}
+                style={{ flex: "0 0 auto", padding: "8px 12px" }}
+              >
+                ▶ 시작점 설정
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={rowBusy}
+                onClick={applyCurrentTimeToEnd}
+                style={{ flex: "0 0 auto", padding: "8px 12px" }}
+              >
+                ⏹ 종료점 설정
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <label className="muted" style={labelStyle}>

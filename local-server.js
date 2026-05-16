@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import {
+  createReadStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -201,6 +202,75 @@ app.use(
 
 app.get("/status", (_req, res) => {
   res.json({ running: true });
+});
+
+function streamVideoMimeType(filePath) {
+  const lower = String(filePath || "").toLowerCase();
+  if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".avi")) return "video/x-msvideo";
+  if (lower.endsWith(".webm")) return "video/webm";
+  return "video/mp4";
+}
+
+app.get("/stream", (req, res) => {
+  const raw = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  if (!raw) {
+    return res.status(400).json({ ok: false, error: "path가 필요합니다." });
+  }
+
+  let filePath;
+  try {
+    filePath = assertPathUnderProject(raw);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(404).json({ ok: false, error: msg });
+  }
+
+  let fileSize;
+  try {
+    fileSize = statSync(filePath).size;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(404).json({ ok: false, error: msg });
+  }
+
+  const contentType = streamVideoMimeType(filePath);
+  const range = req.headers.range;
+
+  if (range) {
+    const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!m) {
+      res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+      return res.end();
+    }
+    const start = m[1] ? parseInt(m[1], 10) : 0;
+    const end = m[2] ? parseInt(m[2], 10) : fileSize - 1;
+    if (
+      Number.isNaN(start) ||
+      Number.isNaN(end) ||
+      start < 0 ||
+      end < start ||
+      start >= fileSize
+    ) {
+      res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+      return res.end();
+    }
+    const safeEnd = Math.min(end, fileSize - 1);
+    const chunkSize = safeEnd - start + 1;
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${start}-${safeEnd}/${fileSize}`);
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Length", chunkSize);
+    res.setHeader("Content-Type", contentType);
+    createReadStream(filePath, { start, end: safeEnd }).pipe(res);
+    return;
+  }
+
+  res.status(200);
+  res.setHeader("Content-Length", fileSize);
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Accept-Ranges", "bytes");
+  createReadStream(filePath).pipe(res);
 });
 
 app.get("/files", (_req, res) => {

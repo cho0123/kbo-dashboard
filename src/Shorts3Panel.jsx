@@ -8,6 +8,7 @@ import {
 } from "react";
 import { postKbo } from "./api.js";
 import { drawThumbnail } from "./thumbnailUtils.js";
+import VideoPrep from "./VideoPrep.jsx";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
 function putPresignedWithProgress(url, body, onProgress) {
@@ -571,6 +572,7 @@ export default function Shorts3Panel({
   const [uploadPhase, setUploadPhase] = useState("idle");
   const [panelOpen, setPanelOpen] = useState({
     download: false,
+    videoPrep: false,
     upload: false,
     saved: true,
     whisper: false,
@@ -2975,6 +2977,31 @@ export default function Shorts3Panel({
                   yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
                 </div>
               ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <button
+            type="button"
+            className="muted"
+            onClick={() => togglePanel("videoPrep")}
+            style={accordionHeaderStyle}
+            aria-expanded={panelOpen.videoPrep}
+          >
+            <span>1-1단계: 영상 준비 (클립 자르기/합치기)</span>
+            <span aria-hidden style={{ opacity: 0.65, fontSize: 12 }}>
+              {panelOpen.videoPrep ? "▼" : "▶"}
+            </span>
+          </button>
+          {panelOpen.videoPrep ? (
+            <div style={accordionBodyStyle}>
+              <VideoPrep
+                onJobReady={(readyJobId) => {
+                  const id = String(readyJobId || "").trim();
+                  if (id) void onLoadSavedJob(id);
+                }}
+              />
             </div>
           ) : null}
         </div>
