@@ -22,6 +22,15 @@ const CLIPS_DIR = join(__dirname, "clips");
 const CLIP_TMP_DIR = join(CLIPS_DIR, "tmp");
 const FFMPEG_EXE = join(__dirname, "ffmpeg.exe");
 
+const FFMPEG_ENCODE_OUT_ARGS = [
+  "-c:v",
+  "libx264",
+  "-c:a",
+  "aac",
+  "-preset",
+  "fast",
+];
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -83,8 +92,7 @@ async function performClip(inputResolved, startTime, endTime, outputName) {
     endTime,
     "-i",
     inputResolved,
-    "-c",
-    "copy",
+    ...FFMPEG_ENCODE_OUT_ARGS,
     clipPath,
   ]);
 
@@ -113,6 +121,28 @@ function buildConcatListBody(resolvedClips) {
     ...resolvedClips.map((p) => `file '${ffmpegConcatListPath(p)}'`),
   ];
   return lines.join("\n") + "\n";
+}
+
+function parseClipsArray(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map((x) => (x != null ? String(x).trim() : "")).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((x) => (x != null ? String(x).trim() : ""))
+          .filter(Boolean);
+      }
+    } catch {
+      /* fall through: treat as single path */
+    }
+    return [s];
+  }
+  return [];
 }
 
 function runSpawn(cmd, args, cwd = __dirname) {
@@ -432,13 +462,14 @@ app.post("/clip", (req, res, next) => {
 
 app.post("/merge-upload", async (req, res) => {
   const body = req.body || {};
-  const clips = Array.isArray(body.clips) ? body.clips : [];
+  const clips = parseClipsArray(body.clips);
   const jobId =
     typeof body.jobId === "string" && body.jobId.trim()
       ? body.jobId.trim()
       : randomUUID();
 
-  console.log("[merge-upload] req.body.clips:", clips);
+  console.log("[merge-upload] req.body.clips (raw):", body.clips);
+  console.log("[merge-upload] parsed clips:", clips.length, clips);
 
   if (!clips.length) {
     return res.status(400).json({ ok: false, error: "clips 배열이 필요합니다." });
@@ -469,13 +500,22 @@ app.post("/merge-upload", async (req, res) => {
       return assertPathUnderProject(s);
     });
 
+    if (resolvedClips.length !== clips.length) {
+      throw new Error("clips 경로 해석 개수가 요청과 일치하지 않습니다.");
+    }
+
     concatListPath = join(CLIPS_DIR, `concat_${jobId}.txt`);
-    const listBody = buildConcatListBody(resolvedClips);
-    writeFileSync(concatListPath, listBody, "utf8");
+    const listContent = buildConcatListBody(resolvedClips);
+    writeFileSync(concatListPath, listContent, "utf8");
     toDelete.add(concatListPath);
 
     console.log("[merge-upload] concat list file:", concatListPath);
-    console.log("[merge-upload] concat list contents:\n" + listBody);
+    console.log(
+      "[merge-upload] listContent (" +
+        resolvedClips.length +
+        " files):\n" +
+        listContent
+    );
 
     const listInputPath = concatListPath.replace(/\\/g, "/");
     mergedPath = join(CLIPS_DIR, `merged_${jobId}.mp4`);
@@ -487,12 +527,7 @@ app.post("/merge-upload", async (req, res) => {
       "0",
       "-i",
       listInputPath,
-      "-c",
-      "copy",
-      "-reset_timestamps",
-      "1",
-      "-avoid_negative_ts",
-      "make_zero",
+      ...FFMPEG_ENCODE_OUT_ARGS,
       mergedPath,
     ]);
     toDelete.add(mergedPath);
