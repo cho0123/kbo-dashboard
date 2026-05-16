@@ -41,7 +41,7 @@ function putPresignedWithProgress(url, body, onProgress) {
 
 const POLL_MS = 1500;
 const POLL_MAX_MS = 45 * 60 * 1000;
-const MAX_SEGMENTS = 10;
+const MAX_SEGMENTS = 20;
 
 /** 원본 미리보기 행 고정 높이(px). 미리보기 캔버스 너비 = 높이 × 9/16 */
 const PREVIEW_ROW_HEIGHT_PX = 400;
