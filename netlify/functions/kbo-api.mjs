@@ -6240,7 +6240,7 @@ ${JSON.stringify(games, null, 2)}`;
             body: JSON.stringify({ ok: false, error: "이름이 필요합니다." }),
           };
         }
-        if (!["shorts1", "shorts2", "shorts3", "shorts4"].includes(shorts_type)) {
+        if (!["shorts1", "shorts2", "shorts3", "shorts4", "shorts5"].includes(shorts_type)) {
           return {
             statusCode: 400,
             headers: corsHeaders(),

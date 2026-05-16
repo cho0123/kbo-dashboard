@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { postKbo } from "./api.js";
+import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import { drawStandingsSlide, loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
 import {
@@ -11,32 +12,73 @@ import {
   drawShorts5RecordSlide,
   shorts5StandingsDateLabel,
 } from "./shorts5SlideDraw.js";
+import "./Shorts4Panel.css";
 
-const KBO_TEAMS = [
-  { label: "삼성 라이온즈", keyword: "삼성" },
-  { label: "KIA 타이거즈", keyword: "KIA" },
-  { label: "LG 트윈스", keyword: "LG" },
-  { label: "두산 베어스", keyword: "두산" },
-  { label: "KT 위즈", keyword: "KT" },
-  { label: "SSG 랜더스", keyword: "SSG" },
-  { label: "롯데 자이언츠", keyword: "롯데" },
-  { label: "한화 이글스", keyword: "한화" },
-  { label: "NC 다이노스", keyword: "NC" },
-  { label: "키움 히어로즈", keyword: "키움" },
+const SHORTS_EXPORT_W = 1080;
+const SHORTS_EXPORT_H = 1920;
+const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
+
+const TEAM_BUTTONS = [
+  { keyword: "KT", label: "KT" },
+  { keyword: "한화", label: "한화" },
+  { keyword: "삼성", label: "삼성" },
+  { keyword: "KIA", label: "KIA" },
+  { keyword: "SSG", label: "SSG" },
+  { keyword: "LG", label: "LG" },
+  { keyword: "두산", label: "두산" },
+  { keyword: "롯데", label: "롯데" },
+  { keyword: "NC", label: "NC" },
+  { keyword: "키움", label: "키움" },
 ];
 
-const SHORTS_W = 1080;
-const SHORTS_H = 1920;
+const SLIDES = [
+  { type: "intro" },
+  { type: "record" },
+  { type: "batting" },
+  { type: "pitcher" },
+  { type: "games" },
+  { type: "standings" },
+];
 
-function getLastWeekTuesdayKst() {
+function slideExportKeyShorts5Capture(slide) {
+  if (!slide?.type) return "intro";
+  if (slide.type === "intro") return "intro";
+  if (slide.type === "record") return "record";
+  if (slide.type === "batting") return "batting";
+  if (slide.type === "pitcher") return "pitcher";
+  if (slide.type === "games") return "games";
+  if (slide.type === "standings") return "standings";
+  return "intro";
+}
+
+function getTuesdayKst(weekOffset = 0) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   const dow = now.getDay();
   const daysFromTue = (dow + 5) % 7;
-  const thisTue = new Date(now);
-  thisTue.setDate(now.getDate() - daysFromTue);
-  const lastTue = new Date(thisTue);
-  lastTue.setDate(thisTue.getDate() - 7);
-  return lastTue.toLocaleDateString("sv-SE");
+  const tue = new Date(now);
+  tue.setDate(now.getDate() - daysFromTue + weekOffset * 7);
+  return tue.toLocaleDateString("sv-SE");
+}
+
+function getThisWeekTuesdayKst() {
+  return getTuesdayKst(0);
+}
+
+function getLastWeekTuesdayKst() {
+  return getTuesdayKst(-1);
+}
+
+function delayMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitFontsReadyForCapture() {
+  if (typeof document === "undefined" || !document.fonts?.ready) return;
+  try {
+    await document.fonts.ready;
+  } catch {
+    // ignore
+  }
 }
 
 function downloadBlob(blob, filename) {
@@ -52,6 +94,7 @@ function downloadBlob(blob, filename) {
 }
 
 function canvasToBlob(canvas) {
+  if (!canvas) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
   });
@@ -96,21 +139,78 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide },
 export default function Shorts5Panel() {
   const [teamKw, setTeamKw] = useState("LG");
   const [weekStart, setWeekStart] = useState(() => getLastWeekTuesdayKst());
+  const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
   const [slideIdx, setSlideIdx] = useState(0);
+  const captureWrapRef = useRef(null);
+  const presetPickerRef = useRef(null);
+  const [captureBusy, setCaptureBusy] = useState(false);
+  const [capturedSlides, setCapturedSlides] = useState([]);
 
-  const slides = useMemo(
-    () => [
-      { type: "intro" },
-      { type: "record" },
-      { type: "batting" },
-      { type: "pitcher" },
-      { type: "games" },
-      { type: "standings" },
-    ],
-    []
+  const slides = useMemo(() => (data ? SLIDES : []), [data]);
+  const exportTag = `${teamKw}_${weekStart}`;
+
+  const paintSlideAt = useCallback(
+    async (idx, canvas) => {
+      if (!canvas || !data) return;
+      await ensureCanvasFonts();
+      const w = SHORTS_EXPORT_W;
+      const h = SHORTS_EXPORT_H;
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = "360px";
+      canvas.style.height = "640px";
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const slide = slides[idx];
+      if (!slide) {
+        ctx.fillStyle = "#f8f9fa";
+        ctx.fillRect(0, 0, w, h);
+        return;
+      }
+
+      const teamName = data.team_name || teamKw;
+      const tk = teamKeyword(teamName);
+      const logoImg = await loadSvgLogo(tk);
+      const logosByTeamKey = { [tk]: logoImg };
+
+      if (slide.type === "standings") {
+        const standings = Array.isArray(data.standings) ? data.standings : [];
+        for (const r of standings) {
+          const t = r?.team ?? r?.TEAM_NM ?? "";
+          const k = teamKeyword(t);
+          if (k && !logosByTeamKey[k]) logosByTeamKey[k] = await loadSvgLogo(k);
+        }
+      }
+
+      await loadShortsBaseballDecor();
+
+      if (slide.type === "intro") drawShorts5IntroSlide(ctx, w, h, data, logoImg);
+      else if (slide.type === "record") drawShorts5RecordSlide(ctx, w, h, data, logoImg);
+      else if (slide.type === "batting") drawShorts5BattingSlide(ctx, w, h, data);
+      else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
+      else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
+      else
+        drawStandingsSlide(
+          ctx,
+          w,
+          h,
+          shorts5StandingsDateLabel(data),
+          data.standings,
+          logosByTeamKey
+        );
+    },
+    [data, slides, teamKw]
+  );
+
+  const renderSlideToCanvas = useCallback(
+    async (canvas) => {
+      await paintSlideAt(slideIdx, canvas);
+    },
+    [slideIdx, paintSlideAt]
   );
 
   const onFetch = useCallback(async () => {
@@ -126,6 +226,7 @@ export default function Shorts5Panel() {
         throw new Error(String(res.error || res.message || "API 오류"));
       }
       setData(res);
+      setCapturedSlides([]);
       setSlideIdx(0);
     } catch (e) {
       setError(e?.message || String(e));
@@ -135,169 +236,227 @@ export default function Shorts5Panel() {
     }
   }, [teamKw, weekStart]);
 
-  const renderSlideToCanvas = useCallback(
-    async (idx, canvas) => {
-      if (!canvas || !data) return;
-      await ensureCanvasFonts();
-      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-      canvas.width = Math.floor(SHORTS_W * dpr);
-      canvas.height = Math.floor(SHORTS_H * dpr);
-      canvas.style.width = "360px";
-      canvas.style.height = "640px";
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  useEffect(() => {
+    setCapturedSlides([]);
+    setSlideIdx(0);
+  }, [teamKw]);
 
-      const slide = slides[idx];
-      if (!slide) return;
-
-      const teamName = data.team_name || teamKw;
-      const tk = teamKeyword(teamName);
-      const logoImg = await loadSvgLogo(tk);
-      const logosByTeamKey = { [tk]: logoImg };
-
-      if (slide.type === "standings") {
-        const standings = Array.isArray(data.standings) ? data.standings : [];
-        for (const r of standings) {
-          const t = r?.team ?? r?.TEAM_NM ?? "";
-          const k = teamKeyword(t);
-          if (!logosByTeamKey[k]) logosByTeamKey[k] = await loadSvgLogo(k);
+  const captureAllSlides = async () => {
+    if (!data || !slides.length) return;
+    setCaptureBusy(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const out = [];
+      for (let i = 0; i < slides.length; i++) {
+        setSlideIdx(i);
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        await waitFontsReadyForCapture();
+        const el = captureWrapRef.current;
+        if (!el) throw new Error("캡처 대상이 없습니다.");
+        const scale = SHORTS_EXPORT_W / Math.max(1, el.offsetWidth);
+        const c = await html2canvas(el, {
+          scale,
+          useCORS: true,
+          backgroundColor: null,
+        });
+        if (c.width !== SHORTS_EXPORT_W || c.height !== SHORTS_EXPORT_H) {
+          console.warn("[shorts5 capture] 해상도", c.width, c.height);
+        }
+        const blob = await new Promise((resolve, reject) => {
+          c.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG 변환 실패"))), "image/png");
+        });
+        out.push({ key: slideExportKeyShorts5Capture(slides[i]), blob });
+        if (i < slides.length - 1) {
+          await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
       }
-
-      await loadShortsBaseballDecor();
-
-      if (slide.type === "intro") drawShorts5IntroSlide(ctx, SHORTS_W, SHORTS_H, data, logoImg);
-      else if (slide.type === "record")
-        drawShorts5RecordSlide(ctx, SHORTS_W, SHORTS_H, data, logoImg);
-      else if (slide.type === "batting") drawShorts5BattingSlide(ctx, SHORTS_W, SHORTS_H, data);
-      else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, SHORTS_W, SHORTS_H, data);
-      else if (slide.type === "games") drawShorts5GamesSlide(ctx, SHORTS_W, SHORTS_H, data);
-      else
-        drawStandingsSlide(
-          ctx,
-          SHORTS_W,
-          SHORTS_H,
-          shorts5StandingsDateLabel(data),
-          data.standings,
-          logosByTeamKey
-        );
-    },
-    [data, slides, teamKw]
-  );
+      setCapturedSlides(out);
+    } catch (e) {
+      window.alert(e?.message || String(e));
+    } finally {
+      setCaptureBusy(false);
+    }
+  };
 
   const downloadPng = async (idx) => {
     const c = document.createElement("canvas");
-    await renderSlideToCanvas(idx, c);
+    await paintSlideAt(idx, c);
     const blob = await canvasToBlob(c);
     if (!blob) return;
-    const tag = `${teamKw}_${weekStart}`;
-    downloadBlob(blob, `shorts5_${tag}_${String(idx + 1).padStart(2, "0")}.png`);
+    downloadBlob(blob, `shorts5_${exportTag}_${String(idx + 1).padStart(2, "0")}.png`);
   };
 
   const downloadZip = async () => {
+    if (!data || busy) return;
     const zip = new JSZip();
-    const tag = `${teamKw}_${weekStart}`;
     for (let i = 0; i < slides.length; i++) {
       const c = document.createElement("canvas");
-      await renderSlideToCanvas(i, c);
+      await paintSlideAt(i, c);
       const blob = await canvasToBlob(c);
       if (!blob) continue;
-      zip.file(`shorts5_${tag}_${String(i + 1).padStart(2, "0")}.png`, blob);
+      zip.file(`shorts5_${exportTag}_${String(i + 1).padStart(2, "0")}.png`, blob);
     }
     const out = await zip.generateAsync({ type: "blob" });
-    downloadBlob(out, `shorts5_${tag}.zip`);
+    downloadBlob(out, `shorts5_${exportTag}.zip`);
   };
 
+  const rowBusy = busy || captureBusy;
+
   return (
-    <div className="section soft">
+    <div className="section soft shorts4-root">
       <div className="section-title">5. 쇼츠-주간결산</div>
-      <div className="muted">세로 9:16 (1080×1920) · 화~월 주간 (week_start = 화요일)</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 화~월 (week_start = 화요일)</div>
 
       <div
         style={{
           display: "flex",
           gap: 10,
           alignItems: "center",
-          marginTop: 10,
+          marginTop: 8,
           flexWrap: "wrap",
         }}
       >
-        <label className="muted" style={{ fontWeight: 900 }}>
-          팀
-          <select
-            value={teamKw}
-            onChange={(e) => setTeamKw(e.target.value)}
-            disabled={busy}
-            style={{ marginLeft: 8 }}
+        <button
+          type="button"
+          className="primary"
+          onClick={() => void captureAllSlides()}
+          disabled={!data || rowBusy || !slides.length}
+        >
+          {captureBusy ? "캡처 중…" : "슬라이드 캡처"}
+        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}
+        </span>
+      </div>
+
+      <div className="shorts4-preset-tight">
+        <ShortsPresetPicker
+          ref={presetPickerRef}
+          shortsType="shorts5"
+          slides={capturedSlides}
+          hideVideoButton
+          hideCaptureStatus
+        />
+      </div>
+
+      <div
+        className="shorts4-video-row"
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <button type="button" className="primary" onClick={() => presetPickerRef.current?.openVideoExport()}>
+          영상 생성
+        </button>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {capturedSlides.length === 0 ? "미캡처" : `✅ ${capturedSlides.length}장 캡처됨`}
+        </span>
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        <input
+          type="date"
+          value={weekStart}
+          onChange={(e) => setWeekStart(e.target.value)}
+          disabled={rowBusy}
+          style={{ width: "100%", boxSizing: "border-box" }}
+        />
+      </div>
+
+      <div className="shorts4-tabs" style={{ marginTop: 10 }} role="tablist" aria-label="팀 선택">
+        {TEAM_BUTTONS.map((t) => (
+          <button
+            key={t.keyword}
+            type="button"
+            role="tab"
+            aria-selected={teamKw === t.keyword}
+            className={`shorts4-tab${teamKw === t.keyword ? " active" : ""}`}
+            onClick={() => {
+              setTeamKw(t.keyword);
+              setCapturedSlides([]);
+              setSlideIdx(0);
+            }}
+            disabled={rowBusy}
           >
-            {KBO_TEAMS.map((t) => (
-              <option key={t.keyword} value={t.keyword}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="muted" style={{ fontWeight: 900 }}>
-          주 시작(화)
-          <input
-            type="date"
-            value={weekStart}
-            onChange={(e) => setWeekStart(e.target.value)}
-            disabled={busy}
-            style={{ marginLeft: 8 }}
-          />
-        </label>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => setWeekStart(getThisWeekTuesdayKst())}
+          disabled={rowBusy}
+        >
+          이번주
+        </button>
         <button
           type="button"
           className="primary"
           onClick={() => setWeekStart(getLastWeekTuesdayKst())}
-          disabled={busy}
+          disabled={rowBusy}
         >
-          지난주 화요일
+          지난주
         </button>
-        <button type="button" className="primary primary-fill" onClick={() => void onFetch()} disabled={busy}>
+        <button type="button" className="primary" onClick={() => void onFetch()} disabled={rowBusy}>
           {busy ? "불러오는 중…" : "데이터 불러오기"}
         </button>
-        <button type="button" className="primary" onClick={() => void downloadZip()} disabled={!data || busy}>
+        <button
+          type="button"
+          className="primary primary-fill"
+          onClick={() => void downloadZip()}
+          disabled={!data || rowBusy}
+        >
           전체 ZIP 다운로드
         </button>
       </div>
 
       {error ? <pre className="result-error-light">{error}</pre> : null}
 
-      {data ? (
-        <div
-          style={{
-            marginTop: 14,
-            display: "grid",
-            gridTemplateColumns: "minmax(0, auto) 1fr",
-            gap: 14,
-          }}
-        >
+      {data && slides.length > 0 ? (
+        <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 14 }}>
           <div style={{ flexShrink: 0 }}>
-            <ShortsCanvas slideIdx={slideIdx} renderSlide={(c) => renderSlideToCanvas(slideIdx, c)} />
+            <ShortsCanvas ref={captureWrapRef} slideIdx={slideIdx} renderSlide={renderSlideToCanvas} />
           </div>
           <div>
             <div className="muted" style={{ fontWeight: 900 }}>
-              슬라이드 ({slideIdx + 1}/{slides.length}) · {data.week_label}
+              슬라이드 ({slideIdx + 1}/{slides.length}) · {data.week_label || weekStart}
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setSlideIdx((x) => Math.max(0, x - 1))} disabled={slideIdx === 0}>
+              <button
+                type="button"
+                onClick={() => setSlideIdx((x) => Math.max(0, x - 1))}
+                disabled={slideIdx === 0 || captureBusy}
+              >
                 이전
               </button>
               <button
                 type="button"
                 onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
-                disabled={slideIdx >= slides.length - 1}
+                disabled={slideIdx >= slides.length - 1 || captureBusy}
               >
                 다음
               </button>
-              <button type="button" onClick={() => void downloadPng(slideIdx)} disabled={busy}>
-                현재 슬라이드 PNG
+              <button type="button" onClick={() => void downloadPng(slideIdx)} disabled={rowBusy || captureBusy}>
+                현재 슬라이드 PNG 다운로드
               </button>
             </div>
-            <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>
-              1 인트로 · 2 주간 성적 · 3 타격 · 4 투수 · 5 경기 결과 · 6 KBO 순위
+            <div className="muted" style={{ marginTop: 10 }}>
+              - 슬라이드1: 인트로 (팀컬러 + 주간결산)
+              <br />
+              - 슬라이드2: 주간 팀성적 (승패 + 순위변동)
+              <br />
+              - 슬라이드3: 타격 하이라이트
+              <br />
+              - 슬라이드4: 투수 하이라이트
+              <br />
+              - 슬라이드5: 경기 결과 목록
+              <br />- 슬라이드6: KBO 순위표
             </div>
           </div>
         </div>

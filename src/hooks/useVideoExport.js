@@ -4,6 +4,7 @@ import {
   DEFAULT_DURATION_SHORTS2,
   DEFAULT_DURATION_SHORTS3,
   DEFAULT_DURATION_SHORTS4,
+  DEFAULT_DURATION_SHORTS5,
 } from "../videoPresetDefaults.js";
 
 const POLL_MS = 1500;
@@ -23,7 +24,9 @@ function resolveDuration(key, preset, shortsType) {
       ? DEFAULT_DURATION_SHORTS2
       : shortsType === "shorts4"
         ? DEFAULT_DURATION_SHORTS4
-        : shortsType === "shorts3"
+        : shortsType === "shorts5"
+          ? DEFAULT_DURATION_SHORTS5
+          : shortsType === "shorts3"
           ? DEFAULT_DURATION_SHORTS3
           : DEFAULT_DURATION_SHORTS1;
 

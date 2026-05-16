@@ -7,6 +7,15 @@ export const SLIDE_KEYS_SHORTS1 = [
   "game_detail",
   "standings",
 ];
+export const SLIDE_KEYS_SHORTS5 = [
+  "intro",
+  "record",
+  "batting",
+  "pitcher",
+  "games",
+  "standings",
+];
+
 export const SLIDE_KEYS_SHORTS4 = [
   "intro",
   "game_preview",
@@ -48,6 +57,15 @@ export const DEFAULT_DURATION_SHORTS2 = {
 };
 
 /** 쇼츠4: 인트로 + 프리뷰5p + 선발3 + 핫플레이어3 + 라인업6 + 순위 (19장 캡처) */
+export const DEFAULT_DURATION_SHORTS5 = {
+  intro: 4.0,
+  record: 3.0,
+  batting: 3.0,
+  pitcher: 3.0,
+  games: 4.0,
+  standings: 4.0,
+};
+
 export const DEFAULT_DURATION_SHORTS4 = {
   intro: 4.0,
   game_preview: 1.5,
@@ -83,6 +101,8 @@ export function defaultSlidesForType(shortsType) {
       return { ...DEFAULT_DURATION_SHORTS2 };
     case "shorts4":
       return { ...DEFAULT_DURATION_SHORTS4 };
+    case "shorts5":
+      return { ...DEFAULT_DURATION_SHORTS5 };
     case "shorts3":
       return { ...DEFAULT_DURATION_SHORTS3 };
     default:
@@ -116,6 +136,17 @@ export function slideFrameCountForKey(shortsType, key) {
       intro: 1,
       summary: 1,
       game_detail: 10,
+      standings: 1,
+    };
+    return m[key] ?? 1;
+  }
+  if (shortsType === "shorts5") {
+    const m = {
+      intro: 1,
+      record: 1,
+      batting: 1,
+      pitcher: 1,
+      games: 1,
       standings: 1,
     };
     return m[key] ?? 1;
@@ -160,6 +191,16 @@ export function slideFieldDefs(shortsType) {
       { key: "summary_last", label: "경기결과 마지막(5번째)장" },
       { key: "game_detail", label: "경기 상세" },
       { key: "standings", label: "순위" },
+    ];
+  }
+  if (shortsType === "shorts5") {
+    return [
+      { key: "intro", label: "인트로" },
+      { key: "record", label: "주간 팀성적" },
+      { key: "batting", label: "타격 하이라이트" },
+      { key: "pitcher", label: "투수 하이라이트" },
+      { key: "games", label: "경기 결과" },
+      { key: "standings", label: "KBO 순위" },
     ];
   }
   if (shortsType === "shorts4") {

@@ -45,7 +45,9 @@ const ShortsPresetPicker = forwardRef(function ShortsPresetPicker(
       ? "쇼츠1"
       : shortsType === "shorts2"
         ? "쇼츠2"
-        : shortsType;
+        : shortsType === "shorts5"
+          ? "쇼츠5"
+          : shortsType;
 
   const captureCount = Array.isArray(slides) ? slides.length : 0;
 
