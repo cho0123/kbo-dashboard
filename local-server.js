@@ -101,7 +101,18 @@ function sanitizeClipFileName(name) {
 }
 
 function ffmpegConcatListPath(p) {
-  return String(p).replace(/\\/g, "/").replace(/'/g, "'\\''");
+  const normalized = resolve(String(p || ""))
+    .replace(/\\/g, "/")
+    .replace(/'/g, "'\\''");
+  return normalized;
+}
+
+function buildConcatListBody(resolvedClips) {
+  const lines = [
+    "ffconcat version 1.0",
+    ...resolvedClips.map((p) => `file '${ffmpegConcatListPath(p)}'`),
+  ];
+  return lines.join("\n") + "\n";
 }
 
 function runSpawn(cmd, args, cwd = __dirname) {
@@ -427,8 +438,16 @@ app.post("/merge-upload", async (req, res) => {
       ? body.jobId.trim()
       : randomUUID();
 
+  console.log("[merge-upload] req.body.clips:", clips);
+
   if (!clips.length) {
     return res.status(400).json({ ok: false, error: "clips 배열이 필요합니다." });
+  }
+  if (clips.length < 2) {
+    return res.status(400).json({
+      ok: false,
+      error: "합치려면 clips 배열에 2개 이상의 경로가 필요합니다.",
+    });
   }
 
   if (!existsSync(FFMPEG_EXE)) {
@@ -451,12 +470,14 @@ app.post("/merge-upload", async (req, res) => {
     });
 
     concatListPath = join(CLIPS_DIR, `concat_${jobId}.txt`);
-    const listBody = resolvedClips
-      .map((p) => `file '${ffmpegConcatListPath(p)}'`)
-      .join("\n");
+    const listBody = buildConcatListBody(resolvedClips);
     writeFileSync(concatListPath, listBody, "utf8");
     toDelete.add(concatListPath);
 
+    console.log("[merge-upload] concat list file:", concatListPath);
+    console.log("[merge-upload] concat list contents:\n" + listBody);
+
+    const listInputPath = concatListPath.replace(/\\/g, "/");
     mergedPath = join(CLIPS_DIR, `merged_${jobId}.mp4`);
     await runSpawn(FFMPEG_EXE, [
       "-y",
@@ -465,9 +486,13 @@ app.post("/merge-upload", async (req, res) => {
       "-safe",
       "0",
       "-i",
-      concatListPath,
+      listInputPath,
       "-c",
       "copy",
+      "-reset_timestamps",
+      "1",
+      "-avoid_negative_ts",
+      "make_zero",
       mergedPath,
     ]);
     toDelete.add(mergedPath);

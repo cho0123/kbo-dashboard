@@ -42,6 +42,38 @@ function isAllowedVideoFile(file) {
   );
 }
 
+function stripMp4Ext(name) {
+  return String(name || "")
+    .trim()
+    .replace(/\.mp4$/i, "");
+}
+
+function collectUsedOutputStems(clips) {
+  const used = new Set();
+  for (const c of clips) {
+    const stem = stripMp4Ext(c.label || basename(c.clipPath));
+    if (stem) used.add(stem.toLowerCase());
+  }
+  return used;
+}
+
+function resolveUniqueOutputName(rawName, clips) {
+  const used = collectUsedOutputStems(clips);
+  const base = stripMp4Ext(rawName);
+
+  if (!base) {
+    let n = 1;
+    while (used.has(`clip_${n}`.toLowerCase())) n += 1;
+    return `clip_${n}`;
+  }
+
+  if (!used.has(base.toLowerCase())) return base;
+
+  let n = 1;
+  while (used.has(`clip_${base}_${n}`.toLowerCase())) n += 1;
+  return `clip_${base}_${n}`;
+}
+
 async function postJson(path, body) {
   const res = await fetch(`${LOCAL_SERVER}${path}`, {
     method: "POST",
@@ -126,14 +158,14 @@ export default function VideoPrep({ onJobReady }) {
     setClipBusy(true);
     setError(null);
     try {
-      const name = clipName.trim();
+      const outputName = resolveUniqueOutputName(clipName, clips);
       const data = await postClipFormData({
         videoFile,
         startTime: start,
         endTime: end,
-        ...(name ? { outputName: name } : {}),
+        outputName,
       });
-      const label = name || basename(data.clipPath) || `clip_${clips.length + 1}`;
+      const label = outputName || basename(data.clipPath) || `clip_${clips.length + 1}`;
       setClips((prev) => [
         ...prev,
         {
@@ -153,7 +185,7 @@ export default function VideoPrep({ onJobReady }) {
     } finally {
       setClipBusy(false);
     }
-  }, [videoFile, startTime, endTime, clipName, clips.length]);
+  }, [videoFile, startTime, endTime, clipName, clips]);
 
   const removeClip = useCallback((id) => {
     setClips((prev) => prev.filter((c) => c.id !== id));
