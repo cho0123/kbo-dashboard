@@ -2337,6 +2337,275 @@ function buildStandingsDiff(prevDoc, curDoc) {
   return out;
 }
 
+function isoAddDays(isoYmd, deltaDays) {
+  const s = safeIsoDate(isoYmd);
+  if (!s) return "";
+  const [y, m, d] = s.split("-").map((x) => Number(x));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return "";
+  const t = Date.UTC(y, m - 1, d + deltaDays, 12, 0, 0);
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+function formatWeekLabelKm(startIso, endIso) {
+  const part = (iso) => {
+    const s = safeIsoDate(iso);
+    if (!s) return "";
+    const [, mo, da] = s.split("-");
+    return `${Number(mo)}/${Number(da)}`;
+  };
+  const a = part(startIso);
+  const b = part(endIso);
+  return a && b ? `${a}~${b}` : a || b || "";
+}
+
+function filterGamesForTeamKw(games, teamKw) {
+  const kw = String(teamKw || "").trim();
+  if (!kw) return [];
+  return (Array.isArray(games) ? games : []).filter(
+    (g) => teamMatches(g?.home_team, kw) || teamMatches(g?.away_team, kw)
+  );
+}
+
+function standingsRankForTeamKw(standingsRows, teamKw) {
+  const kw = String(teamKw || "").trim();
+  if (!kw) return null;
+  const rows = Array.isArray(standingsRows) ? standingsRows : [];
+  for (const r of rows) {
+    const teamRaw = pickStr(r, ["team", "TEAM_NM", "team_name", "name", "TEAM", "club"]);
+    if (!teamMatches(teamRaw, kw) && normalizeTeamKey(teamRaw) !== normalizeTeamKey(kw)) continue;
+    const rank = pickNum(r, ["rank", "RANK", "순위"]);
+    if (rank > 0) return rank;
+  }
+  return null;
+}
+
+function buildTeamWeekRecordForKw(games, teamKw) {
+  const kw = String(teamKw || "").trim();
+  let wins = 0;
+  let losses = 0;
+  for (const g of filterGamesForTeamKw(games, kw)) {
+    const isHome = teamMatches(g?.home_team, kw);
+    const hs = Number(g?.home_score);
+    const as = Number(g?.away_score);
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+    const teamScore = isHome ? hs : as;
+    const oppScore = isHome ? as : hs;
+    if (teamScore === oppScore) continue;
+    if (teamScore > oppScore) wins += 1;
+    else losses += 1;
+  }
+  return { wins, losses };
+}
+
+function buildTeamWeekGameResults(games, teamKw) {
+  const kw = String(teamKw || "").trim();
+  const out = [];
+  for (const g of filterGamesForTeamKw(games, kw)) {
+    const isHome = teamMatches(g?.home_team, kw);
+    const hs = Number(g?.home_score);
+    const as = Number(g?.away_score);
+    if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+    const teamScore = isHome ? hs : as;
+    const oppScore = isHome ? as : hs;
+    const opponent = isHome ? g?.away_team : g?.home_team;
+    let result = "draw";
+    if (teamScore > oppScore) result = "win";
+    else if (teamScore < oppScore) result = "loss";
+    out.push({
+      game_id: g?.game_id ?? g?.id ?? null,
+      game_date: String(g?.game_date || "").slice(0, 10),
+      opponent: opponent ?? null,
+      is_home: isHome,
+      team_score: teamScore,
+      opp_score: oppScore,
+      result,
+      margin: teamScore - oppScore,
+    });
+  }
+  out.sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)));
+  return out;
+}
+
+function pickBestWinGameForTeam(gameResults) {
+  let best = null;
+  for (const g of Array.isArray(gameResults) ? gameResults : []) {
+    if (g?.result !== "win") continue;
+    const margin = Number(g.margin);
+    if (!Number.isFinite(margin)) continue;
+    if (!best || margin > best.margin) best = g;
+  }
+  return best;
+}
+
+function filterStatRowsForTeamKw(rows, teamKw) {
+  const kw = String(teamKw || "").trim();
+  if (!kw) return [];
+  return (Array.isArray(rows) ? rows : []).filter((r) => {
+    const tn = pickTeamName(r) || "";
+    return teamMatches(tn, kw);
+  });
+}
+
+function pickTopBatterForTeamWeek(batterRows, teamKw) {
+  const rows = filterStatRowsForTeamKw(batterRows, teamKw);
+  const byPlayer = new Map();
+  for (const r0 of rows) {
+    const r = r0 && typeof r0 === "object" ? r0 : {};
+    const player = pickPlayerName(r);
+    if (!player || player === "—") continue;
+    const key = player;
+    if (!byPlayer.has(key)) {
+      byPlayer.set(key, { player, team: pickTeamName(r) || null, hr: 0, h: 0, rbi: 0, ab: 0 });
+    }
+    const acc = byPlayer.get(key);
+    acc.hr += pickNum(r, ["hr", "HR", "home_run", "홈런"]);
+    acc.h += pickNum(r, ["h", "H", "hits", "hit", "안타"]);
+    acc.rbi += pickNum(r, ["rbi", "RBI", "bi", "타점"]);
+    acc.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  }
+  const list = [...byPlayer.values()].map((x) => ({
+    ...x,
+    avg: x.ab > 0 ? x.h / x.ab : null,
+  }));
+  list.sort((a, b) => {
+    if (b.hr !== a.hr) return b.hr - a.hr;
+    if (b.h !== a.h) return b.h - a.h;
+    if (b.rbi !== a.rbi) return b.rbi - a.rbi;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+  return list[0] || null;
+}
+
+function pickTopPitcherForTeamWeek(pitcherRows, teamKw) {
+  const rows = filterStatRowsForTeamKw(pitcherRows, teamKw);
+  const byPlayer = new Map();
+  for (const r0 of rows) {
+    const r = r0 && typeof r0 === "object" ? r0 : {};
+    const player = pickPitcherName(r) || pickPlayerName(r);
+    if (!player || player === "—") continue;
+    const key = player;
+    if (!byPlayer.has(key)) {
+      byPlayer.set(key, {
+        player,
+        team: pickTeamName(r) || null,
+        ip: 0,
+        _er: 0,
+        _hasEr: false,
+        wins: 0,
+      });
+    }
+    const acc = byPlayer.get(key);
+    const ipn = sumInningsToNumber(r?.ip ?? r?.IP ?? r?.inn ?? r?.innings ?? 0);
+    if (ipn > 0) acc.ip += ipn;
+    const er = pickAny(r, ["er", "ER", "earned_runs", "earnedRuns"]);
+    const erNum = er == null ? null : Number(er);
+    if (erNum != null && Number.isFinite(erNum) && erNum >= 0) {
+      acc._er += erNum;
+      acc._hasEr = true;
+    }
+    if (String(r?.result || "").trim() === "승") acc.wins += 1;
+  }
+  const withEra = [...byPlayer.values()]
+    .map((x) => {
+      const era = x.ip > 0 && x._hasEr ? (x._er * 9) / x.ip : null;
+      return {
+        player: x.player,
+        team: x.team,
+        ip: Number.isFinite(x.ip) ? Number(x.ip.toFixed(2)) : x.ip,
+        era: era == null ? null : Number(era.toFixed(2)),
+        wins: x.wins,
+      };
+    })
+    .filter((x) => Number(x.ip) >= 1);
+  withEra.sort((a, b) => {
+    const ae = a.era == null ? Infinity : a.era;
+    const be = b.era == null ? Infinity : b.era;
+    if (ae !== be) return ae - be;
+    if (b.ip !== a.ip) return b.ip - a.ip;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+  if (withEra.length) return withEra[0];
+  const byIp = [...byPlayer.values()]
+    .map((x) => ({
+      player: x.player,
+      team: x.team,
+      ip: Number.isFinite(x.ip) ? Number(x.ip.toFixed(2)) : x.ip,
+      era: null,
+      wins: x.wins,
+    }))
+    .filter((x) => Number(x.ip) > 0)
+    .sort((a, b) => b.ip - a.ip);
+  return byIp[0] || null;
+}
+
+function resolveTeamDisplayName(teamKw) {
+  const kw = String(teamKw || "").trim();
+  if (!kw) return "";
+  for (const [alias, full] of Object.entries(TEAM_ALIAS_TO_FULL || {})) {
+    if (alias === kw || kw.includes(alias)) return full || kw;
+  }
+  return normalizeTeamKey(kw) || kw;
+}
+
+async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
+  const week_start = safeIsoDate(weekStartIso);
+  if (!week_start) {
+    throw new Error("Invalid week_start (YYYY-MM-DD)");
+  }
+  const week_end = isoAddDays(week_start, 6);
+  const gamesAll = await fetchGamesDateRange(db, week_start, week_end);
+  const teamGames = filterGamesForTeamKw(gamesAll, teamKw);
+  const gameIds = [
+    ...new Set(
+      teamGames.map((g) => String(g?.game_id || g?.gameId || "").trim()).filter(Boolean)
+    ),
+  ];
+  const box = await fetchBoxForGames(db, gameIds);
+  const gameResults = buildTeamWeekGameResults(teamGames, teamKw);
+  const week_record = buildTeamWeekRecordForKw(teamGames, teamKw);
+  const top_batter = pickTopBatterForTeamWeek(box.batters, teamKw);
+  const top_pitcher = pickTopPitcherForTeamWeek(box.pitchers, teamKw);
+  const best_game = pickBestWinGameForTeam(gameResults);
+
+  const prevDay = isoAddDays(week_start, -1);
+  const [prevStand, curStand, curLive] = await Promise.all([
+    fetchClosestStandingsHistoryDoc(db, prevDay),
+    fetchClosestStandingsHistoryDoc(db, week_end),
+    fetchStandings2026Document(db),
+  ]);
+  const prevRows = Array.isArray(prevStand?.standings) ? prevStand.standings : [];
+  const curRows = Array.isArray(curStand?.standings)
+    ? curStand.standings
+    : Array.isArray(curLive?.standings)
+      ? curLive.standings
+      : [];
+  const prev_rank = standingsRankForTeamKw(prevRows, teamKw);
+  const current_rank = standingsRankForTeamKw(curRows, teamKw);
+  const rank_change = {
+    prev_rank,
+    current_rank,
+    diff:
+      prev_rank != null && current_rank != null ? prev_rank - current_rank : null,
+  };
+
+  return {
+    team_name: resolveTeamDisplayName(teamKw),
+    team_keyword: teamKw,
+    week_start,
+    week_end,
+    week_label: formatWeekLabelKm(week_start, week_end),
+    week_record,
+    rank_change,
+    top_batter,
+    top_pitcher,
+    best_game,
+    games: gameResults,
+    standings: curRows,
+    standings_year: curLive?.year ?? 2026,
+  };
+}
+
 function pickNextWeekHighlights(scheduleRows, topTeams, afterDateIso, topN = 3) {
   const after = safeIsoDate(afterDateIso);
   const topSet = new Set((topTeams || []).map((t) => normalizeTeamKey(t)).filter(Boolean));
@@ -5582,13 +5851,46 @@ ${JSON.stringify(games, null, 2)}`;
         };
       }
       case "weekly_summary": {
+        const teamKw = String(payload.team || payload.team_keyword || "").trim();
+        const weekStart = safeIsoDate(
+          payload.week_start || payload.weekStart || payload.week_start_date || ""
+        );
+        if (teamKw && weekStart) {
+          try {
+            const summary = await buildTeamWeeklySummaryPayload(db, teamKw, weekStart);
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: true,
+                action,
+                mode: "team",
+                ...summary,
+              }),
+            };
+          } catch (e) {
+            return {
+              statusCode: 500,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: e?.message || String(e),
+              }),
+            };
+          }
+        }
+
         const from = safeIsoDate(payload.from_date || payload.fromDate || "");
         const to = safeIsoDate(payload.to_date || payload.toDate || "");
         if (!from || !to) {
           return {
             statusCode: 400,
             headers: corsHeaders(),
-            body: JSON.stringify({ ok: false, error: "Missing from_date or to_date (YYYY-MM-DD)" }),
+            body: JSON.stringify({
+              ok: false,
+              error:
+                "Provide team + week_start (YYYY-MM-DD), or from_date + to_date (YYYY-MM-DD)",
+            }),
           };
         }
         if (to < from) {

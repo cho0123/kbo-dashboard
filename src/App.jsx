@@ -9,6 +9,7 @@ import Shorts3Panel from "./Shorts3Panel.jsx";
 import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import Shorts4Panel from "./Shorts4Panel.jsx";
+import Shorts5Panel from "./Shorts5Panel.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
 import { drawBaseballBackground, loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
@@ -4072,7 +4073,21 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">5. 쇼츠-주간-분석(월요일)</div>
+                <div className="side-group-title">5. 쇼츠-주간결산</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts5_team_weekly");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">쇼츠-주간-분석(월요일)</div>
                 <button
                   type="button"
                   className="primary"
@@ -4897,6 +4912,8 @@ export default function App() {
                     <CardTomorrowPreviewShorts previewDateIso={shortsTomorrowIso} />
                   ) : activeKey === "shorts4_matchup" ? (
                     <Shorts4Panel />
+                  ) : activeKey === "shorts5_team_weekly" ? (
+                    <Shorts5Panel />
                   ) : activeKey === "shorts_weekly_summary" ? (
                     <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
