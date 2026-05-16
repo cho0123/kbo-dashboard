@@ -4031,12 +4031,18 @@ export default function App() {
                     gap: 6,
                     marginTop: 10,
                     width: "100%",
+                    alignItems: "stretch",
                   }}
                 >
                   <button
                     type="button"
                     className="primary primary-fill"
-                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    style={{
+                      flex: "0 0 auto",
+                      marginTop: 0,
+                      whiteSpace: "nowrap",
+                      boxSizing: "border-box",
+                    }}
                     onClick={() => {
                       setActiveKey("shorts3_highlight");
                     }}
@@ -4046,7 +4052,14 @@ export default function App() {
                   <button
                     type="button"
                     className="primary primary-fill"
-                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      marginTop: 0,
+                      boxSizing: "border-box",
+                      fontSize: 12,
+                      padding: "8px 6px",
+                    }}
                     onClick={() => {
                       setActiveKey("shorts3_thumbnail");
                     }}
@@ -4056,7 +4069,14 @@ export default function App() {
                   <button
                     type="button"
                     className="primary primary-fill"
-                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      marginTop: 0,
+                      boxSizing: "border-box",
+                      fontSize: 12,
+                      padding: "8px 6px",
+                    }}
                     onClick={() => {
                       setActiveKey("shorts3_ai");
                     }}
