@@ -4024,38 +4024,45 @@ export default function App() {
 
               <div className="side-group">
                 <div className="side-group-title">3. 쇼츠-하이라이트</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      type="button"
-                      className="primary primary-fill"
-                      onClick={() => {
-                        setActiveKey("shorts3_highlight");
-                      }}
-                    >
-                      패널 열기
-                    </button>
-                    <button
-                      type="button"
-                      className="primary primary-fill"
-                      onClick={() => {
-                        setActiveKey("shorts3_thumbnail");
-                      }}
-                    >
-                      🖼️ 썸네일
-                    </button>
-                  </div>
-                  <div>
-                    <button
-                      type="button"
-                      className="primary primary-fill"
-                      onClick={() => {
-                        setActiveKey("shorts3_ai");
-                      }}
-                    >
-                      🤖 AI 분석
-                    </button>
-                  </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 6,
+                    marginTop: 10,
+                    width: "100%",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    onClick={() => {
+                      setActiveKey("shorts3_highlight");
+                    }}
+                  >
+                    패널 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    onClick={() => {
+                      setActiveKey("shorts3_thumbnail");
+                    }}
+                  >
+                    썸네일
+                  </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    style={{ flex: 1, minWidth: 0, boxSizing: "border-box" }}
+                    onClick={() => {
+                      setActiveKey("shorts3_ai");
+                    }}
+                  >
+                    AI 분석
+                  </button>
                 </div>
               </div>
 
