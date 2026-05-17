@@ -908,7 +908,7 @@ export default function Shorts3Panel({
   const rightImagePreviewObjectPosition = (() => {
     if (!showRightImageSegmentPreview) return "50% center";
     const clamped = Math.min(50, Math.max(-50, selectedImageCropOffset));
-    return `${50 - clamped * 0.5}% center`;
+    return `${50 + clamped * 0.5}% center`;
   })();
 
   const busy = status === "encoding";
