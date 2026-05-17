@@ -3822,32 +3822,6 @@ export default function Shorts3Panel({
               ))}
             </div>
           </div>
-          {layout === LAYOUT_TYPES.KBO ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <select
-              value={selectedTeam}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedTeam(next);
-                setTeamColor(TEAM_CONFIGS[next]?.bg || "#4ade80");
-              }}
-              style={{
-                padding: "3px 8px",
-                borderRadius: 6,
-                background: "#1e1e1e",
-                color: "#fff",
-                border: "1px solid #444",
-                fontSize: 12,
-              }}
-            >
-              {TEAM_LIST.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          ) : null}
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div
