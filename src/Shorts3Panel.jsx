@@ -1004,10 +1004,13 @@ export default function Shorts3Panel({
       Math.round((cropOffset / 100) * vw);
     const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
 
-    ctx.clearRect(0, 0, W, H);
     const skipVideoHoleDraw =
       isImageSegment(selectedSeg) &&
       Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
+    ctx.clearRect(0, 0, W, H);
+    if (skipVideoHoleDraw) {
+      ctx.clearRect(0, 0, W, H);
+    }
     if (!skipVideoHoleDraw) {
       ctx.drawImage(
         video,
@@ -3944,23 +3947,6 @@ export default function Shorts3Panel({
                       borderRadius: 6,
                     }}
                   >
-                    <canvas
-                      ref={previewCanvasRef}
-                      width={160}
-                      height={284}
-                      style={{
-                        width: PREVIEW_CANVAS_WIDTH_PX,
-                        height: PREVIEW_ROW_HEIGHT_PX,
-                        borderRadius: 6,
-                        background:
-                          thumbnailSelected || showRightImageSegmentPreview
-                            ? "transparent"
-                            : "#000",
-                        display: "block",
-                        position: "relative",
-                        zIndex: showRightImageSegmentPreview ? 2 : 0,
-                      }}
-                    />
                     {showRightImageSegmentPreview ? (
                       <img
                         src={rightImageSegmentPreviewUrl}
@@ -3969,7 +3955,7 @@ export default function Shorts3Panel({
                           position: "absolute",
                           left: 0,
                           top: 0,
-                          zIndex: 0,
+                          zIndex: 1,
                           width: "auto",
                           height: "100%",
                           display: "block",
@@ -3980,6 +3966,24 @@ export default function Shorts3Panel({
                         }}
                       />
                     ) : null}
+                    <canvas
+                      ref={previewCanvasRef}
+                      width={160}
+                      height={284}
+                      style={{
+                        width: PREVIEW_CANVAS_WIDTH_PX,
+                        height: PREVIEW_ROW_HEIGHT_PX,
+                        borderRadius: 6,
+                        background: showRightImageSegmentPreview
+                          ? "transparent"
+                          : thumbnailSelected
+                            ? "transparent"
+                            : "#000",
+                        display: "block",
+                        position: "relative",
+                        zIndex: showRightImageSegmentPreview ? 2 : 0,
+                      }}
+                    />
                   </div>
                 </div>
                 </div>
