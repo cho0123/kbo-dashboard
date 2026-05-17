@@ -899,14 +899,17 @@ export default function Shorts3Panel({
     return String(segments[selectedSegIndex]?.imagePreviewUrl || "").trim();
   }, [showRightImageSegmentPreview, segments, selectedSegIndex]);
 
-  const selectedImageCropOffset =
-    Number(segments[selectedSegIndex]?.cropOffset) || 0;
+  const selectedImageCropOffset = (() => {
+    const raw = segments[selectedSegIndex]?.cropOffset;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  })();
 
-  const rightImagePreviewObjectPosition = useMemo(() => {
+  const rightImagePreviewObjectPosition = (() => {
     if (!showRightImageSegmentPreview) return "50% center";
     const clamped = Math.min(50, Math.max(-50, selectedImageCropOffset));
     return `${50 - clamped * 0.5}% center`;
-  }, [showRightImageSegmentPreview, selectedImageCropOffset]);
+  })();
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
@@ -3949,6 +3952,7 @@ export default function Shorts3Panel({
                   >
                     {showRightImageSegmentPreview ? (
                       <img
+                        key={`right-img-${selectedSegIndex}-${selectedImageCropOffset}`}
                         src={rightImageSegmentPreviewUrl}
                         alt=""
                         style={{
@@ -3956,7 +3960,7 @@ export default function Shorts3Panel({
                           left: 0,
                           top: 0,
                           zIndex: 1,
-                          width: "auto",
+                          width: "100%",
                           height: "100%",
                           display: "block",
                           objectFit: "cover",
@@ -6599,6 +6603,9 @@ export default function Shorts3Panel({
                       value={seg.cropOffset ?? 0}
                       disabled={busy || uploading}
                       onChange={(e) =>
+                        handleCropOffsetChange(index, e.target.value)
+                      }
+                      onInput={(e) =>
                         handleCropOffsetChange(index, e.target.value)
                       }
                       style={{ flex: 1, minWidth: 120 }}
