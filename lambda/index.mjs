@@ -569,8 +569,9 @@ function buildHighlightSegmentVf(opts) {
   const parts =
     baseMode === "image"
       ? [
-          "scale=1080:1920:force_original_aspect_ratio=decrease",
-          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+          "scale=-2:1920",
+          `crop=1080:1920:${cx}:0`,
+          "setsar=1",
           "format=yuv420p",
         ]
       : [
@@ -726,10 +727,16 @@ async function processHighlightImageSegment(ctx) {
     writeFileSync(bottomPath2, bottomTxt2, "utf8");
   }
 
+  const { w: imgW, h: imgH } = probeVideoDimensions(workDir, imageFileName);
+  let scaledW = Math.floor((imgW * 1920) / Math.max(1, imgH));
+  scaledW -= scaledW % 2;
+  scaledW = Math.max(1080, scaledW);
+  const imageCx = highlightCropXFromOffset(scaledW, 1080, seg?.cropOffset);
+
   const vfSeg = buildHighlightSegmentVf({
     cw,
     ih,
-    cx: 0,
+    cx: imageCx,
     borderColorPrimary,
     skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
     topTextFile: topTextPath,
