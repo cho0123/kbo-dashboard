@@ -887,6 +887,25 @@ export default function Shorts3Panel({
 
   const thumbnailOverlayCanvasRef = useRef(null);
 
+  const showRightImageSegmentPreview = useMemo(() => {
+    if (thumbnailSelected) return false;
+    const seg = segments[selectedSegIndex];
+    if (!seg || !isImageSegment(seg)) return false;
+    return Boolean(String(seg.imagePreviewUrl || "").trim());
+  }, [segments, selectedSegIndex, thumbnailSelected]);
+
+  const rightImageSegmentPreviewUrl = useMemo(() => {
+    if (!showRightImageSegmentPreview) return "";
+    return String(segments[selectedSegIndex]?.imagePreviewUrl || "").trim();
+  }, [showRightImageSegmentPreview, segments, selectedSegIndex]);
+
+  const rightImagePreviewObjectPosition = useMemo(() => {
+    if (!showRightImageSegmentPreview) return "50% center";
+    const off = Number(segments[selectedSegIndex]?.cropOffset) || 0;
+    const clamped = Math.min(50, Math.max(-50, off));
+    return `${50 + clamped * 0.5}% center`;
+  }, [showRightImageSegmentPreview, segments, selectedSegIndex]);
+
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
 
@@ -3909,10 +3928,13 @@ export default function Shorts3Panel({
                   {/* 미리보기 Canvas: 9:16 고정 (width = height × 9/16) */}
                   <div
                     style={{
+                      position: "relative",
                       flexShrink: 0,
                       width: PREVIEW_CANVAS_WIDTH_PX,
                       height: PREVIEW_ROW_HEIGHT_PX,
                       boxSizing: "border-box",
+                      overflow: "hidden",
+                      borderRadius: 6,
                     }}
                   >
                     <canvas
@@ -3925,8 +3947,30 @@ export default function Shorts3Panel({
                         borderRadius: 6,
                         background: thumbnailSelected ? "transparent" : "#000",
                         display: "block",
+                        visibility: showRightImageSegmentPreview
+                          ? "hidden"
+                          : "visible",
                       }}
                     />
+                    {showRightImageSegmentPreview ? (
+                      <img
+                        src={rightImageSegmentPreviewUrl}
+                        alt=""
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: 0,
+                          zIndex: 1,
+                          width: "auto",
+                          height: "100%",
+                          display: "block",
+                          objectFit: "cover",
+                          objectPosition: rightImagePreviewObjectPosition,
+                          background: "#000",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    ) : null}
                   </div>
                 </div>
                 </div>
