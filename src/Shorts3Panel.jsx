@@ -286,21 +286,63 @@ function imageSegmentIsValid(seg) {
   return Boolean(String(seg.imageS3Key || "").trim());
 }
 
+async function uploadHighlightImageViaKbo(jobId, file) {
+  const id = String(jobId || "").trim();
+  if (!id) throw new Error("jobId가 없습니다.");
+  if (!file) throw new Error("이미지 파일이 없습니다.");
+
+  const prep = await postKbo({
+    action: "highlight_image_upload_url",
+    jobId: id,
+    contentType: file.type || "image/jpeg",
+    filename: file.name || "image.jpg",
+  });
+  const putUrl = prep?.putUrl;
+  const s3Key = prep?.s3Key;
+  if (!putUrl || !s3Key) {
+    throw new Error("highlight_image_upload_url 응답 오류");
+  }
+  const putRes = await fetch(putUrl, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type || "image/jpeg" },
+  });
+  if (!putRes.ok) {
+    throw new Error(`S3 이미지 업로드 실패 HTTP ${putRes.status}`);
+  }
+  return { ok: true, s3Key, url: prep.url || putUrl };
+}
+
 async function uploadHighlightImage(jobId, file) {
+  const id = String(jobId || "").trim();
+  if (!id) throw new Error("jobId가 없습니다.");
+  if (!file) throw new Error("이미지 파일이 없습니다.");
+
   const fd = new FormData();
   fd.append("image", file);
-  fd.append("jobId", jobId);
+  fd.append("jobId", id);
   const res = await fetch(`${LOCAL_DOWNLOAD_SERVER}/upload-image`, {
     method: "POST",
     body: fd,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) {
-    throw new Error(
-      data?.error || `이미지 업로드 실패 HTTP ${res.status}`
-    );
+  if (res.ok && data?.ok) {
+    return data;
   }
-  return data;
+  if (res.status === 404) {
+    return uploadHighlightImageViaKbo(id, file);
+  }
+  throw new Error(data?.error || `이미지 업로드 실패 HTTP ${res.status}`);
+}
+
+/** 전체 재생 미리보기용 이미지 URL (blob 미리보기 또는 로컬 파일) */
+function resolveImageSegmentPreviewUrl(seg) {
+  const preview = String(seg?.imagePreviewUrl || "").trim();
+  if (preview) return { url: preview, revoke: false };
+  if (seg?.imageLocalFile instanceof Blob) {
+    return { url: URL.createObjectURL(seg.imageLocalFile), revoke: true };
+  }
+  return { url: "", revoke: false };
 }
 
 function emptySegment() {
@@ -436,13 +478,34 @@ function formatCropOffsetLabel(offset) {
   return `${sign}${n}%`;
 }
 
+/** 전체 재생 타임라인에서 구간 길이(초); 유효하지 않으면 null */
+function playAllSegmentDurationSec(seg) {
+  if (isImageSegment(seg)) {
+    if (!imageSegmentIsValid(seg)) return null;
+    return clampImageDurationSec(seg.duration);
+  }
+  return segmentDurationSpanSeconds(seg);
+}
+
 /**
  * 미리보기 currentTime(초)이 [start, end]에 들어가는 첫 구간; 없으면 null
+ * @param {boolean} playAllTimeline true면 전체 재생 가상 타임라인(영상=end-start, 이미지=duration)
  */
-function findSegmentAtPreviewTime(ct, segments) {
+function findSegmentAtPreviewTime(ct, segments, playAllTimeline = false) {
   if (!Array.isArray(segments)) return null;
   const t = Number(ct);
   if (!Number.isFinite(t)) return null;
+  if (playAllTimeline) {
+    let cursor = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const dur = playAllSegmentDurationSec(seg);
+      if (dur == null || dur <= 0) continue;
+      if (t >= cursor && t < cursor + dur) return seg;
+      cursor += dur;
+    }
+    return null;
+  }
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     const st = String(seg.start ?? "").trim();
@@ -815,7 +878,10 @@ export default function Shorts3Panel({
   const [previewPlaybackPaused, setPreviewPlaybackPaused] = useState(true);
 
   const [isPlayingAll, setIsPlayingAll] = useState(false);
+  const [playAllActiveImageUrl, setPlayAllActiveImageUrl] = useState(null);
+  const [playAllVirtualSec, setPlayAllVirtualSec] = useState(0);
   const playAllRef = useRef(false);
+  const playAllImageRafRef = useRef(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const monitorRef = useRef(false);
 
@@ -1733,10 +1799,12 @@ export default function Shorts3Panel({
 
     const savedMuteForPlayAll = video.muted;
     setIsPlayingAll(true);
+    setPlayAllActiveImageUrl(null);
+    setPlayAllVirtualSec(0);
     playAllRef.current = true;
     video.muted = false;
 
-    const playRange = (startSec, endSec) =>
+    const playRange = (startSec, endSec, virtualBase, onVirtualProgress) =>
       new Promise((res) => {
         let done = false;
         const finish = () => {
@@ -1752,13 +1820,78 @@ export default function Shorts3Panel({
         };
         const check = () => {
           if (!playAllRef.current) return finish();
+          const elapsed = Number(video.currentTime) - startSec;
+          if (Number.isFinite(elapsed) && elapsed >= 0) {
+            onVirtualProgress?.(virtualBase + elapsed);
+          }
           if (video.currentTime >= endSec) return finish();
         };
         video.addEventListener("timeupdate", check);
+        setPlayAllActiveImageUrl(null);
         video.play().catch(() => {});
       });
 
+    const onVirtualProgress = (v) => {
+      if (Number.isFinite(v)) setPlayAllVirtualSec(v);
+    };
+
+    const playImageCut = (seg, index, virtualBase) =>
+      new Promise((res) => {
+        const dur = playAllSegmentDurationSec(seg);
+        const { url, revoke } = resolveImageSegmentPreviewUrl(seg);
+        if (dur == null || dur <= 0 || !url) {
+          res();
+          return;
+        }
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          if (playAllImageRafRef.current != null) {
+            cancelAnimationFrame(playAllImageRafRef.current);
+            playAllImageRafRef.current = null;
+          }
+          setPlayAllActiveImageUrl(null);
+          if (revoke) {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {
+              /* ignore */
+            }
+          }
+          res();
+        };
+        try {
+          video.pause();
+        } catch {
+          /* ignore */
+        }
+        setThumbnailSelected(false);
+        setSelectedSegIndex(index);
+        setPreviewCropOverlay(
+          computePreviewCropOverlay(video, seg.cropOffset ?? 0)
+        );
+        setPlayAllActiveImageUrl(url);
+        onVirtualProgress(virtualBase);
+        const t0 = performance.now();
+        const startTick = () => {
+          const tick = () => {
+            if (!playAllRef.current) return finish();
+            const elapsed = (performance.now() - t0) / 1000;
+            onVirtualProgress(virtualBase + elapsed);
+            if (elapsed >= dur) return finish();
+            playAllImageRafRef.current = requestAnimationFrame(tick);
+          };
+          playAllImageRafRef.current = requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(() => {
+          requestAnimationFrame(startTick);
+        });
+      });
+
     try {
+      let virtualCursor = 0;
+
       const thumbStart = segmentBoundarySeconds(thumbnailSegment, "start");
       if (thumbStart != null && Number.isFinite(thumbStart)) {
         let thumbEnd = segmentBoundarySeconds(thumbnailSegment, "end");
@@ -1769,6 +1902,7 @@ export default function Shorts3Panel({
         ) {
           thumbEnd = thumbStart + 0.1;
         }
+        const thumbDur = thumbEnd - thumbStart;
         setThumbnailSelected(true);
         setPreviewCropOverlay(
           computePreviewCropOverlay(
@@ -1777,7 +1911,8 @@ export default function Shorts3Panel({
           )
         );
         video.currentTime = thumbStart;
-        await playRange(thumbStart, thumbEnd);
+        await playRange(thumbStart, thumbEnd, virtualCursor, onVirtualProgress);
+        virtualCursor += thumbDur;
         await new Promise((res) => setTimeout(res, 100));
       }
 
@@ -1785,6 +1920,14 @@ export default function Shorts3Panel({
         if (!playAllRef.current) break;
         const seg = segments[i];
         if (!seg) continue;
+
+        if (isImageSegment(seg)) {
+          await playImageCut(seg, i, virtualCursor);
+          const dur = playAllSegmentDurationSec(seg);
+          if (dur != null && dur > 0) virtualCursor += dur;
+          await new Promise((res) => setTimeout(res, 100));
+          continue;
+        }
 
         const startSec = segmentBoundarySeconds(seg, "start");
         const endSec = segmentBoundarySeconds(seg, "end");
@@ -1803,12 +1946,19 @@ export default function Shorts3Panel({
         setPreviewCropOverlay(computePreviewCropOverlay(video, seg.cropOffset ?? 0));
         video.currentTime = startSec;
 
-        await playRange(startSec, endSec);
+        await playRange(startSec, endSec, virtualCursor, onVirtualProgress);
+        virtualCursor += endSec - startSec;
 
         await new Promise((res) => setTimeout(res, 100));
       }
     } finally {
+      if (playAllImageRafRef.current != null) {
+        cancelAnimationFrame(playAllImageRafRef.current);
+        playAllImageRafRef.current = null;
+      }
       playAllRef.current = false;
+      setPlayAllActiveImageUrl(null);
+      setPlayAllVirtualSec(0);
       setIsPlayingAll(false);
       video.muted = savedMuteForPlayAll;
     }
@@ -2900,8 +3050,8 @@ export default function Shorts3Panel({
     const b = previewCropOverlay.border;
     const cropH = b.height;
     const scale = cropH > 0 ? cropH / 1920 : 1;
-    const ct = previewPlayheadSec;
-    const bottomSeg = findSegmentAtPreviewTime(ct, segments);
+    const ct = isPlayingAll ? playAllVirtualSec : previewPlayheadSec;
+    const bottomSeg = findSegmentAtPreviewTime(ct, segments, isPlayingAll);
     const segmentBottomLine = String(bottomSeg?.text ?? "").trim();
     const segmentBottomLine2 = String(bottomSeg?.text2 ?? "").trim();
 
@@ -3010,7 +3160,13 @@ export default function Shorts3Panel({
         ) : null}
       </div>
     );
-  }, [previewCropOverlay, previewPlayheadSec, segments]);
+  }, [
+    previewCropOverlay,
+    previewPlayheadSec,
+    playAllVirtualSec,
+    isPlayingAll,
+    segments,
+  ]);
 
   return (
     <div className="section soft" style={{ overflow: "visible" }}>
@@ -3680,10 +3836,31 @@ export default function Shorts3Panel({
                           width: "auto",
                           maxWidth: "100%",
                           display: "block",
+                          visibility: playAllActiveImageUrl ? "hidden" : "visible",
                           objectFit: "contain",
                           background: "#000",
                         }}
                       />
+                      {playAllActiveImageUrl ? (
+                        <img
+                          src={playAllActiveImageUrl}
+                          alt=""
+                          style={{
+                            position: "absolute",
+                            left: "50%",
+                            top: 0,
+                            transform: "translateX(-50%)",
+                            zIndex: 1,
+                            height: PREVIEW_ROW_HEIGHT_PX,
+                            width: "auto",
+                            maxWidth: "100%",
+                            display: "block",
+                            objectFit: "contain",
+                            background: "#000",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      ) : null}
                       {previewCropOverlay ? (
                         <div
                           style={{
@@ -3825,6 +4002,12 @@ export default function Shorts3Panel({
                     onClick={() => {
                       if (isPlayingAll) {
                         playAllRef.current = false;
+                        if (playAllImageRafRef.current != null) {
+                          cancelAnimationFrame(playAllImageRafRef.current);
+                          playAllImageRafRef.current = null;
+                        }
+                        setPlayAllActiveImageUrl(null);
+                        setPlayAllVirtualSec(0);
                         previewVideoRef.current?.pause();
                         setIsPlayingAll(false);
                       } else {

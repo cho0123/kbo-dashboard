@@ -5137,16 +5137,6 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
 
-        const imageSegCount = segments.filter(
-          (s) => s && s.type === "image"
-        ).length;
-        console.log(
-          "[highlight_video_create] segments total:",
-          segments.length,
-          "image:",
-          imageSegCount
-        );
-
         const { s3, lambda, bucket, lambdaName } = videoEncodeAwsClients();
         const sourceKey = `jobs/${jobId}/source.mp4`;
         try {
