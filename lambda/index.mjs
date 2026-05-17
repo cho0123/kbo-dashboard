@@ -545,6 +545,29 @@ function resolveHighlightLayout(meta) {
   return "kbo";
 }
 
+function normalizeVideoScaleY(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 100;
+  return Math.min(150, Math.max(50, Math.round(n)));
+}
+
+function normalizeVideoOffsetY(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 50;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function highlightVerticalCrop(ih, videoScaleY, videoOffsetY) {
+  const ihSafe = Math.max(1, Math.floor(Number(ih) || 1));
+  const scaleY = normalizeVideoScaleY(videoScaleY);
+  const offsetY = normalizeVideoOffsetY(videoOffsetY);
+  let cropH = Math.round((ihSafe * 100) / scaleY);
+  cropH = Math.min(ihSafe, Math.max(1, cropH));
+  let cropY = Math.round((ihSafe - cropH) * (offsetY / 100));
+  cropY = Math.min(ihSafe - cropH, Math.max(0, cropY));
+  return { cropH, cropY };
+}
+
 function normalizeHighlightBarColor(raw, fallback) {
   const s = raw != null ? String(raw).trim() : "";
   if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
@@ -602,22 +625,39 @@ function finalizeHighlightVfChain(parts) {
 }
 
 function buildHighlightSegmentVfFullscreen(opts) {
-  const parts =
-    opts.baseMode === "image"
-      ? ["scale=1080:1920", "setsar=1", "format=yuv420p"]
-      : ["scale=1080:1920", "format=yuv420p"];
+  const { cw, ih, cx, videoScaleY, videoOffsetY, baseMode } = opts;
+  let parts;
+  if (baseMode === "image") {
+    parts = ["scale=1080:1920", "setsar=1", "format=yuv420p"];
+  } else {
+    const { cropH, cropY } = highlightVerticalCrop(
+      ih,
+      videoScaleY,
+      videoOffsetY
+    );
+    parts = [
+      `crop=${cw}:${cropH}:${cx}:${cropY}`,
+      "scale=1080:1920:flags=lanczos",
+      "format=yuv420p",
+    ];
+  }
   appendHighlightBottomDrawtext(parts, opts);
   return finalizeHighlightVfChain(parts);
 }
 
 function buildHighlightSegmentVfTopBottom(opts) {
-  const { cw, ih, cx, topBarColor, bottomBarColor, baseMode } = opts;
+  const {
+    cw,
+    ih,
+    cx,
+    topBarColor,
+    bottomBarColor,
+    baseMode,
+    videoScaleY,
+    videoOffsetY,
+  } = opts;
   const topFill = normalizeHighlightBarColor(topBarColor, "#1a1a2e");
   const botFill = normalizeHighlightBarColor(bottomBarColor, "#16213e");
-  const cropY = Math.max(
-    0,
-    Math.floor((ih - HIGHLIGHT_TOPBOTTOM_CONTENT_H) / 2)
-  );
   let parts;
   if (baseMode === "image") {
     const imgCropY = Math.max(
@@ -633,8 +673,13 @@ function buildHighlightSegmentVfTopBottom(opts) {
       "format=yuv420p",
     ];
   } else {
+    const { cropH, cropY } = highlightVerticalCrop(
+      ih,
+      videoScaleY,
+      videoOffsetY
+    );
     parts = [
-      `crop=${cw}:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}:${cx}:${cropY}`,
+      `crop=${cw}:${cropH}:${cx}:${cropY}`,
       `scale=1080:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}:flags=lanczos`,
       `pad=1080:1920:0:${HIGHLIGHT_TOPBOTTOM_PAD_H}`,
       "format=yuv420p",
@@ -688,6 +733,8 @@ function buildHighlightSegmentVf(opts) {
     coverBox,
     teamColorForCover,
     baseMode,
+    videoScaleY,
+    videoOffsetY,
   } = opts;
   const parts =
     baseMode === "image"
@@ -697,12 +744,19 @@ function buildHighlightSegmentVf(opts) {
           "setsar=1",
           "format=yuv420p",
         ]
-      : [
-          `crop=${cw}:${ih}:${cx}:0`,
-          "scale=1080:1640:flags=lanczos",
-          "pad=1080:1920:0:280",
-          "format=yuv420p",
-        ];
+      : (() => {
+          const { cropH, cropY } = highlightVerticalCrop(
+            ih,
+            videoScaleY,
+            videoOffsetY
+          );
+          return [
+            `crop=${cw}:${cropH}:${cx}:${cropY}`,
+            "scale=1080:1640:flags=lanczos",
+            "pad=1080:1920:0:280",
+            "format=yuv420p",
+          ];
+        })();
   if (borderColorPrimary && !skipTeamBorderBoxes) {
     const c = `${borderColorPrimary}@1`;
     parts.push(
@@ -804,6 +858,8 @@ async function processHighlightImageSegment(ctx) {
     muteOriginal,
     cw,
     ih,
+    videoScaleY,
+    videoOffsetY,
   } = ctx;
 
   const imageS3Key = resolveSegmentImageS3Key(jobId, seg.imageS3Key);
@@ -892,6 +948,8 @@ async function processHighlightImageSegment(ctx) {
     teamColorForCover: borderColorPrimary,
     topBarColor,
     bottomBarColor,
+    videoScaleY,
+    videoOffsetY,
     baseMode: "image",
   });
 
@@ -1240,7 +1298,17 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
-  let cw = Math.floor((ih * 1080) / 1640);
+  const videoScaleY = normalizeVideoScaleY(meta?.videoScaleY);
+  const videoOffsetY = normalizeVideoOffsetY(meta?.videoOffsetY);
+  const { cropH } = highlightVerticalCrop(ih, videoScaleY, videoOffsetY);
+  let cw;
+  if (layout === "fullscreen") {
+    cw = Math.floor((cropH * 1080) / 1920);
+  } else if (layout === "topbottom") {
+    cw = Math.floor((cropH * 1080) / 1120);
+  } else {
+    cw = Math.floor((cropH * 1080) / 1640);
+  }
   cw -= cw % 2;
   cw = Math.min(cw, iw - (iw % 2));
 
@@ -1304,6 +1372,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         muteOriginal,
         cw,
         ih,
+        videoScaleY,
+        videoOffsetY,
       });
       continue;
     }
@@ -1414,6 +1484,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       teamColorForCover: borderColorPrimary,
       topBarColor: meta?.topBarColor,
       bottomBarColor: meta?.bottomBarColor,
+      videoScaleY,
+      videoOffsetY,
     });
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;

@@ -108,6 +108,35 @@ const EDIT_STYLE_OPTIONS = [
 const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 
+function clampVideoScaleY(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 100;
+  return Math.min(150, Math.max(50, Math.round(n)));
+}
+
+function clampVideoOffsetY(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 50;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function previewSourceVerticalCrop(vh, scaleY, offsetY) {
+  const sy = clampVideoScaleY(scaleY);
+  const oy = clampVideoOffsetY(offsetY);
+  let cropH = Math.round((vh * 100) / sy);
+  cropH = Math.min(vh, Math.max(1, cropH));
+  let cropY = Math.round((vh - cropH) * (oy / 100));
+  cropY = Math.min(vh - cropH, Math.max(0, cropY));
+  return { cropH, cropY };
+}
+
+function previewSourceCropX(vw, cropW, cropOffset) {
+  const off = Math.max(-50, Math.min(50, Number(cropOffset) || 0));
+  const cropX =
+    Math.round((vw - cropW) / 2) + Math.round((off / 100) * vw);
+  return Math.max(0, Math.min(vw - cropW, cropX));
+}
+
 const TEAM_LIST = [
   { id: "삼성", name: "삼성 라이온즈" },
   { id: "KIA", name: "KIA 타이거즈" },
@@ -780,6 +809,8 @@ export default function Shorts3Panel({
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
+  const [videoScaleY, setVideoScaleY] = useState(100);
+  const [videoOffsetY, setVideoOffsetY] = useState(50);
   const [savedThumbUrl, setSavedThumbUrl] = useState(null);
   /** loading | ready | missing */
   const [savedThumbStatus, setSavedThumbStatus] = useState("loading");
@@ -980,6 +1011,12 @@ export default function Shorts3Panel({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const { cropH: srcCropH, cropY: srcCropY } = previewSourceVerticalCrop(
+      vh,
+      videoScaleY,
+      videoOffsetY
+    );
+
     const drawPreviewBottomTexts = (selectedSeg) => {
       const t1 = String(selectedSeg?.text ?? "").trim();
       const t2 = String(selectedSeg?.text2 ?? "").trim();
@@ -1018,24 +1055,21 @@ export default function Shorts3Panel({
     };
 
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
-      const holeAspect = 1080 / 1920;
-      const srcCropW = Math.round(vh * holeAspect);
+      let srcCropW = Math.round((srcCropH * 1080) / 1920);
+      if (srcCropW > vw) srcCropW = vw;
       if (thumbnailSelected) {
-        const cropOffset = Math.max(
-          -50,
-          Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
+        const clampedSrcCropX = previewSourceCropX(
+          vw,
+          srcCropW,
+          thumbnailSegmentRef.current?.cropOffset
         );
-        const srcCropX =
-          Math.round((vw - srcCropW) / 2) +
-          Math.round((cropOffset / 100) * vw);
-        const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
         ctx.clearRect(0, 0, W, H);
         ctx.drawImage(
           video,
           clampedSrcCropX,
-          0,
+          srcCropY,
           srcCropW,
-          vh,
+          srcCropH,
           0,
           0,
           W,
@@ -1044,14 +1078,11 @@ export default function Shorts3Panel({
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
-      const cropOffset = Math.max(
-        -50,
-        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+      const clampedSrcCropX = previewSourceCropX(
+        vw,
+        srcCropW,
+        selectedSeg?.cropOffset
       );
-      const srcCropX =
-        Math.round((vw - srcCropW) / 2) +
-        Math.round((cropOffset / 100) * vw);
-      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
       const skipVideoHoleDraw =
         isImageSegment(selectedSeg) &&
         Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
@@ -1060,9 +1091,9 @@ export default function Shorts3Panel({
         ctx.drawImage(
           video,
           clampedSrcCropX,
-          0,
+          srcCropY,
           srcCropW,
-          vh,
+          srcCropH,
           0,
           0,
           W,
@@ -1077,17 +1108,14 @@ export default function Shorts3Panel({
       const topBarH = Math.round((H * 400) / 1920);
       const botBarH = Math.round((H * 400) / 1920);
       const midH = H - topBarH - botBarH;
-      let cropW = Math.round((vh * 1080) / 1120);
+      let cropW = Math.round((srcCropH * 1080) / 1120);
       if (cropW > vw) cropW = vw;
       if (thumbnailSelected) {
-        const cropOffset = Math.max(
-          -50,
-          Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
+        const clampedCropX = previewSourceCropX(
+          vw,
+          cropW,
+          thumbnailSegmentRef.current?.cropOffset
         );
-        const cropX =
-          Math.round((vw - cropW) / 2) +
-          Math.round((cropOffset / 100) * vw);
-        const clampedCropX = Math.max(0, Math.min(vw - cropW, cropX));
         ctx.clearRect(0, 0, W, H);
         ctx.fillStyle = topBarColor;
         ctx.fillRect(0, 0, W, topBarH);
@@ -1096,9 +1124,9 @@ export default function Shorts3Panel({
         ctx.drawImage(
           video,
           clampedCropX,
-          0,
+          srcCropY,
           cropW,
-          vh,
+          srcCropH,
           0,
           topBarH,
           W,
@@ -1107,14 +1135,11 @@ export default function Shorts3Panel({
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
-      const cropOffset = Math.max(
-        -50,
-        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+      const clampedCropX = previewSourceCropX(
+        vw,
+        cropW,
+        selectedSeg?.cropOffset
       );
-      const cropX =
-        Math.round((vw - cropW) / 2) +
-        Math.round((cropOffset / 100) * vw);
-      const clampedCropX = Math.max(0, Math.min(vw - cropW, cropX));
       const skipVideoHoleDraw =
         isImageSegment(selectedSeg) &&
         Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
@@ -1127,9 +1152,9 @@ export default function Shorts3Panel({
         ctx.drawImage(
           video,
           clampedCropX,
-          0,
+          srcCropY,
           cropW,
-          vh,
+          srcCropH,
           0,
           topBarH,
           W,
@@ -1148,26 +1173,22 @@ export default function Shorts3Panel({
     const BOT_BAR = Math.round(H * (160 / 1920));
     const SIDE_BAR = Math.round(W * (40 / 1080));
 
-    const holeAspect = 1080 / 1640;
-    const srcCropW = Math.round(vh * holeAspect);
+    const srcCropW = Math.round((srcCropH * 1080) / 1640);
 
     // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
     if (thumbnailSelected) {
-      const cropOffset = Math.max(
-        -50,
-        Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
+      const clampedSrcCropX = previewSourceCropX(
+        vw,
+        srcCropW,
+        thumbnailSegmentRef.current?.cropOffset
       );
-      const srcCropX =
-        Math.round((vw - srcCropW) / 2) +
-        Math.round((cropOffset / 100) * vw);
-      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
       ctx.clearRect(0, 0, W, H);
       ctx.drawImage(
         video,
         clampedSrcCropX,
-        0,
+        srcCropY,
         srcCropW,
-        vh,
+        srcCropH,
         0,
         TOP_BAR,
         W,
@@ -1204,15 +1225,11 @@ export default function Shorts3Panel({
     }
 
     const selectedSeg = segments[selectedSegIndex];
-    const cropOffset = Math.max(
-      -50,
-      Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+    const clampedSrcCropX = previewSourceCropX(
+      vw,
+      srcCropW,
+      selectedSeg?.cropOffset
     );
-
-    const srcCropX =
-      Math.round((vw - srcCropW) / 2) +
-      Math.round((cropOffset / 100) * vw);
-    const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
 
     const skipVideoHoleDraw =
       isImageSegment(selectedSeg) &&
@@ -1225,9 +1242,9 @@ export default function Shorts3Panel({
       ctx.drawImage(
         video,
         clampedSrcCropX,
-        0,
+        srcCropY,
         srcCropW,
-        vh,
+        srcCropH,
         0,
         TOP_BAR,
         W,
@@ -1369,6 +1386,8 @@ export default function Shorts3Panel({
     layout,
     topBarColor,
     bottomBarColor,
+    videoScaleY,
+    videoOffsetY,
   ]);
 
   useEffect(() => {
@@ -3115,6 +3134,8 @@ export default function Shorts3Panel({
         action: "highlight_video_create",
         jobId,
         layout,
+        videoScaleY: clampVideoScaleY(videoScaleY),
+        videoOffsetY: clampVideoOffsetY(videoOffsetY),
         team: selectedTeam,
         topText: topText.trim(),
         topTextColor,
@@ -4065,6 +4086,53 @@ export default function Shorts3Panel({
                   }}
                 />
               ) : null}
+            </div>
+            <div style={{ marginTop: 10, marginBottom: 4 }}>
+              <div
+                className="muted"
+                style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}
+              >
+                영상 세로 조정
+              </div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                  marginBottom: 8,
+                  maxWidth: 320,
+                }}
+              >
+                <span className="muted">세로 크기: {videoScaleY}%</span>
+                <input
+                  type="range"
+                  min={50}
+                  max={150}
+                  step={1}
+                  value={videoScaleY}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setVideoScaleY(clampVideoScaleY(e.target.value))
+                  }
+                  style={{ width: "100%", display: "block", marginTop: 4 }}
+                />
+              </label>
+              <label style={{ display: "block", fontSize: 12, maxWidth: 320 }}>
+                <span className="muted">
+                  세로 위치: {videoOffsetY}% (0=상단, 100=하단)
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={videoOffsetY}
+                  disabled={busy || uploading}
+                  onChange={(e) =>
+                    setVideoOffsetY(clampVideoOffsetY(e.target.value))
+                  }
+                  style={{ width: "100%", display: "block", marginTop: 4 }}
+                />
+              </label>
             </div>
           </div>
           {uploadPhase === "done" && previewUrl ? (

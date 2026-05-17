@@ -4970,6 +4970,15 @@ ${JSON.stringify(games, null, 2)}`;
           ? layoutRaw
           : "kbo";
 
+        const videoScaleYRaw = Number(payload.videoScaleY);
+        const videoScaleY = Number.isFinite(videoScaleYRaw)
+          ? Math.min(150, Math.max(50, Math.round(videoScaleYRaw)))
+          : 100;
+        const videoOffsetYRaw = Number(payload.videoOffsetY);
+        const videoOffsetY = Number.isFinite(videoOffsetYRaw)
+          ? Math.min(100, Math.max(0, Math.round(videoOffsetYRaw)))
+          : 50;
+
         const segments = [];
         for (const s of segmentsIn) {
           if (!s || typeof s !== "object") {
@@ -5343,6 +5352,8 @@ ${JSON.stringify(games, null, 2)}`;
           topTextFont,
           team,
           layout,
+          videoScaleY,
+          videoOffsetY,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
