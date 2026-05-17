@@ -113,13 +113,14 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     setSavedThumbUrl(null);
     try {
       const res = await postKbo({ action: "thumbnail_preview_url" });
-      const url = res?.previewUrl ? String(res.previewUrl).trim() : "";
-      if (!url) {
+      const dataUri = res?.previewBase64
+        ? String(res.previewBase64).trim()
+        : "";
+      if (!dataUri) {
         setSavedThumbStatus("missing");
         return;
       }
-      const sep = url.includes("?") ? "&" : "?";
-      setSavedThumbUrl(`${url}${sep}t=${Date.now()}`);
+      setSavedThumbUrl(dataUri);
       setSavedThumbStatus("ready");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

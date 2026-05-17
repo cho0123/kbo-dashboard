@@ -4761,18 +4761,19 @@ ${JSON.stringify(games, null, 2)}`;
               }),
             };
           }
-          const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
-          const previewUrl = await getSignedUrl(s3, cmd, {
-            expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
-          });
+          const getOut = await s3.send(
+            new GetObjectCommand({ Bucket: bucket, Key: key })
+          );
+          const bytes = await getOut.Body.transformToByteArray();
+          const base64 = Buffer.from(bytes).toString("base64");
+          const previewBase64 = `data:image/png;base64,${base64}`;
           return {
             statusCode: 200,
             headers: corsHeaders(),
             body: JSON.stringify({
               ok: true,
               key,
-              previewUrl,
-              expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+              previewBase64,
             }),
           };
         } catch (e) {
