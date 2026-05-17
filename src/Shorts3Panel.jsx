@@ -887,6 +887,24 @@ export default function Shorts3Panel({
 
   const thumbnailOverlayCanvasRef = useRef(null);
 
+  const selectedImageSegmentPreviewUrl = useMemo(() => {
+    if (thumbnailSelected) return "";
+    const seg = segments[selectedSegIndex];
+    if (!seg || !isImageSegment(seg)) return "";
+    return String(seg.imagePreviewUrl || "").trim();
+  }, [segments, selectedSegIndex, thumbnailSelected]);
+
+  const activePreviewImageUrl =
+    playAllActiveImageUrl || selectedImageSegmentPreviewUrl;
+  const showPreviewImage = Boolean(activePreviewImageUrl);
+
+  const previewImageObjectPosition = useMemo(() => {
+    if (!showPreviewImage || thumbnailSelected) return "50% center";
+    const off = Number(segments[selectedSegIndex]?.cropOffset) || 0;
+    const clamped = Math.min(50, Math.max(-50, off));
+    return `${50 + clamped}% center`;
+  }, [showPreviewImage, thumbnailSelected, segments, selectedSegIndex]);
+
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
 
@@ -3854,6 +3872,7 @@ export default function Shorts3Panel({
                         position: "relative",
                         height: PREVIEW_ROW_HEIGHT_PX,
                         maxWidth: "100%",
+                        width: showPreviewImage ? "100%" : undefined,
                       }}
                     >
                       <video
@@ -3872,26 +3891,25 @@ export default function Shorts3Panel({
                           width: "auto",
                           maxWidth: "100%",
                           display: "block",
-                          visibility: playAllActiveImageUrl ? "hidden" : "visible",
+                          visibility: showPreviewImage ? "hidden" : "visible",
                           objectFit: "contain",
                           background: "#000",
                         }}
                       />
-                      {playAllActiveImageUrl ? (
+                      {showPreviewImage ? (
                         <img
-                          src={playAllActiveImageUrl}
+                          src={activePreviewImageUrl}
                           alt=""
                           style={{
                             position: "absolute",
-                            left: "50%",
+                            left: 0,
                             top: 0,
-                            transform: "translateX(-50%)",
                             zIndex: 1,
-                            height: PREVIEW_ROW_HEIGHT_PX,
-                            width: "auto",
-                            maxWidth: "100%",
+                            width: "100%",
+                            height: "100%",
                             display: "block",
-                            objectFit: "contain",
+                            objectFit: "cover",
+                            objectPosition: previewImageObjectPosition,
                             background: "#000",
                             pointerEvents: "none",
                           }}

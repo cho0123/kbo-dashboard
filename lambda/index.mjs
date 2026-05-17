@@ -569,8 +569,9 @@ function buildHighlightSegmentVf(opts) {
   const parts =
     baseMode === "image"
       ? [
-          "scale=1080:1920:force_original_aspect_ratio=decrease",
-          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+          "scale='if(gt(iw,ih),1080,-2)':'if(gt(iw,ih),-2,1920)'",
+          "crop=1080:1920",
+          "setsar=1",
           "format=yuv420p",
         ]
       : [
@@ -781,8 +782,8 @@ async function processHighlightImageSegment(ctx) {
   }
 
   const vfSeg = buildHighlightSegmentVf({
-    cw,
-    ih,
+    cw: 0,
+    ih: 0,
     cx: 0,
     borderColorPrimary,
     skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
