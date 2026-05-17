@@ -666,7 +666,6 @@ async function processHighlightImageSegment(ctx) {
     i,
     numSeg,
     borderColorPrimary,
-    hasThumbnailPng,
     hasOverlayPng,
     topTextPath,
     topTextSize,
@@ -738,7 +737,7 @@ async function processHighlightImageSegment(ctx) {
     ih,
     cx: imageCx,
     borderColorPrimary,
-    skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
+    skipTeamBorderBoxes: hasOverlayPng,
     topTextFile: topTextPath,
     bottomTextFile: bottomPath,
     bottomTextFile2: bottomPath2,
@@ -785,11 +784,7 @@ async function processHighlightImageSegment(ctx) {
     progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
   });
 
-  const overlayPngFile = hasOverlayPng
-    ? "overlay.png"
-    : hasThumbnailPng
-      ? "thumbnail.png"
-      : null;
+  const overlayPngFile = hasOverlayPng ? "overlay.png" : null;
   const durStr = String(duration);
   const narrApadSamples = Math.max(
     1,
@@ -1055,20 +1050,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   console.log("[highlight] source from S3", sourceKey, "->", sourceLocal);
   const sourceFileName = "source.mp4";
 
-  // thumbnail.png를 0.3초 prepend 하지 않고, 있으면 각 구간에 오버레이로 합성한다.
-  const thumbPngKey = "overlay/thumbnail.png";
-  const thumbPngLocal = join(workDir, "thumbnail.png");
-  let hasThumbnailPng = false;
-  try {
-    await getObjectFile(bucket, thumbPngKey, thumbPngLocal);
-    hasThumbnailPng = existsSync(thumbPngLocal);
-    if (hasThumbnailPng) {
-      console.log("[highlight] thumbnail.png found, will overlay per segment");
-    }
-  } catch {
-    hasThumbnailPng = false;
-  }
-
+  // meta.overlay_s3_key PNG가 있으면 각 구간에 오버레이로 합성한다.
   const overlayKeyRaw =
     meta.overlay_s3_key != null ? String(meta.overlay_s3_key).trim() : "";
   const overlayLocal = join(workDir, "overlay.png");
@@ -1143,7 +1125,6 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         i,
         numSeg,
         borderColorPrimary,
-        hasThumbnailPng,
         hasOverlayPng,
         topTextPath,
         topTextSize,
@@ -1238,7 +1219,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       ih,
       cx,
       borderColorPrimary,
-      skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
+      skipTeamBorderBoxes: hasOverlayPng,
       topTextFile: topTextPath,
       bottomTextFile: bottomPath,
       bottomTextFile2: bottomPath2,
@@ -1281,11 +1262,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    const overlayPngFile = hasOverlayPng
-      ? "overlay.png"
-      : hasThumbnailPng
-        ? "thumbnail.png"
-        : null;
+    const overlayPngFile = hasOverlayPng ? "overlay.png" : null;
     const durStr = String(duration);
     const narrApadSamples = Math.max(
       1,
