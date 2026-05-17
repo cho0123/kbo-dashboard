@@ -780,6 +780,39 @@ export default function Shorts3Panel({
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
+  const [savedThumbUrl, setSavedThumbUrl] = useState(null);
+  /** loading | ready | missing */
+  const [savedThumbStatus, setSavedThumbStatus] = useState("loading");
+
+  const loadSavedThumbnail = useCallback(async () => {
+    setSavedThumbStatus("loading");
+    setSavedThumbUrl(null);
+    try {
+      const res = await postKbo({ action: "thumbnail_preview_url" });
+      const dataUri = res?.previewBase64
+        ? String(res.previewBase64).trim()
+        : "";
+      if (!dataUri) {
+        setSavedThumbStatus("missing");
+        return;
+      }
+      setSavedThumbUrl(dataUri);
+      setSavedThumbStatus("ready");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("저장된 썸네일 없음")) {
+        setSavedThumbStatus("missing");
+      } else {
+        console.warn("[Shorts3Panel] saved thumbnail preview", e);
+        setSavedThumbStatus("missing");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSavedThumbnail();
+  }, [loadSavedThumbnail]);
+
   const [topBarColor, setTopBarColor] = useState(DEFAULT_TOP_BAR_COLOR);
   const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
@@ -3979,7 +4012,15 @@ export default function Shorts3Panel({
             <div className="muted" style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
               편집 스타일
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {EDIT_STYLE_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -4002,6 +4043,29 @@ export default function Shorts3Panel({
                   {opt.label}
                 </button>
               ))}
+              </div>
+              {savedThumbStatus === "loading" ? (
+                <span
+                  className="muted"
+                  style={{ fontSize: 11, minHeight: 80, lineHeight: "80px" }}
+                >
+                  불러오는 중...
+                </span>
+              ) : savedThumbStatus === "ready" && savedThumbUrl ? (
+                <img
+                  src={savedThumbUrl}
+                  alt="저장된 썸네일"
+                  onError={() => setSavedThumbStatus("missing")}
+                  style={{
+                    height: 80,
+                    width: "auto",
+                    borderRadius: 6,
+                    border: "2px solid #555",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              ) : null}
             </div>
           </div>
           {uploadPhase === "done" && previewUrl ? (
