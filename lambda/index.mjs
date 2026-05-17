@@ -565,17 +565,12 @@ function buildHighlightSegmentVf(opts) {
     coverBox,
     teamColorForCover,
     baseMode,
-    imageIw,
-    imageIh,
   } = opts;
   const parts =
     baseMode === "image"
       ? [
-          Number(imageIw) > Number(imageIh)
-            ? "scale=1080:-2"
-            : "scale=-2:1920",
-          "crop=1080:1920",
-          "setsar=1",
+          "scale=1080:1920:force_original_aspect_ratio=decrease",
+          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
           "format=yuv420p",
         ]
       : [
@@ -661,60 +656,6 @@ function imageLocalExtFromS3Key(key) {
   return e === "jpeg" ? ".jpg" : `.${e}`;
 }
 
-function isHighlightImageSegment(seg) {
-  if (seg?.type === "image") return true;
-  return Boolean(String(seg?.imageS3Key || "").trim());
-}
-
-/** concat 호환: 무음 AAC 스테레오 포함 이미지 구간 mp4 */
-function runFfmpegImageSegmentWithSilentAudio(
-  workDir,
-  label,
-  segIndex,
-  imageFileName,
-  durStr,
-  vfChain
-) {
-  const fc = `[0:v]${vfChain}[out];anullsrc=r=48000:cl=stereo[aud]`;
-  runFfmpeg(
-    [
-      "-y",
-      "-loop",
-      "1",
-      "-i",
-      imageFileName,
-      "-t",
-      durStr,
-      "-filter_complex",
-      fc,
-      "-map",
-      "[out]",
-      "-map",
-      "[aud]",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "23",
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      "30",
-      "-c:a",
-      "aac",
-      "-ar",
-      "48000",
-      "-ac",
-      "2",
-      "-shortest",
-      `seg_${segIndex}.mp4`,
-    ],
-    workDir,
-    label
-  );
-}
-
 async function processHighlightImageSegment(ctx) {
   const {
     bucket,
@@ -785,11 +726,9 @@ async function processHighlightImageSegment(ctx) {
     writeFileSync(bottomPath2, bottomTxt2, "utf8");
   }
 
-  const { w: imgIw, h: imgIh } = probeVideoDimensions(workDir, imageFileName);
-
   const vfSeg = buildHighlightSegmentVf({
-    cw: 0,
-    ih: 0,
+    cw,
+    ih,
     cx: 0,
     borderColorPrimary,
     skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
@@ -816,8 +755,6 @@ async function processHighlightImageSegment(ctx) {
     coverBox: coverBoxGlobal,
     teamColorForCover: borderColorPrimary,
     baseMode: "image",
-    imageIw: imgIw,
-    imageIh: imgIh,
   });
 
   const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
@@ -900,26 +837,31 @@ async function processHighlightImageSegment(ctx) {
         `highlight_img_seg_${i}_overlay_narr`
       );
     } else {
-      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`;
-      runFfmpeg(
-        [
-          "-y",
-          "-loop",
-          "1",
-          "-i",
-          imageFileName,
-          "-t",
-          durStr,
-          "-loop",
-          "1",
-          "-i",
-          overlayPngFile,
-          "-t",
-          durStr,
-          "-filter_complex",
-          fc,
-          "-map",
-          "[out]",
+      const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+      const fc = muteSegNoNarr
+        ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`
+        : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+      const overlayNoNarrArgs = [
+        "-y",
+        "-loop",
+        "1",
+        "-i",
+        imageFileName,
+        "-t",
+        durStr,
+        "-loop",
+        "1",
+        "-i",
+        overlayPngFile,
+        "-t",
+        durStr,
+        "-filter_complex",
+        fc,
+        "-map",
+        "[out]",
+      ];
+      if (muteSegNoNarr) {
+        overlayNoNarrArgs.push(
           "-map",
           "[aud]",
           "-c:v",
@@ -939,10 +881,30 @@ async function processHighlightImageSegment(ctx) {
           "-ac",
           "2",
           "-shortest",
-          `seg_${i}.mp4`,
-        ],
+          `seg_${i}.mp4`
+        );
+      } else {
+        overlayNoNarrArgs.push(
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-shortest",
+          `seg_${i}.mp4`
+        );
+      }
+      runFfmpeg(
+        overlayNoNarrArgs,
         workDir,
-        `highlight_img_seg_${i}_overlay`
+        muteSegNoNarr
+          ? `highlight_img_seg_${i}_overlay_mo`
+          : `highlight_img_seg_${i}_overlay`
       );
     }
   } else if (hasNarrAudio) {
@@ -986,14 +948,75 @@ async function processHighlightImageSegment(ctx) {
       `highlight_img_seg_${i}_narr`
     );
   } else {
-    runFfmpegImageSegmentWithSilentAudio(
-      workDir,
-      `highlight_img_seg_${i}`,
-      i,
-      imageFileName,
-      durStr,
-      vfSeg
-    );
+    const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+    if (muteSegNoNarr) {
+      const fc = `[0:v]${vfSeg}[out];anullsrc=r=48000:cl=stereo[aud]`;
+      runFfmpeg(
+        [
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          imageFileName,
+          "-t",
+          durStr,
+          "-filter_complex",
+          fc,
+          "-map",
+          "[out]",
+          "-map",
+          "[aud]",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          "-shortest",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_img_seg_${i}_mo`
+      );
+    } else {
+      runFfmpeg(
+        [
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          imageFileName,
+          "-t",
+          durStr,
+          "-vf",
+          vfSeg,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-an",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_img_seg_${i}`
+      );
+    }
   }
 }
 
@@ -1104,10 +1127,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   console.log("[coverBox]", JSON.stringify(coverBoxGlobal));
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
-    if (isHighlightImageSegment(seg)) {
-      console.log(
-        `[highlight] image segment ${i + 1}/${numSeg} key=${seg.imageS3Key}`
-      );
+    if (seg?.type === "image") {
       await processHighlightImageSegment({
         bucket,
         jobId,
@@ -1502,14 +1522,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
 
   let concatBody = "ffconcat version 1.0\n";
   for (let i = 0; i < numSeg; i++) {
-    const segPath = join(workDir, `seg_${i}.mp4`);
-    if (!existsSync(segPath)) {
-      throw new Error(`구간 파일 없음: seg_${i}.mp4`);
-    }
     concatBody += `file 'seg_${i}.mp4'\n`;
   }
   writeFileSync(join(workDir, "concat_hi.txt"), concatBody, "utf8");
-  console.log("[highlight] concat list:\n", concatBody);
 
   runFfmpeg(
     [
