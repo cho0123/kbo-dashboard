@@ -7,7 +7,12 @@ import {
   useState,
 } from "react";
 import { postKbo } from "./api.js";
-import { drawThumbnail, LAYOUT_TYPES } from "./thumbnailUtils.js";
+import {
+  drawThumbnail,
+  drawThumbnailByLayout,
+  LAYOUT_TYPES,
+  TEAM_COLORS,
+} from "./thumbnailUtils.js";
 import VideoPrep from "./VideoPrep.jsx";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -1082,6 +1087,13 @@ export default function Shorts3Panel({
       }
     };
 
+    const drawThumbnailOverlayPreview = () => {
+      const overlayCanvas = thumbnailOverlayCanvasRef.current;
+      if (overlayCanvas) {
+        ctx.drawImage(overlayCanvas, 0, 0, W, H);
+      }
+    };
+
     const drawPreviewThumbnailTexts = () => {
       const thumb = thumbnailSegmentRef.current;
       drawPreviewBottomTexts({
@@ -1117,6 +1129,7 @@ export default function Shorts3Panel({
           W,
           H
         );
+        drawThumbnailOverlayPreview();
         drawPreviewThumbnailTexts();
         return;
       }
@@ -1160,10 +1173,12 @@ export default function Shorts3Panel({
           thumbnailSegmentRef.current?.cropOffset
         );
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = topBarColor;
-        ctx.fillRect(0, 0, W, topBarH);
-        ctx.fillStyle = bottomBarColor;
-        ctx.fillRect(0, H - botBarH, W, botBarH);
+        if (!thumbnailOverlayCanvasRef.current) {
+          ctx.fillStyle = topBarColor;
+          ctx.fillRect(0, 0, W, topBarH);
+          ctx.fillStyle = bottomBarColor;
+          ctx.fillRect(0, H - botBarH, W, botBarH);
+        }
         ctx.drawImage(
           video,
           clampedCropX,
@@ -1175,6 +1190,7 @@ export default function Shorts3Panel({
           W,
           midH
         );
+        drawThumbnailOverlayPreview();
         drawPreviewThumbnailTexts();
         return;
       }
@@ -1188,10 +1204,12 @@ export default function Shorts3Panel({
         isImageSegment(selectedSeg) &&
         Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
       ctx.clearRect(0, 0, W, H);
-      ctx.fillStyle = topBarColor;
-      ctx.fillRect(0, 0, W, topBarH);
-      ctx.fillStyle = bottomBarColor;
-      ctx.fillRect(0, H - botBarH, W, botBarH);
+      if (!thumbnailOverlayCanvasRef.current) {
+        ctx.fillStyle = topBarColor;
+        ctx.fillRect(0, 0, W, topBarH);
+        ctx.fillStyle = bottomBarColor;
+        ctx.fillRect(0, H - botBarH, W, botBarH);
+      }
       if (!skipVideoHoleDraw) {
         ctx.drawImage(
           video,
@@ -1238,13 +1256,7 @@ export default function Shorts3Panel({
         W,
         H - TOP_BAR
       );
-      // 2) 썸네일 오버레이 덮기 (KBO 레이아웃 전용)
-      if (layout === LAYOUT_TYPES.KBO) {
-        const overlayCanvas = thumbnailOverlayCanvasRef.current;
-        if (overlayCanvas) {
-          ctx.drawImage(overlayCanvas, 0, 0, W, H);
-        }
-      }
+      drawThumbnailOverlayPreview();
       // 3) 커버박스 (일반 구간 미리보기와 동일 hole 기준)
       if (coverBox?.enabled) {
         const holeX = SIDE_BAR;
@@ -1474,39 +1486,30 @@ export default function Shorts3Panel({
       thumbnailOverlayCanvasRef.current = null;
       return;
     }
-    if (layout !== LAYOUT_TYPES.KBO) {
-      thumbnailOverlayCanvasRef.current = null;
-      renderPreviewFrame();
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
-        const thumb = thumbnailSegment;
-        const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-        const overlayCanvas = await drawThumbnail({
+        const opts = {
           team: selectedTeam,
-          tc,
-          text1: String(thumb?.text1 || "").trim(),
-          text2: String(thumb?.text2 || "").trim(),
-          font1: String(thumb?.font1 || "NotoSansKR-Bold").trim(),
-          font2: String(thumb?.font2 || "NotoSansKR-Bold").trim(),
-          textColor1:
-            String(thumb?.textColor1 || "#FFFFFF").trim() || "#FFFFFF",
-          textColor2:
-            String(thumb?.textColor2 || "#FFFFFF").trim() || "#FFFFFF",
-          fontSize1: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumb?.fontSize1)) || 88)
-          ),
-          fontSize2: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumb?.fontSize2)) || 52)
-          ),
-          textY1: clampThumbnailTextYPercent(thumb?.textY1, 49),
-          textY2: clampThumbnailTextYPercent(thumb?.textY2, 57),
-          showLine: Boolean(thumbnailSegment.showLine),
-        });
+          text1: "",
+          text2: "",
+          font1: "NotoSansKR-Bold",
+          font2: "NotoSansKR-Bold",
+          textColor1: "#FFFFFF",
+          textColor2: "#FFFFFF",
+          fontSize1: 88,
+          fontSize2: 52,
+        };
+        if (layout === LAYOUT_TYPES.KBO) {
+          const t = TEAM_COLORS[selectedTeam];
+          if (!t) return;
+          opts.tc = { bg: t.bg, accent: t.accent };
+        }
+        if (layout === LAYOUT_TYPES.TOPBOTTOM) {
+          opts.topBarColor = topBarColor;
+          opts.bottomBarColor = bottomBarColor;
+        }
+        const overlayCanvas = await drawThumbnailByLayout(layout, opts);
         if (cancelled) return;
         thumbnailOverlayCanvasRef.current = overlayCanvas;
         renderPreviewFrame();
@@ -1524,6 +1527,8 @@ export default function Shorts3Panel({
     thumbnailSegment.textY2,
     selectedTeam,
     layout,
+    topBarColor,
+    bottomBarColor,
     renderPreviewFrame,
   ]);
 

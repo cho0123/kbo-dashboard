@@ -676,6 +676,12 @@ function finalizeHighlightVfChain(parts) {
   return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
 }
 
+function resolveHighlightOverlayPngFile(hasOverlayPng, hasThumbnailPng) {
+  if (hasOverlayPng) return "overlay.png";
+  if (hasThumbnailPng) return "thumbnail.png";
+  return null;
+}
+
 function buildHighlightSegmentVfFullscreen(opts) {
   const { cw, ih, cx, videoScaleY, videoOffsetY, baseMode } = opts;
   let parts;
@@ -698,18 +704,7 @@ function buildHighlightSegmentVfFullscreen(opts) {
 }
 
 function buildHighlightSegmentVfTopBottom(opts) {
-  const {
-    cw,
-    ih,
-    cx,
-    topBarColor,
-    bottomBarColor,
-    baseMode,
-    videoScaleY,
-    videoOffsetY,
-  } = opts;
-  const topFill = normalizeHighlightBarColor(topBarColor, "#1a1a2e");
-  const botFill = normalizeHighlightBarColor(bottomBarColor, "#16213e");
+  const { cw, ih, cx, baseMode, videoScaleY, videoOffsetY } = opts;
   let parts;
   if (baseMode === "image") {
     const imgCropY = Math.max(
@@ -737,10 +732,6 @@ function buildHighlightSegmentVfTopBottom(opts) {
       "format=yuv420p",
     ];
   }
-  parts.push(
-    `drawbox=x=0:y=0:w=iw:h=${HIGHLIGHT_TOPBOTTOM_PAD_H}:color=${topFill}@1:t=fill`,
-    `drawbox=x=0:y=ih-${HIGHLIGHT_TOPBOTTOM_PAD_H}:w=iw:h=${HIGHLIGHT_TOPBOTTOM_PAD_H}:color=${botFill}@1:t=fill`
-  );
   appendHighlightTopBottomDrawtext(parts, opts);
   return finalizeHighlightVfChain(parts);
 }
@@ -969,9 +960,7 @@ async function processHighlightImageSegment(ctx) {
     ih,
     cx: imageCx,
     borderColorPrimary,
-    skipTeamBorderBoxes: isKboLayout
-      ? hasThumbnailPng || hasOverlayPng
-      : true,
+    skipTeamBorderBoxes: isKboLayout && (hasThumbnailPng || hasOverlayPng),
     topTextFile: isKboLayout ? topTextPath : null,
     bottomTextFile: bottomPath,
     bottomTextFile2: bottomPath2,
@@ -1022,12 +1011,10 @@ async function processHighlightImageSegment(ctx) {
     progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
   });
 
-  const overlayPngFile =
-    isKboLayout && hasOverlayPng
-      ? "overlay.png"
-      : isKboLayout && hasThumbnailPng
-        ? "thumbnail.png"
-        : null;
+  const overlayPngFile = resolveHighlightOverlayPngFile(
+    hasOverlayPng,
+    hasThumbnailPng
+  );
   const durStr = String(duration);
   const narrApadSamples = Math.max(
     1,
@@ -1335,11 +1322,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
   }
 
-  if (!isKboLayout) {
-    hasThumbnailPng = false;
-    hasOverlayPng = false;
+  const hasPngOverlay = hasThumbnailPng || hasOverlayPng;
+  if (hasPngOverlay) {
     console.log(
-      `[highlight] layout=${layout}: skip thumbnail/overlay PNG overlay`
+      `[highlight] layout=${layout}: thumbnail/overlay PNG will overlay per segment`
     );
   }
 
@@ -1505,9 +1491,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       ih,
       cx,
       borderColorPrimary,
-      skipTeamBorderBoxes: isKboLayout
-        ? hasThumbnailPng || hasOverlayPng
-        : true,
+      skipTeamBorderBoxes: isKboLayout && (hasThumbnailPng || hasOverlayPng),
       topTextFile: isKboLayout ? topTextPath : null,
       bottomTextFile: bottomPath,
       bottomTextFile2: bottomPath2,
@@ -1554,12 +1538,10 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    const overlayPngFile =
-      isKboLayout && hasOverlayPng
-        ? "overlay.png"
-        : isKboLayout && hasThumbnailPng
-          ? "thumbnail.png"
-          : null;
+    const overlayPngFile = resolveHighlightOverlayPngFile(
+      hasOverlayPng,
+      hasThumbnailPng
+    );
     const durStr = String(duration);
     const narrApadSamples = Math.max(
       1,
