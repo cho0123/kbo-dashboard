@@ -15,7 +15,7 @@ const LAYOUT_OPTIONS = [
 /** drawThumbnail이 요구하는 폰트 키·크기·색 (문구는 빈 문자열로 그리지 않음) */
 const OVERLAY_FONT = "NotoSansKR-Bold";
 
-const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
+const DEFAULT_TOP_BAR_COLOR = "#16213e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 
 const PREVIEW_DISPLAY_STYLE = {

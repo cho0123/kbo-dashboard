@@ -108,19 +108,6 @@ const EDIT_STYLE_OPTIONS = [
 const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 
-const TOP_BOTTOM_BAR_SWATCHES = [
-  "#1a1a2e",
-  "#16213e",
-  "#0f3460",
-  "#1b262c",
-  "#000000",
-  "#074CA1",
-  "#131230",
-  "#EA0029",
-  "#533483",
-  "#2d4059",
-];
-
 const THUMBNAIL_TEXT_Y_DEFAULTS = {
   [LAYOUT_TYPES.KBO]: { textY1: 49, textY2: 57 },
   [LAYOUT_TYPES.FULLSCREEN]: { textY1: 75, textY2: 85 },
@@ -345,57 +332,6 @@ function normalizeHexColorInput(raw, fallback) {
   if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
   if (/^[0-9A-Fa-f]{6}$/i.test(s)) return `#${s.toLowerCase()}`;
   return fallback;
-}
-
-function BarColorPicker({ label, value, onChange, fallback }) {
-  const normalized = normalizeHexColorInput(value, fallback);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
-        {label}
-      </span>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-        {TOP_BOTTOM_BAR_SWATCHES.map((c) => (
-          <button
-            key={`${label}-${c}`}
-            type="button"
-            title={c}
-            onClick={() => onChange(c)}
-            style={{
-              width: 28,
-              height: 28,
-              padding: 0,
-              borderRadius: 6,
-              border:
-                normalized.toUpperCase() === c.toUpperCase()
-                  ? "2px solid #4ade80"
-                  : "2px solid rgba(255,255,255,0.25)",
-              background: c,
-              cursor: "pointer",
-            }}
-          />
-        ))}
-        <input
-          type="color"
-          value={normalized}
-          onChange={(e) => onChange(e.target.value)}
-          title="색상 직접 선택"
-          style={{
-            width: 36,
-            height: 28,
-            padding: 0,
-            border: "1px solid #555",
-            borderRadius: 6,
-            background: "transparent",
-            cursor: "pointer",
-          }}
-        />
-        <span className="muted" style={{ fontSize: 11 }}>
-          {normalized}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 function isImageSegment(seg) {
@@ -4285,30 +4221,6 @@ export default function Shorts3Panel({
               </label>
             </div>
           </div>
-          {layout === LAYOUT_TYPES.TOPBOTTOM ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                marginTop: 8,
-                maxWidth: 560,
-              }}
-            >
-              <BarColorPicker
-                label="상단 바 색상"
-                value={topBarColor}
-                fallback={DEFAULT_TOP_BAR_COLOR}
-                onChange={setTopBarColor}
-              />
-              <BarColorPicker
-                label="하단 바 색상"
-                value={bottomBarColor}
-                fallback={DEFAULT_BOTTOM_BAR_COLOR}
-                onChange={setBottomBarColor}
-              />
-            </div>
-          ) : null}
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div
