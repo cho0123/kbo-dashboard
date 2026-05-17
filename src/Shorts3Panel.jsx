@@ -270,6 +270,39 @@ function TextColorPalette({ value, onChange, disabled }) {
   );
 }
 
+function isImageSegment(seg) {
+  return seg?.type === "image";
+}
+
+function clampImageDurationSec(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(10, Math.max(0.5, Math.round(n * 10) / 10));
+}
+
+function imageSegmentIsValid(seg) {
+  if (!isImageSegment(seg)) return false;
+  if (seg.imageLocalFile) return true;
+  return Boolean(String(seg.imageS3Key || "").trim());
+}
+
+async function uploadHighlightImage(jobId, file) {
+  const fd = new FormData();
+  fd.append("image", file);
+  fd.append("jobId", jobId);
+  const res = await fetch(`${LOCAL_DOWNLOAD_SERVER}/upload-image`, {
+    method: "POST",
+    body: fd,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok) {
+    throw new Error(
+      data?.error || `이미지 업로드 실패 HTTP ${res.status}`
+    );
+  }
+  return data;
+}
+
 function emptySegment() {
   return {
     id: newSegmentId(),
@@ -292,6 +325,35 @@ function emptySegment() {
     textOpacity2: 1,
     textSize2: 48,
     textFont2: DEFAULT_TEXT_FONT,
+    narration: "",
+    narrationDuration: null,
+    narrationAudioUrl: null,
+  };
+}
+
+function emptyImageSegment() {
+  return {
+    id: newSegmentId(),
+    type: "image",
+    imageS3Key: "",
+    imageLocalFile: null,
+    imagePreviewUrl: "",
+    duration: 3,
+    cropOffset: 0,
+    text: "",
+    text2: "",
+    textY: 85,
+    textY2: 75,
+    textColor: TEXT_COLORS[0],
+    textColor2: TEXT_COLORS[0],
+    textSize: 88,
+    textSize2: 60,
+    textFont: DEFAULT_TEXT_FONT,
+    textFont2: DEFAULT_TEXT_FONT,
+    textShadow: true,
+    textShadow2: true,
+    textOpacity: 1,
+    textOpacity2: 1,
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
@@ -1362,6 +1424,12 @@ export default function Shorts3Panel({
   const segmentTotalSec = useMemo(() => {
     let sum = 0;
     for (const seg of segments) {
+      if (isImageSegment(seg)) {
+        if (imageSegmentIsValid(seg)) {
+          sum += clampImageDurationSec(seg.duration);
+        }
+        continue;
+      }
       const st = String(seg.start || "").trim();
       const en = String(seg.end || "").trim();
       if (!st || !en) continue;
@@ -1450,6 +1518,40 @@ export default function Shorts3Panel({
     });
   }, []);
 
+  const addImageSegment = useCallback(() => {
+    setSegments((s) => {
+      if (s.length >= MAX_SEGMENTS) {
+        return s;
+      }
+      const next = [...s, emptyImageSegment()];
+      const ni = next.length - 1;
+      setThumbnailSelected(false);
+      setSelectedSegIndex(ni);
+      return next;
+    });
+  }, []);
+
+  const insertImageSegmentAfter = useCallback((index) => {
+    setPlayingSegmentIndex((cur) => {
+      if (cur == null) return cur;
+      if (cur > index) return cur + 1;
+      return cur;
+    });
+    setSegments((s) => {
+      if (s.length >= MAX_SEGMENTS) return s;
+      const i = Number(index);
+      if (!Number.isFinite(i) || i < 0 || i >= s.length) return s;
+      const next = [
+        ...s.slice(0, i + 1),
+        emptyImageSegment(),
+        ...s.slice(i + 1),
+      ];
+      setThumbnailSelected(false);
+      setSelectedSegIndex(i + 1);
+      return next;
+    });
+  }, []);
+
   /** 썸네일 카드: 첫 본편 구간(index 0) 앞에 빈 구간 삽입 후 선택 */
   const insertSegmentBeforeFirst = useCallback(() => {
     setPlayingSegmentIndex((cur) => {
@@ -1472,6 +1574,13 @@ export default function Shorts3Panel({
         return prev;
       }
       const filtered = prev.filter((s) => {
+        if (isImageSegment(s)) {
+          const isEmpty =
+            !imageSegmentIsValid(s) &&
+            (!s.text || s.text.trim() === "") &&
+            (!s.text2 || s.text2.trim() === "");
+          return !isEmpty;
+        }
         const isEmpty =
           (!s.start || s.start === "00:00:00") &&
           (!s.end || s.end === "00:00:00") &&
@@ -2459,6 +2568,9 @@ export default function Shorts3Panel({
     }
 
     const validSegments = segments.filter((sg) => {
+      if (isImageSegment(sg)) {
+        return imageSegmentIsValid(sg);
+      }
       const st = String(sg.start ?? "").trim();
       const en = String(sg.end ?? "").trim();
       if (!st || !en) return false;
@@ -2567,8 +2679,22 @@ export default function Shorts3Panel({
           });
         }
       }
-      for (let vi = 0; vi < validSegments.length; vi++) {
-        const narrText = String(validSegments[vi]?.narration ?? "").trim();
+      const resolvedSegments = [];
+      for (const s of validSegments) {
+        if (isImageSegment(s) && s.imageLocalFile) {
+          setMessage("이미지 업로드 중…");
+          const up = await uploadHighlightImage(jobId, s.imageLocalFile);
+          resolvedSegments.push({
+            ...s,
+            imageS3Key: up.s3Key,
+          });
+        } else {
+          resolvedSegments.push(s);
+        }
+      }
+
+      for (let vi = 0; vi < resolvedSegments.length; vi++) {
+        const narrText = String(resolvedSegments[vi]?.narration ?? "").trim();
         if (!narrText) continue;
         const segIndexForS3 = thumbValid ? vi + 1 : vi;
         await postKbo({
@@ -2593,7 +2719,7 @@ export default function Shorts3Panel({
         topTextFont:
           String(topTextFont || "").trim() || DEFAULT_TEXT_FONT,
         topTextShadow: Boolean(topTextShadow),
-        segments: validSegments.map((s) => {
+        segments: resolvedSegments.map((s) => {
           const ty = Number(s.textY);
           const textY = Number.isFinite(ty)
             ? Math.min(100, Math.max(0, Math.round(ty)))
@@ -2602,15 +2728,7 @@ export default function Shorts3Panel({
           const textY2 = Number.isFinite(ty2)
             ? Math.min(100, Math.max(0, Math.round(ty2)))
             : 85;
-          return {
-            start: String(s.start).trim(),
-            end: String(s.end).trim(),
-            startMs: clampSegmentFracMs(s.startMs ?? 0),
-            endMs: clampSegmentFracMs(s.endMs ?? 0),
-            cropOffset:
-              typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
-                ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
-                : 0,
+          const overlayCommon = {
             text: String(s.text ?? "").trim(),
             text2: String(s.text2 ?? "").trim(),
             textShadow: Boolean(s.textShadow),
@@ -2631,19 +2749,37 @@ export default function Shorts3Panel({
             ),
             textSize: Math.min(
               200,
-              Math.max(
-                20,
-                Math.round(Number(s.textSize)) || 48
-              )
+              Math.max(20, Math.round(Number(s.textSize)) || 48)
             ),
             textSize2: Math.min(
               200,
-              Math.max(
-                20,
-                Math.round(Number(s.textSize2)) || 48
-              )
+              Math.max(20, Math.round(Number(s.textSize2)) || 48)
             ),
             narration: String(s.narration ?? "").trim(),
+          };
+          if (isImageSegment(s)) {
+            return {
+              type: "image",
+              imageS3Key: String(s.imageS3Key || "").trim(),
+              duration: clampImageDurationSec(s.duration),
+              cropOffset:
+                typeof s.cropOffset === "number" &&
+                Number.isFinite(s.cropOffset)
+                  ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
+                  : 0,
+              ...overlayCommon,
+            };
+          }
+          return {
+            start: String(s.start).trim(),
+            end: String(s.end).trim(),
+            startMs: clampSegmentFracMs(s.startMs ?? 0),
+            endMs: clampSegmentFracMs(s.endMs ?? 0),
+            cropOffset:
+              typeof s.cropOffset === "number" && Number.isFinite(s.cropOffset)
+                ? Math.min(50, Math.max(-50, Math.round(s.cropOffset)))
+                : 0,
+            ...overlayCommon,
           };
         }),
         coverBox: normalizeCoverBoxForPayload(coverBox),
@@ -3647,6 +3783,42 @@ export default function Shorts3Panel({
                   >
                     + 구간 추가
                   </button>
+                  <button
+                    type="button"
+                    onClick={addImageSegment}
+                    disabled={
+                      busy ||
+                      uploading ||
+                      segments.length >= MAX_SEGMENTS
+                    }
+                    title={
+                      segments.length >= MAX_SEGMENTS
+                        ? `구간은 최대 ${MAX_SEGMENTS}개까지`
+                        : "이미지 컷 구간 추가"
+                    }
+                    style={{
+                      background: "#60a5fa",
+                      color: "#000",
+                      fontWeight: "bold",
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      border: "none",
+                      cursor:
+                        busy ||
+                        uploading ||
+                        segments.length >= MAX_SEGMENTS
+                          ? "not-allowed"
+                          : "pointer",
+                      fontSize: 12,
+                      ...(busy ||
+                      uploading ||
+                      segments.length >= MAX_SEGMENTS
+                        ? { opacity: 0.6, cursor: "not-allowed" }
+                        : {}),
+                    }}
+                  >
+                    + 이미지컷
+                  </button>
 
                   <button
                     type="button"
@@ -4598,6 +4770,137 @@ export default function Shorts3Panel({
                   overflow: "hidden",
                 }}
               >
+                {isImageSegment(seg) ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        className="muted"
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 11,
+                          userSelect: "none",
+                        }}
+                      >
+                        #{index + 1} 🖼️ 이미지
+                      </span>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "4px 10px",
+                          borderRadius: 6,
+                          background: "#1a3a5a",
+                          border: "1px solid #60a5fa",
+                          color: "#93c5fd",
+                          fontSize: 11,
+                          cursor:
+                            busy || uploading ? "not-allowed" : "pointer",
+                          opacity: busy || uploading ? 0.55 : 1,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={busy || uploading}
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setSegments((prev) =>
+                              prev.map((s, i) => {
+                                if (i !== index) return s;
+                                if (s.imagePreviewUrl) {
+                                  try {
+                                    URL.revokeObjectURL(s.imagePreviewUrl);
+                                  } catch {
+                                    /* ignore */
+                                  }
+                                }
+                                return {
+                                  ...s,
+                                  imageLocalFile: file,
+                                  imagePreviewUrl: URL.createObjectURL(file),
+                                  imageS3Key: "",
+                                };
+                              })
+                            );
+                            e.target.value = "";
+                          }}
+                        />
+                        이미지 선택
+                      </label>
+                      <label
+                        className="muted"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        표시(초)
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={10}
+                          step={0.1}
+                          disabled={busy || uploading}
+                          value={clampImageDurationSec(seg.duration)}
+                          onChange={(e) => {
+                            setSegments((prev) =>
+                              prev.map((s, i) =>
+                                i === index
+                                  ? {
+                                      ...s,
+                                      duration: clampImageDurationSec(
+                                        e.target.value
+                                      ),
+                                    }
+                                  : s
+                              )
+                            );
+                          }}
+                          style={{
+                            width: 52,
+                            padding: "4px 6px",
+                            fontSize: 11,
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {seg.imagePreviewUrl ? (
+                      <img
+                        src={seg.imagePreviewUrl}
+                        alt=""
+                        style={{
+                          height: 100,
+                          width: "auto",
+                          maxWidth: "100%",
+                          objectFit: "contain",
+                          borderRadius: 6,
+                          border: "1px solid rgba(255,255,255,0.15)",
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                ) : (
+                <>
                 {/* 1행: # + 시간 입력 / 2행: 미세조정 */}
                 <div
                   style={{
@@ -4963,6 +5266,8 @@ export default function Shorts3Panel({
                     </button>
                   </div>
                 </div>
+                </>
+                )}
                 <div
                   style={{
                     display: "flex",

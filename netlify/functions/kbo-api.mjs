@@ -4815,11 +4815,11 @@ ${JSON.stringify(games, null, 2)}`;
             body: JSON.stringify({ ok: false, error: "구간(segments) 배열이 필요합니다." }),
           };
         }
-        if (segmentsIn.length > 10) {
+        if (segmentsIn.length > 20) {
           return {
             statusCode: 400,
             headers: corsHeaders(),
-            body: JSON.stringify({ ok: false, error: "구간은 최대 10개입니다." }),
+            body: JSON.stringify({ ok: false, error: "구간은 최대 20개입니다." }),
           };
         }
         const topText =
@@ -4863,6 +4863,106 @@ ${JSON.stringify(games, null, 2)}`;
               }),
             };
           }
+          const segType =
+            s.type != null && String(s.type).trim() === "image"
+              ? "image"
+              : "video";
+
+          if (segType === "image") {
+            const imageS3Key =
+              s.imageS3Key != null ? String(s.imageS3Key).trim() : "";
+            if (!imageS3Key) {
+              continue;
+            }
+            const durRaw = Number(s.duration);
+            const duration = Number.isFinite(durRaw)
+              ? Math.min(10, Math.max(0.5, durRaw))
+              : 3;
+            const offRawImg = Number(s.cropOffset);
+            const cropOffsetImg = Number.isFinite(offRawImg)
+              ? Math.min(50, Math.max(-50, offRawImg))
+              : 0;
+            const textImg = s.text != null ? String(s.text).trim() : "";
+            if (textImg.length > 500) {
+              return {
+                statusCode: 400,
+                headers: corsHeaders(),
+                body: JSON.stringify({
+                  ok: false,
+                  error: "하단 텍스트는 구간당 500자 이하로 입력하세요.",
+                }),
+              };
+            }
+            const text2Img = s.text2 != null ? String(s.text2).trim() : "";
+            if (text2Img.length > 500) {
+              return {
+                statusCode: 400,
+                headers: corsHeaders(),
+                body: JSON.stringify({
+                  ok: false,
+                  error: "하단 텍스트 2는 구간당 500자 이하로 입력하세요.",
+                }),
+              };
+            }
+            const tyImg = Number(s.textY);
+            const textYImg = Number.isFinite(tyImg)
+              ? Math.min(100, Math.max(0, Math.round(tyImg)))
+              : 85;
+            const ty2Img = Number(s.textY2);
+            const textY2Img = Number.isFinite(ty2Img)
+              ? Math.min(100, Math.max(0, Math.round(ty2Img)))
+              : 85;
+            let textColorImg = "#ffffff";
+            if (s.textColor != null) {
+              const c = String(s.textColor).trim();
+              if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+                textColorImg = c.toLowerCase();
+              }
+            }
+            let textColor2Img = "#ffffff";
+            if (s.textColor2 != null) {
+              const c2 = String(s.textColor2).trim();
+              if (/^#[0-9A-Fa-f]{6}$/i.test(c2)) {
+                textColor2Img = c2.toLowerCase();
+              }
+            }
+            const textSizeRawImg = Number(s.textSize);
+            const textSizeImg = Number.isFinite(textSizeRawImg)
+              ? Math.min(200, Math.max(20, Math.round(textSizeRawImg)))
+              : 48;
+            const textSize2RawImg = Number(s.textSize2);
+            const textSize2Img = Number.isFinite(textSize2RawImg)
+              ? Math.min(200, Math.max(20, Math.round(textSize2RawImg)))
+              : 48;
+            const textOpacityImg = clamp01(s.textOpacity);
+            const textOpacity2Img = clamp01(s.textOpacity2);
+            const textFontImg = sanitizeHighlightFont(s.textFont);
+            const textFont2Img = sanitizeHighlightFont(s.textFont2);
+            segments.push({
+              type: "image",
+              imageS3Key,
+              duration,
+              cropOffset: cropOffsetImg,
+              text: textImg,
+              textY: textYImg,
+              textColor: textColorImg,
+              textSize: textSizeImg,
+              textOpacity: textOpacityImg,
+              textFont: textFontImg,
+              textShadow: Boolean(s.textShadow),
+              text2: text2Img,
+              textY2: textY2Img,
+              textColor2: textColor2Img,
+              textSize2: textSize2Img,
+              textOpacity2: textOpacity2Img,
+              textFont2: textFont2Img,
+              textShadow2: Boolean(s.textShadow2),
+              narration:
+                s.narration != null ? String(s.narration).trim() : "",
+            });
+            continue;
+          }
+
           const st = s.start != null ? String(s.start).trim() : "";
           const en = s.end != null ? String(s.end).trim() : "";
           if (!st || !en) {

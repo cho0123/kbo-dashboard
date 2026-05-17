@@ -564,13 +564,21 @@ function buildHighlightSegmentVf(opts) {
     bottomFontPath2,
     coverBox,
     teamColorForCover,
+    baseMode,
   } = opts;
-  const parts = [
-    `crop=${cw}:${ih}:${cx}:0`,
-    "scale=1080:1640:flags=lanczos",
-    "pad=1080:1920:0:280",
-    "format=yuv420p",
-  ];
+  const parts =
+    baseMode === "image"
+      ? [
+          "scale=1080:1920:force_original_aspect_ratio=decrease",
+          "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+          "format=yuv420p",
+        ]
+      : [
+          `crop=${cw}:${ih}:${cx}:0`,
+          "scale=1080:1640:flags=lanczos",
+          "pad=1080:1920:0:280",
+          "format=yuv420p",
+        ];
   if (borderColorPrimary && !skipTeamBorderBoxes) {
     const c = `${borderColorPrimary}@1`;
     parts.push(
@@ -632,6 +640,384 @@ function buildHighlightSegmentVf(opts) {
   }
   const chain = parts.join(",");
   return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
+}
+
+function resolveSegmentImageS3Key(jobId, imageS3Key) {
+  const k = String(imageS3Key || "").trim();
+  if (!k) return null;
+  if (k.startsWith("jobs/")) return k;
+  return `jobs/${jobId}/${k.replace(/^\//, "")}`;
+}
+
+function imageLocalExtFromS3Key(key) {
+  const m = String(key || "").match(/\.(jpe?g|png|webp|gif)$/i);
+  if (!m) return ".jpg";
+  const e = m[1].toLowerCase();
+  return e === "jpeg" ? ".jpg" : `.${e}`;
+}
+
+async function processHighlightImageSegment(ctx) {
+  const {
+    bucket,
+    jobId,
+    workDir,
+    seg,
+    i,
+    numSeg,
+    borderColorPrimary,
+    hasThumbnailPng,
+    hasOverlayPng,
+    topTextPath,
+    topTextSize,
+    topTextColor,
+    topTextOpacity,
+    topTextShadow,
+    topFontPath,
+    coverBoxGlobal,
+    muteOriginal,
+    cw,
+    ih,
+  } = ctx;
+
+  const imageS3Key = resolveSegmentImageS3Key(jobId, seg.imageS3Key);
+  if (!imageS3Key) {
+    throw new Error(`이미지 구간 ${i + 1}: imageS3Key 없음`);
+  }
+  const ext = imageLocalExtFromS3Key(imageS3Key);
+  const imageFileName = `image_seg_${i}${ext}`;
+  const imageLocalAbs = join(workDir, imageFileName);
+  await getObjectFile(bucket, imageS3Key, imageLocalAbs);
+  if (!existsSync(imageLocalAbs)) {
+    throw new Error(`이미지 구간 ${i + 1}: S3 다운로드 실패`);
+  }
+
+  const durRaw = Number(seg.duration);
+  const duration = Number.isFinite(durRaw)
+    ? Math.min(10, Math.max(0.5, durRaw))
+    : 3;
+
+  const bottomParsed = normalizeSegmentTextOverlay(seg);
+  const {
+    text: bottomTxt,
+    text2: bottomTxt2,
+    textY,
+    textY2,
+    textColor: bottomColor,
+    textColor2: bottomColor2,
+    textSize: bottomTextSize,
+    textSize2: bottomTextSize2,
+    textOpacity: bottomOpacity,
+    textOpacity2: bottomOpacity2,
+    textFont: bottomFontName,
+    textFont2: bottomFontName2,
+    textShadow: bottomShadow,
+    textShadow2: bottomShadow2,
+  } = bottomParsed;
+  const bottomFontPath = resolveBundledFontPath(bottomFontName);
+  let bottomPath = null;
+  if (bottomTxt && bottomFontPath) {
+    bottomPath = join(workDir, `hi_bottom_${i}.txt`);
+    writeFileSync(bottomPath, bottomTxt, "utf8");
+  }
+  const bottomFontPath2 = resolveBundledFontPath(bottomFontName2);
+  let bottomPath2 = null;
+  if (bottomTxt2 && bottomFontPath2) {
+    bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
+    writeFileSync(bottomPath2, bottomTxt2, "utf8");
+  }
+
+  const vfSeg = buildHighlightSegmentVf({
+    cw,
+    ih,
+    cx: 0,
+    borderColorPrimary,
+    skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
+    topTextFile: topTextPath,
+    bottomTextFile: bottomPath,
+    bottomTextFile2: bottomPath2,
+    topFontSize: topTextSize,
+    bottomFontSize: bottomTextSize,
+    bottomFontSize2: bottomTextSize2,
+    topColor: topTextColor,
+    topOpacity: topTextOpacity,
+    bottomColor,
+    bottomColor2,
+    bottomOpacity,
+    bottomOpacity2,
+    topShadow: Boolean(topTextShadow),
+    bottomShadow: Boolean(bottomShadow),
+    bottomShadow2: Boolean(bottomShadow2),
+    textY,
+    textY2,
+    topFontPath,
+    bottomFontPath,
+    bottomFontPath2,
+    coverBox: coverBoxGlobal,
+    teamColorForCover: borderColorPrimary,
+    baseMode: "image",
+  });
+
+  const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
+  const narrLocalRel = `narration_${i}.mp3`;
+  const narrLocalAbs = join(workDir, narrLocalRel);
+  let hasNarrAudio = false;
+  if (seg.narration != null && String(seg.narration).trim() !== "") {
+    try {
+      await getObjectFile(bucket, narrS3Key, narrLocalAbs);
+      hasNarrAudio = existsSync(narrLocalAbs);
+    } catch (e) {
+      console.warn(
+        `[highlight] image seg narration S3 get failed (${narrS3Key}):`,
+        e?.message || e
+      );
+    }
+  }
+
+  await putStatus(bucket, jobId, {
+    state: "processing",
+    progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
+  });
+
+  const overlayPngFile = hasOverlayPng
+    ? "overlay.png"
+    : hasThumbnailPng
+      ? "thumbnail.png"
+      : null;
+  const durStr = String(duration);
+  const narrApadSamples = Math.max(
+    1,
+    Math.ceil((Number(duration) || 0) * 48000)
+  );
+
+  if (overlayPngFile) {
+    if (hasNarrAudio) {
+      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+      runFfmpeg(
+        [
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          imageFileName,
+          "-t",
+          durStr,
+          "-loop",
+          "1",
+          "-i",
+          overlayPngFile,
+          "-t",
+          durStr,
+          "-i",
+          narrLocalRel,
+          "-filter_complex",
+          fc,
+          "-map",
+          "[out]",
+          "-map",
+          "[aud]",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_img_seg_${i}_overlay_narr`
+      );
+    } else {
+      const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+      const fc = muteSegNoNarr
+        ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`
+        : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+      const overlayNoNarrArgs = [
+        "-y",
+        "-loop",
+        "1",
+        "-i",
+        imageFileName,
+        "-t",
+        durStr,
+        "-loop",
+        "1",
+        "-i",
+        overlayPngFile,
+        "-t",
+        durStr,
+        "-filter_complex",
+        fc,
+        "-map",
+        "[out]",
+      ];
+      if (muteSegNoNarr) {
+        overlayNoNarrArgs.push(
+          "-map",
+          "[aud]",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          "-shortest",
+          `seg_${i}.mp4`
+        );
+      } else {
+        overlayNoNarrArgs.push(
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-shortest",
+          `seg_${i}.mp4`
+        );
+      }
+      runFfmpeg(
+        overlayNoNarrArgs,
+        workDir,
+        muteSegNoNarr
+          ? `highlight_img_seg_${i}_overlay_mo`
+          : `highlight_img_seg_${i}_overlay`
+      );
+    }
+  } else if (hasNarrAudio) {
+    const fc = `[0:v]${vfSeg}[v];[1:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+    runFfmpeg(
+      [
+        "-y",
+        "-loop",
+        "1",
+        "-i",
+        imageFileName,
+        "-t",
+        durStr,
+        "-i",
+        narrLocalRel,
+        "-filter_complex",
+        fc,
+        "-map",
+        "[v]",
+        "-map",
+        "[aud]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
+        "-c:a",
+        "aac",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        `seg_${i}.mp4`,
+      ],
+      workDir,
+      `highlight_img_seg_${i}_narr`
+    );
+  } else {
+    const muteSegNoNarr = muteOriginal && !hasNarrAudio;
+    if (muteSegNoNarr) {
+      const fc = `[0:v]${vfSeg}[out];anullsrc=r=48000:cl=stereo[aud]`;
+      runFfmpeg(
+        [
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          imageFileName,
+          "-t",
+          durStr,
+          "-filter_complex",
+          fc,
+          "-map",
+          "[out]",
+          "-map",
+          "[aud]",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-c:a",
+          "aac",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          "-shortest",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_img_seg_${i}_mo`
+      );
+    } else {
+      runFfmpeg(
+        [
+          "-y",
+          "-loop",
+          "1",
+          "-i",
+          imageFileName,
+          "-t",
+          durStr,
+          "-vf",
+          vfSeg,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-r",
+          "30",
+          "-an",
+          `seg_${i}.mp4`,
+        ],
+        workDir,
+        `highlight_img_seg_${i}`
+      );
+    }
+  }
 }
 
 async function runHighlightPipeline(bucket, jobId, workDir, meta) {
@@ -741,6 +1127,30 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   console.log("[coverBox]", JSON.stringify(coverBoxGlobal));
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
+    if (seg?.type === "image") {
+      await processHighlightImageSegment({
+        bucket,
+        jobId,
+        workDir,
+        seg,
+        i,
+        numSeg,
+        borderColorPrimary,
+        hasThumbnailPng,
+        hasOverlayPng,
+        topTextPath,
+        topTextSize,
+        topTextColor,
+        topTextOpacity,
+        topTextShadow,
+        topFontPath,
+        coverBoxGlobal,
+        muteOriginal,
+        cw,
+        ih,
+      });
+      continue;
+    }
     let startSec;
     let endSec;
     let duration;

@@ -530,6 +530,71 @@ app.post("/clip", (req, res, next) => {
   }
 });
 
+const imageSegmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const mt = String(file.mimetype || "");
+    if (mt.startsWith("image/")) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("image/* 파일만 업로드할 수 있습니다."));
+  },
+});
+
+app.post("/upload-image", (req, res, next) => {
+  imageSegmentUpload.single("image")(req, res, (err) => {
+    if (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(400).json({ ok: false, error: msg });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const jobId =
+    typeof req.body?.jobId === "string" ? req.body.jobId.trim() : "";
+  if (!jobId) {
+    return res.status(400).json({ ok: false, error: "jobId가 필요합니다." });
+  }
+  if (!req.file?.buffer) {
+    return res.status(400).json({ ok: false, error: "image 파일이 필요합니다." });
+  }
+
+  try {
+    const mime = String(req.file.mimetype || "").toLowerCase();
+    let ext = "jpg";
+    if (mime.includes("png")) ext = "png";
+    else if (mime.includes("webp")) ext = "webp";
+    else if (mime.includes("gif")) ext = "gif";
+    else if (mime.includes("jpeg") || mime.includes("jpg")) ext = "jpg";
+    else {
+      const m = String(req.file.originalname || "").match(
+        /\.(jpe?g|png|webp|gif)$/i
+      );
+      if (m) {
+        ext = m[1].toLowerCase().replace("jpeg", "jpg");
+      }
+    }
+
+    const { s3, bucket, region } = videoEncodeAwsClients();
+    const key = `jobs/${jobId}/images/${randomUUID()}.${ext}`;
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: mime || `image/${ext}`,
+      })
+    );
+    const url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+    return res.json({ ok: true, s3Key: key, url });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: `S3 업로드 실패: ${msg}` });
+  }
+});
+
 app.post("/merge-upload", async (req, res) => {
   const body = req.body || {};
   const clips = parseClipsArray(body.clips);
