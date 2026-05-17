@@ -105,6 +105,9 @@ const EDIT_STYLE_OPTIONS = [
   { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
 ];
 
+const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
+const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
+
 const TEAM_LIST = [
   { id: "삼성", name: "삼성 라이온즈" },
   { id: "KIA", name: "KIA 타이거즈" },
@@ -777,6 +780,8 @@ export default function Shorts3Panel({
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
   const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
+  const [topBarColor, setTopBarColor] = useState(DEFAULT_TOP_BAR_COLOR);
+  const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
   const [teamColor, setTeamColor] = useState(
     TEAM_CONFIGS["삼성"]?.bg || "#074CA1"
@@ -941,6 +946,175 @@ export default function Shorts3Panel({
     const ch = H;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const drawPreviewBottomTexts = (selectedSeg) => {
+      const t1 = String(selectedSeg?.text ?? "").trim();
+      const t2 = String(selectedSeg?.text2 ?? "").trim();
+      const fs1 = Math.max(
+        8,
+        Math.round(((Number(selectedSeg?.textSize) || 48) * ch) / 1920)
+      );
+      const fs2 = Math.max(
+        8,
+        Math.round(((Number(selectedSeg?.textSize2) || 48) * ch) / 1920)
+      );
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (t1) {
+        const textYPos = ch * (Number(selectedSeg.textY ?? 85) / 100);
+        ctx.font = `bold ${fs1}px sans-serif`;
+        ctx.fillStyle = hexToRgba(
+          /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor || "").trim())
+            ? selectedSeg.textColor
+            : TEXT_COLORS[0],
+          roundOpacity01(selectedSeg.textOpacity ?? 1)
+        );
+        ctx.fillText(t1, cw / 2, textYPos);
+      }
+      if (t2) {
+        const textY2Pos = ch * (Number(selectedSeg.textY2 ?? 85) / 100);
+        ctx.font = `bold ${fs2}px sans-serif`;
+        ctx.fillStyle = hexToRgba(
+          /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor2 || "").trim())
+            ? selectedSeg.textColor2
+            : TEXT_COLORS[0],
+          roundOpacity01(selectedSeg.textOpacity2 ?? 1)
+        );
+        ctx.fillText(t2, cw / 2, textY2Pos);
+      }
+    };
+
+    if (layout === LAYOUT_TYPES.FULLSCREEN) {
+      const holeAspect = 1080 / 1920;
+      const srcCropW = Math.round(vh * holeAspect);
+      if (thumbnailSelected) {
+        const cropOffset = Math.max(
+          -50,
+          Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
+        );
+        const srcCropX =
+          Math.round((vw - srcCropW) / 2) +
+          Math.round((cropOffset / 100) * vw);
+        const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(
+          video,
+          clampedSrcCropX,
+          0,
+          srcCropW,
+          vh,
+          0,
+          0,
+          W,
+          H
+        );
+        const overlayCanvas = thumbnailOverlayCanvasRef.current;
+        if (overlayCanvas) {
+          ctx.drawImage(overlayCanvas, 0, 0, W, H);
+        }
+        return;
+      }
+      const selectedSeg = segments[selectedSegIndex];
+      const cropOffset = Math.max(
+        -50,
+        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+      );
+      const srcCropX =
+        Math.round((vw - srcCropW) / 2) +
+        Math.round((cropOffset / 100) * vw);
+      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+      const skipVideoHoleDraw =
+        isImageSegment(selectedSeg) &&
+        Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
+      ctx.clearRect(0, 0, W, H);
+      if (!skipVideoHoleDraw) {
+        ctx.drawImage(
+          video,
+          clampedSrcCropX,
+          0,
+          srcCropW,
+          vh,
+          0,
+          0,
+          W,
+          H
+        );
+      }
+      drawPreviewBottomTexts(selectedSeg);
+      return;
+    }
+
+    if (layout === LAYOUT_TYPES.TOPBOTTOM) {
+      const TOP_PAD = Math.round(H * (400 / 1920));
+      const MID_H = Math.round(H * (1120 / 1920));
+      const BOT_PAD = H - TOP_PAD - MID_H;
+      const srcCropH = Math.round(vh * (1120 / 1920));
+      const srcCropW = Math.round(vh * (1080 / 1640));
+      const srcCropY = Math.max(0, Math.round((vh - srcCropH) / 2));
+      if (thumbnailSelected) {
+        const cropOffset = Math.max(
+          -50,
+          Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
+        );
+        const srcCropX =
+          Math.round((vw - srcCropW) / 2) +
+          Math.round((cropOffset / 100) * vw);
+        const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = topBarColor;
+        ctx.fillRect(0, 0, W, TOP_PAD);
+        ctx.fillStyle = bottomBarColor;
+        ctx.fillRect(0, H - BOT_PAD, W, BOT_PAD);
+        ctx.drawImage(
+          video,
+          clampedSrcCropX,
+          srcCropY,
+          srcCropW,
+          srcCropH,
+          0,
+          TOP_PAD,
+          W,
+          MID_H
+        );
+        const overlayCanvas = thumbnailOverlayCanvasRef.current;
+        if (overlayCanvas) {
+          ctx.drawImage(overlayCanvas, 0, 0, W, H);
+        }
+        return;
+      }
+      const selectedSeg = segments[selectedSegIndex];
+      const cropOffset = Math.max(
+        -50,
+        Math.min(50, Number(selectedSeg?.cropOffset) || 0)
+      );
+      const srcCropX =
+        Math.round((vw - srcCropW) / 2) +
+        Math.round((cropOffset / 100) * vw);
+      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+      const skipVideoHoleDraw =
+        isImageSegment(selectedSeg) &&
+        Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = topBarColor;
+      ctx.fillRect(0, 0, W, TOP_PAD);
+      ctx.fillStyle = bottomBarColor;
+      ctx.fillRect(0, H - BOT_PAD, W, BOT_PAD);
+      if (!skipVideoHoleDraw) {
+        ctx.drawImage(
+          video,
+          clampedSrcCropX,
+          srcCropY,
+          srcCropW,
+          srcCropH,
+          0,
+          TOP_PAD,
+          W,
+          MID_H
+        );
+      }
+      drawPreviewBottomTexts(selectedSeg);
+      return;
+    }
 
     const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
     const bg = tc?.bg || teamColor || "#074CA1";
@@ -1160,6 +1334,9 @@ export default function Shorts3Panel({
     teamColor,
     thumbnailSelected,
     coverBox,
+    layout,
+    topBarColor,
+    bottomBarColor,
   ]);
 
   useEffect(() => {
