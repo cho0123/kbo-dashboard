@@ -1496,6 +1496,8 @@ export default function Shorts3Panel({
             200,
             Math.max(20, Math.round(Number(thumb?.fontSize2)) || 52)
           ),
+          textY1: clampThumbnailTextYPercent(thumb?.textY1, 49),
+          textY2: clampThumbnailTextYPercent(thumb?.textY2, 57),
           showLine: Boolean(thumbnailSegment.showLine),
         });
         if (cancelled) return;
@@ -1508,7 +1510,15 @@ export default function Shorts3Panel({
     return () => {
       cancelled = true;
     };
-  }, [thumbnailSelected, thumbnailSegment, selectedTeam, layout, renderPreviewFrame]);
+  }, [
+    thumbnailSelected,
+    thumbnailSegment,
+    thumbnailSegment.textY1,
+    thumbnailSegment.textY2,
+    selectedTeam,
+    layout,
+    renderPreviewFrame,
+  ]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
@@ -3104,6 +3114,8 @@ export default function Shorts3Panel({
             200,
             Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
           ),
+          textY1: clampThumbnailTextYPercent(thumbnailSegment.textY1, 49),
+          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 57),
           showLine: Boolean(thumbnailSegment.showLine),
         });
 

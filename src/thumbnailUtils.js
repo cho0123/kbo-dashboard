@@ -38,6 +38,8 @@ export const TEAM_LOGO_PATH = {
  * @param {string} opts.textColor2
  * @param {number} opts.fontSize1
  * @param {number} opts.fontSize2
+ * @param {number} [opts.textY1] — 홀 영역 기준 세로 위치 0~100%
+ * @param {number} [opts.textY2]
  * @param {boolean} [opts.showLine]
  * @param {HTMLCanvasElement} [opts.canvas]
  */
@@ -52,6 +54,8 @@ export async function drawThumbnail({
   textColor2,
   fontSize1,
   fontSize2,
+  textY1,
+  textY2,
   showLine,
   canvas: existingCanvas,
 }) {
@@ -135,6 +139,18 @@ export async function drawThumbnail({
   ctx.fillText(teamLabel, W / 2, labelY + labelH / 2);
 
   const holeCenterY = TOP_BAR + holeH / 2;
+  const holeTextY = (pct) => TOP_BAR + (holeH * pct) / 100;
+  const clampTextYPercent = (v) => Math.min(100, Math.max(0, Number(v)));
+  const legacyText1Y = holeCenterY - fontSize1 / 2 - 30;
+  const legacyText2Y = holeCenterY + fontSize2 / 2 + 50;
+  const text1Y =
+    textY1 != null && textY1 !== "" && Number.isFinite(Number(textY1))
+      ? holeTextY(clampTextYPercent(textY1))
+      : legacyText1Y;
+  const text2Y =
+    textY2 != null && textY2 !== "" && Number.isFinite(Number(textY2))
+      ? holeTextY(clampTextYPercent(textY2))
+      : legacyText2Y;
 
   ctx.fillStyle = textColor1;
   ctx.font = `bold ${fontSize1}px ${ff(font1)}`;
@@ -142,7 +158,7 @@ export async function drawThumbnail({
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 8;
-  ctx.fillText(text1 || "", W / 2, holeCenterY - fontSize1 / 2 - 30);
+  ctx.fillText(text1 || "", W / 2, text1Y);
   ctx.shadowBlur = 0;
 
   if (showLine) {
@@ -161,11 +177,7 @@ export async function drawThumbnail({
   ctx.textBaseline = "middle";
   ctx.shadowColor = "rgba(0,0,0,0.8)";
   ctx.shadowBlur = 6;
-  ctx.fillText(
-    text2 || "",
-    W / 2,
-    holeCenterY + fontSize2 / 2 + 50
-  );
+  ctx.fillText(text2 || "", W / 2, text2Y);
   ctx.shadowBlur = 0;
 
   try {
