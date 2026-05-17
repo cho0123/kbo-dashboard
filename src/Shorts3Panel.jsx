@@ -1077,7 +1077,8 @@ export default function Shorts3Panel({
       const topBarH = Math.round((H * 400) / 1920);
       const botBarH = Math.round((H * 400) / 1920);
       const midH = H - topBarH - botBarH;
-      const cropW = Math.round((vh * 1080) / 1920);
+      let cropW = Math.round((vh * 1080) / 1120);
+      if (cropW > vw) cropW = vw;
       if (thumbnailSelected) {
         const cropOffset = Math.max(
           -50,
