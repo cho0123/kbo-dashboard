@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { postKbo } from "./api.js";
-import { drawThumbnail } from "./thumbnailUtils.js";
+import { drawThumbnail, LAYOUT_TYPES } from "./thumbnailUtils.js";
 import VideoPrep from "./VideoPrep.jsx";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -98,6 +98,12 @@ const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
+
+const EDIT_STYLE_OPTIONS = [
+  { id: LAYOUT_TYPES.KBO, label: "KBO 야구" },
+  { id: LAYOUT_TYPES.FULLSCREEN, label: "풀스크린" },
+  { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
+];
 
 const TEAM_LIST = [
   { id: "삼성", name: "삼성 라이온즈" },
@@ -770,6 +776,7 @@ export default function Shorts3Panel({
   const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
   const [teamColor, setTeamColor] = useState(
     TEAM_CONFIGS["삼성"]?.bg || "#074CA1"
@@ -2796,7 +2803,7 @@ export default function Shorts3Panel({
         Number.isFinite(thumbEnd) &&
         thumbEnd > thumbStart;
 
-      if (thumbValid) {
+      if (thumbValid && layout === LAYOUT_TYPES.KBO) {
         const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
@@ -2893,6 +2900,7 @@ export default function Shorts3Panel({
       const payload = {
         action: "highlight_video_create",
         jobId,
+        layout,
         team: selectedTeam,
         topText: topText.trim(),
         topTextColor,
@@ -3785,6 +3793,36 @@ export default function Shorts3Panel({
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
+          <div style={{ marginBottom: 8 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
+              편집 스타일
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {EDIT_STYLE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setLayout(opt.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border:
+                      layout === opt.id
+                        ? "2px solid #4ade80"
+                        : "2px solid #555",
+                    background: layout === opt.id ? "#1a2e1a" : "#1e1e1e",
+                    color: layout === opt.id ? "#4ade80" : "#ddd",
+                    fontWeight: "bold",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {layout === LAYOUT_TYPES.KBO ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <select
               value={selectedTeam}
@@ -3809,6 +3847,7 @@ export default function Shorts3Panel({
               ))}
             </select>
           </div>
+          ) : null}
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div
