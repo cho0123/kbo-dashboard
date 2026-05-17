@@ -535,6 +535,139 @@ function normalizeCoverBoxForLambda(raw) {
   return { enabled: true, x, y, width, height };
 }
 
+const HIGHLIGHT_TOP_BAR_H = 400;
+const HIGHLIGHT_BOTTOM_BAR_H = 400;
+const HIGHLIGHT_TOPBOTTOM_CONTENT_H = 1120;
+
+function resolveHighlightLayout(meta) {
+  const raw =
+    meta?.layout != null ? String(meta.layout).trim().toLowerCase() : "kbo";
+  if (raw === "fullscreen" || raw === "topbottom") return raw;
+  return "kbo";
+}
+
+function normalizeHighlightBarColor(raw, fallback) {
+  const s = raw != null ? String(raw).trim() : "";
+  if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+  const m = s.match(/^([0-9A-Fa-f]{6})$/i);
+  if (m) return `#${m[1].toLowerCase()}`;
+  return normalizeHexColor(fallback, fallback);
+}
+
+function appendHighlightBottomDrawtext(parts, opts) {
+  const {
+    bottomTextFile,
+    bottomTextFile2,
+    bottomFontSize,
+    bottomFontSize2,
+    bottomColor,
+    bottomColor2,
+    bottomOpacity,
+    bottomOpacity2,
+    bottomShadow,
+    bottomShadow2,
+    textY,
+    textY2,
+    bottomFontPath,
+    bottomFontPath2,
+  } = opts;
+  const fsBottom = Math.round(bottomFontSize);
+  if (bottomTextFile && bottomFontPath) {
+    const shadow = bottomShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
+    );
+  }
+  const fsBottom2 = Math.round(
+    Number.isFinite(Number(bottomFontSize2))
+      ? Number(bottomFontSize2)
+      : fsBottom
+  );
+  if (bottomTextFile2 && bottomFontPath2) {
+    const shadow2 = bottomShadow2
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    const y2 =
+      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
+    );
+  }
+}
+
+function finalizeHighlightVfChain(parts) {
+  const chain = parts.join(",");
+  return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
+}
+
+/** layout=fullscreen — 풀스크린 scale, 팀박스/커버/상단텍스트/오버레이 없음 */
+function buildHighlightSegmentVfFullscreen(opts) {
+  const parts =
+    opts.baseMode === "image"
+      ? ["scale=1080:1920", "setsar=1", "format=yuv420p"]
+      : ["scale=1080:1920", "format=yuv420p"];
+  appendHighlightBottomDrawtext(parts, opts);
+  return finalizeHighlightVfChain(parts);
+}
+
+/** layout=topbottom — 상하 400px 바 + 가운데 1120px 영상 */
+function buildHighlightSegmentVfTopBottom(opts) {
+  const {
+    cw,
+    ih,
+    cx,
+    topBarColor,
+    bottomBarColor,
+    baseMode,
+  } = opts;
+  const topFill = normalizeHighlightBarColor(topBarColor, "#1a1a2e");
+  const botFill = normalizeHighlightBarColor(bottomBarColor, "#16213e");
+  const cropY = Math.max(
+    0,
+    Math.floor((ih - HIGHLIGHT_TOPBOTTOM_CONTENT_H) / 2)
+  );
+  let parts;
+  if (baseMode === "image") {
+    const imgCropY = Math.max(
+      0,
+      Math.floor((1920 - HIGHLIGHT_TOPBOTTOM_CONTENT_H) / 2)
+    );
+    parts = [
+      "scale=-2:1920",
+      `crop=1080:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}:(iw-1080)/2:${imgCropY}`,
+      "setsar=1",
+      `scale=1080:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}`,
+      `pad=1080:1920:0:${HIGHLIGHT_TOP_BAR_H}`,
+      "format=yuv420p",
+    ];
+  } else {
+    parts = [
+      `crop=${cw}:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}:${cx}:${cropY}`,
+      `scale=1080:${HIGHLIGHT_TOPBOTTOM_CONTENT_H}:flags=lanczos`,
+      `pad=1080:1920:0:${HIGHLIGHT_TOP_BAR_H}`,
+      "format=yuv420p",
+    ];
+  }
+  parts.push(
+    `drawbox=x=0:y=0:w=iw:h=${HIGHLIGHT_TOP_BAR_H}:color=${topFill}@1:t=fill`,
+    `drawbox=x=0:y=ih-${HIGHLIGHT_BOTTOM_BAR_H}:w=iw:h=${HIGHLIGHT_BOTTOM_BAR_H}:color=${botFill}@1:t=fill`
+  );
+  appendHighlightBottomDrawtext(parts, {
+    ...opts,
+    textY: 86,
+    textY2: 93,
+  });
+  return finalizeHighlightVfChain(parts);
+}
+
+function buildHighlightSegmentVfByLayout(layout, opts) {
+  if (layout === "fullscreen") return buildHighlightSegmentVfFullscreen(opts);
+  if (layout === "topbottom") return buildHighlightSegmentVfTopBottom(opts);
+  return buildHighlightSegmentVf(opts);
+}
+
 function buildHighlightSegmentVf(opts) {
   const {
     cw,
@@ -665,6 +798,9 @@ async function processHighlightImageSegment(ctx) {
     seg,
     i,
     numSeg,
+    layout,
+    topBarColor,
+    bottomBarColor,
     borderColorPrimary,
     hasThumbnailPng,
     hasOverlayPng,
@@ -679,6 +815,7 @@ async function processHighlightImageSegment(ctx) {
     cw,
     ih,
   } = ctx;
+  const isKboLayout = layout === "kbo";
 
   const imageS3Key = resolveSegmentImageS3Key(jobId, seg.imageS3Key);
   if (!imageS3Key) {
@@ -733,13 +870,15 @@ async function processHighlightImageSegment(ctx) {
   scaledW = Math.max(1080, scaledW);
   const imageCx = highlightCropXFromOffset(scaledW, 1080, seg?.cropOffset);
 
-  const vfSeg = buildHighlightSegmentVf({
+  const vfSeg = buildHighlightSegmentVfByLayout(layout, {
     cw,
     ih,
     cx: imageCx,
     borderColorPrimary,
-    skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
-    topTextFile: topTextPath,
+    skipTeamBorderBoxes: isKboLayout
+      ? hasThumbnailPng || hasOverlayPng
+      : true,
+    topTextFile: isKboLayout ? topTextPath : null,
     bottomTextFile: bottomPath,
     bottomTextFile2: bottomPath2,
     topFontSize: topTextSize,
@@ -759,8 +898,10 @@ async function processHighlightImageSegment(ctx) {
     topFontPath,
     bottomFontPath,
     bottomFontPath2,
-    coverBox: coverBoxGlobal,
+    coverBox: isKboLayout ? coverBoxGlobal : null,
     teamColorForCover: borderColorPrimary,
+    topBarColor,
+    bottomBarColor,
     baseMode: "image",
   });
 
@@ -785,11 +926,12 @@ async function processHighlightImageSegment(ctx) {
     progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
   });
 
-  const overlayPngFile = hasOverlayPng
-    ? "overlay.png"
-    : hasThumbnailPng
-      ? "thumbnail.png"
-      : null;
+  const overlayPngFile =
+    isKboLayout && hasOverlayPng
+      ? "overlay.png"
+      : isKboLayout && hasThumbnailPng
+        ? "thumbnail.png"
+        : null;
   const durStr = String(duration);
   const narrApadSamples = Math.max(
     1,
@@ -1031,6 +1173,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   let segments = Array.isArray(meta.segments) ? [...meta.segments] : [];
   if (segments.length < 1) throw new Error("구간 없음");
 
+  const layout = resolveHighlightLayout(meta);
+  const isKboLayout = layout === "kbo";
+  const topBarColor = meta?.topBarColor;
+  const bottomBarColor = meta?.bottomBarColor;
+  console.log("[highlight] layout:", layout);
+
   const muteOriginal = coerceMuteOriginal(meta);
 
   const TEAM_COLORS = {
@@ -1093,6 +1241,14 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
   }
 
+  if (!isKboLayout) {
+    hasThumbnailPng = false;
+    hasOverlayPng = false;
+    console.log(
+      `[highlight] layout=${layout}: skip thumbnail/overlay PNG overlay`
+    );
+  }
+
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
@@ -1124,13 +1280,15 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   }
 
   let topTextPath = null;
-  if (topText && topFontPath) {
+  if (isKboLayout && topText && topFontPath) {
     topTextPath = join(workDir, "hi_top.txt");
     writeFileSync(topTextPath, topText, "utf8");
   }
 
   const numSeg = segments.length;
-  const coverBoxGlobal = normalizeCoverBoxForLambda(meta?.coverBox);
+  const coverBoxGlobal = isKboLayout
+    ? normalizeCoverBoxForLambda(meta?.coverBox)
+    : null;
   console.log("[coverBox]", JSON.stringify(coverBoxGlobal));
   for (let i = 0; i < numSeg; i++) {
     const seg = segments[i];
@@ -1142,6 +1300,9 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         seg,
         i,
         numSeg,
+        layout,
+        topBarColor,
+        bottomBarColor,
         borderColorPrimary,
         hasThumbnailPng,
         hasOverlayPng,
@@ -1233,13 +1394,15 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
     // 하단 텍스트는 썸네일 구간(THUMB_SEG_FLAG)일 때 meta 기준으로만 달라지고,
     // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반 구간과 동일하게 적용한다.
-    const vfSeg = buildHighlightSegmentVf({
+    const vfSeg = buildHighlightSegmentVfByLayout(layout, {
       cw,
       ih,
       cx,
       borderColorPrimary,
-      skipTeamBorderBoxes: hasThumbnailPng || hasOverlayPng,
-      topTextFile: topTextPath,
+      skipTeamBorderBoxes: isKboLayout
+        ? hasThumbnailPng || hasOverlayPng
+        : true,
+      topTextFile: isKboLayout ? topTextPath : null,
       bottomTextFile: bottomPath,
       bottomTextFile2: bottomPath2,
       topFontSize: topTextSize,
@@ -1261,6 +1424,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomFontPath2,
       coverBox: coverBoxGlobal,
       teamColorForCover: borderColorPrimary,
+      topBarColor,
+      bottomBarColor,
     });
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;
@@ -1281,11 +1446,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       state: "processing",
       progress: 32 + Math.floor((38 * (i + 1)) / numSeg),
     });
-    const overlayPngFile = hasOverlayPng
-      ? "overlay.png"
-      : hasThumbnailPng
-        ? "thumbnail.png"
-        : null;
+    const overlayPngFile =
+      isKboLayout && hasOverlayPng
+        ? "overlay.png"
+        : isKboLayout && hasThumbnailPng
+          ? "thumbnail.png"
+          : null;
     const durStr = String(duration);
     const narrApadSamples = Math.max(
       1,
