@@ -289,6 +289,7 @@ function paletteColorSelected(value, paletteHex) {
 function TextColorPalette({ value, onChange, disabled }) {
   const base = 22;
   const selectedSize = 28;
+  const normalized = normalizeHexColorInput(value, TEXT_COLORS[0]);
   return (
     <div
       role="group"
@@ -328,6 +329,24 @@ function TextColorPalette({ value, onChange, disabled }) {
           />
         );
       })}
+      <input
+        type="color"
+        value={normalized}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        title="색상 직접 선택"
+        style={{
+          width: 36,
+          height: 28,
+          padding: 0,
+          border: "1px solid #555",
+          borderRadius: 6,
+          background: "transparent",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.55 : 1,
+          flexShrink: 0,
+        }}
+      />
     </div>
   );
 }
