@@ -1217,10 +1217,12 @@ export default function Shorts3Panel({
     ctx.fillStyle = bg;
     ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
 
-    // 4) 좌우 사이드바
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
-    ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+    // 4) 좌우 사이드바 (팀 테두리)
+    if (layout === LAYOUT_TYPES.KBO) {
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+      ctx.fillRect(W - SIDE_BAR, TOP_BAR, SIDE_BAR, H - TOP_BAR - BOT_BAR);
+    }
 
     // 4b) 커버박스 (팀컬러, hole = 좌우 사이드 제외·상하단 제외 영역 기준 %)
     const cbRaw = coverBox;
@@ -1245,50 +1247,54 @@ export default function Shorts3Panel({
     }
 
     // 5) 팀명 배지 (상단 캡슐형)
-    const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
-    ctx.save();
-    ctx.font = `bold ${Math.round(W * 0.1)}px "Noto Sans KR", system-ui, sans-serif`;
-    const labelW =
-      ctx.measureText(teamLabel).width + Math.round(W * 0.3);
-    const labelH = Math.round(W * 0.15);
-    const labelX = W / 2 - labelW / 2;
-    const labelY = Math.round(H * 0.04);
-    const labelR = labelH / 2;
-    ctx.fillStyle = accent;
-    ctx.beginPath();
-    ctx.roundRect(labelX, labelY, labelW, labelH, labelR);
-    ctx.fill();
-    ctx.fillStyle = bg;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(teamLabel, W / 2, labelY + labelH / 2);
-    ctx.restore();
+    if (layout === LAYOUT_TYPES.KBO) {
+      const teamLabel = TEAM_LABELS[selectedTeam] || selectedTeam;
+      ctx.save();
+      ctx.font = `bold ${Math.round(W * 0.1)}px "Noto Sans KR", system-ui, sans-serif`;
+      const labelW =
+        ctx.measureText(teamLabel).width + Math.round(W * 0.3);
+      const labelH = Math.round(W * 0.15);
+      const labelX = W / 2 - labelW / 2;
+      const labelY = Math.round(H * 0.04);
+      const labelR = labelH / 2;
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.roundRect(labelX, labelY, labelW, labelH, labelR);
+      ctx.fill();
+      ctx.fillStyle = bg;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(teamLabel, W / 2, labelY + labelH / 2);
+      ctx.restore();
+    }
 
     // 6) 팀 로고 (하단 좌측) — 캐시 로드
-    const logoSrc = TEAM_LOGO_PATH[selectedTeam];
-    if (logoSrc) {
-      const existing = teamLogoImgRef.current[selectedTeam];
-      if (existing == null) {
-        const img = new Image();
-        img.onload = () => {
-          teamLogoImgRef.current[selectedTeam] = img;
-        };
-        img.onerror = () => {
+    if (layout === LAYOUT_TYPES.KBO) {
+      const logoSrc = TEAM_LOGO_PATH[selectedTeam];
+      if (logoSrc) {
+        const existing = teamLogoImgRef.current[selectedTeam];
+        if (existing == null) {
+          const img = new Image();
+          img.onload = () => {
+            teamLogoImgRef.current[selectedTeam] = img;
+          };
+          img.onerror = () => {
+            teamLogoImgRef.current[selectedTeam] = false;
+          };
+          img.src = logoSrc;
           teamLogoImgRef.current[selectedTeam] = false;
-        };
-        img.src = logoSrc;
-        teamLogoImgRef.current[selectedTeam] = false;
-      } else if (existing && existing !== false) {
-        const img = existing;
-        const LOGO_MAX = Math.round(W * (160 / 1080));
-        const nw = img.naturalWidth || img.width || 1;
-        const nh = img.naturalHeight || img.height || 1;
-        const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
-        const logoW = nw * scale;
-        const logoH = nh * scale;
-        const logoX = SIDE_BAR - Math.round(W * 0.009);
-        const logoY = H - BOT_BAR - LOGO_MAX * 0.4;
-        ctx.drawImage(img, logoX, logoY, logoW, logoH);
+        } else if (existing && existing !== false) {
+          const img = existing;
+          const LOGO_MAX = Math.round(W * (160 / 1080));
+          const nw = img.naturalWidth || img.width || 1;
+          const nh = img.naturalHeight || img.height || 1;
+          const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
+          const logoW = nw * scale;
+          const logoH = nh * scale;
+          const logoX = SIDE_BAR - Math.round(W * 0.009);
+          const logoY = H - BOT_BAR - LOGO_MAX * 0.4;
+          ctx.drawImage(img, logoX, logoY, logoW, logoH);
+        }
       }
     }
 
