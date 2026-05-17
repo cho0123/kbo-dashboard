@@ -619,6 +619,58 @@ function appendHighlightBottomDrawtext(parts, opts) {
   }
 }
 
+/** 상하바 — 1920px 프레임 기준 절대 Y (segment textY/textY2 %, 기본 10/90) */
+function topbottomDrawtextYpx(percent, fallbackPercent) {
+  const n = Number(percent);
+  const pct = Number.isFinite(n)
+    ? Math.min(100, Math.max(0, n))
+    : fallbackPercent;
+  return Math.round((1920 * pct) / 100);
+}
+
+function appendHighlightTopBottomDrawtext(parts, opts) {
+  const {
+    bottomTextFile,
+    bottomTextFile2,
+    bottomFontSize,
+    bottomFontSize2,
+    bottomColor,
+    bottomColor2,
+    bottomOpacity,
+    bottomOpacity2,
+    bottomShadow,
+    bottomShadow2,
+    textY,
+    textY2,
+    bottomFontPath,
+    bottomFontPath2,
+  } = opts;
+  const y1 = topbottomDrawtextYpx(textY, 10);
+  const y2 = topbottomDrawtextYpx(textY2, 90);
+  const fsBottom = Math.round(bottomFontSize);
+  if (bottomTextFile && bottomFontPath) {
+    const shadow = bottomShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=${y1}${shadow}`
+    );
+  }
+  const fsBottom2 = Math.round(
+    Number.isFinite(Number(bottomFontSize2))
+      ? Number(bottomFontSize2)
+      : fsBottom
+  );
+  if (bottomTextFile2 && bottomFontPath2) {
+    const shadow2 = bottomShadow2
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=${y2}${shadow2}`
+    );
+  }
+}
+
 function finalizeHighlightVfChain(parts) {
   const chain = parts.join(",");
   return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
@@ -689,11 +741,7 @@ function buildHighlightSegmentVfTopBottom(opts) {
     `drawbox=x=0:y=0:w=iw:h=${HIGHLIGHT_TOPBOTTOM_PAD_H}:color=${topFill}@1:t=fill`,
     `drawbox=x=0:y=ih-${HIGHLIGHT_TOPBOTTOM_PAD_H}:w=iw:h=${HIGHLIGHT_TOPBOTTOM_PAD_H}:color=${botFill}@1:t=fill`
   );
-  appendHighlightBottomDrawtext(parts, {
-    ...opts,
-    textY: 86,
-    textY2: 93,
-  });
+  appendHighlightTopBottomDrawtext(parts, opts);
   return finalizeHighlightVfChain(parts);
 }
 
