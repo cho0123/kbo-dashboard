@@ -4822,7 +4822,7 @@ ${JSON.stringify(games, null, 2)}`;
             };
           }
           const { s3, bucket } = videoEncodeAwsClients();
-          const key = `jobs/${oid}/overlay.png`;
+          const key = `jobs/${oid}/thumbnail.png`;
           const cmd = new PutObjectCommand({
             Bucket: bucket,
             Key: key,
@@ -5287,7 +5287,6 @@ ${JSON.stringify(games, null, 2)}`;
           topTextOpacity,
           topTextFont,
           team,
-          overlay_s3_key: `jobs/${jobId}/overlay.png`,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
