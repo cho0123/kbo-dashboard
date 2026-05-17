@@ -4029,12 +4029,10 @@ export default function Shorts3Panel({
             원본 미리보기
           </div>
           <div style={{ marginBottom: 8 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
-              편집 스타일
-            </div>
             <div
               style={{
                 display: "flex",
+                flexDirection: "row",
                 flexWrap: "wrap",
                 gap: 12,
                 alignItems: "center",
@@ -4045,7 +4043,11 @@ export default function Shorts3Panel({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setLayout(opt.id)}
+                  onClick={() => {
+                    setLayout(opt.id);
+                    setVideoScaleY(100);
+                    setVideoOffsetY(50);
+                  }}
                   style={{
                     padding: "6px 12px",
                     borderRadius: 6,
@@ -4083,23 +4085,19 @@ export default function Shorts3Panel({
                     border: "2px solid #555",
                     objectFit: "contain",
                     display: "block",
+                    flexShrink: 0,
                   }}
                 />
               ) : null}
-            </div>
-            <div style={{ marginTop: 10, marginBottom: 4 }}>
-              <div
-                className="muted"
-                style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}
-              >
-                영상 세로 조정
-              </div>
               <label
                 style={{
-                  display: "block",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
                   fontSize: 12,
-                  marginBottom: 8,
-                  maxWidth: 320,
+                  minWidth: 140,
+                  flex: "1 1 140px",
+                  maxWidth: 200,
                 }}
               >
                 <span className="muted">세로 크기: {videoScaleY}%</span>
@@ -4113,13 +4111,21 @@ export default function Shorts3Panel({
                   onChange={(e) =>
                     setVideoScaleY(clampVideoScaleY(e.target.value))
                   }
-                  style={{ width: "100%", display: "block", marginTop: 4 }}
+                  style={{ width: "100%" }}
                 />
               </label>
-              <label style={{ display: "block", fontSize: 12, maxWidth: 320 }}>
-                <span className="muted">
-                  세로 위치: {videoOffsetY}% (0=상단, 100=하단)
-                </span>
+              <label
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  fontSize: 12,
+                  minWidth: 140,
+                  flex: "1 1 140px",
+                  maxWidth: 200,
+                }}
+              >
+                <span className="muted">세로 위치: {videoOffsetY}%</span>
                 <input
                   type="range"
                   min={0}
@@ -4130,7 +4136,7 @@ export default function Shorts3Panel({
                   onChange={(e) =>
                     setVideoOffsetY(clampVideoOffsetY(e.target.value))
                   }
-                  style={{ width: "100%", display: "block", marginTop: 4 }}
+                  style={{ width: "100%" }}
                 />
               </label>
             </div>
