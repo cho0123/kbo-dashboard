@@ -1,11 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { postKbo } from "./api.js";
-import { TEAM_COLORS, drawThumbnail } from "./thumbnailUtils.js";
+import {
+  LAYOUT_TYPES,
+  TEAM_COLORS,
+  drawThumbnailByLayout,
+} from "./thumbnailUtils.js";
+
+const LAYOUT_OPTIONS = [
+  { id: LAYOUT_TYPES.KBO, label: "KBO 야구" },
+  { id: LAYOUT_TYPES.FULLSCREEN, label: "풀스크린" },
+  { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
+];
 
 /** drawThumbnail이 요구하는 폰트 키·크기·색 (문구는 빈 문자열로 그리지 않음) */
 const OVERLAY_FONT = "NotoSansKR-Bold";
 
 export default function Shorts3ThumbnailPanel({ jobId }) {
+  const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
   const [team, setTeam] = useState("삼성");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -23,7 +34,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
       const t = TEAM_COLORS[team];
       if (!t) return;
       try {
-        await drawThumbnail({
+        await drawThumbnailByLayout(layout, {
           team,
           tc: { bg: t.bg, accent: t.accent },
           text1: "",
@@ -44,7 +55,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     return () => {
       cancelled = true;
     };
-  }, [team]);
+  }, [team, layout]);
 
   const handleSavePng = async () => {
     const canvas = canvasRef.current;
@@ -86,7 +97,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     <div className="section soft">
       <div className="section-title">🖼️ 썸네일 레이아웃</div>
       <p className="muted" style={{ marginTop: 6 }}>
-        팀을 선택하면 프레임·로고·팀명 배지만 표시됩니다. PNG로 저장해 다른 화면이나
+        레이아웃·팀을 선택하면 프레임·로고·텍스트 슬롯이 표시됩니다. PNG로 저장해 다른 화면이나
         Lambda 오버레이에 쓸 수 있습니다.
       </p>
 
@@ -108,7 +119,43 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
           }}
         >
           <div>
+            <div className="label">레이아웃</div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                marginTop: 6,
+              }}
+            >
+              {LAYOUT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setLayout(opt.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border:
+                      layout === opt.id
+                        ? "2px solid #4ade80"
+                        : "2px solid #555",
+                    background: layout === opt.id ? "#1a2e1a" : "#1e1e1e",
+                    color: layout === opt.id ? "#4ade80" : "#ddd",
+                    fontWeight: "bold",
+                    fontSize: 13,
+                    cursor: "pointer",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <div className="label">팀 선택</div>
+
             <div
               style={{
                 display: "flex",

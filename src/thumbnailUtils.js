@@ -192,3 +192,120 @@ export async function drawThumbnail({
 
   return canvas;
 }
+
+export const LAYOUT_TYPES = {
+  KBO: "kbo",
+  FULLSCREEN: "fullscreen",
+  TOPBOTTOM: "topbottom",
+};
+
+const THUMB_FONT_FAMILY_MAP = {
+  "NotoSansKR-Bold": "'Noto Sans KR', sans-serif",
+  "BlackHanSans-Regular": "'Black Han Sans', sans-serif",
+  "NotoSerifKR-Bold": "'Noto Serif KR', serif",
+  "GamjaFlower-Regular": "'Gamja Flower', cursive",
+};
+
+function thumbFontFamily(key) {
+  return THUMB_FONT_FAMILY_MAP[key] || THUMB_FONT_FAMILY_MAP["NotoSansKR-Bold"];
+}
+
+function createThumbCanvas(existingCanvas) {
+  const W = 1080;
+  const H = 1920;
+  const canvas = existingCanvas || document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  return { canvas, ctx: canvas.getContext("2d", { alpha: true }), W, H };
+}
+
+/**
+ * 풀스크린 — 1080×1920 전체 투명 PNG
+ */
+export async function drawThumbnailFullscreen({ canvas: existingCanvas } = {}) {
+  const { canvas, ctx, W, H } = createThumbCanvas(existingCanvas);
+  ctx.clearRect(0, 0, W, H);
+  return canvas;
+}
+
+/**
+ * 상하바 — 상·하 160px 팀색 바, 가운데 투명, 로고는 하단 바 왼쪽
+ */
+export async function drawThumbnailTopBottom({
+  team,
+  tc,
+  text1,
+  text2,
+  font1,
+  font2,
+  textColor1,
+  textColor2,
+  fontSize1,
+  fontSize2,
+  canvas: existingCanvas,
+}) {
+  const { canvas, ctx, W, H } = createThumbCanvas(existingCanvas);
+  const TOP_BAR = 160;
+  const BOT_BAR = 160;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = tc.bg;
+  ctx.fillRect(0, 0, W, TOP_BAR);
+  ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = textColor1;
+  ctx.font = `bold ${fontSize1}px ${thumbFontFamily(font1)}`;
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 8;
+  ctx.fillText(text1 || "", W / 2, TOP_BAR / 2);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = textColor2;
+  ctx.font = `bold ${fontSize2}px ${thumbFontFamily(font2)}`;
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text2 || "", W / 2, H - BOT_BAR / 2);
+  ctx.shadowBlur = 0;
+
+  try {
+    const logoSrc = TEAM_LOGO_PATH[team];
+    if (!logoSrc) return canvas;
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = logoSrc;
+    });
+    const LOGO_MAX = 120;
+    const nw = img.naturalWidth || img.width || 1;
+    const nh = img.naturalHeight || img.height || 1;
+    const scale = Math.min(LOGO_MAX / nw, LOGO_MAX / nh);
+    const logoW = nw * scale;
+    const logoH = nh * scale;
+    const logoX = 16;
+    const logoY = H - BOT_BAR + (BOT_BAR - logoH) / 2;
+    ctx.drawImage(img, logoX, logoY, logoW, logoH);
+  } catch (e) {
+    console.warn("로고 로드 실패:", e);
+  }
+
+  return canvas;
+}
+
+/**
+ * @param {string} layout — LAYOUT_TYPES 값
+ * @param {object} opts — drawThumbnail과 동일 옵션
+ */
+export async function drawThumbnailByLayout(layout, opts) {
+  const key = String(layout || LAYOUT_TYPES.KBO).trim().toLowerCase();
+  if (key === LAYOUT_TYPES.FULLSCREEN) {
+    return drawThumbnailFullscreen(opts);
+  }
+  if (key === LAYOUT_TYPES.TOPBOTTOM) {
+    return drawThumbnailTopBottom(opts);
+  }
+  return drawThumbnail(opts);
+}
