@@ -110,7 +110,7 @@ const EDIT_STYLE_OPTIONS = [
   { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
 ];
 
-const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
+const DEFAULT_TOP_BAR_COLOR = "#16213e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 
 const THUMBNAIL_TEXT_Y_DEFAULTS = {
@@ -1129,7 +1129,6 @@ export default function Shorts3Panel({
           W,
           H
         );
-        drawThumbnailOverlayPreview();
         drawPreviewThumbnailTexts();
         return;
       }
@@ -1173,12 +1172,10 @@ export default function Shorts3Panel({
           thumbnailSegmentRef.current?.cropOffset
         );
         ctx.clearRect(0, 0, W, H);
-        if (!thumbnailOverlayCanvasRef.current) {
-          ctx.fillStyle = topBarColor;
-          ctx.fillRect(0, 0, W, topBarH);
-          ctx.fillStyle = bottomBarColor;
-          ctx.fillRect(0, H - botBarH, W, botBarH);
-        }
+        ctx.fillStyle = topBarColor;
+        ctx.fillRect(0, 0, W, topBarH);
+        ctx.fillStyle = bottomBarColor;
+        ctx.fillRect(0, H - botBarH, W, botBarH);
         ctx.drawImage(
           video,
           clampedCropX,
@@ -1190,7 +1187,6 @@ export default function Shorts3Panel({
           W,
           midH
         );
-        drawThumbnailOverlayPreview();
         drawPreviewThumbnailTexts();
         return;
       }
@@ -1204,12 +1200,10 @@ export default function Shorts3Panel({
         isImageSegment(selectedSeg) &&
         Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
       ctx.clearRect(0, 0, W, H);
-      if (!thumbnailOverlayCanvasRef.current) {
-        ctx.fillStyle = topBarColor;
-        ctx.fillRect(0, 0, W, topBarH);
-        ctx.fillStyle = bottomBarColor;
-        ctx.fillRect(0, H - botBarH, W, botBarH);
-      }
+      ctx.fillStyle = topBarColor;
+      ctx.fillRect(0, 0, W, topBarH);
+      ctx.fillStyle = bottomBarColor;
+      ctx.fillRect(0, H - botBarH, W, botBarH);
       if (!skipVideoHoleDraw) {
         ctx.drawImage(
           video,
