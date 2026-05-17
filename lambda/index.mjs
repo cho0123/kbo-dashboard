@@ -565,11 +565,15 @@ function buildHighlightSegmentVf(opts) {
     coverBox,
     teamColorForCover,
     baseMode,
+    imageIw,
+    imageIh,
   } = opts;
   const parts =
     baseMode === "image"
       ? [
-          "scale='if(gt(iw,ih),1080,-2)':'if(gt(iw,ih),-2,1920)'",
+          Number(imageIw) > Number(imageIh)
+            ? "scale=1080:-2"
+            : "scale=-2:1920",
           "crop=1080:1920",
           "setsar=1",
           "format=yuv420p",
@@ -781,6 +785,8 @@ async function processHighlightImageSegment(ctx) {
     writeFileSync(bottomPath2, bottomTxt2, "utf8");
   }
 
+  const { w: imgIw, h: imgIh } = probeVideoDimensions(workDir, imageFileName);
+
   const vfSeg = buildHighlightSegmentVf({
     cw: 0,
     ih: 0,
@@ -810,6 +816,8 @@ async function processHighlightImageSegment(ctx) {
     coverBox: coverBoxGlobal,
     teamColorForCover: borderColorPrimary,
     baseMode: "image",
+    imageIw: imgIw,
+    imageIh: imgIh,
   });
 
   const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
