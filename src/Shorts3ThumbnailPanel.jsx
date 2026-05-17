@@ -15,9 +15,83 @@ const LAYOUT_OPTIONS = [
 /** drawThumbnail이 요구하는 폰트 키·크기·색 (문구는 빈 문자열로 그리지 않음) */
 const OVERLAY_FONT = "NotoSansKR-Bold";
 
+const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
+const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
+
+const TOP_BOTTOM_BAR_SWATCHES = [
+  "#1a1a2e",
+  "#16213e",
+  "#0f3460",
+  "#1b262c",
+  "#000000",
+  "#074CA1",
+  "#131230",
+  "#EA0029",
+  "#533483",
+  "#2d4059",
+];
+
+function normalizeHexColorInput(raw, fallback) {
+  const s = String(raw || "").trim();
+  if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^[0-9A-Fa-f]{6}$/i.test(s)) return `#${s.toLowerCase()}`;
+  return fallback;
+}
+
+function BarColorPicker({ label, value, onChange, fallback }) {
+  const normalized = normalizeHexColorInput(value, fallback);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+        {label}
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {TOP_BOTTOM_BAR_SWATCHES.map((c) => (
+          <button
+            key={`${label}-${c}`}
+            type="button"
+            title={c}
+            onClick={() => onChange(c)}
+            style={{
+              width: 28,
+              height: 28,
+              padding: 0,
+              borderRadius: 6,
+              border:
+                normalized.toUpperCase() === c.toUpperCase()
+                  ? "2px solid #4ade80"
+                  : "2px solid rgba(255,255,255,0.25)",
+              background: c,
+              cursor: "pointer",
+            }}
+          />
+        ))}
+        <input
+          type="color"
+          value={normalized}
+          onChange={(e) => onChange(e.target.value)}
+          title="색상 직접 선택"
+          style={{
+            width: 36,
+            height: 28,
+            padding: 0,
+            border: "1px solid #555",
+            borderRadius: 6,
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        />
+        <span className="muted" style={{ fontSize: 11 }}>{normalized}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Shorts3ThumbnailPanel({ jobId }) {
   const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
   const [team, setTeam] = useState("삼성");
+  const [topBarColor, setTopBarColor] = useState(DEFAULT_TOP_BAR_COLOR);
+  const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -25,18 +99,21 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
 
   const tc = TEAM_COLORS[team];
   const effectiveJobId = String(jobId || "").trim();
+  const previewBorderColor =
+    layout === LAYOUT_TYPES.KBO
+      ? tc?.accent || "#fff"
+      : layout === LAYOUT_TYPES.TOPBOTTOM
+        ? topBarColor
+        : "#888";
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
     (async () => {
-      const t = TEAM_COLORS[team];
-      if (!t) return;
       try {
-        await drawThumbnailByLayout(layout, {
+        const opts = {
           team,
-          tc: { bg: t.bg, accent: t.accent },
           text1: "",
           text2: "",
           font1: OVERLAY_FONT,
@@ -46,7 +123,17 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
           fontSize1: 88,
           fontSize2: 52,
           canvas,
-        });
+        };
+        if (layout === LAYOUT_TYPES.KBO) {
+          const t = TEAM_COLORS[team];
+          if (!t) return;
+          opts.tc = { bg: t.bg, accent: t.accent };
+        }
+        if (layout === LAYOUT_TYPES.TOPBOTTOM) {
+          opts.topBarColor = topBarColor;
+          opts.bottomBarColor = bottomBarColor;
+        }
+        await drawThumbnailByLayout(layout, opts);
         if (cancelled) return;
       } catch (e) {
         console.warn("[thumbnail panel]", e);
@@ -55,7 +142,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     return () => {
       cancelled = true;
     };
-  }, [team, layout]);
+  }, [team, layout, topBarColor, bottomBarColor]);
 
   const handleSavePng = async () => {
     const canvas = canvasRef.current;
@@ -88,7 +175,10 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
     const a = document.createElement("a");
     const url = URL.createObjectURL(blob);
     a.href = url;
-    a.download = `thumbnail-${team}.png`;
+    a.download =
+      layout === LAYOUT_TYPES.KBO
+        ? `thumbnail-${team}.png`
+        : `thumbnail-${layout}.png`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -153,6 +243,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
             </div>
           </div>
 
+          {layout === LAYOUT_TYPES.KBO ? (
           <div>
             <div className="label">팀 선택</div>
 
@@ -189,6 +280,24 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
               ))}
             </div>
           </div>
+          ) : null}
+
+          {layout === LAYOUT_TYPES.TOPBOTTOM ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <BarColorPicker
+                label="상단 바 색상"
+                value={topBarColor}
+                fallback={DEFAULT_TOP_BAR_COLOR}
+                onChange={setTopBarColor}
+              />
+              <BarColorPicker
+                label="하단 바 색상"
+                value={bottomBarColor}
+                fallback={DEFAULT_BOTTOM_BAR_COLOR}
+                onChange={setBottomBarColor}
+              />
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -228,7 +337,7 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
               height: 320,
               background: "transparent",
               borderRadius: 10,
-              border: `2px solid ${tc.accent}`,
+              border: `2px solid ${previewBorderColor}`,
               display: "block",
             }}
           />
