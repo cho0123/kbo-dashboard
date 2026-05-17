@@ -1054,6 +1054,18 @@ export default function Shorts3Panel({
       }
     };
 
+    const drawPreviewThumbnailTexts = () => {
+      const thumb = thumbnailSegmentRef.current;
+      drawPreviewBottomTexts({
+        text: thumb?.text1 ?? "",
+        text2: thumb?.text2 ?? "",
+        textColor: thumb?.textColor1,
+        textColor2: thumb?.textColor2,
+        textSize: thumb?.fontSize1,
+        textSize2: thumb?.fontSize2,
+      });
+    };
+
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
       let srcCropW = Math.round((srcCropH * 1080) / 1920);
       if (srcCropW > vw) srcCropW = vw;
@@ -1075,6 +1087,7 @@ export default function Shorts3Panel({
           W,
           H
         );
+        drawPreviewThumbnailTexts();
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1132,6 +1145,7 @@ export default function Shorts3Panel({
           W,
           midH
         );
+        drawPreviewThumbnailTexts();
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1382,6 +1396,7 @@ export default function Shorts3Panel({
     selectedTeam,
     teamColor,
     thumbnailSelected,
+    thumbnailSegment,
     coverBox,
     layout,
     topBarColor,
