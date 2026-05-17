@@ -4743,6 +4743,71 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "highlight_image_upload_url": {
+        try {
+          const oid = String(payload.jobId || "").trim();
+          if (!oid || !UUID_V4_RE.test(oid)) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "유효한 jobId가 필요합니다.",
+              }),
+            };
+          }
+          const fn = String(payload.filename || "image.jpg").trim();
+          const ctRaw = String(payload.contentType || "").toLowerCase();
+          let ext = "jpg";
+          if (ctRaw.includes("png")) ext = "png";
+          else if (ctRaw.includes("webp")) ext = "webp";
+          else if (ctRaw.includes("gif")) ext = "gif";
+          else {
+            const m = fn.match(/\.(jpe?g|png|webp|gif)$/i);
+            if (m) ext = m[1].toLowerCase().replace("jpeg", "jpg");
+          }
+          const mime =
+            ctRaw && ctRaw.startsWith("image/")
+              ? ctRaw
+              : ext === "png"
+                ? "image/png"
+                : ext === "webp"
+                  ? "image/webp"
+                  : ext === "gif"
+                    ? "image/gif"
+                    : "image/jpeg";
+          const { s3, bucket, region } = videoEncodeAwsClients();
+          const key = `jobs/${oid}/images/${randomUUID()}.${ext}`;
+          const cmd = new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            ContentType: mime,
+          });
+          const putUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_UPLOAD_PRESIGN_EXPIRES_SEC,
+          });
+          const rgn = region || "ap-northeast-2";
+          const url = `https://${bucket}.s3.${rgn}.amazonaws.com/${key}`;
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              jobId: oid,
+              s3Key: key,
+              putUrl,
+              url,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "overlay_upload_url": {
         try {
           const oid = String(payload.jobId || "").trim();
