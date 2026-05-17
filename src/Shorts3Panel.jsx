@@ -1008,10 +1008,6 @@ export default function Shorts3Panel({
           W,
           H
         );
-        const overlayCanvas = thumbnailOverlayCanvasRef.current;
-        if (overlayCanvas) {
-          ctx.drawImage(overlayCanvas, 0, 0, W, H);
-        }
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1076,10 +1072,6 @@ export default function Shorts3Panel({
           W,
           MID_H
         );
-        const overlayCanvas = thumbnailOverlayCanvasRef.current;
-        if (overlayCanvas) {
-          ctx.drawImage(overlayCanvas, 0, 0, W, H);
-        }
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1149,10 +1141,12 @@ export default function Shorts3Panel({
         W,
         H - TOP_BAR
       );
-      // 2) 썸네일 오버레이 덮기
-      const overlayCanvas = thumbnailOverlayCanvasRef.current;
-      if (overlayCanvas) {
-        ctx.drawImage(overlayCanvas, 0, 0, W, H);
+      // 2) 썸네일 오버레이 덮기 (KBO 레이아웃 전용)
+      if (layout === LAYOUT_TYPES.KBO) {
+        const overlayCanvas = thumbnailOverlayCanvasRef.current;
+        if (overlayCanvas) {
+          ctx.drawImage(overlayCanvas, 0, 0, W, H);
+        }
       }
       // 3) 커버박스 (일반 구간 미리보기와 동일 hole 기준)
       if (coverBox?.enabled) {
@@ -1384,6 +1378,11 @@ export default function Shorts3Panel({
       thumbnailOverlayCanvasRef.current = null;
       return;
     }
+    if (layout !== LAYOUT_TYPES.KBO) {
+      thumbnailOverlayCanvasRef.current = null;
+      renderPreviewFrame();
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -1420,7 +1419,7 @@ export default function Shorts3Panel({
     return () => {
       cancelled = true;
     };
-  }, [thumbnailSelected, thumbnailSegment, selectedTeam]);
+  }, [thumbnailSelected, thumbnailSegment, selectedTeam, layout, renderPreviewFrame]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
