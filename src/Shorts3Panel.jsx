@@ -2830,17 +2830,49 @@ export default function Shorts3Panel({
         }
       }
       const resolvedSegments = [];
+      const imageS3KeyBySegId = [];
       for (const s of validSegments) {
-        if (isImageSegment(s) && s.imageLocalFile) {
+        if (!isImageSegment(s)) {
+          resolvedSegments.push(s);
+          continue;
+        }
+        let imageS3Key = String(s.imageS3Key || "").trim();
+        if (!imageS3Key && s.imageLocalFile) {
           setMessage("이미지 업로드 중…");
           const up = await uploadHighlightImage(jobId, s.imageLocalFile);
-          resolvedSegments.push({
-            ...s,
-            imageS3Key: up.s3Key,
-          });
-        } else {
-          resolvedSegments.push(s);
+          imageS3Key = String(up.s3Key || "").trim();
         }
+        if (!imageS3Key) {
+          console.warn(
+            "[onGenerate] image segment skipped (no imageS3Key):",
+            s.id
+          );
+          continue;
+        }
+        const updated = {
+          ...s,
+          imageS3Key,
+          imageLocalFile: null,
+        };
+        resolvedSegments.push(updated);
+        if (s.id) {
+          imageS3KeyBySegId.push({ id: s.id, imageS3Key });
+        }
+      }
+      if (imageS3KeyBySegId.length > 0) {
+        setSegments((prev) =>
+          prev.map((seg) => {
+            const hit = imageS3KeyBySegId.find((u) => u.id === seg.id);
+            return hit
+              ? { ...seg, imageS3Key: hit.imageS3Key, imageLocalFile: null }
+              : seg;
+          })
+        );
+      }
+      if (resolvedSegments.length < 1) {
+        throw new Error(
+          "유효한 구간이 없습니다. 이미지컷은 이미지 선택·업로드 후 다시 시도하세요."
+        );
       }
 
       for (let vi = 0; vi < resolvedSegments.length; vi++) {
@@ -2978,6 +3010,10 @@ export default function Shorts3Panel({
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
       }
+      console.log(
+        "[onGenerate] payload.segments",
+        JSON.stringify(payload.segments)
+      );
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
       const thumbSec =
