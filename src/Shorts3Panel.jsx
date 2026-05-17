@@ -1074,36 +1074,34 @@ export default function Shorts3Panel({
     }
 
     if (layout === LAYOUT_TYPES.TOPBOTTOM) {
-      const TOP_PAD = Math.round(H * (400 / 1920));
-      const MID_H = Math.round(H * (1120 / 1920));
-      const BOT_PAD = H - TOP_PAD - MID_H;
-      const srcCropH = Math.round(vh * (1120 / 1920));
-      const srcCropW = Math.round(vh * (1080 / 1640));
-      const srcCropY = Math.max(0, Math.round((vh - srcCropH) / 2));
+      const topBarH = Math.round((H * 400) / 1920);
+      const botBarH = Math.round((H * 400) / 1920);
+      const midH = H - topBarH - botBarH;
+      const cropW = Math.round((vh * 1080) / 1920);
       if (thumbnailSelected) {
         const cropOffset = Math.max(
           -50,
           Math.min(50, Number(thumbnailSegmentRef.current?.cropOffset) || 0)
         );
-        const srcCropX =
-          Math.round((vw - srcCropW) / 2) +
+        const cropX =
+          Math.round((vw - cropW) / 2) +
           Math.round((cropOffset / 100) * vw);
-        const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+        const clampedCropX = Math.max(0, Math.min(vw - cropW, cropX));
         ctx.clearRect(0, 0, W, H);
         ctx.fillStyle = topBarColor;
-        ctx.fillRect(0, 0, W, TOP_PAD);
+        ctx.fillRect(0, 0, W, topBarH);
         ctx.fillStyle = bottomBarColor;
-        ctx.fillRect(0, H - BOT_PAD, W, BOT_PAD);
+        ctx.fillRect(0, H - botBarH, W, botBarH);
         ctx.drawImage(
           video,
-          clampedSrcCropX,
-          srcCropY,
-          srcCropW,
-          srcCropH,
+          clampedCropX,
           0,
-          TOP_PAD,
+          cropW,
+          vh,
+          0,
+          topBarH,
           W,
-          MID_H
+          midH
         );
         return;
       }
@@ -1112,29 +1110,29 @@ export default function Shorts3Panel({
         -50,
         Math.min(50, Number(selectedSeg?.cropOffset) || 0)
       );
-      const srcCropX =
-        Math.round((vw - srcCropW) / 2) +
+      const cropX =
+        Math.round((vw - cropW) / 2) +
         Math.round((cropOffset / 100) * vw);
-      const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
+      const clampedCropX = Math.max(0, Math.min(vw - cropW, cropX));
       const skipVideoHoleDraw =
         isImageSegment(selectedSeg) &&
         Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
       ctx.clearRect(0, 0, W, H);
       ctx.fillStyle = topBarColor;
-      ctx.fillRect(0, 0, W, TOP_PAD);
+      ctx.fillRect(0, 0, W, topBarH);
       ctx.fillStyle = bottomBarColor;
-      ctx.fillRect(0, H - BOT_PAD, W, BOT_PAD);
+      ctx.fillRect(0, H - botBarH, W, botBarH);
       if (!skipVideoHoleDraw) {
         ctx.drawImage(
           video,
-          clampedSrcCropX,
-          srcCropY,
-          srcCropW,
-          srcCropH,
+          clampedCropX,
           0,
-          TOP_PAD,
+          cropW,
+          vh,
+          0,
+          topBarH,
           W,
-          MID_H
+          midH
         );
       }
       drawPreviewBottomTexts(selectedSeg);
