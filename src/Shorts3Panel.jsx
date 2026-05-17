@@ -108,6 +108,25 @@ const EDIT_STYLE_OPTIONS = [
 const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 
+const THUMBNAIL_TEXT_Y_DEFAULTS = {
+  [LAYOUT_TYPES.KBO]: { textY1: 49, textY2: 57 },
+  [LAYOUT_TYPES.FULLSCREEN]: { textY1: 75, textY2: 85 },
+  [LAYOUT_TYPES.TOPBOTTOM]: { textY1: 10, textY2: 90 },
+};
+
+function thumbnailTextYDefaultsForLayout(layoutId) {
+  return (
+    THUMBNAIL_TEXT_Y_DEFAULTS[layoutId] ??
+    THUMBNAIL_TEXT_Y_DEFAULTS[LAYOUT_TYPES.KBO]
+  );
+}
+
+function clampThumbnailTextYPercent(raw, fallback = 85) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
 function clampVideoScaleY(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return 100;
@@ -471,6 +490,8 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   textColor2: "#FFFFFF",
   fontSize1: 88,
   fontSize2: 52,
+  textY1: 49,
+  textY2: 57,
   narration: "",
   narrationDuration: null,
   narrationAudioUrl: null,
@@ -1063,6 +1084,8 @@ export default function Shorts3Panel({
         textColor2: thumb?.textColor2,
         textSize: thumb?.fontSize1,
         textSize2: thumb?.fontSize2,
+        textY: clampThumbnailTextYPercent(thumb?.textY1, 85),
+        textY2: clampThumbnailTextYPercent(thumb?.textY2, 85),
       });
     };
 
@@ -2609,6 +2632,13 @@ export default function Shorts3Panel({
     setThumbnailSegment((prev) => ({ ...prev, [field]: n }));
   };
 
+  const handleThumbnailTextYChange = (field, rawVal) => {
+    const n = Number(rawVal);
+    if (!Number.isFinite(n)) return;
+    const v = Math.min(100, Math.max(0, Math.round(n)));
+    setThumbnailSegment((prev) => ({ ...prev, [field]: v }));
+  };
+
   const seekPreviewToThumbnailBoundary = useCallback(
     (field) => {
       const v = previewVideoRef.current;
@@ -3256,14 +3286,14 @@ export default function Shorts3Panel({
           textSize: thumbnailSegment.fontSize1 || 88,
           textOpacity: 1,
           textShadow: false,
-          textY: 50,
+          textY: clampThumbnailTextYPercent(thumbnailSegment.textY1, 85),
           text2: thumbnailSegment.text2 || "",
           textFont2: ensureTtf(thumbnailSegment.font2 || ""),
           textColor2: thumbnailSegment.textColor2 || "#ffffff",
           textSize2: thumbnailSegment.fontSize2 || 52,
           textOpacity2: 1,
           textShadow2: false,
-          textY2: 60,
+          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 85),
           narration: String(thumbnailSegment.narration ?? "").trim(),
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
@@ -4062,6 +4092,12 @@ export default function Shorts3Panel({
                     setLayout(opt.id);
                     setVideoScaleY(100);
                     setVideoOffsetY(50);
+                    const yDef = thumbnailTextYDefaultsForLayout(opt.id);
+                    setThumbnailSegment((prev) => ({
+                      ...prev,
+                      textY1: yDef.textY1,
+                      textY2: yDef.textY2,
+                    }));
                   }}
                   style={{
                     padding: "6px 12px",
@@ -6787,6 +6823,69 @@ export default function Shorts3Panel({
                 </div>
               </div>
 
+
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginTop: 6,
+                  marginBottom: 10,
+                }}
+              >
+                세로 위치 (텍스트 1): {thumbnailSegment.textY1 ?? 49}%
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={thumbnailSegment.textY1 ?? 49}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleThumbnailTextYChange("textY1", e.target.value)
+                    }
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={thumbnailSegment.textY1 ?? 49}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleThumbnailTextYChange("textY1", e.target.value)
+                    }
+                    style={{
+                      width: 52,
+                      padding: "2px 4px",
+                      fontSize: 11,
+                      boxSizing: "border-box",
+                      background: "#1e1e1e",
+                      color: "#fff",
+                      border: "1px solid #444",
+                      borderRadius: 4,
+                    }}
+                  />
+                </div>
+                <span
+                  className="muted"
+                  style={{ fontWeight: 400, fontSize: 11 }}
+                >
+                  0% = 최상단 · 100% = 최하단
+                </span>
+              </label>
+
               <div className="label">텍스트 2</div>
               <label className="preset-field" style={{ marginBottom: 10 }}>
                 <span>텍스트 2 (비우면 미표시)</span>
@@ -6896,6 +6995,68 @@ export default function Shorts3Panel({
                   />
                 </div>
               </div>
+              <label
+                className="muted"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  marginTop: 6,
+                  marginBottom: 10,
+                }}
+              >
+                세로 위치 (텍스트 2): {thumbnailSegment.textY2 ?? 57}%
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={thumbnailSegment.textY2 ?? 57}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleThumbnailTextYChange("textY2", e.target.value)
+                    }
+                    style={{ flex: 1, minWidth: 0 }}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={thumbnailSegment.textY2 ?? 57}
+                    disabled={busy || uploading}
+                    onChange={(e) =>
+                      handleThumbnailTextYChange("textY2", e.target.value)
+                    }
+                    style={{
+                      width: 52,
+                      padding: "2px 4px",
+                      fontSize: 11,
+                      boxSizing: "border-box",
+                      background: "#1e1e1e",
+                      color: "#fff",
+                      border: "1px solid #444",
+                      borderRadius: 4,
+                    }}
+                  />
+                </div>
+                <span
+                  className="muted"
+                  style={{ fontWeight: 400, fontSize: 11 }}
+                >
+                  0% = 최상단 · 100% = 최하단
+                </span>
+              </label>
+
             </div>
           ) : null}
 
