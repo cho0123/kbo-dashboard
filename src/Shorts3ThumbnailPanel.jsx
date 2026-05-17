@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { postKbo } from "./api.js";
 import {
   LAYOUT_TYPES,
@@ -17,6 +17,14 @@ const OVERLAY_FONT = "NotoSansKR-Bold";
 
 const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
 const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
+
+const PREVIEW_DISPLAY_STYLE = {
+  marginTop: 6,
+  width: 180,
+  height: 320,
+  borderRadius: 10,
+  display: "block",
+};
 
 const TOP_BOTTOM_BAR_SWATCHES = [
   "#1a1a2e",
@@ -94,8 +102,39 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
   const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [savedThumbUrl, setSavedThumbUrl] = useState(null);
+  /** loading | ready | missing */
+  const [savedThumbStatus, setSavedThumbStatus] = useState("loading");
 
   const canvasRef = useRef(null);
+
+  const loadSavedThumbnail = useCallback(async () => {
+    setSavedThumbStatus("loading");
+    setSavedThumbUrl(null);
+    try {
+      const res = await postKbo({ action: "thumbnail_preview_url" });
+      const url = res?.previewUrl ? String(res.previewUrl).trim() : "";
+      if (!url) {
+        setSavedThumbStatus("missing");
+        return;
+      }
+      const sep = url.includes("?") ? "&" : "?";
+      setSavedThumbUrl(`${url}${sep}t=${Date.now()}`);
+      setSavedThumbStatus("ready");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("저장된 썸네일 없음")) {
+        setSavedThumbStatus("missing");
+      } else {
+        console.warn("[thumbnail panel] saved preview", e);
+        setSavedThumbStatus("missing");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSavedThumbnail();
+  }, [loadSavedThumbnail]);
 
   const tc = TEAM_COLORS[team];
   const effectiveJobId = String(jobId || "").trim();
@@ -160,11 +199,14 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
         action: "thumbnail_upload_url",
       });
       if (uploadRes?.putUrl) {
-        await fetch(uploadRes.putUrl, {
+        const overlayPut = await fetch(uploadRes.putUrl, {
           method: "PUT",
           body: blob,
           headers: { "Content-Type": "image/png" },
         });
+        if (overlayPut.ok) {
+          await loadSavedThumbnail();
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
@@ -325,20 +367,25 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
           ) : null}
         </div>
 
-        <div style={{ flex: "0 0 auto" }}>
+        <div
+          style={{
+            flex: "0 0 auto",
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+          }}
+        >
+          <div>
           <div className="label">미리보기</div>
           <canvas
             ref={canvasRef}
             width={1080}
             height={1920}
             style={{
-              marginTop: 6,
-              width: 180,
-              height: 320,
+              ...PREVIEW_DISPLAY_STYLE,
               background: "transparent",
-              borderRadius: 10,
               border: `2px solid ${previewBorderColor}`,
-              display: "block",
             }}
           />
           <div style={{ color: "#888", fontSize: 11, marginTop: 6 }}>
@@ -349,6 +396,57 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
               S3 저장 대상 jobId: {effectiveJobId.slice(0, 8)}…
             </div>
           ) : null}
+          </div>
+          <div>
+            <div className="label">현재 저장된 썸네일</div>
+            {savedThumbStatus === "loading" ? (
+              <div
+                className="muted"
+                style={{
+                  ...PREVIEW_DISPLAY_STYLE,
+                  border: "2px solid #555",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                }}
+              >
+                불러오는 중...
+              </div>
+            ) : savedThumbStatus === "ready" && savedThumbUrl ? (
+              <img
+                src={savedThumbUrl}
+                alt="S3에 저장된 썸네일"
+                onError={() => setSavedThumbStatus("missing")}
+                style={{
+                  ...PREVIEW_DISPLAY_STYLE,
+                  objectFit: "contain",
+                  background: "transparent",
+                  border: "2px solid #555",
+                }}
+              />
+            ) : (
+              <div
+                className="muted"
+                style={{
+                  ...PREVIEW_DISPLAY_STYLE,
+                  border: "2px solid #555",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  textAlign: "center",
+                  padding: 8,
+                  boxSizing: "border-box",
+                }}
+              >
+                저장된 썸네일 없음
+              </div>
+            )}
+            <div style={{ color: "#888", fontSize: 11, marginTop: 6 }}>
+              overlay/thumbnail.png
+            </div>
+          </div>
         </div>
       </div>
     </div>

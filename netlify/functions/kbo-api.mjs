@@ -4743,6 +4743,47 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "thumbnail_preview_url": {
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const key = "overlay/thumbnail.png";
+          try {
+            await s3.send(
+              new HeadObjectCommand({ Bucket: bucket, Key: key })
+            );
+          } catch {
+            return {
+              statusCode: 404,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "저장된 썸네일 없음",
+              }),
+            };
+          }
+          const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+          const previewUrl = await getSignedUrl(s3, cmd, {
+            expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+          });
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              key,
+              previewUrl,
+              expiresIn: HIGHLIGHT_PREVIEW_PRESIGN_EXPIRES_SEC,
+            }),
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: msg }),
+          };
+        }
+      }
       case "highlight_image_upload_url": {
         try {
           const oid = String(payload.jobId || "").trim();
