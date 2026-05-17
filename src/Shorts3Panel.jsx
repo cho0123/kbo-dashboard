@@ -899,12 +899,14 @@ export default function Shorts3Panel({
     return String(segments[selectedSegIndex]?.imagePreviewUrl || "").trim();
   }, [showRightImageSegmentPreview, segments, selectedSegIndex]);
 
+  const selectedImageCropOffset =
+    Number(segments[selectedSegIndex]?.cropOffset) || 0;
+
   const rightImagePreviewObjectPosition = useMemo(() => {
     if (!showRightImageSegmentPreview) return "50% center";
-    const off = Number(segments[selectedSegIndex]?.cropOffset) || 0;
-    const clamped = Math.min(50, Math.max(-50, off));
-    return `${50 + clamped * 0.5}% center`;
-  }, [showRightImageSegmentPreview, segments, selectedSegIndex]);
+    const clamped = Math.min(50, Math.max(-50, selectedImageCropOffset));
+    return `${50 - clamped * 0.5}% center`;
+  }, [showRightImageSegmentPreview, selectedImageCropOffset]);
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
@@ -1003,17 +1005,22 @@ export default function Shorts3Panel({
     const clampedSrcCropX = Math.max(0, Math.min(vw - srcCropW, srcCropX));
 
     ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(
-      video,
-      clampedSrcCropX,
-      0,
-      srcCropW,
-      vh,
-      0,
-      TOP_BAR,
-      W,
-      H - TOP_BAR
-    );
+    const skipVideoHoleDraw =
+      isImageSegment(selectedSeg) &&
+      Boolean(String(selectedSeg?.imagePreviewUrl || "").trim());
+    if (!skipVideoHoleDraw) {
+      ctx.drawImage(
+        video,
+        clampedSrcCropX,
+        0,
+        srcCropW,
+        vh,
+        0,
+        TOP_BAR,
+        W,
+        H - TOP_BAR
+      );
+    }
 
     // 2) 팀컬러 상단바
     ctx.fillStyle = bg;
@@ -3945,11 +3952,13 @@ export default function Shorts3Panel({
                         width: PREVIEW_CANVAS_WIDTH_PX,
                         height: PREVIEW_ROW_HEIGHT_PX,
                         borderRadius: 6,
-                        background: thumbnailSelected ? "transparent" : "#000",
+                        background:
+                          thumbnailSelected || showRightImageSegmentPreview
+                            ? "transparent"
+                            : "#000",
                         display: "block",
-                        visibility: showRightImageSegmentPreview
-                          ? "hidden"
-                          : "visible",
+                        position: "relative",
+                        zIndex: showRightImageSegmentPreview ? 2 : 0,
                       }}
                     />
                     {showRightImageSegmentPreview ? (
@@ -3960,7 +3969,7 @@ export default function Shorts3Panel({
                           position: "absolute",
                           left: 0,
                           top: 0,
-                          zIndex: 1,
+                          zIndex: 0,
                           width: "auto",
                           height: "100%",
                           display: "block",
