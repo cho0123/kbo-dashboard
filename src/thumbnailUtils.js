@@ -234,71 +234,24 @@ function normalizeBarColor(raw, fallback) {
 }
 
 /**
- * 상하바 — 상·하 160px 바, 가운데 1600px 투명 (로고·좌우 바 없음)
+ * 상하바 — 상·하 400px 바, 가운데 1120px 투명 (로고·좌우 바·텍스트 없음)
  */
 export async function drawThumbnailTopBottom({
   topBarColor = "#1a1a2e",
   bottomBarColor = "#16213e",
-  text1,
-  text2,
-  text3,
-  font1,
-  font2,
-  font3,
   canvas: existingCanvas,
-}) {
+} = {}) {
   const { canvas, ctx, W, H } = createThumbCanvas(existingCanvas);
-  const TOP_BAR = 160;
-  const BOT_BAR = 160;
+  const TOP_BAR_H = 400;
+  const BOT_BAR_H = 400;
   const topFill = normalizeBarColor(topBarColor, "#1a1a2e");
   const bottomFill = normalizeBarColor(bottomBarColor, "#16213e");
 
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = topFill;
-  ctx.fillRect(0, 0, W, TOP_BAR);
+  ctx.fillRect(0, 0, W, TOP_BAR_H);
   ctx.fillStyle = bottomFill;
-  ctx.fillRect(0, H - BOT_BAR, W, BOT_BAR);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  const topText = String(text1 || "").trim();
-  if (topText) {
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold 48px ${thumbFontFamily(font1)}`;
-    ctx.shadowColor = "rgba(0,0,0,0.8)";
-    ctx.shadowBlur = 8;
-    ctx.fillText(topText, W / 2, TOP_BAR / 2);
-    ctx.shadowBlur = 0;
-  }
-
-  const mainText = String(text2 || "").trim();
-  const subText = String(text3 || "").trim();
-  const bottomMidY = H - BOT_BAR / 2;
-  const subFont = thumbFontFamily(font3 || font2);
-
-  if (mainText) {
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold 72px ${thumbFontFamily(font2)}`;
-    ctx.shadowColor = "rgba(0,0,0,0.8)";
-    ctx.shadowBlur = 6;
-    const mainY = subText ? bottomMidY - 26 : bottomMidY;
-    ctx.fillText(mainText, W / 2, mainY);
-    ctx.shadowBlur = 0;
-  }
-
-  if (subText) {
-    ctx.save();
-    ctx.globalAlpha = 0.7;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.font = `bold 44px ${subFont}`;
-    ctx.shadowColor = "rgba(0,0,0,0.6)";
-    ctx.shadowBlur = 4;
-    const subY = mainText ? bottomMidY + 32 : bottomMidY;
-    ctx.fillText(subText, W / 2, subY);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-  }
+  ctx.fillRect(0, H - BOT_BAR_H, W, BOT_BAR_H);
 
   return canvas;
 }
