@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { postKbo } from "./api.js";
-import { drawThumbnail } from "./thumbnailUtils.js";
+import { drawThumbnail, LAYOUT_TYPES } from "./thumbnailUtils.js";
 import VideoPrep from "./VideoPrep.jsx";
 
 /** Presigned PUT — 업로드 진행률(0~100), Content-Type 미설정(SigV4 권장) */
@@ -98,6 +98,86 @@ const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
   ".mp4,.mov,.avi,video/mp4,video/quicktime,video/x-msvideo";
+
+const LAYOUT_OPTIONS = [
+  { id: LAYOUT_TYPES.KBO, label: "KBO 야구" },
+  { id: LAYOUT_TYPES.FULLSCREEN, label: "풀스크린" },
+  { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
+];
+
+const DEFAULT_TOP_BAR_COLOR = "#1a1a2e";
+const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
+
+const TOP_BOTTOM_BAR_SWATCHES = [
+  "#1a1a2e",
+  "#16213e",
+  "#0f3460",
+  "#1b262c",
+  "#000000",
+  "#074CA1",
+  "#131230",
+  "#EA0029",
+  "#533483",
+  "#2d4059",
+];
+
+function normalizeHexColorInput(raw, fallback) {
+  const s = String(raw || "").trim();
+  if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+  if (/^[0-9A-Fa-f]{6}$/i.test(s)) return `#${s.toLowerCase()}`;
+  return fallback;
+}
+
+function BarColorPicker({ label, value, onChange, fallback }) {
+  const normalized = normalizeHexColorInput(value, fallback);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>
+        {label}
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {TOP_BOTTOM_BAR_SWATCHES.map((c) => (
+          <button
+            key={`${label}-${c}`}
+            type="button"
+            title={c}
+            onClick={() => onChange(c)}
+            style={{
+              width: 28,
+              height: 28,
+              padding: 0,
+              borderRadius: 6,
+              border:
+                normalized.toUpperCase() === c.toUpperCase()
+                  ? "2px solid #4ade80"
+                  : "2px solid rgba(255,255,255,0.25)",
+              background: c,
+              cursor: "pointer",
+            }}
+          />
+        ))}
+        <input
+          type="color"
+          value={normalized}
+          onChange={(e) => onChange(e.target.value)}
+          title="색상 직접 선택"
+          style={{
+            width: 36,
+            height: 28,
+            padding: 0,
+            border: "1px solid #555",
+            borderRadius: 6,
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        />
+        <span className="muted" style={{ fontSize: 11 }}>
+          {normalized}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const TEAM_LIST = [
   { id: "삼성", name: "삼성 라이온즈" },
@@ -770,6 +850,9 @@ export default function Shorts3Panel({
   const [previewWrapWidthPx, setPreviewWrapWidthPx] = useState(null);
   const [previewCropOverlay, setPreviewCropOverlay] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [layout, setLayout] = useState(LAYOUT_TYPES.KBO);
+  const [topBarColor, setTopBarColor] = useState(DEFAULT_TOP_BAR_COLOR);
+  const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
   const [teamColor, setTeamColor] = useState(
     TEAM_CONFIGS["삼성"]?.bg || "#074CA1"
@@ -2796,7 +2879,7 @@ export default function Shorts3Panel({
         Number.isFinite(thumbEnd) &&
         thumbEnd > thumbStart;
 
-      if (thumbValid) {
+      if (thumbValid && layout === LAYOUT_TYPES.KBO) {
         const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
         const overlayCanvas = await drawThumbnail({
           team: selectedTeam,
@@ -2893,6 +2976,9 @@ export default function Shorts3Panel({
       const payload = {
         action: "highlight_video_create",
         jobId,
+        layout,
+        topBarColor,
+        bottomBarColor,
         team: selectedTeam,
         topText: topText.trim(),
         topTextColor,
@@ -3785,30 +3871,84 @@ export default function Shorts3Panel({
           <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
             원본 미리보기
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <select
-              value={selectedTeam}
-              onChange={(e) => {
-                const next = e.target.value;
-                setSelectedTeam(next);
-                setTeamColor(TEAM_CONFIGS[next]?.bg || "#4ade80");
-              }}
+          <div style={{ marginBottom: 8 }}>
+            <div className="muted" style={{ fontWeight: 700, marginBottom: 6, fontSize: 12 }}>
+              레이아웃
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {LAYOUT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setLayout(opt.id)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border:
+                      layout === opt.id
+                        ? "2px solid #4ade80"
+                        : "2px solid #555",
+                    background: layout === opt.id ? "#1a2e1a" : "#1e1e1e",
+                    color: layout === opt.id ? "#4ade80" : "#ddd",
+                    fontWeight: "bold",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {layout === LAYOUT_TYPES.TOPBOTTOM ? (
+            <div
               style={{
-                padding: "3px 8px",
-                borderRadius: 6,
-                background: "#1e1e1e",
-                color: "#fff",
-                border: "1px solid #444",
-                fontSize: 12,
+                marginBottom: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
               }}
             >
-              {TEAM_LIST.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <BarColorPicker
+                label="상단 바 색상"
+                value={topBarColor}
+                fallback={DEFAULT_TOP_BAR_COLOR}
+                onChange={setTopBarColor}
+              />
+              <BarColorPicker
+                label="하단 바 색상"
+                value={bottomBarColor}
+                fallback={DEFAULT_BOTTOM_BAR_COLOR}
+                onChange={setBottomBarColor}
+              />
+            </div>
+          ) : null}
+          {layout === LAYOUT_TYPES.KBO ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <select
+                value={selectedTeam}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSelectedTeam(next);
+                  setTeamColor(TEAM_CONFIGS[next]?.bg || "#4ade80");
+                }}
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  background: "#1e1e1e",
+                  color: "#fff",
+                  border: "1px solid #444",
+                  fontSize: 12,
+                }}
+              >
+                {TEAM_LIST.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div

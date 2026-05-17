@@ -4915,6 +4915,28 @@ ${JSON.stringify(games, null, 2)}`;
         const team =
           payload.team != null ? String(payload.team).trim() : "";
 
+        const HIGHLIGHT_LAYOUT_VALUES = new Set([
+          "kbo",
+          "fullscreen",
+          "topbottom",
+        ]);
+        const layoutRaw =
+          payload.layout != null ? String(payload.layout).trim().toLowerCase() : "";
+        const layout = HIGHLIGHT_LAYOUT_VALUES.has(layoutRaw) ? layoutRaw : "kbo";
+        const normalizeHighlightBarColor = (v, fallback) => {
+          const s = v != null ? String(v).trim() : "";
+          if (/^#[0-9A-Fa-f]{6}$/i.test(s)) return s.toLowerCase();
+          return fallback;
+        };
+        const topBarColor = normalizeHighlightBarColor(
+          payload.topBarColor,
+          "#1a1a2e"
+        );
+        const bottomBarColor = normalizeHighlightBarColor(
+          payload.bottomBarColor,
+          "#16213e"
+        );
+
         const segments = [];
         for (const s of segmentsIn) {
           if (!s || typeof s !== "object") {
@@ -5287,6 +5309,9 @@ ${JSON.stringify(games, null, 2)}`;
           topTextOpacity,
           topTextFont,
           team,
+          layout,
+          topBarColor,
+          bottomBarColor,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
