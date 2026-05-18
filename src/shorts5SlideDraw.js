@@ -402,11 +402,11 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("주간결산", w / 2, weeklyTitleY);
 
-  const weekRangeY = weeklyTitleY + 100;
+  const weekRangeY = weeklyTitleY + 130;
   const weekRangeStr = fmtWeekRangeMd(data?.week_start, data?.week_end);
   if (weekRangeStr) {
     ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.font = `500 80px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `700 80px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillText(weekRangeStr, w / 2, weekRangeY);
   }
 
