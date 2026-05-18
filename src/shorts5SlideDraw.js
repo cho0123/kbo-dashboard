@@ -83,11 +83,11 @@ function fmtWeekRecordSummary(rec) {
   return `${wins}승 ${losses}패`;
 }
 
-/** 표 영역 5컬럼 좌표 (날짜 15% · 홈/원정 15% · 상대 40% · 스코어 15% · 승패 15%) */
+/** 표 영역 6컬럼 좌표 (날짜/홈원정/상대/스코어/승패/순위변동) */
 function recordTableColumnLayout(w) {
   const tableLeft = 64;
   const tableW = w - 128;
-  const ratios = [0.15, 0.15, 0.4, 0.15, 0.15];
+  const ratios = [0.17, 0.1, 0.3, 0.15, 0.15, 0.13];
   const left = [];
   const width = ratios.map((r) => tableW * r);
   let x = tableLeft;
@@ -140,6 +140,18 @@ function fmtRankChange(rankChange) {
   if (n > 0) return `▲${n}`;
   if (n < 0) return `▼${Math.abs(n)}`;
   return "—";
+}
+
+/** 경기별 순위변동: prevRank 대비 rank_after (숫자 작을수록 순위 상승) */
+function formatPerGameRankDelta(prevRank, rankAfter) {
+  const cur = rankAfter != null ? Number(rankAfter) : null;
+  const prev = prevRank != null ? Number(prevRank) : null;
+  if (cur == null || !Number.isFinite(cur)) return { text: "", color: null };
+  if (prev == null || !Number.isFinite(prev)) return { text: "", color: null };
+  const diff = prev - cur;
+  if (diff > 0) return { text: `▲${diff}`, color: "#4ade80" };
+  if (diff < 0) return { text: `▼${Math.abs(diff)}`, color: "#f87171" };
+  return { text: "-", color: "#94a3b8" };
 }
 
 /** slide1: 인트로 */
@@ -231,12 +243,17 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const { left: colLeft, width: colW } = recordTableColumnLayout(w);
   const cellPad = 10;
   const datePadLeft = colLeft[0] + 24;
-  const oppLogoSize = 50;
+  const oppLogoSize = 65;
   const headerFontPx = 36;
   const bodyFontPx = 38;
   const scoreFontPx = 41;
   const oppNameFontPx = 40;
   const resultFontPx = 42;
+  const rankDeltaFontPx = 36;
+  const weekPrevRank =
+    data?.rank_change?.prev_rank != null && Number.isFinite(Number(data.rank_change.prev_rank))
+      ? Number(data.rank_change.prev_rank)
+      : null;
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
@@ -249,6 +266,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.fillText("상대팀", colLeft[2] + cellPad, headerTextCy);
   ctx.fillText("스코어", colLeft[3] + cellPad, headerTextCy);
   ctx.fillText("승패", colLeft[4] + cellPad, headerTextCy);
+  ctx.fillText("순위변동", colLeft[5] + cellPad, headerTextCy);
   ctx.beginPath();
   ctx.moveTo(64, headerLineY);
   ctx.lineTo(w - 64, headerLineY);
@@ -266,6 +284,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
     lastRowBottom = firstRowY + rowH * 2;
     ctx.textAlign = "left";
   } else {
+    let prevRankForDelta = weekPrevRank;
     for (let i = 0; i < maxRows; i++) {
       const y = firstRowY + i * rowH;
       const rowBoxTop = y - 42;
@@ -289,6 +308,9 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const { label: resultLabel, color: resultColor } = resultLabelAndColor(g.result);
       const oppTk = teamKeyword(oppFull || opp);
       const oppLogo = oppTk && logosByTeamKey ? logosByTeamKey[oppTk] : null;
+      const rankAfter =
+        g.rank_after != null && Number.isFinite(Number(g.rank_after)) ? Number(g.rank_after) : null;
+      const rankDelta = formatPerGameRankDelta(prevRankForDelta, rankAfter);
 
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
@@ -320,6 +342,14 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       ctx.fillStyle = resultColor;
       ctx.font = `900 ${resultFontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
       ctx.fillText(resultLabel, colLeft[4] + cellPad, rowTextCy);
+
+      if (rankDelta.text) {
+        ctx.fillStyle = rankDelta.color || "#94a3b8";
+        ctx.font = `800 ${rankDeltaFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+        ctx.fillText(rankDelta.text, colLeft[5] + cellPad, rowTextCy);
+      }
+
+      if (rankAfter != null) prevRankForDelta = rankAfter;
     }
   }
 

@@ -2397,7 +2397,53 @@ function buildTeamWeekRecordForKw(games, teamKw) {
   return { wins, losses };
 }
 
-function buildTeamWeekGameResults(games, teamKw) {
+/**
+ * standingsHistory: Map<YYYY-MM-DD, rank|null> 또는 { date, standings }[] 스냅샷 목록
+ */
+function standingsRankForTeamOnGameDate(standingsHistory, teamKw, gameDateIso) {
+  const gd = safeIsoDate(gameDateIso);
+  if (!gd) return null;
+  if (standingsHistory instanceof Map) {
+    if (!standingsHistory.has(gd)) return null;
+    const v = standingsHistory.get(gd);
+    return v != null && Number.isFinite(Number(v)) ? Number(v) : null;
+  }
+  const arr = Array.isArray(standingsHistory) ? standingsHistory : [];
+  let bestDate = null;
+  let bestRows = null;
+  for (const snap of arr) {
+    const d = safeIsoDate(snap?.date || snap?._date || "");
+    if (!d || d > gd) continue;
+    if (!bestDate || d > bestDate) {
+      bestDate = d;
+      bestRows = snap?.standings;
+    }
+  }
+  if (!bestRows) return null;
+  return standingsRankForTeamKw(bestRows, teamKw);
+}
+
+async function buildStandingsRankByDateMap(db, games, teamKw) {
+  const kw = String(teamKw || "").trim();
+  const map = new Map();
+  if (!kw) return map;
+  const dates = [
+    ...new Set(
+      filterGamesForTeamKw(games, kw)
+        .map((g) => safeIsoDate(g?.game_date || g?.gameDate || ""))
+        .filter(Boolean)
+    ),
+  ];
+  dates.sort((a, b) => a.localeCompare(b));
+  for (const gd of dates) {
+    const doc = await fetchClosestStandingsHistoryDoc(db, gd);
+    const rank = doc ? standingsRankForTeamKw(doc.standings, teamKw) : null;
+    map.set(gd, rank);
+  }
+  return map;
+}
+
+function buildTeamWeekGameResults(games, teamKw, standingsHistory = null) {
   const kw = String(teamKw || "").trim();
   const out = [];
   for (const g of filterGamesForTeamKw(games, kw)) {
@@ -2411,15 +2457,20 @@ function buildTeamWeekGameResults(games, teamKw) {
     let result = "draw";
     if (teamScore > oppScore) result = "win";
     else if (teamScore < oppScore) result = "loss";
+    const game_date = String(g?.game_date || g?.gameDate || "").slice(0, 10);
+    const rank_after = standingsHistory
+      ? standingsRankForTeamOnGameDate(standingsHistory, kw, game_date)
+      : null;
     out.push({
       game_id: g?.game_id ?? g?.id ?? null,
-      game_date: String(g?.game_date || "").slice(0, 10),
+      game_date,
       opponent: opponent ?? null,
       is_home: isHome,
       team_score: teamScore,
       opp_score: oppScore,
       result,
       margin: teamScore - oppScore,
+      rank_after,
     });
   }
   out.sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)));
@@ -2562,7 +2613,8 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     ),
   ];
   const box = await fetchBoxForGames(db, gameIds);
-  const gameResults = buildTeamWeekGameResults(teamGames, teamKw);
+  const standingsHistory = await buildStandingsRankByDateMap(db, teamGames, teamKw);
+  const gameResults = buildTeamWeekGameResults(teamGames, teamKw, standingsHistory);
   const week_record = buildTeamWeekRecordForKw(teamGames, teamKw);
   const top_batter = pickTopBatterForTeamWeek(box.batters, teamKw);
   const top_pitcher = pickTopPitcherForTeamWeek(box.pitchers, teamKw);
