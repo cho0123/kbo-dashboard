@@ -352,6 +352,16 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillStyle = getTeamStrongColor(team);
   ctx.fillRect(0, 0, w, h);
 
+  const dateY = h * 0.08 + 110;
+  const dateFontPx = Math.round(w * 0.085);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `700 ${dateFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(`${team} 주간결산`, w / 2, dateY);
+  resetShadow(ctx);
+
   const logoBox = 840;
   drawLogoInBox(ctx, (w - logoBox) / 2, h * 0.22, logoBox, logoBox, team, logoImg);
 
