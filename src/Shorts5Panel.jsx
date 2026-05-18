@@ -10,6 +10,7 @@ import {
   drawShorts5IntroSlide,
   drawShorts5PitcherSlide,
   drawShorts5RecordSlide,
+  loadShorts5BattingPortrait,
   loadShorts5BattingSlideAssets,
   shorts5StandingsDateLabel,
 } from "./shorts5SlideDraw.js";
@@ -203,8 +204,11 @@ export default function Shorts5Panel() {
       else if (slide.type === "record")
         drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
       else if (slide.type === "batting") {
-        const battingAssets = await loadShorts5BattingSlideAssets(data);
-        await drawShorts5BattingSlide(ctx, w, h, data, battingAssets);
+        const [battingAssets, portrait] = await Promise.all([
+          loadShorts5BattingSlideAssets(data),
+          loadShorts5BattingPortrait(data),
+        ]);
+        await drawShorts5BattingSlide(ctx, w, h, data, { ...battingAssets, portrait });
       }
       else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
       else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
@@ -244,7 +248,10 @@ export default function Shorts5Panel() {
       }
       setData(res);
       if (res?.mvp_batter?.player) {
-        loadShorts5BattingSlideAssets(res).catch(() => {});
+        Promise.all([
+          loadShorts5BattingSlideAssets(res),
+          loadShorts5BattingPortrait(res),
+        ]).catch(() => {});
       }
       setCapturedSlides([]);
       setSlideIdx(0);

@@ -7,6 +7,7 @@ import {
   drawableShorts4Portrait,
   loadDefaultPlayerImage,
   loadPlayerImage,
+  loadPlayerImageFromNaverProxy,
 } from "./shorts4PlayerImage.js";
 
 const FONT_TITLE = "Black Han Sans";
@@ -614,12 +615,29 @@ function battingAssetsCacheKey(data) {
   return `${tk}|${String(mvp?.player || "").trim()}`;
 }
 
-/** 캡처 전 호출 권장 — 선수 사진·상대 로고 프리로드 */
-export async function loadShorts5BattingSlideAssets(data) {
+/** 쇼츠4 hot_player와 동일 — 네이버 URL 우선, S3, 기본 실루엣 */
+export async function loadShorts5BattingPortrait(data) {
   const mvp = data?.mvp_batter;
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
   const tk = teamKeyword(teamName);
   const player = String(mvp?.player || "").trim();
+  const url = String(mvp?.player_image_url || "").trim();
+  const [portrait, defImg] = await Promise.all([
+    url
+      ? loadPlayerImageFromNaverProxy(url)
+      : player && tk
+        ? loadPlayerImage(tk, player)
+        : Promise.resolve(null),
+    loadDefaultPlayerImage(),
+  ]);
+  return portrait ?? defImg;
+}
+
+/** 캡처 전 호출 권장 — 상대 로고 프리로드 (사진은 `loadShorts5BattingPortrait`) */
+export async function loadShorts5BattingSlideAssets(data) {
+  const mvp = data?.mvp_batter;
+  const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
+  const tk = teamKeyword(teamName);
   const logosByTeamKey = {};
   if (tk) logosByTeamKey[tk] = await loadSvgLogo(tk);
   const games = Array.isArray(mvp?.games) ? mvp.games.slice(0, 6) : [];
@@ -627,17 +645,17 @@ export async function loadShorts5BattingSlideAssets(data) {
     const ok = teamKeyword(g?.opponent || "");
     if (ok && !logosByTeamKey[ok]) logosByTeamKey[ok] = await loadSvgLogo(ok);
   }
-  let portrait = null;
-  if (player && tk) {
-    portrait = (await loadPlayerImage(tk, player)) || (await loadDefaultPlayerImage());
-  }
-  return { portrait, logosByTeamKey };
+  return { logosByTeamKey };
 }
 
 function primeShorts5BattingAssets(data) {
   const key = battingAssetsCacheKey(data);
   if (__shorts5BattingAssetsCache.has(key)) return __shorts5BattingAssetsCache.get(key);
-  const p = loadShorts5BattingSlideAssets(data).then((assets) => {
+  const p = Promise.all([
+    loadShorts5BattingSlideAssets(data),
+    loadShorts5BattingPortrait(data),
+  ]).then(([logosPack, portrait]) => {
+    const assets = { ...logosPack, portrait };
     __shorts5BattingAssetsCache.set(key, assets);
     return assets;
   });
@@ -654,6 +672,291 @@ function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
   const dw = iw * scale;
   const dh = ih * scale;
   ctx.drawImage(d, cx - dw / 2, boxTop + (boxH - dh) / 2, dw, dh);
+}
+
+const DEFAULT_PLAYER_SRC_MARK = "default_player.png";
+
+function isDefaultPlayerPortrait(img) {
+  if (!img) return false;
+  const s = String(img.currentSrc || img.src || "");
+  return s.includes(DEFAULT_PLAYER_SRC_MARK);
+}
+
+function drawDefaultPortraitNameOverlay(ctx, cx, boxTop, boxW, boxH, name) {
+  const text = String(name || "").trim();
+  if (!text || text === "미정" || text === "—") return;
+  const fontPx = Math.min(44, Math.max(22, Math.floor(boxH / 5.5)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - boxW / 2, boxTop, boxW, boxH);
+  ctx.clip();
+  ctx.fillStyle = "#555555";
+  ctx.font = `800 ${fontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, cx, boxTop + boxH / 2);
+  ctx.restore();
+}
+
+/** 쇼츠4 drawHotPlayerHomeUpperBlock 계열 상수 */
+const MVP_FACE_BOX = Math.round(Math.round(530 * 0.7) * 1.05 * 0.95);
+const MVP_UPPER_DIVIDER_Y = 157 + 5;
+const MVP_HEADER_GAP_LINE_TO_CENTER = 48;
+const MVP_DIVIDER_TO_FACE_TOP = 56;
+const MVP_HEADER_FONT_PX = 52;
+const MVP_STAT_FONT_PX = 46;
+const MVP_STAT_LINE_GAP = Math.round(54 * 1.45);
+const MVP_STAT_BLOCK_SHIFT_Y = -30;
+const MVP_LOGO_HEADER_H = 100;
+const MVP_LOGO_HEADER_MAX_W = 280;
+const MVP_BAR_W_FRAC = 0.9;
+const MVP_BAR_H = 120;
+const MVP_BAR_GAP = 18;
+const MVP_BAR_MIN_SEG_W = 50;
+const MVP_BAR_COLORS = ["#E53935", "#1E88E5"];
+const MVP_BAR_LABELS = ["타율", "OPS"];
+const MVP_BAR_BG = "rgba(0,0,0,0.3)";
+const MVP_SUMMARY_GAP = 10;
+const MVP_SUMMARY_FONT_PX = 26;
+const MVP_SUMMARY_BLOCK_H = MVP_SUMMARY_GAP + MVP_SUMMARY_FONT_PX + 6;
+const MVP_BASE_AVG = 0.4;
+const MVP_BASE_OPS = 1.2;
+
+function fmtMvpBatsLabel(mvp) {
+  const raw = String(mvp?.bats ?? mvp?.hand ?? mvp?.bat_hand ?? "").trim();
+  if (!raw) return "";
+  const low = raw.toLowerCase();
+  if (low.includes("switch") || raw.includes("스위") || low === "s") return "스위치";
+  if (low.includes("left") || raw.includes("좌")) return "좌타";
+  if (low.includes("right") || raw.includes("우")) return "우타";
+  if (raw === "좌타" || raw === "우타" || raw === "스위치") return raw;
+  return "";
+}
+
+function fmtMvpHeaderPlayerLine(mvp) {
+  const name = String(mvp?.player || "").trim() || "—";
+  const bats = fmtMvpBatsLabel(mvp);
+  return bats ? `${name} (${bats})` : name;
+}
+
+function splitMvpBarSegmentWidths(innerW, ratios) {
+  const n = ratios.length;
+  const s = ratios.reduce((a, b) => a + b, 0);
+  if (!(s > 0)) {
+    const q = Math.floor(innerW / n);
+    const arr = Array(n).fill(q);
+    arr[n - 1] += innerW - q * n;
+    return arr;
+  }
+  const exact = ratios.map((r) => (Math.max(0, r) / s) * innerW);
+  const floors = exact.map((x) => Math.floor(x));
+  let rem = innerW - floors.reduce((a, b) => a + b, 0);
+  const order = [...exact.keys()].sort(
+    (i, j) => exact[j] - Math.floor(exact[j]) - (exact[i] - Math.floor(exact[i]))
+  );
+  let k = 0;
+  while (rem > 0) {
+    floors[order[k % order.length]] += 1;
+    rem -= 1;
+    k += 1;
+  }
+  return floors;
+}
+
+function drawBattingHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg) {
+  const boxH = MVP_LOGO_HEADER_H;
+  if (!logoImg || !(logoImg.width > 0)) {
+    drawLogoInBox(ctx, left, centerY - boxH / 2, boxH, boxH, teamName, null);
+    return boxH;
+  }
+  const iw = Number(logoImg.naturalWidth || logoImg.width) || maxW;
+  const ih = Number(logoImg.naturalHeight || logoImg.height) || boxH;
+  let scale = boxH / ih;
+  let dw = iw * scale;
+  if (dw > maxW) {
+    scale = maxW / iw;
+    dw = iw * scale;
+  }
+  const dh = ih * scale;
+  ctx.drawImage(logoImg, left, centerY - dh / 2, dw, dh);
+  return dw;
+}
+
+function drawBattingMvpHeaderRow(ctx, w, centerY, padL, teamName, headerLine, logoImg) {
+  const maxLogoW = Math.min(MVP_LOGO_HEADER_MAX_W, Math.max(80, w - padL - 320));
+  const logoW = drawBattingHeaderLogo(ctx, padL, centerY, maxLogoW, teamName, logoImg);
+  ctx.save();
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${MVP_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  const textX = padL + logoW + 16;
+  shadowTextSoft(ctx);
+  ctx.fillText(headerLine, textX, centerY);
+  resetShadow(ctx);
+  ctx.restore();
+}
+
+function drawBattingMvpHeaderDivider(ctx, w, pad, dividerY) {
+  ctx.save();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pad, dividerY);
+  ctx.lineTo(w - pad, dividerY);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function mvpWeeklyStatLines(total) {
+  const t = total && typeof total === "object" ? total : {};
+  const hr = Number(t.hr) || 0;
+  const h = Number(t.h) || 0;
+  const rbi = Number(t.rbi) || 0;
+  return [
+    `- ${hr}홈런 (주간)`,
+    `- ${h}안타 (주간)`,
+    `- ${rbi}타점 (주간)`,
+  ];
+}
+
+function drawBattingMvpStatBlock(ctx, statX, cy, total) {
+  const lines = mvpWeeklyStatLines(total);
+  const gap = MVP_STAT_LINE_GAP;
+  const totalH = (lines.length - 1) * gap;
+  let y = cy - totalH / 2;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${MVP_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  for (const line of lines) {
+    shadowTextSoft(ctx);
+    ctx.fillText(line, statX, y);
+    resetShadow(ctx);
+    y += gap;
+  }
+  const lastCenterY = cy + totalH / 2;
+  return lastCenterY + MVP_STAT_FONT_PX / 2;
+}
+
+function mvpAvgOpsBarRatios(total) {
+  const avg = Number(total?.avg);
+  const ops = Number(total?.ops);
+  const w0 = Number.isFinite(avg) && avg >= 0 ? avg / MVP_BASE_AVG : 0;
+  const w1 = Number.isFinite(ops) && ops >= 0 ? ops / MVP_BASE_OPS : 0;
+  const s = w0 + w1;
+  return s > 0 ? [w0, w1] : [1, 1];
+}
+
+function drawBattingMvpAvgOpsBar(ctx, wCanvas, topBelowStats, total) {
+  const ratios = mvpAvgOpsBarRatios(total);
+  const barW = Math.floor(wCanvas * MVP_BAR_W_FRAC);
+  const barLeft = Math.floor((wCanvas - barW) / 2);
+  if (barW < 120) return topBelowStats;
+
+  const segWs = splitMvpBarSegmentWidths(barW, ratios);
+  const barTop = topBelowStats + MVP_BAR_GAP;
+  const avgStr = fmtRate3(total?.avg);
+  const opsStr = fmtRate3(total?.ops);
+  const valueStrs = [avgStr, opsStr];
+  const summaryLine = `타율 ${avgStr}  OPS ${opsStr}`;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(barLeft, barTop, barW, MVP_BAR_H);
+  ctx.clip();
+  ctx.fillStyle = MVP_BAR_BG;
+  ctx.fillRect(barLeft, barTop, barW, MVP_BAR_H);
+  let x = barLeft;
+  for (let i = 0; i < 2; i++) {
+    const sw = segWs[i] || 0;
+    if (sw > 0) {
+      ctx.fillStyle = MVP_BAR_COLORS[i];
+      ctx.fillRect(x, barTop, sw, MVP_BAR_H);
+    }
+    x += sw;
+  }
+  ctx.restore();
+
+  x = barLeft;
+  for (let i = 0; i < 2; i++) {
+    const sw = segWs[i] || 0;
+    const cx = x + sw / 2;
+    if (sw > 0 && sw >= MVP_BAR_MIN_SEG_W) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, barTop, sw, MVP_BAR_H);
+      ctx.clip();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `800 31px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(MVP_BAR_LABELS[i], cx, barTop + MVP_BAR_H * 0.32);
+      resetShadow(ctx);
+      ctx.font = `700 23px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(valueStrs[i], cx, barTop + MVP_BAR_H * 0.78);
+      resetShadow(ctx);
+      ctx.restore();
+    }
+    x += sw;
+  }
+
+  const summaryTop = barTop + MVP_BAR_H + MVP_SUMMARY_GAP;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `500 ${MVP_SUMMARY_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(summaryLine, wCanvas / 2, summaryTop);
+  resetShadow(ctx);
+  ctx.restore();
+
+  return barTop + MVP_BAR_H + MVP_SUMMARY_BLOCK_H;
+}
+
+function battingMvpContentBottom(statBottomY, faceCy) {
+  const rPhoto = MVP_FACE_BOX / 2;
+  return Math.max(faceCy + rPhoto, statBottomY);
+}
+
+/** 쇼츠4 drawHotPlayerHomeUpperBlock 동일 구조 */
+function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey) {
+  const faceBox = MVP_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const padL = 48;
+  const upperDividerY = MVP_UPPER_DIVIDER_Y;
+  const upperHeaderCy = upperDividerY - MVP_HEADER_GAP_LINE_TO_CENTER;
+  const tk = teamKeyword(teamName);
+  const teamLogoImg = tk && logosByTeamKey ? logosByTeamKey[tk] : null;
+  const playerName = String(mvp?.player || "").trim();
+  const headerLine = fmtMvpHeaderPlayerLine(mvp);
+  const usePhoto = Boolean(drawableShorts4Portrait(portrait)) && playerName !== "";
+
+  drawBattingMvpHeaderRow(ctx, w, upperHeaderCy, padL, teamName, headerLine, teamLogoImg);
+  drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
+
+  const upperPhotoCx = w * 0.25;
+  const upperCy = upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP;
+  const upperBoxTop = upperCy - rPhoto;
+  if (usePhoto) {
+    drawPortraitContain(ctx, portrait, upperPhotoCx, upperBoxTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(portrait)) {
+      drawDefaultPortraitNameOverlay(ctx, upperPhotoCx, upperBoxTop, faceBox, faceBox, playerName);
+    }
+  }
+
+  const upperStatX = upperPhotoCx + rPhoto + 28;
+  const upperStatBottom = drawBattingMvpStatBlock(
+    ctx,
+    upperStatX,
+    upperCy + MVP_STAT_BLOCK_SHIFT_Y,
+    mvp?.total
+  );
+  const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
+  return drawBattingMvpAvgOpsBar(ctx, w, contentBottom, mvp?.total);
 }
 
 function fmtBattingSlideDate(iso) {
@@ -674,40 +977,6 @@ function battingStatCellColor(hr, h) {
   if (Number(hr) > 0) return "#f87171";
   if (Number(h) > 0) return "#ffffff";
   return "#94a3b8";
-}
-
-function drawBattingWeeklyStatBar(ctx, w, barTop, total) {
-  const t = total && typeof total === "object" ? total : {};
-  const hr = Number(t.hr) || 0;
-  const h = Number(t.h) || 0;
-  const rbi = Number(t.rbi) || 0;
-  const avg = fmtRate3(t.avg);
-  const ops = fmtRate3(t.ops);
-  const labels = ["홈런", "안타", "타점", "타율", "OPS"];
-  const values = [String(hr), String(h), String(rbi), avg, ops];
-  const colors = ["#E53935", "#FFB300", "#43A047", "#1E88E5", "#8E24AA"];
-  const barW = Math.floor(w * 0.88);
-  const barLeft = Math.floor((w - barW) / 2);
-  const barH = 56;
-  const segW = barW / labels.length;
-
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.beginPath();
-  ctx.roundRect(barLeft, barTop, barW, barH, 12);
-  ctx.fill();
-
-  for (let i = 0; i < labels.length; i++) {
-    const x = barLeft + segW * i;
-    ctx.fillStyle = colors[i];
-    ctx.fillRect(x + (i === 0 ? 0 : 1), barTop, segW - (i === 0 ? 0 : 1), barH);
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `700 22px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(labels[i], x + segW / 2, barTop + barH * 0.32);
-    ctx.font = `800 28px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(values[i], x + segW / 2, barTop + barH * 0.72);
-  }
 }
 
 function drawBattingGameTable(
@@ -821,7 +1090,6 @@ function drawBattingGameTable(
 export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) {
   const mvp = data?.mvp_batter;
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
-  const tk = teamKeyword(teamName);
 
   let assets = assetsIn;
   if (!assets) {
@@ -829,10 +1097,19 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) 
     const cached = __shorts5BattingAssetsCache.get(key);
     if (cached && typeof cached.then === "function") assets = await cached;
     else if (cached) assets = cached;
-    else assets = await loadShorts5BattingSlideAssets(data);
+    else {
+      const [logosPack, portraitImg] = await Promise.all([
+        loadShorts5BattingSlideAssets(data),
+        loadShorts5BattingPortrait(data),
+      ]);
+      assets = { ...logosPack, portrait: portraitImg };
+    }
   }
 
-  const portrait = drawableShorts4Portrait(assets?.portrait);
+  let portrait = drawableShorts4Portrait(assets?.portrait);
+  if (!portrait && mvp?.player) {
+    portrait = drawableShorts4Portrait(await loadShorts5BattingPortrait(data));
+  }
   const logosByTeamKey = assets?.logosByTeamKey || {};
 
   ctx.clearRect(0, 0, w, h);
@@ -845,62 +1122,16 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) 
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.fillRect(0, topDividerY, w, h - topDividerY);
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFD700";
-  ctx.font = `800 64px "${FONT_TITLE}", sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText("주간 타격 MVP", w / 2, 120);
-  resetShadow(ctx);
-
   if (!mvp?.player) {
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText("주간 타자 기록 없음", w / 2, h / 2);
     return;
   }
 
-  const faceBox = 300;
-  const photoCx = 80 + faceBox / 2;
-  const photoTop = 200;
-  if (portrait) {
-    drawPortraitContain(ctx, portrait, photoCx, photoTop, faceBox, faceBox);
-  } else {
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.beginPath();
-    ctx.roundRect(80, photoTop, faceBox, faceBox, 20);
-    ctx.fill();
-  }
-
-  const textX = 80 + faceBox + 36;
-  const nameY = photoTop + 70;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `900 72px "${FONT_TITLE}", sans-serif`;
-  shadowText(ctx);
-  ctx.fillText(String(mvp.player), textX, nameY);
-  resetShadow(ctx);
-
-  const teamLabel = String(mvp.team || teamName).trim();
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `600 40px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(teamLabel, textX, nameY + 62);
-
-  const teamLogo = tk ? logosByTeamKey[tk] : null;
-  if (teamLogo && teamLogo.width > 0) {
-    const lw = 52;
-    const scale = Math.min(lw / teamLogo.width, lw / teamLogo.height);
-    ctx.drawImage(
-      teamLogo,
-      textX + ctx.measureText(teamLabel).width + 14,
-      nameY + 62 - (teamLogo.height * scale) / 2,
-      teamLogo.width * scale,
-      teamLogo.height * scale
-    );
-  }
-
-  drawBattingWeeklyStatBar(ctx, w, photoTop + faceBox + 28, mvp.total);
+  drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey);
 
   const tableTitleY = topDividerY + 44;
   ctx.textAlign = "center";
