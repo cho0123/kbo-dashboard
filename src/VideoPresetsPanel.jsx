@@ -33,6 +33,51 @@ const stopPresetModalBubble = (e) => {
   e.stopPropagation();
 };
 
+/** 예: "쇼츠1 - 기도 (2절사비)" + 새 BGM명 → "쇼츠1 - [새BGM명] (2절사비)" */
+function buildPresetNameWithSwappedBgm(presetName, newBgmLabel) {
+  const base = String(presetName || "").trim();
+  const bgm = String(newBgmLabel || "").trim();
+  if (!base) return bgm || "(이름 없음)";
+  if (!bgm) return base;
+  const withParen = base.match(/^(.+?)\s+-\s+(.+?)\s+(\([^)]+\))\s*$/);
+  if (withParen) {
+    return `${withParen[1].trim()} - ${bgm} ${withParen[3]}`;
+  }
+  const withDash = base.match(/^(.+?)\s+-\s+(.+)$/);
+  if (withDash) {
+    return `${withDash[1].trim()} - ${bgm}`;
+  }
+  return `${base} - ${bgm}`;
+}
+
+function buildVideoPresetSaveBody({
+  id,
+  name,
+  shortsType,
+  slides,
+  transition,
+  music_s3_key,
+  music_name,
+  music_volume,
+  music_start_time,
+  music_fade_out,
+}) {
+  const key = String(music_s3_key || "").trim();
+  return {
+    action: "video_presets_save",
+    id: id || undefined,
+    name,
+    shorts_type: shortsType,
+    slides,
+    transition,
+    music_s3_key: key || null,
+    music_name: key ? String(music_name || "").trim() || null : null,
+    music_volume,
+    music_start_time,
+    music_fade_out,
+  };
+}
+
 export default function VideoPresetsPanel() {
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,23 +182,59 @@ export default function VideoPresetsPanel() {
     setSlides((prev) => mergeSlides(next, prev));
   };
 
+  const presetFormPayload = () =>
+    buildVideoPresetSaveBody({
+      id: editingId || undefined,
+      name,
+      shortsType,
+      slides,
+      transition,
+      music_s3_key,
+      music_name,
+      music_volume,
+      music_start_time,
+      music_fade_out,
+    });
+
   const onSave = async () => {
     setSaving(true);
     setSaveErr(null);
     try {
-      await postKbo({
-        action: "video_presets_save",
-        id: editingId || undefined,
-        name,
-        shorts_type: shortsType,
-        slides,
-        transition,
-        music_s3_key: music_s3_key.trim() || null,
-        music_name: music_s3_key.trim() ? music_name.trim() || null : null,
-        music_volume,
-        music_start_time,
-        music_fade_out,
-      });
+      await postKbo(presetFormPayload());
+      await loadList();
+      closeForm();
+    } catch (e) {
+      setSaveErr(e?.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** 편집 중 설정은 유지하고 BGM·볼륨·시작위치만 반영해 새 문서로 저장 */
+  const onSaveAsNewWithBgm = async () => {
+    if (!editingId) return;
+    const key = music_s3_key.trim();
+    if (!key) {
+      setSaveErr("배경 음원을 선택한 뒤 새 프리셋으로 추가해 주세요.");
+      return;
+    }
+    const newName = buildPresetNameWithSwappedBgm(name, music_name);
+    setSaving(true);
+    setSaveErr(null);
+    try {
+      await postKbo(
+        buildVideoPresetSaveBody({
+          name: newName,
+          shortsType,
+          slides,
+          transition,
+          music_s3_key,
+          music_name,
+          music_volume,
+          music_start_time,
+          music_fade_out,
+        })
+      );
       await loadList();
       closeForm();
     } catch (e) {
@@ -444,6 +525,17 @@ export default function VideoPresetsPanel() {
               <button type="button" className="primary primary-fill" disabled={saving} onClick={onSave}>
                 {saving ? "저장 중…" : "저장"}
               </button>
+              {editingId ? (
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={saving}
+                  onClick={onSaveAsNewWithBgm}
+                  title="현재 폼의 슬라이드·전환 설정은 그대로 두고, 선택한 BGM으로 새 프리셋을 만듭니다"
+                >
+                  BGM 변경 후 새 프리셋으로 추가
+                </button>
+              ) : null}
               <button type="button" className="ghost" disabled={saving} onClick={closeForm}>
                 취소
               </button>
