@@ -232,6 +232,80 @@ async function fetchScheduleRowsForDate(db, dateStr) {
   }
   return rows;
 }
+
+function isoDatePlusDays(isoStr, days) {
+  const s = safeIsoDate(isoStr || "");
+  if (!s) return "";
+  const n = Number(days);
+  const add = Number.isFinite(n) ? Math.round(n) : 0;
+  const parts = s.split("-").map((x) => parseInt(String(x), 10));
+  const t = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  t.setUTCDate(t.getUTCDate() + add);
+  return t.toISOString().slice(0, 10);
+}
+
+async function fetchScheduleRowsDateRange(db, fromStr, toStr) {
+  const from = safeIsoDate(fromStr || "");
+  const to = safeIsoDate(toStr || "");
+  if (!from || !to || to < from) return [];
+
+  const rows = [];
+  for (const field of ["game_date", "gameDate"]) {
+    try {
+      const snap = await db
+        .collection("schedule")
+        .where(field, ">=", from)
+        .where(field, "<=", to)
+        .get();
+      snap.docs.forEach((d) => rows.push(docSnap(d)));
+      if (rows.length) break;
+    } catch (e) {
+      console.warn(`[fetchScheduleRowsDateRange] ${field}:`, e?.message || e);
+    }
+  }
+  if (rows.length) return rows;
+
+  try {
+    const snap = await db.collection("schedule").limit(3000).get();
+    for (const d of snap.docs) {
+      const r = docSnap(d);
+      const gd = safeIsoDate(r?.game_date ?? r?.gameDate ?? "");
+      if (gd && gd >= from && gd <= to) rows.push(r);
+    }
+  } catch (e) {
+    console.warn("[fetchScheduleRowsDateRange] scan:", e?.message || e);
+  }
+  return rows;
+}
+
+function normalizeScheduleRowForSeriesGames(r) {
+  const game_id = String(r?.game_id ?? r?.gameId ?? "").trim();
+  const game_date = safeIsoDate(r?.game_date || r?.gameDate || "");
+  const home_team =
+    pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm", "home"]) || "";
+  const away_team =
+    pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm", "away"]) || "";
+  if (!game_id || !game_date || !home_team || !away_team) return null;
+  return { game_id, game_date, home_team, away_team };
+}
+
+/** 연전 계산용: games 시즌 목록 + schedule(미래) 중복 game_id 제외 */
+function mergeScheduleIntoSeasonGames(seasonGames, scheduleRows) {
+  const seen = new Set();
+  for (const g of seasonGames || []) {
+    const gid = String(g?.game_id ?? g?.gameId ?? "").trim();
+    if (gid) seen.add(gid);
+  }
+  const out = [...(seasonGames || [])];
+  for (const r of scheduleRows || []) {
+    const norm = normalizeScheduleRowForSeriesGames(r);
+    if (!norm || seen.has(norm.game_id)) continue;
+    seen.add(norm.game_id);
+    out.push(norm);
+  }
+  return out;
+}
+
 function pickStr(obj, keys) {
   for (const k of keys) {
     const v = obj?.[k];
@@ -4051,6 +4125,9 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonFrom = `${seasonYear}-01-01`;
   const seasonTo = `${seasonYear}-12-31`;
   const seasonGames = await fetchGamesDateRange(db, seasonFrom, seasonTo);
+  const dateStrPlus30 = isoDatePlusDays(dateStr, 30);
+  const scheduleFutureRows = await fetchScheduleRowsDateRange(db, dateStr, dateStrPlus30);
+  const allGames = mergeScheduleIntoSeasonGames(seasonGames, scheduleFutureRows);
 
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
@@ -4303,7 +4380,7 @@ async function buildMatchupPreviewPayload(db, dateStr) {
     const naverPitchKinds =
       game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
 
-    const seriesRaw = computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, away_team);
+    const seriesRaw = computeSamePairSeriesInfo(allGames, game_date, game_id, home_team, away_team);
     const seriesLen = Number(seriesRaw?.series_length);
     const seriesNum = Number(seriesRaw?.series_game_number);
     const series_length =
