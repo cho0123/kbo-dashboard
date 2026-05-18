@@ -75,6 +75,91 @@ function resultLabelAndColor(result) {
   return { label: "무", color: "#94a3b8" };
 }
 
+function scoreColorForResult(result) {
+  if (result === "win") return "#4ade80";
+  if (result === "loss") return "#f87171";
+  return "#94a3b8";
+}
+
+/** 순위 셀: N위 ▲M / N위 ▼M */
+function formatPerGameRankCell(prevRank, rankAfter) {
+  const cur = rankAfter != null ? Number(rankAfter) : null;
+  const prev = prevRank != null ? Number(prevRank) : null;
+  if (cur == null || !Number.isFinite(cur)) return { text: "", color: null };
+  if (prev == null || !Number.isFinite(prev)) {
+    return { text: `${cur}위`, color: "#94a3b8" };
+  }
+  const diff = prev - cur;
+  if (diff > 0) return { text: `${cur}위 ▲${diff}`, color: "#4ade80" };
+  if (diff < 0) return { text: `${cur}위 ▼${Math.abs(diff)}`, color: "#f87171" };
+  return { text: `${cur}위`, color: "#94a3b8" };
+}
+
+function drawRecordPitcherCell(ctx, x, cy, maxW, game) {
+  const starter = String(game?.our_starter ?? "").trim();
+  const winP = String(game?.win_pitcher ?? "").trim();
+  const loseP = String(game?.lose_pitcher ?? "").trim();
+  if (!starter && !winP && !loseP) return;
+
+  const starterFontPx = 28;
+  const parenFontPx = 28;
+  const fontFamily = `"${FONT_BODY}", system-ui, sans-serif`;
+
+  let parenText = "";
+  let parenColor = "#94a3b8";
+  if (game?.result === "win" && winP) {
+    parenText = ` (승: ${winP})`;
+    parenColor = "#4ade80";
+  } else if (game?.result === "loss" && loseP) {
+    parenText = ` (패: ${loseP})`;
+    parenColor = "#f87171";
+  }
+
+  if (!starter) {
+    if (!parenText) return;
+    ctx.fillStyle = parenColor;
+    ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
+    let draw = parenText.trim();
+    for (let guard = 0; guard < 80; guard += 1) {
+      if (draw.length <= 1 || ctx.measureText(draw).width <= maxW) break;
+      draw = `${draw.slice(0, Math.max(1, draw.length - 2))}…`;
+    }
+    ctx.fillText(draw, x, cy);
+    return;
+  }
+
+  ctx.font = `600 ${starterFontPx}px ${fontFamily}`;
+  let starterDraw = starter;
+  const full = starter + parenText;
+  ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
+  for (let guard = 0; guard < 80; guard += 1) {
+    if (ctx.measureText(full).width <= maxW) break;
+    if (starterDraw.length <= 1) {
+      starterDraw = starterDraw.slice(0, 1);
+      break;
+    }
+    starterDraw = `${starterDraw.slice(0, starterDraw.length - 1)}…`;
+  }
+
+  ctx.font = `600 ${starterFontPx}px ${fontFamily}`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(starterDraw, x, cy);
+
+  if (!parenText) return;
+
+  const starterW = ctx.measureText(starterDraw).width;
+  let parenDraw = parenText;
+  ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
+  const remain = maxW - starterW;
+  for (let guard = 0; guard < 80; guard += 1) {
+    if (ctx.measureText(parenDraw).width <= remain) break;
+    if (parenDraw.length <= 4) break;
+    parenDraw = `${parenDraw.slice(0, parenDraw.length - 2)}…`;
+  }
+  ctx.fillStyle = parenColor;
+  ctx.fillText(parenDraw, x + starterW, cy);
+}
+
 function fmtWeekRecordSummary(rec) {
   const wins = Number(rec?.wins) || 0;
   const losses = Number(rec?.losses) || 0;
@@ -83,11 +168,11 @@ function fmtWeekRecordSummary(rec) {
   return `${wins}승 ${losses}패`;
 }
 
-/** 표 영역 6컬럼 좌표 (날짜/홈원정/상대/스코어/승패/순위변동) */
+/** 표 영역 6컬럼 (날짜/홈원정/상대+로고/스코어/투수/순위) */
 function recordTableColumnLayout(w) {
   const tableLeft = 64;
   const tableW = w - 128;
-  const ratios = [0.17, 0.1, 0.3, 0.15, 0.15, 0.13];
+  const ratios = [0.17, 0.1, 0.25, 0.15, 0.23, 0.1];
   const left = [];
   const width = ratios.map((r) => tableW * r);
   let x = tableLeft;
@@ -140,18 +225,6 @@ function fmtRankChange(rankChange) {
   if (n > 0) return `▲${n}`;
   if (n < 0) return `▼${Math.abs(n)}`;
   return "—";
-}
-
-/** 경기별 순위변동: prevRank 대비 rank_after (숫자 작을수록 순위 상승) */
-function formatPerGameRankDelta(prevRank, rankAfter) {
-  const cur = rankAfter != null ? Number(rankAfter) : null;
-  const prev = prevRank != null ? Number(prevRank) : null;
-  if (cur == null || !Number.isFinite(cur)) return { text: "", color: null };
-  if (prev == null || !Number.isFinite(prev)) return { text: "", color: null };
-  const diff = prev - cur;
-  if (diff > 0) return { text: `▲${diff}`, color: "#4ade80" };
-  if (diff < 0) return { text: `▼${Math.abs(diff)}`, color: "#f87171" };
-  return { text: "-", color: "#94a3b8" };
 }
 
 /** slide1: 인트로 */
@@ -248,8 +321,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const bodyFontPx = 38;
   const scoreFontPx = 41;
   const oppNameFontPx = 40;
-  const resultFontPx = 42;
-  const rankDeltaFontPx = 36;
+  const rankFontPx = 34;
   const weekPrevRank =
     data?.rank_change?.prev_rank != null && Number.isFinite(Number(data.rank_change.prev_rank))
       ? Number(data.rank_change.prev_rank)
@@ -265,8 +337,8 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.fillText("홈/원정", colLeft[1] + cellPad, headerTextCy);
   ctx.fillText("상대팀", colLeft[2] + cellPad, headerTextCy);
   ctx.fillText("스코어", colLeft[3] + cellPad, headerTextCy);
-  ctx.fillText("승패", colLeft[4] + cellPad, headerTextCy);
-  ctx.fillText("순위변동", colLeft[5] + cellPad, headerTextCy);
+  ctx.fillText("투수", colLeft[4] + cellPad, headerTextCy);
+  ctx.fillText("순위", colLeft[5] + cellPad, headerTextCy);
   ctx.beginPath();
   ctx.moveTo(64, headerLineY);
   ctx.lineTo(w - 64, headerLineY);
@@ -305,12 +377,11 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const oppFull = String(g.opponent ?? g.opp_team_name ?? "").trim();
       const opp = fmtTeamShort(oppFull);
       const score = `${g.team_score ?? "—"} : ${g.opp_score ?? "—"}`;
-      const { label: resultLabel, color: resultColor } = resultLabelAndColor(g.result);
       const oppTk = teamKeyword(oppFull || opp);
       const oppLogo = oppTk && logosByTeamKey ? logosByTeamKey[oppTk] : null;
       const rankAfter =
         g.rank_after != null && Number.isFinite(Number(g.rank_after)) ? Number(g.rank_after) : null;
-      const rankDelta = formatPerGameRankDelta(prevRankForDelta, rankAfter);
+      const rankCell = formatPerGameRankCell(prevRankForDelta, rankAfter);
 
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
@@ -335,18 +406,22 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       }
       ctx.fillText(oppDraw, oppTextX, rowTextCy);
 
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = scoreColorForResult(g.result);
       ctx.font = `600 ${scoreFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
       ctx.fillText(score, colLeft[3] + cellPad, rowTextCy);
 
-      ctx.fillStyle = resultColor;
-      ctx.font = `900 ${resultFontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
-      ctx.fillText(resultLabel, colLeft[4] + cellPad, rowTextCy);
+      drawRecordPitcherCell(
+        ctx,
+        colLeft[4] + cellPad,
+        rowTextCy,
+        colW[4] - cellPad * 2,
+        g
+      );
 
-      if (rankDelta.text) {
-        ctx.fillStyle = rankDelta.color || "#94a3b8";
-        ctx.font = `800 ${rankDeltaFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-        ctx.fillText(rankDelta.text, colLeft[5] + cellPad, rowTextCy);
+      if (rankCell.text) {
+        ctx.fillStyle = rankCell.color || "#94a3b8";
+        ctx.font = `800 ${rankFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+        ctx.fillText(rankCell.text, colLeft[5] + cellPad, rowTextCy);
       }
 
       if (rankAfter != null) prevRankForDelta = rankAfter;

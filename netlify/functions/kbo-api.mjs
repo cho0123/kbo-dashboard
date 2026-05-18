@@ -2443,7 +2443,117 @@ async function buildStandingsRankByDateMap(db, games, teamKw) {
   return map;
 }
 
-function buildTeamWeekGameResults(games, teamKw, standingsHistory = null) {
+/** fetchBoxForGames 결과 → game_id별 pitchers 묶음 */
+function buildBoxByGameId(box) {
+  const map = new Map();
+  for (const p of Array.isArray(box?.pitchers) ? box.pitchers : []) {
+    const gid = String(p?.game_id ?? p?.gameId ?? "").trim();
+    if (!gid) continue;
+    if (!map.has(gid)) map.set(gid, { pitchers: [] });
+    map.get(gid).pitchers.push(p);
+  }
+  return map;
+}
+
+function pickOurStarterFromPitchers(pitchers, isHome) {
+  const side = isHome ? "home" : "away";
+  const withSide = (pitchers || []).map((p) => ({
+    ...p,
+    side: normalizeSide(p?.side),
+  }));
+  const row =
+    withSide.find(
+      (p) =>
+        p.side === side && __starterBoolTrue(p?.is_starter ?? p?.isStarter)
+    ) || withSide.find((p) => p.side === side);
+  const name = row ? pickPitcherName(row) : "";
+  const s = name ? String(name).trim() : "";
+  return s || null;
+}
+
+function resolveOurStarter(gameRaw, pitchers, isHome) {
+  const hss = gameRaw?.home_starter ?? gameRaw?.homeStarter ?? null;
+  const ass = gameRaw?.away_starter ?? gameRaw?.awayStarter ?? null;
+  const fromGame = isHome ? hss : ass;
+  if (fromGame != null && String(fromGame).trim() !== "") {
+    return String(fromGame).replace(/\s+/g, " ").trim();
+  }
+  return pickOurStarterFromPitchers(pitchers, isHome);
+}
+
+function resolveWinLosePitcherNames(pitchers, gameRaw, homeScore, awayScore) {
+  let winName = pickStr(gameRaw, [
+    "winning_pitcher",
+    "win_pitcher",
+    "w_pitcher",
+    "winner_pitcher",
+    "winningPitcher",
+    "winPitcher",
+    "winnerPitcher",
+    "승리투수",
+  ]);
+  let loseName = pickStr(gameRaw, [
+    "losing_pitcher",
+    "lose_pitcher",
+    "l_pitcher",
+    "loser_pitcher",
+    "losingPitcher",
+    "losePitcher",
+    "loserPitcher",
+    "패전투수",
+  ]);
+  winName = winName ? String(winName).replace(/\s*\(추정\)\s*$/, "").trim() : "";
+  loseName = loseName ? String(loseName).replace(/\s*\(추정\)\s*$/, "").trim() : "";
+
+  const hs = Number(homeScore);
+  const as = Number(awayScore);
+  const hasScores =
+    Number.isFinite(hs) && Number.isFinite(as) && hs !== as;
+
+  if (hasScores && (!winName || !loseName)) {
+    const withSide = (pitchers || []).map((p) => ({
+      ...p,
+      side: normalizeSide(p?.side),
+    }));
+    const homePitchers = withSide.filter((p) => p.side === "home");
+    const awayPitchers = withSide.filter((p) => p.side === "away");
+    const homeWin = hs > as;
+    const winSide = homeWin ? "home" : "away";
+    const loseSide = homeWin ? "away" : "home";
+
+    const winByResult = (pitchers || []).find(
+      (p) => String(p?.result || "").trim() === "승"
+    );
+    const loseByResult = (pitchers || []).find(
+      (p) => String(p?.result || "").trim() === "패"
+    );
+    if (!winName && winByResult) winName = pickPitcherName(winByResult) || "";
+    if (!loseName && loseByResult) loseName = pickPitcherName(loseByResult) || "";
+
+    if (!winName || !loseName) {
+      const winP = pickTopInningsPitcher(
+        winSide === "home" ? homePitchers : awayPitchers
+      );
+      const loseP = pickTopInningsPitcher(
+        loseSide === "home" ? homePitchers : awayPitchers
+      );
+      if (!winName) winName = pickPitcherName(winP) || "";
+      if (!loseName) loseName = pickPitcherName(loseP) || "";
+    }
+  }
+
+  return {
+    win_pitcher: winName || null,
+    lose_pitcher: loseName || null,
+  };
+}
+
+function buildTeamWeekGameResults(
+  games,
+  teamKw,
+  standingsHistory = null,
+  boxByGameId = null
+) {
   const kw = String(teamKw || "").trim();
   const out = [];
   for (const g of filterGamesForTeamKw(games, kw)) {
@@ -2461,6 +2571,21 @@ function buildTeamWeekGameResults(games, teamKw, standingsHistory = null) {
     const rank_after = standingsHistory
       ? standingsRankForTeamOnGameDate(standingsHistory, kw, game_date)
       : null;
+    const gid = String(g?.game_id ?? g?.gameId ?? g?.id ?? "").trim();
+    const boxEntry =
+      boxByGameId instanceof Map
+        ? boxByGameId.get(gid)
+        : boxByGameId && typeof boxByGameId === "object"
+          ? boxByGameId[gid]
+          : null;
+    const pitchers = Array.isArray(boxEntry?.pitchers) ? boxEntry.pitchers : [];
+    const our_starter = resolveOurStarter(g, pitchers, isHome);
+    const { win_pitcher, lose_pitcher } = resolveWinLosePitcherNames(
+      pitchers,
+      g,
+      hs,
+      as
+    );
     out.push({
       game_id: g?.game_id ?? g?.id ?? null,
       game_date,
@@ -2471,6 +2596,9 @@ function buildTeamWeekGameResults(games, teamKw, standingsHistory = null) {
       result,
       margin: teamScore - oppScore,
       rank_after,
+      our_starter,
+      win_pitcher,
+      lose_pitcher,
     });
   }
   out.sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)));
@@ -2613,8 +2741,14 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     ),
   ];
   const box = await fetchBoxForGames(db, gameIds);
+  const boxByGameId = buildBoxByGameId(box);
   const standingsHistory = await buildStandingsRankByDateMap(db, teamGames, teamKw);
-  const gameResults = buildTeamWeekGameResults(teamGames, teamKw, standingsHistory);
+  const gameResults = buildTeamWeekGameResults(
+    teamGames,
+    teamKw,
+    standingsHistory,
+    boxByGameId
+  );
   const week_record = buildTeamWeekRecordForKw(teamGames, teamKw);
   const top_batter = pickTopBatterForTeamWeek(box.batters, teamKw);
   const top_pitcher = pickTopPitcherForTeamWeek(box.pitchers, teamKw);
