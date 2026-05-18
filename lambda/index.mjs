@@ -496,6 +496,107 @@ function normalizeSegmentTextOverlay(seg) {
   };
 }
 
+function normalizeGlobalThumbnailTextMeta(meta) {
+  if (!meta || typeof meta !== "object") return null;
+  const text1 = meta.globalText1 != null ? String(meta.globalText1).trim() : "";
+  const text2 = meta.globalText2 != null ? String(meta.globalText2).trim() : "";
+  if (!text1 && !text2) return null;
+  const clampY = (v, d) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : d;
+  };
+  const clampSize = (v, d) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(200, Math.max(20, Math.round(n))) : d;
+  };
+  return {
+    text1,
+    text2,
+    textY1: clampY(meta.globalText1Y, 85),
+    textY2: clampY(meta.globalText2Y, 85),
+    textColor1: normalizeHexColor(meta.globalText1Color, "#ffffff"),
+    textColor2: normalizeHexColor(meta.globalText2Color, "#ffffff"),
+    textSize1: clampSize(meta.globalText1Size, 88),
+    textSize2: clampSize(meta.globalText2Size, 52),
+    textFont1:
+      meta.globalText1Font != null && String(meta.globalText1Font).trim()
+        ? String(meta.globalText1Font).trim()
+        : DEFAULT_FONT_FILE,
+    textFont2:
+      meta.globalText2Font != null && String(meta.globalText2Font).trim()
+        ? String(meta.globalText2Font).trim()
+        : DEFAULT_FONT_FILE,
+  };
+}
+
+function prepareGlobalTextVfExtras(workDir, segIndex, globalMeta) {
+  if (!globalMeta) return {};
+  const out = {};
+  if (globalMeta.text1) {
+    const p = join(workDir, `hi_global_${segIndex}_1.txt`);
+    writeFileSync(p, globalMeta.text1, "utf8");
+    out.globalTextFile = p;
+    out.globalFontPath = resolveBundledFontPath(globalMeta.textFont1);
+    out.globalFontSize = globalMeta.textSize1;
+    out.globalColor = globalMeta.textColor1;
+    out.globalTextY = globalMeta.textY1;
+  }
+  if (globalMeta.text2) {
+    const p2 = join(workDir, `hi_global_${segIndex}_2.txt`);
+    writeFileSync(p2, globalMeta.text2, "utf8");
+    out.globalTextFile2 = p2;
+    out.globalFontPath2 = resolveBundledFontPath(globalMeta.textFont2);
+    out.globalFontSize2 = globalMeta.textSize2;
+    out.globalColor2 = globalMeta.textColor2;
+    out.globalTextY2 = globalMeta.textY2;
+  }
+  return out;
+}
+
+function appendHighlightGlobalDrawtext(parts, layout, opts) {
+  const {
+    globalTextFile,
+    globalTextFile2,
+    globalFontSize,
+    globalFontSize2,
+    globalColor,
+    globalColor2,
+    globalTextY,
+    globalTextY2,
+    globalFontPath,
+    globalFontPath2,
+  } = opts;
+  const isTb = layout === "topbottom";
+  const fs1 = Math.round(Number(globalFontSize) || 48);
+  if (globalTextFile && globalFontPath) {
+    const y1 = isTb
+      ? topbottomDrawtextYpx(globalTextY, 10)
+      : Number.isFinite(Number(globalTextY))
+        ? Number(globalTextY)
+        : 85;
+    const yExpr = isTb ? String(y1) : `h*${y1}/100`;
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(globalFontPath)}:textfile=${escapePathForDrawtextFilter(globalTextFile)}:fontsize=${fs1}:fontcolor=${fontColorForFfmpegWithOpacity(globalColor, 1)}:x=(w-text_w)/2:y=${yExpr}:shadowx=1:shadowy=1:shadowcolor=black@0.6`
+    );
+  }
+  const fs2 = Math.round(
+    Number.isFinite(Number(globalFontSize2)) ? Number(globalFontSize2) : fs1
+  );
+  if (globalTextFile2 && globalFontPath2) {
+    const y2 = isTb
+      ? topbottomDrawtextYpx(globalTextY2, 90)
+      : Number.isFinite(Number(globalTextY2))
+        ? Number(globalTextY2)
+        : Number.isFinite(Number(globalTextY))
+          ? Number(globalTextY)
+          : 85;
+    const yExpr2 = isTb ? String(y2) : `h*${y2}/100`;
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(globalFontPath2)}:textfile=${escapePathForDrawtextFilter(globalTextFile2)}:fontsize=${fs2}:fontcolor=${fontColorForFfmpegWithOpacity(globalColor2 ?? globalColor, 1)}:x=(w-text_w)/2:y=${yExpr2}:shadowx=1:shadowy=1:shadowcolor=black@0.6`
+    );
+  }
+}
+
 function normalizeThumbnailText(meta) {
   const text =
     meta.thumbnailText != null ? String(meta.thumbnailText).trim() : "";
@@ -700,6 +801,7 @@ function buildHighlightSegmentVfFullscreen(opts) {
     ];
   }
   appendHighlightBottomDrawtext(parts, opts);
+  appendHighlightGlobalDrawtext(parts, opts.layout || "fullscreen", opts);
   return finalizeHighlightVfChain(parts);
 }
 
@@ -733,13 +835,15 @@ function buildHighlightSegmentVfTopBottom(opts) {
     ];
   }
   appendHighlightTopBottomDrawtext(parts, opts);
+  appendHighlightGlobalDrawtext(parts, opts.layout || "topbottom", opts);
   return finalizeHighlightVfChain(parts);
 }
 
 function buildHighlightSegmentVfByLayout(layout, opts) {
-  if (layout === "fullscreen") return buildHighlightSegmentVfFullscreen(opts);
-  if (layout === "topbottom") return buildHighlightSegmentVfTopBottom(opts);
-  return buildHighlightSegmentVf(opts);
+  const merged = { ...opts, layout };
+  if (layout === "fullscreen") return buildHighlightSegmentVfFullscreen(merged);
+  if (layout === "topbottom") return buildHighlightSegmentVfTopBottom(merged);
+  return buildHighlightSegmentVf(merged);
 }
 
 function buildHighlightSegmentVf(opts) {
@@ -855,6 +959,7 @@ function buildHighlightSegmentVf(opts) {
       `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105${shadow}`
     );
   }
+  appendHighlightGlobalDrawtext(parts, opts.layout || "kbo", opts);
   const chain = parts.join(",");
   return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
 }
@@ -899,6 +1004,7 @@ async function processHighlightImageSegment(ctx) {
     ih,
     videoScaleY,
     videoOffsetY,
+    globalTextMeta,
   } = ctx;
 
   const imageS3Key = resolveSegmentImageS3Key(jobId, seg.imageS3Key);
@@ -955,6 +1061,9 @@ async function processHighlightImageSegment(ctx) {
   const imageCx = highlightCropXFromOffset(scaledW, 1080, seg?.cropOffset);
 
   const isKboLayout = layout === "kbo";
+  const globalVfExtras = globalTextMeta
+    ? prepareGlobalTextVfExtras(workDir, i, globalTextMeta)
+    : {};
   const vfSeg = buildHighlightSegmentVfByLayout(layout, {
     cw,
     ih,
@@ -964,6 +1073,7 @@ async function processHighlightImageSegment(ctx) {
     topTextFile: isKboLayout ? topTextPath : null,
     bottomTextFile: bottomPath,
     bottomTextFile2: bottomPath2,
+    ...globalVfExtras,
     topFontSize: topTextSize,
     bottomFontSize: bottomTextSize,
     bottomFontSize2: bottomTextSize2,
@@ -1329,6 +1439,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     );
   }
 
+  const globalTextMeta = normalizeGlobalThumbnailTextMeta(meta);
+
   await putStatus(bucket, jobId, { state: "processing", progress: 32 });
 
   const { w: iw, h: ih } = probeVideoDimensions(workDir, sourceFileName);
@@ -1408,6 +1520,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         ih,
         videoScaleY,
         videoOffsetY,
+        globalTextMeta,
       });
       continue;
     }
@@ -1486,6 +1599,11 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     }
     // 하단 텍스트는 썸네일 구간(THUMB_SEG_FLAG)일 때 meta 기준으로만 달라지고,
     // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반 구간과 동일하게 적용한다.
+    const isThumbSeg = seg[THUMB_SEG_FLAG] === true;
+    const globalVfExtras =
+      !isThumbSeg && globalTextMeta
+        ? prepareGlobalTextVfExtras(workDir, i, globalTextMeta)
+        : {};
     const vfSeg = buildHighlightSegmentVfByLayout(layout, {
       cw,
       ih,
@@ -1495,6 +1613,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       topTextFile: isKboLayout ? topTextPath : null,
       bottomTextFile: bottomPath,
       bottomTextFile2: bottomPath2,
+      ...globalVfExtras,
       topFontSize: topTextSize,
       bottomFontSize: bottomTextSize,
       bottomFontSize2: bottomTextSize2,
