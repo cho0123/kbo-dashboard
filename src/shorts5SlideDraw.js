@@ -184,7 +184,7 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game, pitcherFontPx)
   const maxRight = line2Right - 8;
 
   if (ourS || oppS) {
-    const starterText = `선발 ${ourS || "—"} : ${oppS || "—"}`;
+    const starterText = `${ourS || "—"} : ${oppS || "—"}`;
     ctx.textAlign = "left";
     ctx.fillStyle = "#FFFFFF";
     ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
@@ -234,11 +234,11 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game, pitcherFontPx)
   }
 
   if (ourPitcher && oppPitcher) {
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillStyle = "#FFFFFF";
     ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
-    const colon = " : ";
-    ctx.fillText(colon, x, cy);
-    x += ctx.measureText(colon).width;
+    const gap = "  ";
+    ctx.fillText(gap, x, cy);
+    x += ctx.measureText(gap).width;
   }
 
   if (oppBadge) x += drawRecordPitcherBadge(ctx, x, cy, oppBadge.label, oppBadge.color);
