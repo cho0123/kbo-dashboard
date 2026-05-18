@@ -121,7 +121,7 @@ function truncateTextToWidth(ctx, text, maxW) {
 function recordTableRow1Layout(w) {
   const tableLeft = 64;
   const tableW = w - 128;
-  const ratios = [0.17, 0.1, 0.25, 0.13, 0.15, 0.1];
+  const ratios = [0.17, 0.15, 0.2, 0.13, 0.15, 0.1];
   const left = [];
   const width = ratios.map((r) => tableW * r);
   let x = tableLeft;
@@ -171,8 +171,8 @@ function drawRecordPitcherBadge(ctx, x, cy, label, bgColor) {
   return bw + 6;
 }
 
-function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
-  const fontPx = 30;
+function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game, pitcherFontPx) {
+  const fontPx = pitcherFontPx;
   const ourS = String(game?.our_starter ?? "").trim();
   const oppS = String(game?.opp_starter ?? "").trim();
   const winP = String(game?.win_pitcher ?? "").trim();
@@ -398,15 +398,15 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
   const summaryFontPx = 48;
   const summaryGapBelowLine = 40;
-  const titleCenterX =
-    titleTextX + ctx.measureText("주간 경기결과").width / 2;
+  const logoRightX = LOGO_X + LOGO_BOX;
+  const summaryCenterX = (logoRightX + w) / 2;
   const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
   const summaryLine = fmtRecordWeekSummaryLine(data);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = "#FFD700";
   ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
-  ctx.fillText(summaryLine, titleCenterX, summaryCy);
+  ctx.fillText(summaryLine, summaryCenterX, summaryCy);
 
   const tableTop = summaryCy + summaryFontPx / 2 + 40;
   const headerDividerAnchorY = tableTop + 20 + 40;
@@ -506,6 +506,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       ctx.fillText(dateStr, datePadLeft, rowDateCy);
 
       ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
       ctx.fillText(homeMark, colLeft[1] + cellPad, line1Cy);
 
       const oppCellX = colLeft[2] + cellPad;
@@ -526,7 +527,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
         drawRecordRankCell(ctx, colLeft[5] + cellPad, line1Cy, rankParts, rankFontPx);
       }
 
-      drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g);
+      drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
 
       if (rankAfter != null) prevRankForDelta = rankAfter;
     }
