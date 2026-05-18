@@ -4,6 +4,7 @@ import { postKbo } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import { drawStandingsSlide, loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
+import { drawableShorts4Portrait } from "./shorts4PlayerImage.js";
 import {
   drawShorts5BattingSlide,
   drawShorts5GamesSlide,
@@ -204,11 +205,29 @@ export default function Shorts5Panel() {
       else if (slide.type === "record")
         drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
       else if (slide.type === "batting") {
+        const mvpPlayer = String(data?.mvp_batter?.player || "").trim();
+        console.log("[shorts5] batting slide load", {
+          teamKw,
+          team_keyword: data?.team_keyword,
+          team_name: data?.team_name,
+          player: mvpPlayer,
+        });
         const [battingAssets, portrait] = await Promise.all([
           loadShorts5BattingSlideAssets(data),
-          loadShorts5BattingPortrait(data),
+          loadShorts5BattingPortrait(data, teamKw),
         ]);
-        await drawShorts5BattingSlide(ctx, w, h, data, { ...battingAssets, portrait });
+        console.log("[shorts5] batting assets portrait", {
+          included: Boolean(portrait),
+          drawable: Boolean(drawableShorts4Portrait(portrait)),
+        });
+        await drawShorts5BattingSlide(
+          ctx,
+          w,
+          h,
+          data,
+          { ...battingAssets, portrait },
+          teamKw
+        );
       }
       else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
       else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
@@ -248,9 +267,10 @@ export default function Shorts5Panel() {
       }
       setData(res);
       if (res?.mvp_batter?.player) {
+        const preloadTeam = String(overrides?.team ?? teamKw).trim();
         Promise.all([
           loadShorts5BattingSlideAssets(res),
-          loadShorts5BattingPortrait(res),
+          loadShorts5BattingPortrait(res, preloadTeam),
         ]).catch(() => {});
       }
       setCapturedSlides([]);

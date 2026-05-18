@@ -615,29 +615,74 @@ function battingAssetsCacheKey(data) {
   return `${tk}|${String(mvp?.player || "").trim()}`;
 }
 
+/** S3 `loadPlayerImage`용 팀 키 — 패널 teamKw · API team_keyword 우선 */
+function resolveMvpPortraitTeamKey(data, teamKwOverride = "") {
+  const fromPanel = String(teamKwOverride || "").trim();
+  if (fromPanel) {
+    const tk = teamKeyword(fromPanel);
+    if (tk) return tk;
+  }
+  const fromApiKw = String(data?.team_keyword || "").trim();
+  if (fromApiKw) {
+    const tk = teamKeyword(fromApiKw);
+    if (tk) return tk;
+  }
+  const fromMvpTeam = String(data?.mvp_batter?.team || "").trim();
+  if (fromMvpTeam) {
+    const tk = teamKeyword(fromMvpTeam);
+    if (tk) return tk;
+  }
+  const fromTeamName = String(data?.team_name || "").trim();
+  if (fromTeamName) {
+    const tk = teamKeyword(fromTeamName);
+    if (tk) return tk;
+  }
+  return "";
+}
+
 /** 쇼츠4 hot_player와 동일 — 네이버 URL 우선, S3, 기본 실루엣 */
-export async function loadShorts5BattingPortrait(data) {
+export async function loadShorts5BattingPortrait(data, teamKwOverride = "") {
   const mvp = data?.mvp_batter;
-  const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
-  const tk = teamKeyword(teamName);
-  const player = String(mvp?.player || "").trim();
-  const url = String(mvp?.player_image_url || "").trim();
-  const [portrait, defImg] = await Promise.all([
-    url
-      ? loadPlayerImageFromNaverProxy(url)
-      : player && tk
-        ? loadPlayerImage(tk, player)
-        : Promise.resolve(null),
-    loadDefaultPlayerImage(),
-  ]);
-  return portrait ?? defImg;
+  const tk = resolveMvpPortraitTeamKey(data, teamKwOverride);
+  const player = String(mvp?.player || mvp?.name || "").trim();
+  const url = String(mvp?.player_image_url || mvp?.image_url || "").trim();
+
+  console.log("[shorts5] loadShorts5BattingPortrait", {
+    tk,
+    player,
+    team_keyword: data?.team_keyword,
+    team_name: data?.team_name,
+    teamKwOverride: teamKwOverride || null,
+    player_image_url: url || null,
+  });
+
+  const defImg = await loadDefaultPlayerImage();
+  let loaded = null;
+  if (url) {
+    loaded = await loadPlayerImageFromNaverProxy(url);
+  } else if (player && tk) {
+    loaded = await loadPlayerImage(tk, player);
+  }
+
+  const finalImg =
+    drawableShorts4Portrait(loaded) ? loaded : drawableShorts4Portrait(defImg) ? defImg : loaded ?? defImg;
+
+  console.log("[shorts5] loadShorts5BattingPortrait result", {
+    tk,
+    player,
+    s3Attempt: Boolean(!url && player && tk),
+    loaded: Boolean(drawableShorts4Portrait(loaded)),
+    default: Boolean(drawableShorts4Portrait(defImg)),
+    final: Boolean(drawableShorts4Portrait(finalImg)),
+  });
+
+  return finalImg;
 }
 
 /** 캡처 전 호출 권장 — 상대 로고 프리로드 (사진은 `loadShorts5BattingPortrait`) */
-export async function loadShorts5BattingSlideAssets(data) {
+export async function loadShorts5BattingSlideAssets(data, teamKwOverride = "") {
   const mvp = data?.mvp_batter;
-  const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
-  const tk = teamKeyword(teamName);
+  const tk = resolveMvpPortraitTeamKey(data, teamKwOverride);
   const logosByTeamKey = {};
   if (tk) logosByTeamKey[tk] = await loadSvgLogo(tk);
   const games = Array.isArray(mvp?.games) ? mvp.games.slice(0, 6) : [];
@@ -648,12 +693,12 @@ export async function loadShorts5BattingSlideAssets(data) {
   return { logosByTeamKey };
 }
 
-function primeShorts5BattingAssets(data) {
+function primeShorts5BattingAssets(data, teamKwOverride = "") {
   const key = battingAssetsCacheKey(data);
   if (__shorts5BattingAssetsCache.has(key)) return __shorts5BattingAssetsCache.get(key);
   const p = Promise.all([
     loadShorts5BattingSlideAssets(data),
-    loadShorts5BattingPortrait(data),
+    loadShorts5BattingPortrait(data, teamKwOverride),
   ]).then(([logosPack, portrait]) => {
     const assets = { ...logosPack, portrait };
     __shorts5BattingAssetsCache.set(key, assets);
@@ -808,20 +853,59 @@ function drawBattingMvpHeaderDivider(ctx, w, pad, dividerY) {
   ctx.restore();
 }
 
-function mvpWeeklyStatLines(total) {
-  const t = total && typeof total === "object" ? total : {};
+function pickMvpSeasonStat(mvp, seasonKeys, flatKeys) {
+  const season = mvp?.season;
+  if (season && typeof season === "object") {
+    for (const k of seasonKeys) {
+      if (season[k] == null || season[k] === "") continue;
+      const n = Number(season[k]);
+      if (Number.isFinite(n)) return Math.round(n);
+    }
+  }
+  for (const k of flatKeys) {
+    if (mvp?.[k] == null || mvp?.[k] === "") continue;
+    const n = Number(mvp[k]);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return null;
+}
+
+function fmtMvpSeasonSuffix(n, unit) {
+  return n != null && Number.isFinite(Number(n))
+    ? `시즌 ${Math.round(Number(n))}${unit}`
+    : `시즌 -${unit}`;
+}
+
+function mvpWeeklyStatLines(mvp) {
+  const mvp0 = mvp && typeof mvp === "object" ? mvp : {};
+  const t = mvp0.total && typeof mvp0.total === "object" ? mvp0.total : {};
   const hr = Number(t.hr) || 0;
   const h = Number(t.h) || 0;
   const rbi = Number(t.rbi) || 0;
+  const seasonHr = pickMvpSeasonStat(
+    mvp0,
+    ["hr", "HR", "home_run", "season_hr"],
+    ["season_hr", "seasonHr"]
+  );
+  const seasonH = pickMvpSeasonStat(
+    mvp0,
+    ["h", "H", "hits", "hit", "season_hit", "season_h"],
+    ["season_hit", "seasonHit", "season_h"]
+  );
+  const seasonRbi = pickMvpSeasonStat(
+    mvp0,
+    ["rbi", "RBI", "season_rbi"],
+    ["season_rbi", "seasonRbi"]
+  );
   return [
-    `- ${hr}홈런 (주간)`,
-    `- ${h}안타 (주간)`,
-    `- ${rbi}타점 (주간)`,
+    `- 주간 ${hr}홈런 (${fmtMvpSeasonSuffix(seasonHr, "홈런")})`,
+    `- 주간 ${h}안타 (${fmtMvpSeasonSuffix(seasonH, "안타")})`,
+    `- 주간 ${rbi}타점 (${fmtMvpSeasonSuffix(seasonRbi, "타점")})`,
   ];
 }
 
-function drawBattingMvpStatBlock(ctx, statX, cy, total) {
-  const lines = mvpWeeklyStatLines(total);
+function drawBattingMvpStatBlock(ctx, statX, cy, mvp) {
+  const lines = mvpWeeklyStatLines(mvp);
   const gap = MVP_STAT_LINE_GAP;
   const totalH = (lines.length - 1) * gap;
   let y = cy - totalH / 2;
@@ -933,7 +1017,7 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   const teamLogoImg = tk && logosByTeamKey ? logosByTeamKey[tk] : null;
   const playerName = String(mvp?.player || "").trim();
   const headerLine = fmtMvpHeaderPlayerLine(mvp);
-  const usePhoto = Boolean(drawableShorts4Portrait(portrait)) && playerName !== "";
+  const usePhoto = Boolean(drawableShorts4Portrait(portrait));
 
   drawBattingMvpHeaderRow(ctx, w, upperHeaderCy, padL, teamName, headerLine, teamLogoImg);
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
@@ -953,7 +1037,7 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     ctx,
     upperStatX,
     upperCy + MVP_STAT_BLOCK_SHIFT_Y,
-    mvp?.total
+    mvp
   );
   const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
   return drawBattingMvpAvgOpsBar(ctx, w, contentBottom, mvp?.total);
@@ -1087,7 +1171,7 @@ function drawBattingGameTable(
 }
 
 /** slide3: 주간 MVP 타자 (@param assets `loadShorts5BattingSlideAssets` 결과 권장) */
-export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) {
+export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, teamKwOverride = "") {
   const mvp = data?.mvp_batter;
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
 
@@ -1100,7 +1184,7 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) 
     else {
       const [logosPack, portraitImg] = await Promise.all([
         loadShorts5BattingSlideAssets(data),
-        loadShorts5BattingPortrait(data),
+        loadShorts5BattingPortrait(data, teamKwOverride),
       ]);
       assets = { ...logosPack, portrait: portraitImg };
     }
@@ -1108,9 +1192,17 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) 
 
   let portrait = drawableShorts4Portrait(assets?.portrait);
   if (!portrait && mvp?.player) {
-    portrait = drawableShorts4Portrait(await loadShorts5BattingPortrait(data));
+    portrait = drawableShorts4Portrait(
+      await loadShorts5BattingPortrait(data, teamKwOverride)
+    );
   }
   const logosByTeamKey = assets?.logosByTeamKey || {};
+
+  console.log("[shorts5] drawShorts5BattingSlide portrait", {
+    hasAssetsPortrait: Boolean(assets?.portrait),
+    drawable: Boolean(portrait),
+    player: mvp?.player,
+  });
 
   ctx.clearRect(0, 0, w, h);
   const [accentBg] = teamGrad(teamName);
@@ -1141,7 +1233,7 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null) 
 
   drawBattingGameTable(ctx, w, h, mvp.games, logosByTeamKey, tableTitleY + 36);
 
-  primeShorts5BattingAssets(data);
+  primeShorts5BattingAssets(data, teamKwOverride);
 }
 
 /** slide4: 투수 하이라이트 */
