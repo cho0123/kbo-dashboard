@@ -366,7 +366,7 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillText(team, w / 2, teamNameY);
 
   const logoBox = 840;
-  const logoTop = h * 0.22;
+  const logoTop = h * 0.22 - 100;
   drawLogoInBox(ctx, (w - logoBox) / 2, logoTop, logoBox, logoBox, team, logoImg);
   const logoBottomY = logoTop + logoBox;
 
@@ -380,10 +380,16 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.stroke();
 
   const weeklyTitleY = dividerLineY + 30;
-  const weeklyFontPx = Math.round(w * 0.085);
-  ctx.fillStyle = "#FFD700";
+  const weeklyLabel = "주간결산";
+  const weeklyTargetW = w * 0.65;
+  let weeklyFontPx = Math.round(w * 0.085);
   ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("주간결산", w / 2, weeklyTitleY);
+  while (ctx.measureText(weeklyLabel).width < weeklyTargetW && weeklyFontPx < 200) {
+    weeklyFontPx += 2;
+    ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.fillStyle = "#FFD700";
+  ctx.fillText(weeklyLabel, w / 2, weeklyTitleY);
 
   const gamePreviewY = h * 0.93 - 50;
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
