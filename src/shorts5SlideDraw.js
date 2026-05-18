@@ -746,6 +746,8 @@ function drawDefaultPortraitNameOverlay(ctx, cx, boxTop, boxW, boxH, name) {
 /** 쇼츠4 drawHotPlayerHomeUpperBlock 계열 상수 */
 const MVP_FACE_BOX = Math.round(Math.round(530 * 0.7) * 1.05 * 0.95);
 const MVP_UPPER_DIVIDER_Y = 157 + 5;
+/** 타이틀~바 상단 블록 전체를 아래로 */
+const MVP_UPPER_BLOCK_SHIFT_Y = 50;
 const MVP_HEADER_GAP_LINE_TO_CENTER = 48;
 const MVP_DIVIDER_TO_FACE_TOP = 56;
 const MVP_HEADER_FONT_PX = 52;
@@ -754,18 +756,22 @@ const MVP_STAT_LINE_GAP = Math.round(54 * 1.45);
 const MVP_STAT_BLOCK_SHIFT_Y = -30;
 const MVP_LOGO_HEADER_H = 100;
 const MVP_LOGO_HEADER_MAX_W = 280;
+const MVP_TITLE_LOGO_H = 48;
+const MVP_TITLE_LOGO_MAX_W = 72;
+const MVP_TITLE_LABEL = "주간 타격 MVP";
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
 const MVP_BAR_GAP = 18;
 const MVP_BAR_MIN_SEG_W = 50;
-const MVP_BAR_COLORS = ["#E53935", "#1E88E5"];
-const MVP_BAR_LABELS = ["타율", "OPS"];
+const MVP_BAR_COLORS = ["#E53935", "#1E88E5", "#43A047"];
+const MVP_BAR_LABELS = ["타율", "OPS", "WAR"];
 const MVP_BAR_BG = "rgba(0,0,0,0.3)";
 const MVP_SUMMARY_GAP = 10;
 const MVP_SUMMARY_FONT_PX = 26;
 const MVP_SUMMARY_BLOCK_H = MVP_SUMMARY_GAP + MVP_SUMMARY_FONT_PX + 6;
 const MVP_BASE_AVG = 0.4;
 const MVP_BASE_OPS = 1.2;
+const MVP_BASE_WAR = 6.0;
 
 function fmtMvpBatsLabel(mvp) {
   const raw = String(mvp?.bats ?? mvp?.hand ?? mvp?.bat_hand ?? "").trim();
@@ -808,8 +814,7 @@ function splitMvpBarSegmentWidths(innerW, ratios) {
   return floors;
 }
 
-function drawBattingHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg) {
-  const boxH = MVP_LOGO_HEADER_H;
+function drawBattingHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg, boxH = MVP_LOGO_HEADER_H) {
   if (!logoImg || !(logoImg.width > 0)) {
     drawLogoInBox(ctx, left, centerY - boxH / 2, boxH, boxH, teamName, null);
     return boxH;
@@ -827,9 +832,21 @@ function drawBattingHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg) {
   return dw;
 }
 
-function drawBattingMvpHeaderRow(ctx, w, centerY, padL, teamName, headerLine, logoImg) {
-  const maxLogoW = Math.min(MVP_LOGO_HEADER_MAX_W, Math.max(80, w - padL - 320));
-  const logoW = drawBattingHeaderLogo(ctx, padL, centerY, maxLogoW, teamName, logoImg);
+/** 작은 팀 로고 + "주간 타격 MVP" + 선수명 (한 줄) */
+function drawBattingMvpTitleRow(ctx, w, centerY, padL, teamName, playerName, logoImg) {
+  const maxLogoW = Math.min(MVP_TITLE_LOGO_MAX_W, Math.max(40, w - padL - 420));
+  const logoW = drawBattingHeaderLogo(
+    ctx,
+    padL,
+    centerY,
+    maxLogoW,
+    teamName,
+    logoImg,
+    MVP_TITLE_LOGO_H
+  );
+  const name = String(playerName || "").trim() || "—";
+  const label = MVP_TITLE_LABEL;
+  const gap = 14;
   ctx.save();
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -837,7 +854,9 @@ function drawBattingMvpHeaderRow(ctx, w, centerY, padL, teamName, headerLine, lo
   ctx.font = `800 ${MVP_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   const textX = padL + logoW + 16;
   shadowTextSoft(ctx);
-  ctx.fillText(headerLine, textX, centerY);
+  ctx.fillText(label, textX, centerY);
+  const labelW = ctx.measureText(label).width;
+  ctx.fillText(name, textX + labelW + gap, centerY);
   resetShadow(ctx);
   ctx.restore();
 }
@@ -923,27 +942,42 @@ function drawBattingMvpStatBlock(ctx, statX, cy, mvp) {
   return lastCenterY + MVP_STAT_FONT_PX / 2;
 }
 
-function mvpAvgOpsBarRatios(total) {
-  const avg = Number(total?.avg);
-  const ops = Number(total?.ops);
-  const w0 = Number.isFinite(avg) && avg >= 0 ? avg / MVP_BASE_AVG : 0;
-  const w1 = Number.isFinite(ops) && ops >= 0 ? ops / MVP_BASE_OPS : 0;
-  const s = w0 + w1;
-  return s > 0 ? [w0, w1] : [1, 1];
+function pickMvpWar(mvp, total) {
+  const t = total && typeof total === "object" ? total : {};
+  const raw = t.war ?? t.WAR ?? mvp?.war ?? mvp?.WAR;
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
-function drawBattingMvpAvgOpsBar(ctx, wCanvas, topBelowStats, total) {
-  const ratios = mvpAvgOpsBarRatios(total);
+function fmtMvpWar(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "-";
+  return Number(v).toFixed(2);
+}
+
+/** 쇼츠4 drawHotPlayerAvgOpsWarBar와 동일 3분할 (타율 / OPS / WAR) */
+function mvpAvgOpsWarBarRatios(total, mvp) {
+  const avg = Number(total?.avg);
+  const ops = Number(total?.ops);
+  const war = pickMvpWar(mvp, total);
+  const w0 = Number.isFinite(avg) && avg >= 0 ? avg / MVP_BASE_AVG : 0;
+  const w1 = Number.isFinite(ops) && ops >= 0 ? ops / MVP_BASE_OPS : 0;
+  const w2 = war != null && war >= 0 ? war / MVP_BASE_WAR : 0;
+  const s = w0 + w1 + w2;
+  return s > 0 ? [w0, w1, w2] : [1, 1, 1];
+}
+
+function drawBattingMvpAvgOpsWarBar(ctx, wCanvas, topBelowStats, total, mvp) {
+  const ratios = mvpAvgOpsWarBarRatios(total, mvp);
   const barW = Math.floor(wCanvas * MVP_BAR_W_FRAC);
   const barLeft = Math.floor((wCanvas - barW) / 2);
   if (barW < 120) return topBelowStats;
 
   const segWs = splitMvpBarSegmentWidths(barW, ratios);
   const barTop = topBelowStats + MVP_BAR_GAP;
-  const avgStr = fmtRate3(total?.avg);
-  const opsStr = fmtRate3(total?.ops);
-  const valueStrs = [avgStr, opsStr];
-  const summaryLine = `타율 ${avgStr}  OPS ${opsStr}`;
+  const warN = pickMvpWar(mvp, total);
+  const valueStrs = [fmtRate3(total?.avg), fmtRate3(total?.ops), fmtMvpWar(warN)];
+  const summaryLine = `타율 ${valueStrs[0]}  OPS ${valueStrs[1]}  WAR ${valueStrs[2]}`;
 
   ctx.save();
   ctx.beginPath();
@@ -952,7 +986,7 @@ function drawBattingMvpAvgOpsBar(ctx, wCanvas, topBelowStats, total) {
   ctx.fillStyle = MVP_BAR_BG;
   ctx.fillRect(barLeft, barTop, barW, MVP_BAR_H);
   let x = barLeft;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const sw = segWs[i] || 0;
     if (sw > 0) {
       ctx.fillStyle = MVP_BAR_COLORS[i];
@@ -963,7 +997,7 @@ function drawBattingMvpAvgOpsBar(ctx, wCanvas, topBelowStats, total) {
   ctx.restore();
 
   x = barLeft;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const sw = segWs[i] || 0;
     const cx = x + sw / 2;
     if (sw > 0 && sw >= MVP_BAR_MIN_SEG_W) {
@@ -1011,15 +1045,15 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   const faceBox = MVP_FACE_BOX;
   const rPhoto = faceBox / 2;
   const padL = 48;
-  const upperDividerY = MVP_UPPER_DIVIDER_Y;
+  const yShift = MVP_UPPER_BLOCK_SHIFT_Y;
+  const upperDividerY = MVP_UPPER_DIVIDER_Y + yShift;
   const upperHeaderCy = upperDividerY - MVP_HEADER_GAP_LINE_TO_CENTER;
   const tk = teamKeyword(teamName);
   const teamLogoImg = tk && logosByTeamKey ? logosByTeamKey[tk] : null;
   const playerName = String(mvp?.player || "").trim();
-  const headerLine = fmtMvpHeaderPlayerLine(mvp);
   const usePhoto = Boolean(drawableShorts4Portrait(portrait));
 
-  drawBattingMvpHeaderRow(ctx, w, upperHeaderCy, padL, teamName, headerLine, teamLogoImg);
+  drawBattingMvpTitleRow(ctx, w, upperHeaderCy, padL, teamName, playerName, teamLogoImg);
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;
@@ -1040,7 +1074,7 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     mvp
   );
   const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
-  return drawBattingMvpAvgOpsBar(ctx, w, contentBottom, mvp?.total);
+  return drawBattingMvpAvgOpsWarBar(ctx, w, contentBottom, mvp?.total, mvp);
 }
 
 function fmtBattingSlideDate(iso) {
