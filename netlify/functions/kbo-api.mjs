@@ -2481,6 +2481,20 @@ function resolveOurStarter(gameRaw, pitchers, isHome) {
   return pickOurStarterFromPitchers(pitchers, isHome);
 }
 
+function pickOppStarterFromPitchers(pitchers, isHome) {
+  return pickOurStarterFromPitchers(pitchers, !isHome);
+}
+
+function resolveOppStarter(gameRaw, pitchers, isHome) {
+  const hss = gameRaw?.home_starter ?? gameRaw?.homeStarter ?? null;
+  const ass = gameRaw?.away_starter ?? gameRaw?.awayStarter ?? null;
+  const fromGame = isHome ? ass : hss;
+  if (fromGame != null && String(fromGame).trim() !== "") {
+    return String(fromGame).replace(/\s+/g, " ").trim();
+  }
+  return pickOppStarterFromPitchers(pitchers, isHome);
+}
+
 function resolveWinLosePitcherNames(pitchers, gameRaw, homeScore, awayScore) {
   let winName = pickStr(gameRaw, [
     "winning_pitcher",
@@ -2580,6 +2594,7 @@ function buildTeamWeekGameResults(
           : null;
     const pitchers = Array.isArray(boxEntry?.pitchers) ? boxEntry.pitchers : [];
     const our_starter = resolveOurStarter(g, pitchers, isHome);
+    const opp_starter = resolveOppStarter(g, pitchers, isHome);
     const { win_pitcher, lose_pitcher } = resolveWinLosePitcherNames(
       pitchers,
       g,
@@ -2597,6 +2612,7 @@ function buildTeamWeekGameResults(
       margin: teamScore - oppScore,
       rank_after,
       our_starter,
+      opp_starter,
       win_pitcher,
       lose_pitcher,
     });

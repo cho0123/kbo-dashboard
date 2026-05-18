@@ -75,89 +75,155 @@ function resultLabelAndColor(result) {
   return { label: "무", color: "#94a3b8" };
 }
 
-function scoreColorForResult(result) {
-  if (result === "win") return "#4ade80";
-  if (result === "loss") return "#f87171";
-  return "#94a3b8";
-}
-
-/** 순위 셀: N위 ▲M / N위 ▼M */
+/** 순위 셀: N위 ▲M / N위 ▼M / N위 - */
 function formatPerGameRankCell(prevRank, rankAfter) {
   const cur = rankAfter != null ? Number(rankAfter) : null;
   const prev = prevRank != null ? Number(prevRank) : null;
   if (cur == null || !Number.isFinite(cur)) return { text: "", color: null };
   if (prev == null || !Number.isFinite(prev)) {
-    return { text: `${cur}위`, color: "#94a3b8" };
+    return { text: `${cur}위 -`, color: "#94a3b8" };
   }
   const diff = prev - cur;
   if (diff > 0) return { text: `${cur}위 ▲${diff}`, color: "#4ade80" };
   if (diff < 0) return { text: `${cur}위 ▼${Math.abs(diff)}`, color: "#f87171" };
-  return { text: `${cur}위`, color: "#94a3b8" };
+  return { text: `${cur}위 -`, color: "#94a3b8" };
 }
 
-function drawRecordPitcherCell(ctx, x, cy, maxW, game) {
-  const starter = String(game?.our_starter ?? "").trim();
+function truncateTextToWidth(ctx, text, maxW) {
+  let draw = String(text || "");
+  if (!draw) return "";
+  for (let guard = 0; guard < 80; guard += 1) {
+    if (ctx.measureText(draw).width <= maxW) return draw;
+    if (draw.length <= 1) return draw;
+    draw = `${draw.slice(0, draw.length - 2)}…`;
+  }
+  return draw;
+}
+
+/** 1줄: 날짜/홈원정/상대/스코어/승패/순위 */
+function recordTableRow1Layout(w) {
+  const tableLeft = 64;
+  const tableW = w - 128;
+  const ratios = [0.17, 0.1, 0.25, 0.13, 0.15, 0.1];
+  const left = [];
+  const width = ratios.map((r) => tableW * r);
+  let x = tableLeft;
+  for (let i = 0; i < ratios.length; i++) {
+    left.push(x);
+    x += width[i];
+  }
+  return { tableLeft, tableW, left, width, dateColEnd: left[1] };
+}
+
+function drawRecordResultBadge(ctx, x, cy, result) {
+  const { label, color } = resultLabelAndColor(result);
+  const fontPx = 32;
+  const padX = 14;
+  const padY = 8;
+  const fontFamily = `"${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `900 ${fontPx}px ${fontFamily}`;
+  const tw = ctx.measureText(label).width;
+  const bw = tw + padX * 2;
+  const bh = fontPx + padY * 2;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, cy - bh / 2, bw, bh, 10);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + padX, cy);
+  return bw;
+}
+
+function drawRecordPitcherBadge(ctx, x, cy, label, bgColor) {
+  const fontPx = 24;
+  const padX = 10;
+  const padY = 5;
+  const fontFamily = `"${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `900 ${fontPx}px ${fontFamily}`;
+  const tw = ctx.measureText(label).width;
+  const bw = tw + padX * 2;
+  const bh = fontPx + padY * 2;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(x, cy - bh / 2, bw, bh, bh / 2);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + padX, cy);
+  return bw + 6;
+}
+
+function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
+  const fontFamily = `"${FONT_BODY}", system-ui, sans-serif`;
+  const fontPx = 28;
+  const ourS = String(game?.our_starter ?? "").trim();
+  const oppS = String(game?.opp_starter ?? "").trim();
   const winP = String(game?.win_pitcher ?? "").trim();
   const loseP = String(game?.lose_pitcher ?? "").trim();
-  if (!starter && !winP && !loseP) return;
 
-  const starterFontPx = 28;
-  const parenFontPx = 28;
-  const fontFamily = `"${FONT_BODY}", system-ui, sans-serif`;
+  const midX = line2Left + (line2Right - line2Left) * 0.48;
+  const rightEdge = line2Right - 8;
 
-  let parenText = "";
-  let parenColor = "#94a3b8";
-  if (game?.result === "win" && winP) {
-    parenText = ` (승: ${winP})`;
-    parenColor = "#4ade80";
-  } else if (game?.result === "loss" && loseP) {
-    parenText = ` (패: ${loseP})`;
-    parenColor = "#f87171";
+  if (ourS || oppS) {
+    const starterText = `선발 ${ourS || "—"} : ${oppS || "—"}`;
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `600 ${fontPx}px ${fontFamily}`;
+    ctx.fillText(
+      truncateTextToWidth(ctx, starterText, Math.max(80, midX - line2Left - 12)),
+      line2Left + 8,
+      cy
+    );
   }
 
-  if (!starter) {
-    if (!parenText) return;
-    ctx.fillStyle = parenColor;
-    ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
-    let draw = parenText.trim();
-    for (let guard = 0; guard < 80; guard += 1) {
-      if (draw.length <= 1 || ctx.measureText(draw).width <= maxW) break;
-      draw = `${draw.slice(0, Math.max(1, draw.length - 2))}…`;
-    }
-    ctx.fillText(draw, x, cy);
-    return;
+  if (!winP && !loseP) return;
+
+  let leftName = winP;
+  let rightName = loseP;
+  if (game?.result === "loss") {
+    leftName = loseP || "";
+    rightName = winP || "";
+  } else if (game?.result === "win") {
+    leftName = winP || "";
+    rightName = loseP || "";
   }
 
-  ctx.font = `600 ${starterFontPx}px ${fontFamily}`;
-  let starterDraw = starter;
-  const full = starter + parenText;
-  ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
-  for (let guard = 0; guard < 80; guard += 1) {
-    if (ctx.measureText(full).width <= maxW) break;
-    if (starterDraw.length <= 1) {
-      starterDraw = starterDraw.slice(0, 1);
-      break;
-    }
-    starterDraw = `${starterDraw.slice(0, starterDraw.length - 1)}…`;
-  }
-
-  ctx.font = `600 ${starterFontPx}px ${fontFamily}`;
+  const gap = 6;
+  ctx.textAlign = "left";
+  ctx.font = `600 ${fontPx}px ${fontFamily}`;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText(starterDraw, x, cy);
 
-  if (!parenText) return;
+  const loseBadgeW = loseP ? 36 : 0;
+  const colonW = leftName && rightName ? ctx.measureText(" : ").width : 0;
+  const rightNameW = rightName ? ctx.measureText(rightName).width : 0;
+  const leftNameW = leftName ? ctx.measureText(leftName).width : 0;
+  const winBadgeW = winP ? 36 : 0;
+  const totalW = winBadgeW + leftNameW + colonW + rightNameW + loseBadgeW + gap * 3;
 
-  const starterW = ctx.measureText(starterDraw).width;
-  let parenDraw = parenText;
-  ctx.font = `600 ${parenFontPx}px ${fontFamily}`;
-  const remain = maxW - starterW;
-  for (let guard = 0; guard < 80; guard += 1) {
-    if (ctx.measureText(parenDraw).width <= remain) break;
-    if (parenDraw.length <= 4) break;
-    parenDraw = `${parenDraw.slice(0, parenDraw.length - 2)}…`;
+  let x = rightEdge - totalW;
+  if (x < midX + 8) x = midX + 8;
+
+  if (winP) x += drawRecordPitcherBadge(ctx, x, cy, "승", "#4ade80");
+  if (leftName) {
+    const draw = truncateTextToWidth(ctx, leftName, Math.max(40, rightEdge - x - 80));
+    ctx.fillText(draw, x, cy);
+    x += ctx.measureText(draw).width;
   }
-  ctx.fillStyle = parenColor;
-  ctx.fillText(parenDraw, x + starterW, cy);
+  if (leftName && rightName) {
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillText(" : ", x, cy);
+    x += colonW;
+    ctx.fillStyle = "#FFFFFF";
+  }
+  if (rightName) {
+    const draw = truncateTextToWidth(ctx, rightName, Math.max(40, rightEdge - x - 50));
+    ctx.fillText(draw, x, cy);
+    x += ctx.measureText(draw).width;
+  }
+  if (loseP) drawRecordPitcherBadge(ctx, x + gap, cy, "패", "#f87171");
 }
 
 function fmtWeekRecordSummary(rec) {
@@ -168,20 +234,6 @@ function fmtWeekRecordSummary(rec) {
   return `${wins}승 ${losses}패`;
 }
 
-/** 표 영역 6컬럼 (날짜/홈원정/상대+로고/스코어/투수/순위) */
-function recordTableColumnLayout(w) {
-  const tableLeft = 64;
-  const tableW = w - 128;
-  const ratios = [0.17, 0.1, 0.25, 0.15, 0.23, 0.1];
-  const left = [];
-  const width = ratios.map((r) => tableW * r);
-  let x = tableLeft;
-  for (let i = 0; i < ratios.length; i++) {
-    left.push(x);
-    x += width[i];
-  }
-  return { tableLeft, tableW, left, width };
-}
 
 function drawSmallOpponentLogo(ctx, x, cy, size, img) {
   if (!img || !(img.width > 0)) return 0;
@@ -311,9 +363,11 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const headerDividerAnchorY = tableTop + 20 + 40;
   const headerLineY = headerDividerAnchorY + 12;
   const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
-  const rowH = 130;
+  const rowH = Math.round(130 * 1.8);
+  const line1H = Math.round(rowH * 0.52);
+  const line2H = rowH - line1H;
   const maxRows = 6;
-  const { left: colLeft, width: colW } = recordTableColumnLayout(w);
+  const { left: colLeft, width: colW, dateColEnd } = recordTableRow1Layout(w);
   const cellPad = 10;
   const datePadLeft = colLeft[0] + 24;
   const oppLogoSize = 65;
@@ -321,7 +375,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const bodyFontPx = 38;
   const scoreFontPx = 41;
   const oppNameFontPx = 40;
-  const rankFontPx = 34;
+  const rankFontPx = 32;
   const weekPrevRank =
     data?.rank_change?.prev_rank != null && Number.isFinite(Number(data.rank_change.prev_rank))
       ? Number(data.rank_change.prev_rank)
@@ -337,7 +391,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.fillText("홈/원정", colLeft[1] + cellPad, headerTextCy);
   ctx.fillText("상대팀", colLeft[2] + cellPad, headerTextCy);
   ctx.fillText("스코어", colLeft[3] + cellPad, headerTextCy);
-  ctx.fillText("투수", colLeft[4] + cellPad, headerTextCy);
+  ctx.fillText("승패", colLeft[4] + cellPad, headerTextCy);
   ctx.fillText("순위", colLeft[5] + cellPad, headerTextCy);
   ctx.beginPath();
   ctx.moveTo(64, headerLineY);
@@ -361,12 +415,25 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const y = firstRowY + i * rowH;
       const rowBoxTop = y - 42;
       const rowBoxH = rowH - 10;
-      const rowTextCy = rowBoxTop + rowBoxH / 2;
+      const line1Top = rowBoxTop;
+      const line2Top = rowBoxTop + line1H;
+      const line1Cy = line1Top + line1H / 2;
+      const line2Cy = line2Top + line2H / 2;
+      const rowDateCy = rowBoxTop + rowBoxH / 2;
 
-      ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.12)";
+      const line1Bg = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.12)";
+      const line2Bg = i % 2 === 0 ? "rgba(0,0,0,0.34)" : "rgba(0,0,0,0.24)";
+
+      ctx.fillStyle = line1Bg;
       ctx.beginPath();
-      ctx.roundRect(64, rowBoxTop, w - 128, rowBoxH, 12);
+      ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
       ctx.fill();
+
+      ctx.fillStyle = line2Bg;
+      ctx.beginPath();
+      ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
+      ctx.fill();
+
       lastRowBottom = rowBoxTop + rowBoxH;
 
       const g = games[i];
@@ -388,41 +455,32 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `600 ${bodyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText(dateStr, datePadLeft, rowTextCy);
+      ctx.fillText(dateStr, datePadLeft, rowDateCy);
 
       ctx.fillStyle = "rgba(255,255,255,0.88)";
-      ctx.fillText(homeMark, colLeft[1] + cellPad, rowTextCy);
+      ctx.fillText(homeMark, colLeft[1] + cellPad, line1Cy);
 
       const oppCellX = colLeft[2] + cellPad;
-      const logoOffset = drawSmallOpponentLogo(ctx, oppCellX, rowTextCy, oppLogoSize, oppLogo);
+      const logoOffset = drawSmallOpponentLogo(ctx, oppCellX, line1Cy, oppLogoSize, oppLogo);
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `700 ${oppNameFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
       const oppTextX = oppCellX + logoOffset;
       const oppMaxW = colLeft[2] + colW[2] - cellPad - oppTextX;
-      let oppDraw = opp;
-      for (let guard = 0; guard < 80; guard += 1) {
-        if (oppDraw.length <= 1 || ctx.measureText(oppDraw).width <= oppMaxW) break;
-        oppDraw = `${oppDraw.slice(0, Math.max(1, oppDraw.length - 2))}…`;
-      }
-      ctx.fillText(oppDraw, oppTextX, rowTextCy);
+      ctx.fillText(truncateTextToWidth(ctx, opp, oppMaxW), oppTextX, line1Cy);
 
-      ctx.fillStyle = scoreColorForResult(g.result);
+      ctx.fillStyle = "#FFFFFF";
       ctx.font = `600 ${scoreFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-      ctx.fillText(score, colLeft[3] + cellPad, rowTextCy);
+      ctx.fillText(score, colLeft[3] + cellPad, line1Cy);
 
-      drawRecordPitcherCell(
-        ctx,
-        colLeft[4] + cellPad,
-        rowTextCy,
-        colW[4] - cellPad * 2,
-        g
-      );
+      drawRecordResultBadge(ctx, colLeft[4] + cellPad, line1Cy, g.result);
 
       if (rankCell.text) {
         ctx.fillStyle = rankCell.color || "#94a3b8";
         ctx.font = `800 ${rankFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-        ctx.fillText(rankCell.text, colLeft[5] + cellPad, rowTextCy);
+        ctx.fillText(rankCell.text, colLeft[5] + cellPad, line1Cy);
       }
+
+      drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g);
 
       if (rankAfter != null) prevRankForDelta = rankAfter;
     }
