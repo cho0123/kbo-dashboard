@@ -352,7 +352,7 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillStyle = getTeamStrongColor(team);
   ctx.fillRect(0, 0, w, h);
 
-  const logoBox = 420;
+  const logoBox = 840;
   drawLogoInBox(ctx, (w - logoBox) / 2, h * 0.22, logoBox, logoBox, team, logoImg);
 
   ctx.textAlign = "center";
