@@ -2641,34 +2641,134 @@ function filterStatRowsForTeamKw(rows, teamKw) {
   });
 }
 
-function pickTopBatterForTeamWeek(batterRows, teamKw) {
+function emptyBatterAccum() {
+  return { hr: 0, h: 0, rbi: 0, runs: 0, ab: 0, bb: 0, hbp: 0, sf: 0, tb: 0 };
+}
+
+function accumulateBatterLineStats(acc, r) {
+  const hr = pickNum(r, ["hr", "HR", "home_run", "홈런"]);
+  const h = pickNum(r, ["h", "H", "hits", "hit", "안타"]);
+  const d2 = pickNum(r, ["2b", "doubles", "double", "2B"]);
+  const d3 = pickNum(r, ["3b", "triples", "triple", "3B"]);
+  acc.hr += hr;
+  acc.h += h;
+  acc.rbi += pickNum(r, ["rbi", "RBI", "bi", "타점"]);
+  acc.runs += pickNum(r, ["runs", "r", "R", "run", "득점", "rs"]);
+  acc.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "타수"]);
+  acc.bb += pickNum(r, ["bb", "BB", "walks", "base_on_balls"]);
+  acc.hbp += pickNum(r, ["hbp", "HBP"]);
+  acc.sf += pickNum(r, ["sf", "SF", "sac_fly", "sacrifice_fly"]);
+  const singles = Math.max(0, h - d2 - d3 - hr);
+  acc.tb += singles + 2 * d2 + 3 * d3 + 4 * hr;
+}
+
+function finishBatterAccumTotals(acc) {
+  const { ab, h, hr, rbi, runs, bb, hbp, sf, tb } = acc;
+  const avg = ab > 0 ? h / ab : null;
+  const obpDen = ab + bb + hbp + sf;
+  const obp = obpDen > 0 ? (h + bb + hbp) / obpDen : null;
+  const slg = ab > 0 ? tb / ab : null;
+  const ops =
+    obp != null && slg != null && Number.isFinite(obp + slg) ? obp + slg : null;
+  return {
+    hr,
+    h,
+    rbi,
+    runs,
+    ab,
+    avg: avg != null && Number.isFinite(avg) ? avg : null,
+    ops,
+  };
+}
+
+function mvpBatterWeekScoreFromAccum(acc) {
+  return acc.hr * 3 + acc.rbi * 2 + acc.h * 1;
+}
+
+/** 주간 MVP 타자: 홈런×3 + 타점×2 + 안타×1, 경기별 라인 포함 */
+function buildTeamWeeklyMvpBatter(batterRows, teamKw, gameResults) {
   const rows = filterStatRowsForTeamKw(batterRows, teamKw);
   const byPlayer = new Map();
   for (const r0 of rows) {
     const r = r0 && typeof r0 === "object" ? r0 : {};
     const player = pickPlayerName(r);
     if (!player || player === "—") continue;
-    const key = player;
-    if (!byPlayer.has(key)) {
-      byPlayer.set(key, { player, team: pickTeamName(r) || null, hr: 0, h: 0, rbi: 0, ab: 0 });
+    if (!byPlayer.has(player)) {
+      byPlayer.set(player, {
+        player,
+        team: pickTeamName(r) || resolveTeamDisplayName(teamKw),
+        totals: emptyBatterAccum(),
+        rows: [],
+      });
     }
-    const acc = byPlayer.get(key);
-    acc.hr += pickNum(r, ["hr", "HR", "home_run", "홈런"]);
-    acc.h += pickNum(r, ["h", "H", "hits", "hit", "안타"]);
-    acc.rbi += pickNum(r, ["rbi", "RBI", "bi", "타점"]);
-    acc.ab += pickNum(r, ["ab", "AB", "at_bats", "atBats", "타수"]);
+    const ent = byPlayer.get(player);
+    ent.rows.push(r);
+    accumulateBatterLineStats(ent.totals, r);
   }
-  const list = [...byPlayer.values()].map((x) => ({
-    ...x,
-    avg: x.ab > 0 ? x.h / x.ab : null,
-  }));
-  list.sort((a, b) => {
-    if (b.hr !== a.hr) return b.hr - a.hr;
-    if (b.h !== a.h) return b.h - a.h;
-    if (b.rbi !== a.rbi) return b.rbi - a.rbi;
-    return String(a.player).localeCompare(String(b.player), "ko");
-  });
-  return list[0] || null;
+
+  let best = null;
+  let bestScore = -Infinity;
+  for (const ent of byPlayer.values()) {
+    const score = mvpBatterWeekScoreFromAccum(ent.totals);
+    if (
+      score > bestScore ||
+      (score === bestScore &&
+        best &&
+        String(ent.player).localeCompare(String(best.player), "ko") < 0)
+    ) {
+      bestScore = score;
+      best = ent;
+    }
+  }
+  if (!best) return null;
+
+  const byGid = new Map();
+  for (const r of best.rows) {
+    const gid = normalizeGameId(r?.game_id ?? r?.gameId ?? "");
+    if (!gid) continue;
+    if (!byGid.has(gid)) byGid.set(gid, emptyBatterAccum());
+    accumulateBatterLineStats(byGid.get(gid), r);
+  }
+
+  const games = [];
+  for (const gr of Array.isArray(gameResults) ? gameResults : []) {
+    const gid = normalizeGameId(gr?.game_id ?? "");
+    if (!gid || !byGid.has(gid)) continue;
+    const gAcc = byGid.get(gid);
+    games.push({
+      game_date: String(gr?.game_date || "").slice(0, 10),
+      opponent: gr?.opponent ?? null,
+      is_home: Boolean(gr?.is_home),
+      ab: gAcc.ab,
+      h: gAcc.h,
+      hr: gAcc.hr,
+      rbi: gAcc.rbi,
+      runs: gAcc.runs,
+    });
+  }
+  games.sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)));
+
+  return {
+    player: best.player,
+    team: best.team || resolveTeamDisplayName(teamKw),
+    total: finishBatterAccumTotals(best.totals),
+    games,
+  };
+}
+
+function pickTopBatterForTeamWeek(batterRows, teamKw) {
+  const mvp = buildTeamWeeklyMvpBatter(batterRows, teamKw, []);
+  if (!mvp) return null;
+  const t = mvp.total || {};
+  return {
+    player: mvp.player,
+    team: mvp.team,
+    hr: t.hr ?? 0,
+    h: t.h ?? 0,
+    rbi: t.rbi ?? 0,
+    ab: t.ab ?? 0,
+    avg: t.avg ?? null,
+  };
 }
 
 function pickTopPitcherForTeamWeek(pitcherRows, teamKw) {
@@ -2766,7 +2866,18 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     boxByGameId
   );
   const week_record = buildTeamWeekRecordForKw(teamGames, teamKw);
-  const top_batter = pickTopBatterForTeamWeek(box.batters, teamKw);
+  const mvp_batter = buildTeamWeeklyMvpBatter(box.batters, teamKw, gameResults);
+  const top_batter = mvp_batter
+    ? {
+        player: mvp_batter.player,
+        team: mvp_batter.team,
+        hr: mvp_batter.total?.hr ?? 0,
+        h: mvp_batter.total?.h ?? 0,
+        rbi: mvp_batter.total?.rbi ?? 0,
+        ab: mvp_batter.total?.ab ?? 0,
+        avg: mvp_batter.total?.avg ?? null,
+      }
+    : pickTopBatterForTeamWeek(box.batters, teamKw);
   const top_pitcher = pickTopPitcherForTeamWeek(box.pitchers, teamKw);
   const best_game = pickBestWinGameForTeam(gameResults);
 
@@ -2799,6 +2910,7 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     week_label: formatWeekLabelKm(week_start, week_end),
     week_record,
     rank_change,
+    mvp_batter,
     top_batter,
     top_pitcher,
     best_game,

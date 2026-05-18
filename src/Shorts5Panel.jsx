@@ -10,6 +10,7 @@ import {
   drawShorts5IntroSlide,
   drawShorts5PitcherSlide,
   drawShorts5RecordSlide,
+  loadShorts5BattingSlideAssets,
   shorts5StandingsDateLabel,
 } from "./shorts5SlideDraw.js";
 import "./Shorts4Panel.css";
@@ -201,7 +202,10 @@ export default function Shorts5Panel() {
       if (slide.type === "intro") drawShorts5IntroSlide(ctx, w, h, data, logoImg);
       else if (slide.type === "record")
         drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
-      else if (slide.type === "batting") drawShorts5BattingSlide(ctx, w, h, data);
+      else if (slide.type === "batting") {
+        const battingAssets = await loadShorts5BattingSlideAssets(data);
+        await drawShorts5BattingSlide(ctx, w, h, data, battingAssets);
+      }
       else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
       else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
       else
@@ -239,6 +243,9 @@ export default function Shorts5Panel() {
         throw new Error(String(res.error || res.message || "API 오류"));
       }
       setData(res);
+      if (res?.mvp_batter?.player) {
+        loadShorts5BattingSlideAssets(res).catch(() => {});
+      }
       setCapturedSlides([]);
       setSlideIdx(0);
     } catch (e) {
