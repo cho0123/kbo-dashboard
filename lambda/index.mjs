@@ -308,7 +308,7 @@ function segmentBoundarySeconds(seg, key) {
 
 const HIGHLIGHT_THUMBNAIL_DUR_SEC = 0.3;
 
-/** 썸네일 0.3초 클립 — duration 고정, 일반 구간과 구분 */
+/** 썸네일 클립 — start/end 구간 사용, 유효 길이 없으면 0.3초 폴백 */
 const THUMB_SEG_FLAG = "_thumbnailClip";
 
 function probeVideoDimensions(workDir, fileName) {
@@ -1528,21 +1528,15 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     let startSec;
     let endSec;
     let duration;
-    if (seg[THUMB_SEG_FLAG] === true) {
-      const rawStart =
-        typeof seg.start === "number" && Number.isFinite(seg.start)
-          ? seg.start
-          : Number(seg.start);
-      startSec =
-        Number.isFinite(rawStart) && rawStart >= 0 ? rawStart : 0;
-      duration = HIGHLIGHT_THUMBNAIL_DUR_SEC;
-      endSec = startSec + duration;
-    } else {
-      console.log("[seg] startMs:", seg.startMs, "endMs:", seg.endMs);
-      startSec = segmentBoundarySeconds(seg, "start");
-      endSec = segmentBoundarySeconds(seg, "end");
-      duration = endSec - startSec;
-      if (duration <= 0) duration = HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
+    console.log("[seg] startMs:", seg.startMs, "endMs:", seg.endMs);
+    startSec = segmentBoundarySeconds(seg, "start");
+    endSec = segmentBoundarySeconds(seg, "end");
+    duration = endSec - startSec;
+    if (duration <= 0) {
+      duration =
+        seg[THUMB_SEG_FLAG] === true
+          ? HIGHLIGHT_THUMBNAIL_DUR_SEC
+          : HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
     }
     console.log(
       "[seg] start:",
