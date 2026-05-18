@@ -13,6 +13,26 @@ const SHORTS_TYPES = [
   { id: "shorts4", label: "쇼츠4" },
 ];
 
+const PRESET_FORM_CONTROL_SELECTOR =
+  "input, select, textarea, option, label, button, .preset-modal";
+
+/** 모달 바깥(백드롭) 클릭만 닫기 — input 등 폼 요소 클릭은 제외 */
+function handlePresetModalOverlayPointerDown(e, onClose) {
+  if (e.button !== 0) return;
+  const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+  for (const node of path) {
+    if (!(node instanceof Element)) continue;
+    if (node.classList?.contains("preset-modal")) return;
+    if (node.matches?.(PRESET_FORM_CONTROL_SELECTOR)) return;
+  }
+  if (e.target !== e.currentTarget) return;
+  onClose();
+}
+
+const stopPresetModalBubble = (e) => {
+  e.stopPropagation();
+};
+
 export default function VideoPresetsPanel() {
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -267,17 +287,15 @@ export default function VideoPresetsPanel() {
         <div
           className="preset-modal-overlay"
           role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeForm();
-          }}
+          onMouseDown={(e) => handlePresetModalOverlayPointerDown(e, closeForm)}
         >
           <div
             className="preset-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="preset-form-title"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseDown={stopPresetModalBubble}
+            onClick={stopPresetModalBubble}
           >
             <h2 id="preset-form-title" className="preset-modal-title">
               {editingId ? "프리셋 편집" : "새 프리셋"}
@@ -400,8 +418,6 @@ export default function VideoPresetsPanel() {
                 inputMode="numeric"
                 value={music_start_time}
                 style={{ minWidth: 140, width: "100%", maxWidth: 280 }}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   setMusicStartTime(Math.max(0, Number(e.target.value) || 0))
                 }
