@@ -1129,6 +1129,26 @@ export default function Shorts3Panel({
       });
     };
 
+    const drawGlobalKeepTexts = () => {
+      const thumb = thumbnailSegmentRef.current;
+      if (!thumb?.keepText1 && !thumb?.keepText2) return;
+      drawPreviewBottomTexts({
+        text: thumb?.keepText1 ? String(thumb.text1 || "").trim() : "",
+        text2: thumb?.keepText2 ? String(thumb.text2 || "").trim() : "",
+        textColor: thumb?.textColor1,
+        textColor2: thumb?.textColor2,
+        textSize: thumb?.fontSize1,
+        textSize2: thumb?.fontSize2,
+        textY: clampThumbnailTextYPercent(thumb?.textY1, 85),
+        textY2: clampThumbnailTextYPercent(thumb?.textY2, 85),
+        textOpacity: 1,
+        textOpacity2: 1,
+      });
+    };
+
+    const skipSegmentTextOverlay =
+      thumbnailSelected && playAllRef.current;
+
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
       let srcCropW = Math.round((srcCropH * 1080) / 1920);
       if (srcCropW > vw) srcCropW = vw;
@@ -1150,7 +1170,9 @@ export default function Shorts3Panel({
           W,
           H
         );
-        drawPreviewThumbnailTexts();
+        if (!skipSegmentTextOverlay) {
+          drawPreviewThumbnailTexts();
+        }
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1177,6 +1199,7 @@ export default function Shorts3Panel({
         );
       }
       drawPreviewBottomTexts(selectedSeg);
+      drawGlobalKeepTexts();
       return;
     }
 
@@ -1208,7 +1231,9 @@ export default function Shorts3Panel({
           W,
           midH
         );
-        drawPreviewThumbnailTexts();
+        if (!skipSegmentTextOverlay) {
+          drawPreviewThumbnailTexts();
+        }
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1239,6 +1264,7 @@ export default function Shorts3Panel({
         );
       }
       drawPreviewBottomTexts(selectedSeg);
+      drawGlobalKeepTexts();
       return;
     }
 
@@ -1412,40 +1438,9 @@ export default function Shorts3Panel({
       }
     }
 
-    // 하단 텍스트 (선택된 구간 · 텍스트 1 / 2)
-    const t1 = String(selectedSeg?.text ?? "").trim();
-    const t2 = String(selectedSeg?.text2 ?? "").trim();
-    const fs1 = Math.max(
-      8,
-      Math.round(((Number(selectedSeg?.textSize) || 48) * ch) / 1920)
-    );
-    const fs2 = Math.max(
-      8,
-      Math.round(((Number(selectedSeg?.textSize2) || 48) * ch) / 1920)
-    );
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    if (t1) {
-      const textYPos = ch * (Number(selectedSeg.textY ?? 85) / 100);
-      ctx.font = `bold ${fs1}px sans-serif`;
-      ctx.fillStyle = hexToRgba(
-        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor || "").trim())
-          ? selectedSeg.textColor
-          : TEXT_COLORS[0],
-        roundOpacity01(selectedSeg.textOpacity ?? 1)
-      );
-      ctx.fillText(t1, cw / 2, textYPos);
-    }
-    if (t2) {
-      const textY2Pos = ch * (Number(selectedSeg.textY2 ?? 85) / 100);
-      ctx.font = `bold ${fs2}px sans-serif`;
-      ctx.fillStyle = hexToRgba(
-        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor2 || "").trim())
-          ? selectedSeg.textColor2
-          : TEXT_COLORS[0],
-        roundOpacity01(selectedSeg.textOpacity2 ?? 1)
-      );
-      ctx.fillText(t2, cw / 2, textY2Pos);
+    if (!skipSegmentTextOverlay) {
+      drawPreviewBottomTexts(selectedSeg);
+      drawGlobalKeepTexts();
     }
   }, [
     segments,
