@@ -777,6 +777,99 @@ function finalizeHighlightVfChain(parts) {
   return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
 }
 
+/** drawtext 제외 — PNG 오버레이 전 [base]용 (fps는 최종 단계에서) */
+function finalizeHighlightVfBase(parts) {
+  const chain = parts.join(",");
+  return /format=yuv420p/.test(chain) ? chain : `${chain},format=yuv420p`;
+}
+
+function appendHighlightKboDrawtext(parts, opts) {
+  const {
+    topTextFile,
+    bottomTextFile,
+    bottomTextFile2,
+    topFontSize,
+    bottomFontSize,
+    bottomFontSize2,
+    topColor,
+    topOpacity,
+    bottomColor,
+    bottomColor2,
+    bottomOpacity,
+    bottomOpacity2,
+    topShadow,
+    bottomShadow,
+    bottomShadow2,
+    textY,
+    textY2,
+    topFontPath,
+    bottomFontPath,
+    bottomFontPath2,
+  } = opts;
+  const fsTop = Math.round(topFontSize);
+  const fsBottom = Math.round(bottomFontSize);
+  if (bottomTextFile && bottomFontPath) {
+    const shadow = bottomShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
+    );
+  }
+  const fsBottom2 = Math.round(
+    Number.isFinite(Number(bottomFontSize2))
+      ? Number(bottomFontSize2)
+      : fsBottom
+  );
+  if (bottomTextFile2 && bottomFontPath2) {
+    const shadow2 = bottomShadow2
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    const y2 =
+      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
+    );
+  }
+  if (topTextFile && topFontPath) {
+    const shadow = topShadow
+      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
+      : "";
+    parts.push(
+      `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105${shadow}`
+    );
+  }
+}
+
+function appendHighlightDrawtextByLayout(layout, parts, opts) {
+  if (layout === "fullscreen") {
+    appendHighlightBottomDrawtext(parts, opts);
+    appendHighlightGlobalDrawtext(parts, opts.layout || "fullscreen", opts);
+  } else if (layout === "topbottom") {
+    appendHighlightTopBottomDrawtext(parts, opts);
+    appendHighlightGlobalDrawtext(parts, opts.layout || "topbottom", opts);
+  } else {
+    appendHighlightKboDrawtext(parts, opts);
+    appendHighlightGlobalDrawtext(parts, opts.layout || "kbo", opts);
+  }
+}
+
+function buildHighlightDrawtextOnlyVfByLayout(layout, opts) {
+  const parts = [];
+  appendHighlightDrawtextByLayout(layout, parts, opts);
+  return parts.join(",");
+}
+
+/** 영상 → PNG → drawtext (텍스트 최상단) */
+function buildHighlightPngOverlayFilterComplex(vfNoText, drawtextOnly, audioSuffix) {
+  const midTail =
+    drawtextOnly && String(drawtextOnly).trim()
+      ? `${drawtextOnly},fps=30`
+      : "fps=30";
+  const video = `[0:v]${vfNoText}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[mid];[mid]${midTail}[out]`;
+  return audioSuffix ? `${video};${audioSuffix}` : video;
+}
+
 function resolveHighlightOverlayPngFile(hasOverlayPng, hasThumbnailPng) {
   if (hasOverlayPng) return "overlay.png";
   if (hasThumbnailPng) return "thumbnail.png";
@@ -785,6 +878,7 @@ function resolveHighlightOverlayPngFile(hasOverlayPng, hasThumbnailPng) {
 
 function buildHighlightSegmentVfFullscreen(opts) {
   const { cw, ih, cx, videoScaleY, videoOffsetY, baseMode } = opts;
+  const withText = opts.withText !== false;
   let parts;
   if (baseMode === "image") {
     parts = ["scale=1080:1920", "setsar=1", "format=yuv420p"];
@@ -800,13 +894,14 @@ function buildHighlightSegmentVfFullscreen(opts) {
       "format=yuv420p",
     ];
   }
-  appendHighlightBottomDrawtext(parts, opts);
-  appendHighlightGlobalDrawtext(parts, opts.layout || "fullscreen", opts);
+  if (!withText) return finalizeHighlightVfBase(parts);
+  appendHighlightDrawtextByLayout("fullscreen", parts, opts);
   return finalizeHighlightVfChain(parts);
 }
 
 function buildHighlightSegmentVfTopBottom(opts) {
   const { cw, ih, cx, baseMode, videoScaleY, videoOffsetY } = opts;
+  const withText = opts.withText !== false;
   let parts;
   if (baseMode === "image") {
     const imgCropY = Math.max(
@@ -834,8 +929,8 @@ function buildHighlightSegmentVfTopBottom(opts) {
       "format=yuv420p",
     ];
   }
-  appendHighlightTopBottomDrawtext(parts, opts);
-  appendHighlightGlobalDrawtext(parts, opts.layout || "topbottom", opts);
+  if (!withText) return finalizeHighlightVfBase(parts);
+  appendHighlightDrawtextByLayout("topbottom", parts, opts);
   return finalizeHighlightVfChain(parts);
 }
 
@@ -847,6 +942,7 @@ function buildHighlightSegmentVfByLayout(layout, opts) {
 }
 
 function buildHighlightSegmentVf(opts) {
+  const withText = opts.withText !== false;
   const {
     cw,
     ih,
@@ -923,45 +1019,9 @@ function buildHighlightSegmentVf(opts) {
       : `drawbox=x='10+(iw-20)*${xR}':y='280+(ih-280-160)*${yR}':w='(iw-20)*${wR}':h='(ih-280-160)*${hR}':color=${c}:t=fill`;
     parts.push(boxDraw);
   }
-  const fsTop = Math.round(topFontSize);
-  const fsBottom = Math.round(bottomFontSize);
-
-  /** 하단 첫 줄(text) */
-  if (bottomTextFile && bottomFontPath) {
-    const shadow = bottomShadow
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
-    );
-  }
-  const fsBottom2 = Math.round(
-    Number.isFinite(Number(bottomFontSize2))
-      ? Number(bottomFontSize2)
-      : fsBottom
-  );
-  /** 하단 둘째 줄(text2) — 별도 drawtext */
-  if (bottomTextFile2 && bottomFontPath2) {
-    const shadow2 = bottomShadow2
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    const y2 =
-      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
-    );
-  }
-  if (topTextFile && topFontPath) {
-    const shadow = topShadow
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(topFontPath)}:textfile=${escapePathForDrawtextFilter(topTextFile)}:fontsize=${fsTop}:fontcolor=${fontColorForFfmpegWithOpacity(topColor, topOpacity)}:x=(w-text_w)/2:y=h*0.105${shadow}`
-    );
-  }
-  appendHighlightGlobalDrawtext(parts, opts.layout || "kbo", opts);
-  const chain = parts.join(",");
-  return /fps=30/.test(chain) ? chain : `${chain},fps=30`;
+  if (!withText) return finalizeHighlightVfBase(parts);
+  appendHighlightDrawtextByLayout("kbo", parts, opts);
+  return finalizeHighlightVfChain(parts);
 }
 
 function resolveSegmentImageS3Key(jobId, imageS3Key) {
@@ -1064,7 +1124,7 @@ async function processHighlightImageSegment(ctx) {
   const globalVfExtras = globalTextMeta
     ? prepareGlobalTextVfExtras(workDir, i, globalTextMeta)
     : {};
-  const vfSeg = buildHighlightSegmentVfByLayout(layout, {
+  const vfSegOpts = {
     cw,
     ih,
     cx: imageCx,
@@ -1098,7 +1158,13 @@ async function processHighlightImageSegment(ctx) {
     videoScaleY,
     videoOffsetY,
     baseMode: "image",
+  };
+  const vfSeg = buildHighlightSegmentVfByLayout(layout, vfSegOpts);
+  const vfNoText = buildHighlightSegmentVfByLayout(layout, {
+    ...vfSegOpts,
+    withText: false,
   });
+  const drawtextOnly = buildHighlightDrawtextOnlyVfByLayout(layout, vfSegOpts);
 
   const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
   const narrLocalRel = `narration_${i}.mp3`;
@@ -1133,7 +1199,11 @@ async function processHighlightImageSegment(ctx) {
 
   if (overlayPngFile) {
     if (hasNarrAudio) {
-      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+      const fc = buildHighlightPngOverlayFilterComplex(
+        vfNoText,
+        drawtextOnly,
+        `[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
+      );
       runFfmpeg(
         [
           "-y",
@@ -1181,8 +1251,12 @@ async function processHighlightImageSegment(ctx) {
     } else {
       const muteSegNoNarr = muteOriginal && !hasNarrAudio;
       const fc = muteSegNoNarr
-        ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];anullsrc=r=48000:cl=stereo[aud]`
-        : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out]`;
+        ? buildHighlightPngOverlayFilterComplex(
+            vfNoText,
+            drawtextOnly,
+            "anullsrc=r=48000:cl=stereo[aud]"
+          )
+        : buildHighlightPngOverlayFilterComplex(vfNoText, drawtextOnly, "");
       const overlayNoNarrArgs = [
         "-y",
         "-loop",
@@ -1594,7 +1668,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       !isThumbSeg && globalTextMeta
         ? prepareGlobalTextVfExtras(workDir, i, globalTextMeta)
         : {};
-    const vfSeg = buildHighlightSegmentVfByLayout(layout, {
+    const vfSegOpts = {
       cw,
       ih,
       cx,
@@ -1627,7 +1701,13 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomBarColor: meta?.bottomBarColor,
       videoScaleY,
       videoOffsetY,
+    };
+    const vfSeg = buildHighlightSegmentVfByLayout(layout, vfSegOpts);
+    const vfNoText = buildHighlightSegmentVfByLayout(layout, {
+      ...vfSegOpts,
+      withText: false,
     });
+    const drawtextOnly = buildHighlightDrawtextOnlyVfByLayout(layout, vfSegOpts);
     const narrS3Key = `jobs/${jobId}/narration_${i}.mp3`;
     const narrLocalRel = `narration_${i}.mp3`;
     const narrLocalAbs = join(workDir, narrLocalRel);
@@ -1658,7 +1738,11 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     );
     if (overlayPngFile) {
       if (hasNarrAudio) {
-        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+        const fc = buildHighlightPngOverlayFilterComplex(
+          vfNoText,
+          drawtextOnly,
+          `[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
+        );
         runFfmpeg(
           [
             "-y",
@@ -1706,8 +1790,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       } else {
         const muteSegNoNarr = muteOriginal && !hasNarrAudio;
         const fc = muteSegNoNarr
-          ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];anullsrc=r=48000:cl=stereo[aud]`
-          : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out]`;
+          ? buildHighlightPngOverlayFilterComplex(
+              vfNoText,
+              drawtextOnly,
+              "anullsrc=r=48000:cl=stereo[aud]"
+            )
+          : buildHighlightPngOverlayFilterComplex(vfNoText, drawtextOnly, "");
         const overlayNoNarrArgs = [
           "-y",
           "-ss",
