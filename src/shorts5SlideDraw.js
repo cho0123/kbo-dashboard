@@ -295,14 +295,14 @@ function isoAddDaysYmd(weekStartIso, deltaDays) {
   return `${y}-${mo}-${da}`;
 }
 
-/** week_start ~ week_end(또는 +6일) "M월D일 ~ M월D일" */
+/** week_start ~ week_end(또는 +6일) "M월D일 - M월D일" */
 function fmtWeekRangeMd(weekStartIso, weekEndIso) {
   const start = fmtWeekStartMd(weekStartIso);
   if (!start) return "";
   const endIso =
     String(weekEndIso || "").slice(0, 10) || isoAddDaysYmd(weekStartIso, 6);
   const end = fmtWeekStartMd(endIso);
-  return end ? `${start} ~ ${end}` : start;
+  return end ? `${start} - ${end}` : start;
 }
 
 /** 흰선 아래 주간 요약: "5월11일 주간  3승 3패  (3위)" */
@@ -402,11 +402,11 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("주간결산", w / 2, weeklyTitleY);
 
-  const weekRangeY = weeklyTitleY + 80;
+  const weekRangeY = weeklyTitleY + 100;
   const weekRangeStr = fmtWeekRangeMd(data?.week_start, data?.week_end);
   if (weekRangeStr) {
     ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.font = `500 52px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `500 80px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillText(weekRangeStr, w / 2, weekRangeY);
   }
 
