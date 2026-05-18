@@ -6708,16 +6708,6 @@ export default function Shorts3Panel({
 
           {thumbnailSelected ? (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 12 }}>
-                <span
-                  className="muted"
-                  style={{ fontSize: 12, whiteSpace: "nowrap" }}
-                >
-                  시작: {thumbnailSegment.start}.
-                  {String(thumbnailSegment.startMs).padStart(2, "0")}
-                </span>
-              </div>
-
               {/* 크롭 오프셋 (썸네일 전용) */}
               <div
                 style={{
