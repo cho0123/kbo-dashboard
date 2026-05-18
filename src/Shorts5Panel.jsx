@@ -51,21 +51,22 @@ function slideExportKeyShorts5Capture(slide) {
   return "intro";
 }
 
-function getTuesdayKst(weekOffset = 0) {
+/** KBO 주차: 월~일. 이번 주 월요일(오늘이 월이면 오늘), 화~일이면 직전 월요일. */
+function getMondayKst(weekOffset = 0) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   const dow = now.getDay();
-  const daysFromTue = (dow + 5) % 7;
-  const tue = new Date(now);
-  tue.setDate(now.getDate() - daysFromTue + weekOffset * 7);
-  return tue.toLocaleDateString("sv-SE");
+  const daysFromMon = (dow + 6) % 7;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - daysFromMon + weekOffset * 7);
+  return mon.toLocaleDateString("sv-SE");
 }
 
-function getThisWeekTuesdayKst() {
-  return getTuesdayKst(0);
+function getThisWeekMondayKst() {
+  return getMondayKst(0);
 }
 
-function getLastWeekTuesdayKst() {
-  return getTuesdayKst(-1);
+function getLastWeekMondayKst() {
+  return getMondayKst(-1);
 }
 
 function delayMs(ms) {
@@ -138,7 +139,7 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide },
 
 export default function Shorts5Panel() {
   const [teamKw, setTeamKw] = useState("LG");
-  const [weekStart, setWeekStart] = useState(() => getLastWeekTuesdayKst());
+  const [weekStart, setWeekStart] = useState(() => getLastWeekMondayKst());
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -213,14 +214,16 @@ export default function Shorts5Panel() {
     [slideIdx, paintSlideAt]
   );
 
-  const onFetch = useCallback(async () => {
+  const onFetch = useCallback(async (overrides) => {
+    const team = String(overrides?.team ?? teamKw).trim();
+    const week = String(overrides?.weekStart ?? weekStart).trim();
     setBusy(true);
     setError(null);
     try {
       const res = await postKbo({
         action: "weekly_summary",
-        team: teamKw,
-        week_start: weekStart,
+        team,
+        week_start: week,
       });
       if (res && res.ok === false) {
         throw new Error(String(res.error || res.message || "API 오류"));
@@ -305,7 +308,7 @@ export default function Shorts5Panel() {
   return (
     <div className="section soft shorts4-root">
       <div className="section-title">5. 쇼츠-주간결산</div>
-      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 화~월 (week_start = 화요일)</div>
+      <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드 · 월~일 (week_start = 월요일)</div>
 
       <div
         style={{
@@ -378,6 +381,7 @@ export default function Shorts5Panel() {
               setTeamKw(t.keyword);
               setCapturedSlides([]);
               setSlideIdx(0);
+              void onFetch({ team: t.keyword });
             }}
             disabled={rowBusy}
           >
@@ -390,7 +394,7 @@ export default function Shorts5Panel() {
         <button
           type="button"
           className="primary"
-          onClick={() => setWeekStart(getThisWeekTuesdayKst())}
+          onClick={() => setWeekStart(getThisWeekMondayKst())}
           disabled={rowBusy}
         >
           이번주
@@ -398,7 +402,7 @@ export default function Shorts5Panel() {
         <button
           type="button"
           className="primary"
-          onClick={() => setWeekStart(getLastWeekTuesdayKst())}
+          onClick={() => setWeekStart(getLastWeekMondayKst())}
           disabled={rowBusy}
         >
           지난주
