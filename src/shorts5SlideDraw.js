@@ -107,7 +107,7 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillText(fmtTeamShort(team), w / 2, h * 0.86);
 }
 
-/** slide2: 주간 팀성적 */
+/** slide2: 경기 결과 + 주간 팀성적 */
 export function drawShorts5RecordSlide(ctx, w, h, data, logoImg) {
   const team = data?.team_name || "";
   const rec = data?.week_record || {};
@@ -118,6 +118,72 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg) {
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#0c1628";
   ctx.fillRect(0, 0, w, h);
+
+  const games = Array.isArray(data?.games) ? data.games : [];
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFD700";
+  ctx.font = `800 64px "${FONT_TITLE}", sans-serif`;
+  ctx.fillText("경기 결과", w / 2, 120);
+
+  const padX = 56;
+  const rowH = 130;
+  const y0 = 220;
+  const maxRows = 8;
+  const list = games.slice(-maxRows);
+  let gamesBottom = y0;
+
+  if (!list.length) {
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.font = `700 44px "${FONT_BODY}", sans-serif`;
+    ctx.fillText("해당 주간 경기 없음", w / 2, h / 2);
+    gamesBottom = h / 2 + 60;
+  } else {
+    ctx.textAlign = "left";
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i];
+      const y = y0 + i * rowH;
+      const result = g.result === "win" ? "승" : g.result === "loss" ? "패" : "무";
+      const resultColor =
+        g.result === "win" ? "#4ade80" : g.result === "loss" ? "#f87171" : "#94a3b8";
+      const opp = fmtTeamShort(g.opponent);
+      const score = `${g.team_score ?? "—"} : ${g.opp_score ?? "—"}`;
+      const dateStr = String(g.game_date || "").slice(5).replace("-", "/");
+      const homeMark = g.is_home ? "홈" : "원정";
+
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.beginPath();
+      ctx.roundRect(padX, y, w - padX * 2, rowH - 16, 20);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = `600 32px "${FONT_BODY}", sans-serif`;
+      ctx.fillText(`${dateStr} ${homeMark}`, padX + 24, y + 36);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `800 48px "${FONT_BODY}", sans-serif`;
+      ctx.fillText(`${opp}  ${score}`, padX + 24, y + 88);
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = resultColor;
+      ctx.font = `900 52px "${FONT_TITLE}", sans-serif`;
+      ctx.fillText(result, w - padX - 24, y + 72);
+      ctx.textAlign = "left";
+    }
+    gamesBottom = y0 + list.length * rowH;
+  }
+
+  const dividerY = gamesBottom + 16;
+  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padX, dividerY);
+  ctx.lineTo(w - padX, dividerY);
+  ctx.stroke();
+
+  const recordYOffset = dividerY + 24 - 120;
+  ctx.save();
+  ctx.translate(0, recordYOffset);
 
   drawLogoInBox(ctx, w / 2 - 90, 120, 180, 180, team, logoImg);
 
@@ -146,6 +212,8 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg) {
     ctx.fillStyle = "rgba(255,255,255,0.65)";
     ctx.fillText(`전주 ${rc.prev_rank}위 → 이번주 ${rc.current_rank}위`, w / 2, h * 0.72);
   }
+
+  ctx.restore();
 }
 
 /** slide3: 타격 하이라이트 */
