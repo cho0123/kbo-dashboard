@@ -547,9 +547,12 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 /** slide3: 타격 하이라이트 */
 export function drawShorts5BattingSlide(ctx, w, h, data) {
   const b = data?.top_batter;
+  const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#1a2840";
+  const [accentBg] = teamGrad(teamName);
+  ctx.fillStyle = accentBg || "#131922";
   ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
