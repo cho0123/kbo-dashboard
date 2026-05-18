@@ -1071,7 +1071,18 @@ export default function Shorts3Panel({
       videoOffsetY
     );
 
-    const drawPreviewBottomTexts = (selectedSeg) => {
+    const previewTextYFromPercent = (pct, kboHole) => {
+      const p = Math.min(100, Math.max(0, Number(pct)));
+      if (kboHole) {
+        const topBar = Math.round(ch * (280 / 1920));
+        const botBar = Math.round(ch * (160 / 1920));
+        const holeH = ch - topBar - botBar;
+        return topBar + (holeH * p) / 100;
+      }
+      return ch * (p / 100);
+    };
+
+    const drawPreviewBottomTexts = (selectedSeg, { kboHole = false } = {}) => {
       const t1 = String(selectedSeg?.text ?? "").trim();
       const t2 = String(selectedSeg?.text2 ?? "").trim();
       const fs1 = Math.max(
@@ -1085,7 +1096,10 @@ export default function Shorts3Panel({
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       if (t1) {
-        const textYPos = ch * (Number(selectedSeg.textY ?? 85) / 100);
+        const textYPos = previewTextYFromPercent(
+          Number(selectedSeg.textY ?? 85),
+          kboHole
+        );
         ctx.font = `bold ${fs1}px sans-serif`;
         ctx.fillStyle = hexToRgba(
           /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor || "").trim())
@@ -1096,7 +1110,10 @@ export default function Shorts3Panel({
         ctx.fillText(t1, cw / 2, textYPos);
       }
       if (t2) {
-        const textY2Pos = ch * (Number(selectedSeg.textY2 ?? 85) / 100);
+        const textY2Pos = previewTextYFromPercent(
+          Number(selectedSeg.textY2 ?? 85),
+          kboHole
+        );
         ctx.font = `bold ${fs2}px sans-serif`;
         ctx.fillStyle = hexToRgba(
           /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor2 || "").trim())
@@ -1117,16 +1134,21 @@ export default function Shorts3Panel({
 
     const drawPreviewThumbnailTexts = () => {
       const thumb = thumbnailSegmentRef.current;
-      drawPreviewBottomTexts({
-        text: thumb?.text1 ?? "",
-        text2: thumb?.text2 ?? "",
-        textColor: thumb?.textColor1,
-        textColor2: thumb?.textColor2,
-        textSize: thumb?.fontSize1,
-        textSize2: thumb?.fontSize2,
-        textY: clampThumbnailTextYPercent(thumb?.textY1, 85),
-        textY2: clampThumbnailTextYPercent(thumb?.textY2, 85),
-      });
+      const yDef = thumbnailTextYDefaultsForLayout(layout);
+      const kboHole = layout === LAYOUT_TYPES.KBO;
+      drawPreviewBottomTexts(
+        {
+          text: thumb?.text1 ?? "",
+          text2: thumb?.text2 ?? "",
+          textColor: thumb?.textColor1,
+          textColor2: thumb?.textColor2,
+          textSize: thumb?.fontSize1,
+          textSize2: thumb?.fontSize2,
+          textY: clampThumbnailTextYPercent(thumb?.textY1, yDef.textY1),
+          textY2: clampThumbnailTextYPercent(thumb?.textY2, yDef.textY2),
+        },
+        { kboHole }
+      );
     };
 
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
@@ -1292,6 +1314,7 @@ export default function Shorts3Panel({
           );
         }
       }
+      drawPreviewThumbnailTexts();
       return;
     }
 
