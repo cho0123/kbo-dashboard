@@ -349,11 +349,7 @@ function fmtRankChange(rankChange) {
 export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   const team = data?.team_name || data?.team_keyword || "팀";
   ctx.clearRect(0, 0, w, h);
-  const bg = getTeamStrongColor(team);
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, bg);
-  grad.addColorStop(1, "#0a0e14");
-  ctx.fillStyle = grad;
+  ctx.fillStyle = getTeamStrongColor(team);
   ctx.fillRect(0, 0, w, h);
 
   const logoBox = 420;
