@@ -75,18 +75,35 @@ function resultLabelAndColor(result) {
   return { label: "무", color: "#94a3b8" };
 }
 
-/** 순위 셀: N위 ▲M / N위 ▼M / N위 - */
-function formatPerGameRankCell(prevRank, rankAfter) {
+/** 순위 셀: N위(흰색) + 변동(▲/▼/-, 색상 분리) */
+function parsePerGameRankParts(prevRank, rankAfter) {
   const cur = rankAfter != null ? Number(rankAfter) : null;
   const prev = prevRank != null ? Number(prevRank) : null;
-  if (cur == null || !Number.isFinite(cur)) return { text: "", color: null };
+  if (cur == null || !Number.isFinite(cur)) return null;
+  const rankText = `${cur}위`;
   if (prev == null || !Number.isFinite(prev)) {
-    return { text: `${cur}위 -`, color: "#94a3b8" };
+    return { rankText, deltaText: " -", deltaColor: "#94a3b8" };
   }
   const diff = prev - cur;
-  if (diff > 0) return { text: `${cur}위 ▲${diff}`, color: "#4ade80" };
-  if (diff < 0) return { text: `${cur}위 ▼${Math.abs(diff)}`, color: "#f87171" };
-  return { text: `${cur}위 -`, color: "#94a3b8" };
+  if (diff > 0) return { rankText, deltaText: ` ▲${diff}`, deltaColor: "#4ade80" };
+  if (diff < 0) return { rankText, deltaText: ` ▼${Math.abs(diff)}`, deltaColor: "#f87171" };
+  return { rankText, deltaText: " -", deltaColor: "#94a3b8" };
+}
+
+function drawRecordRankCell(ctx, x, cy, parts, rankFontPx) {
+  const rankPx = rankFontPx + 2;
+  const deltaPx = rankFontPx;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.font = `800 ${rankPx}px ${RECORD_FONT}`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(parts.rankText, x, cy);
+  const rankW = ctx.measureText(parts.rankText).width;
+  if (parts.deltaText) {
+    ctx.font = `800 ${deltaPx}px ${RECORD_FONT}`;
+    ctx.fillStyle = parts.deltaColor || "#94a3b8";
+    ctx.fillText(parts.deltaText, x + rankW, cy);
+  }
 }
 
 function truncateTextToWidth(ctx, text, maxW) {
@@ -155,7 +172,7 @@ function drawRecordPitcherBadge(ctx, x, cy, label, bgColor) {
 }
 
 function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
-  const fontPx = 28;
+  const fontPx = 30;
   const ourS = String(game?.our_starter ?? "").trim();
   const oppS = String(game?.opp_starter ?? "").trim();
   const winP = String(game?.win_pitcher ?? "").trim();
@@ -339,7 +356,6 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
  */
 export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey = null) {
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
-  const rec = data?.week_record || {};
   const games = Array.isArray(data?.games) ? data.games.slice(0, 6) : [];
 
   ctx.clearRect(0, 0, w, h);
@@ -381,14 +397,16 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.stroke();
 
   const summaryFontPx = 48;
-  const summaryGapBelowLine = 60;
+  const summaryGapBelowLine = 40;
+  const titleCenterX =
+    titleTextX + ctx.measureText("주간 경기결과").width / 2;
   const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
   const summaryLine = fmtRecordWeekSummaryLine(data);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
-  ctx.fillText(summaryLine, w / 2, summaryCy);
+  ctx.fillText(summaryLine, titleCenterX, summaryCy);
 
   const tableTop = summaryCy + summaryFontPx / 2 + 40;
   const headerDividerAnchorY = tableTop + 20 + 40;
@@ -396,7 +414,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
   const line1H = 100;
   const line2H = 100;
-  const rowH = line1H + line2H + 4;
+  const rowH = line1H + line2H + 6;
   const maxRows = 6;
   const { left: colLeft, width: colW, dateColEnd } = recordTableRow1Layout(w);
   const cellPad = 10;
@@ -419,7 +437,6 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.fillText("날짜", datePadLeft, headerTextCy);
-  ctx.fillText("홈/원정", colLeft[1] + cellPad, headerTextCy);
   ctx.fillText("상대팀", colLeft[2] + cellPad, headerTextCy);
   ctx.fillText("스코어", colLeft[3] + cellPad, headerTextCy);
   ctx.fillText("승패", colLeft[4] + cellPad, headerTextCy);
@@ -445,7 +462,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
     for (let i = 0; i < maxRows; i++) {
       const y = firstRowY + i * rowH;
       const rowBoxTop = y - 42;
-      const rowBoxH = rowH - 4;
+      const rowBoxH = rowH - 6;
       const line1Top = rowBoxTop;
       const line2Top = rowBoxTop + line1H;
       const line1Cy = line1Top + line1H / 2;
@@ -479,7 +496,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const oppLogo = oppTk && logosByTeamKey ? logosByTeamKey[oppTk] : null;
       const rankAfter =
         g.rank_after != null && Number.isFinite(Number(g.rank_after)) ? Number(g.rank_after) : null;
-      const rankCell = formatPerGameRankCell(prevRankForDelta, rankAfter);
+      const rankParts = parsePerGameRankParts(prevRankForDelta, rankAfter);
 
       ctx.textBaseline = "middle";
       ctx.textAlign = "left";
@@ -505,10 +522,8 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
       drawRecordResultBadge(ctx, colLeft[4] + cellPad, line1Cy, g.result);
 
-      if (rankCell.text) {
-        ctx.fillStyle = rankCell.color || "#94a3b8";
-        ctx.font = `800 ${rankFontPx}px ${RECORD_FONT}`;
-        ctx.fillText(rankCell.text, colLeft[5] + cellPad, line1Cy);
+      if (rankParts) {
+        drawRecordRankCell(ctx, colLeft[5] + cellPad, line1Cy, rankParts, rankFontPx);
       }
 
       drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g);
@@ -517,14 +532,6 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
     }
   }
 
-  const summaryY = lastRowBottom + 36;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 72px ${RECORD_FONT}`;
-  shadowTextSoft(ctx);
-  ctx.fillText(fmtWeekRecordSummary(rec), w / 2, summaryY);
-  resetShadow(ctx);
 }
 
 /** slide3: 타격 하이라이트 */
