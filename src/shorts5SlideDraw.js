@@ -352,36 +352,45 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillStyle = getTeamStrongColor(team);
   ctx.fillRect(0, 0, w, h);
 
-  const dateY = h * 0.08 + 110;
-  const dateFontPx = Math.round(w * 0.085);
+  const teamNameY = h * 0.08 + 110;
+  const teamNameTargetW = w * 0.8;
+  let teamFontPx = 80;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFD700";
-  ctx.font = `700 ${dateFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(`${team} 주간결산`, w / 2, dateY);
-  resetShadow(ctx);
+  ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  while (ctx.measureText(team).width < teamNameTargetW && teamFontPx < 200) {
+    teamFontPx += 2;
+    ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(team, w / 2, teamNameY);
 
   const logoBox = 840;
-  drawLogoInBox(ctx, (w - logoBox) / 2, h * 0.22, logoBox, logoBox, team, logoImg);
+  const logoTop = h * 0.22;
+  drawLogoInBox(ctx, (w - logoBox) / 2, logoTop, logoBox, logoBox, team, logoImg);
+  const logoBottomY = logoTop + logoBox;
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  const dividerLineY = logoBottomY + 20;
+  const dividerLineW = w * 0.6;
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - dividerLineW / 2, dividerLineY);
+  ctx.lineTo(w / 2 + dividerLineW / 2, dividerLineY);
+  ctx.stroke();
+
+  const weeklyTitleY = dividerLineY + 30;
+  const weeklyFontPx = Math.round(w * 0.085);
   ctx.fillStyle = "#FFD700";
-  ctx.font = `800 64px "${FONT_BODY}", sans-serif`;
-  shadowText(ctx);
-  ctx.fillText(String(data?.week_label || ""), w / 2, h * 0.58);
-  resetShadow(ctx);
+  ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("주간결산", w / 2, weeklyTitleY);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `900 120px "${FONT_TITLE}", sans-serif`;
-  shadowText(ctx);
-  ctx.fillText("주간결산", w / 2, h * 0.72);
+  const gamePreviewY = h * 0.93 - 50;
+  ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  shadowTextSoft(ctx);
+  ctx.fillText("WEEKLY REPORT", w / 2, gamePreviewY);
   resetShadow(ctx);
-
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = `700 56px "${FONT_BODY}", sans-serif`;
-  ctx.fillText(fmtTeamShort(team), w / 2, h * 0.86);
 }
 
 /**
