@@ -523,8 +523,6 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   fontSize2: 52,
   textY1: 49,
   textY2: 57,
-  keepText1: false,
-  keepText2: false,
   narration: "",
   narrationDuration: null,
   narrationAudioUrl: null,
@@ -1129,26 +1127,6 @@ export default function Shorts3Panel({
       });
     };
 
-    const drawGlobalKeepTexts = () => {
-      const thumb = thumbnailSegmentRef.current;
-      if (!thumb?.keepText1 && !thumb?.keepText2) return;
-      drawPreviewBottomTexts({
-        text: thumb?.keepText1 ? String(thumb.text1 || "").trim() : "",
-        text2: thumb?.keepText2 ? String(thumb.text2 || "").trim() : "",
-        textColor: thumb?.textColor1,
-        textColor2: thumb?.textColor2,
-        textSize: thumb?.fontSize1,
-        textSize2: thumb?.fontSize2,
-        textY: clampThumbnailTextYPercent(thumb?.textY1, 85),
-        textY2: clampThumbnailTextYPercent(thumb?.textY2, 85),
-        textOpacity: 1,
-        textOpacity2: 1,
-      });
-    };
-
-    const skipSegmentTextOverlay =
-      thumbnailSelected && playAllRef.current;
-
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
       let srcCropW = Math.round((srcCropH * 1080) / 1920);
       if (srcCropW > vw) srcCropW = vw;
@@ -1170,9 +1148,7 @@ export default function Shorts3Panel({
           W,
           H
         );
-        if (!skipSegmentTextOverlay) {
-          drawPreviewThumbnailTexts();
-        }
+        drawPreviewThumbnailTexts();
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1199,7 +1175,6 @@ export default function Shorts3Panel({
         );
       }
       drawPreviewBottomTexts(selectedSeg);
-      drawGlobalKeepTexts();
       return;
     }
 
@@ -1231,9 +1206,7 @@ export default function Shorts3Panel({
           W,
           midH
         );
-        if (!skipSegmentTextOverlay) {
-          drawPreviewThumbnailTexts();
-        }
+        drawPreviewThumbnailTexts();
         return;
       }
       const selectedSeg = segments[selectedSegIndex];
@@ -1264,7 +1237,6 @@ export default function Shorts3Panel({
         );
       }
       drawPreviewBottomTexts(selectedSeg);
-      drawGlobalKeepTexts();
       return;
     }
 
@@ -1438,9 +1410,40 @@ export default function Shorts3Panel({
       }
     }
 
-    if (!skipSegmentTextOverlay) {
-      drawPreviewBottomTexts(selectedSeg);
-      drawGlobalKeepTexts();
+    // 하단 텍스트 (선택된 구간 · 텍스트 1 / 2)
+    const t1 = String(selectedSeg?.text ?? "").trim();
+    const t2 = String(selectedSeg?.text2 ?? "").trim();
+    const fs1 = Math.max(
+      8,
+      Math.round(((Number(selectedSeg?.textSize) || 48) * ch) / 1920)
+    );
+    const fs2 = Math.max(
+      8,
+      Math.round(((Number(selectedSeg?.textSize2) || 48) * ch) / 1920)
+    );
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (t1) {
+      const textYPos = ch * (Number(selectedSeg.textY ?? 85) / 100);
+      ctx.font = `bold ${fs1}px sans-serif`;
+      ctx.fillStyle = hexToRgba(
+        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor || "").trim())
+          ? selectedSeg.textColor
+          : TEXT_COLORS[0],
+        roundOpacity01(selectedSeg.textOpacity ?? 1)
+      );
+      ctx.fillText(t1, cw / 2, textYPos);
+    }
+    if (t2) {
+      const textY2Pos = ch * (Number(selectedSeg.textY2 ?? 85) / 100);
+      ctx.font = `bold ${fs2}px sans-serif`;
+      ctx.fillStyle = hexToRgba(
+        /^#[0-9A-Fa-f]{6}$/i.test(String(selectedSeg.textColor2 || "").trim())
+          ? selectedSeg.textColor2
+          : TEXT_COLORS[0],
+        roundOpacity01(selectedSeg.textOpacity2 ?? 1)
+      );
+      ctx.fillText(t2, cw / 2, textY2Pos);
     }
   }, [
     segments,
@@ -3309,7 +3312,6 @@ export default function Shorts3Panel({
         thumbEnd > thumbStart
       ) {
         const thumbSegPayload = {
-          _thumbnailClip: true,
           start: thumbnailSegment.start,
           startMs: thumbnailSegment.startMs,
           end: thumbnailSegment.end,
@@ -3332,42 +3334,6 @@ export default function Shorts3Panel({
           narration: String(thumbnailSegment.narration ?? "").trim(),
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
-      }
-      if (thumbnailSegment.keepText1) {
-        const g1 = String(thumbnailSegment.text1 || "").trim();
-        if (g1) {
-          payload.globalText1 = g1;
-          payload.globalText1Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY1,
-            85
-          );
-          payload.globalText1Color =
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF";
-          payload.globalText1Size = Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
-          );
-          payload.globalText1Font = ensureTtf(thumbnailSegment.font1 || "");
-        }
-      }
-      if (thumbnailSegment.keepText2) {
-        const g2 = String(thumbnailSegment.text2 || "").trim();
-        if (g2) {
-          payload.globalText2 = g2;
-          payload.globalText2Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY2,
-            85
-          );
-          payload.globalText2Color =
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF";
-          payload.globalText2Size = Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
-          );
-          payload.globalText2Font = ensureTtf(thumbnailSegment.font2 || "");
-        }
       }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
       const thumbSecRaw = null;
@@ -6742,6 +6708,16 @@ export default function Shorts3Panel({
 
           {thumbnailSelected ? (
             <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 12 }}>
+                <span
+                  className="muted"
+                  style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                >
+                  시작: {thumbnailSegment.start}.
+                  {String(thumbnailSegment.startMs).padStart(2, "0")}
+                </span>
+              </div>
+
               {/* 크롭 오프셋 (썸네일 전용) */}
               <div
                 style={{
@@ -6786,40 +6762,7 @@ export default function Shorts3Panel({
 
               <div className="label">텍스트 1</div>
               <label className="preset-field" style={{ marginBottom: 10 }}>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span>텍스트 1 (비우면 미표시)</span>
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: busy || uploading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(thumbnailSegment.keepText1)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          keepText1: e.target.checked,
-                        }))
-                      }
-                    />
-                    전체 유지
-                  </label>
-                </span>
+                <span>텍스트 1 (비우면 미표시)</span>
                 <input
                   type="text"
                   value={thumbnailSegment.text1}
@@ -6992,40 +6935,7 @@ export default function Shorts3Panel({
 
               <div className="label">텍스트 2</div>
               <label className="preset-field" style={{ marginBottom: 10 }}>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span>텍스트 2 (비우면 미표시)</span>
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: busy || uploading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(thumbnailSegment.keepText2)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          keepText2: e.target.checked,
-                        }))
-                      }
-                    />
-                    전체 유지
-                  </label>
-                </span>
+                <span>텍스트 2 (비우면 미표시)</span>
                 <input
                   type="text"
                   value={thumbnailSegment.text2}
