@@ -363,9 +363,9 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const headerDividerAnchorY = tableTop + 20 + 40;
   const headerLineY = headerDividerAnchorY + 12;
   const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
-  const rowH = Math.round(130 * 1.8);
-  const line1H = Math.round(rowH * 0.52);
-  const line2H = rowH - line1H;
+  const line1H = 100;
+  const line2H = 100;
+  const rowH = line1H + line2H + 4;
   const maxRows = 6;
   const { left: colLeft, width: colW, dateColEnd } = recordTableRow1Layout(w);
   const cellPad = 10;
@@ -414,7 +414,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
     for (let i = 0; i < maxRows; i++) {
       const y = firstRowY + i * rowH;
       const rowBoxTop = y - 42;
-      const rowBoxH = rowH - 10;
+      const rowBoxH = rowH - 4;
       const line1Top = rowBoxTop;
       const line2Top = rowBoxTop + line1H;
       const line1Cy = line1Top + line1H / 2;
