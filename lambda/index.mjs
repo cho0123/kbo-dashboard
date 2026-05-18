@@ -1133,7 +1133,7 @@ async function processHighlightImageSegment(ctx) {
 
   if (overlayPngFile) {
     if (hasNarrAudio) {
-      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+      const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
       runFfmpeg(
         [
           "-y",
@@ -1181,8 +1181,8 @@ async function processHighlightImageSegment(ctx) {
     } else {
       const muteSegNoNarr = muteOriginal && !hasNarrAudio;
       const fc = muteSegNoNarr
-        ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`
-        : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+        ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];anullsrc=r=48000:cl=stereo[aud]`
+        : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out]`;
       const overlayNoNarrArgs = [
         "-y",
         "-loop",
@@ -1559,11 +1559,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         : seg?.cropOffset;
     const cx = highlightCropXFromOffset(iw, cw, cropRaw);
     let bottomParsed;
-    if (seg[THUMB_SEG_FLAG] === true) {
-      bottomParsed = normalizeThumbnailText(meta);
-    } else {
-      bottomParsed = normalizeSegmentTextOverlay(seg);
-    }
+    bottomParsed = normalizeSegmentTextOverlay(seg);
     const {
       text: bottomTxt,
       text2: bottomTxt2,
@@ -1592,8 +1588,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
       writeFileSync(bottomPath2, bottomTxt2, "utf8");
     }
-    // 하단 텍스트는 썸네일 구간(THUMB_SEG_FLAG)일 때 meta 기준으로만 달라지고,
-    // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반 구간과 동일하게 적용한다.
+    // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반·썸네일 구간 동일 적용.
     const isThumbSeg = seg[THUMB_SEG_FLAG] === true;
     const globalVfExtras =
       !isThumbSeg && globalTextMeta
@@ -1663,7 +1658,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
     );
     if (overlayPngFile) {
       if (hasNarrAudio) {
-        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+        const fc = `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
         runFfmpeg(
           [
             "-y",
@@ -1711,8 +1706,8 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       } else {
         const muteSegNoNarr = muteOriginal && !hasNarrAudio;
         const fc = muteSegNoNarr
-          ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out];anullsrc=r=48000:cl=stereo[aud]`
-          : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto[out]`;
+          ? `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out];anullsrc=r=48000:cl=stereo[aud]`
+          : `[0:v]${vfSeg}[base];[base][1:v]overlay=0:0:format=auto,format=yuv420p[out]`;
         const overlayNoNarrArgs = [
           "-y",
           "-ss",
