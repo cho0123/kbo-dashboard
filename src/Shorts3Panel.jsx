@@ -116,7 +116,7 @@ const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
 const THUMBNAIL_TEXT_Y_DEFAULTS = {
   [LAYOUT_TYPES.KBO]: { textY1: 49, textY2: 57 },
   [LAYOUT_TYPES.FULLSCREEN]: { textY1: 75, textY2: 85 },
-  [LAYOUT_TYPES.TOPBOTTOM]: { textY1: 10, textY2: 90 },
+  [LAYOUT_TYPES.TOPBOTTOM]: { textY1: 14, textY2: 90 },
 };
 
 function thumbnailTextYDefaultsForLayout(layoutId) {
@@ -290,6 +290,25 @@ function TextColorPalette({ value, onChange, disabled }) {
   const base = 22;
   const selectedSize = 28;
   const normalized = normalizeHexColorInput(value, TEXT_COLORS[0]);
+  const [hexInput, setHexInput] = useState(normalized);
+
+  useEffect(() => {
+    setHexInput(normalized);
+  }, [normalized]);
+
+  const handleHexInputChange = (e) => {
+    const raw = e.target.value;
+    setHexInput(raw);
+    const s = raw.trim();
+    if (/^#[0-9A-Fa-f]{6}$/i.test(s)) {
+      onChange(s.toLowerCase());
+    }
+  };
+
+  const handleHexInputBlur = () => {
+    setHexInput(normalized);
+  };
+
   return (
     <div
       role="group"
@@ -343,6 +362,29 @@ function TextColorPalette({ value, onChange, disabled }) {
           borderRadius: 6,
           background: "transparent",
           cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.55 : 1,
+          flexShrink: 0,
+        }}
+      />
+      <input
+        type="text"
+        value={hexInput}
+        disabled={disabled}
+        placeholder="#ffffff"
+        spellCheck={false}
+        onChange={handleHexInputChange}
+        onBlur={handleHexInputBlur}
+        title="색상 코드 (#RRGGBB)"
+        style={{
+          width: 76,
+          padding: "4px 6px",
+          fontSize: 11,
+          fontFamily: "monospace",
+          boxSizing: "border-box",
+          background: "#1e1e1e",
+          color: "#fff",
+          border: "1px solid #555",
+          borderRadius: 6,
           opacity: disabled ? 0.55 : 1,
           flexShrink: 0,
         }}
