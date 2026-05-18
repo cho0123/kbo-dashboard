@@ -763,6 +763,10 @@ const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
+/** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
+const MVP_TITLE_ROW_SHIFT_Y = -20;
+/** 하단 경기별 기록 섹션 배경 fillRect 시작 Y (위로 이동 시 음수) */
+const BATTING_SECTION_BG_SHIFT_Y = -70;
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
 const MVP_BAR_GAP = 18;
@@ -1082,7 +1086,14 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   const playerName = String(mvp?.player || "").trim();
   const usePhoto = Boolean(drawableShorts4Portrait(portrait));
 
-  drawBattingMvpTitleRow(ctx, w, upperHeaderCy, teamName, playerName, teamLogoImg);
+  drawBattingMvpTitleRow(
+    ctx,
+    w,
+    upperHeaderCy + MVP_TITLE_ROW_SHIFT_Y,
+    teamName,
+    playerName,
+    teamLogoImg
+  );
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;
@@ -1107,10 +1118,11 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
 }
 
 function fmtBattingSlideDate(iso) {
-  const s = String(iso || "").slice(0, 10);
-  const m = s.match(/^\d{4}-(\d{1,2})-(\d{1,2})$/);
-  if (!m) return "—";
-  return `${Number(m[2])}/${Number(m[3])}`;
+  const raw = String(iso ?? "").trim();
+  if (!raw) return "—";
+  const slice = raw.slice(5, 10).replace("-", "/");
+  if (!slice || !/^\d{1,2}\/\d{1,2}$/.test(slice)) return "—";
+  return slice;
 }
 
 function fmtRate3(v) {
@@ -1147,14 +1159,21 @@ function drawBattingGameTable(
     x += colW[i];
   }
 
+  const headerFontPx = 32;
   const headerCy = tableTop + 36;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = `700 30px "${FONT_BODY}", sans-serif`;
+  ctx.font = `700 ${headerFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   const headers = ["날짜", "상대", "타수", "안타", "홈런", "타점"];
+  let oppColStartX = colLeft[1] + colW[1] / 2;
   for (let i = 0; i < headers.length; i++) {
-    ctx.fillText(headers[i], colLeft[i] + colW[i] / 2, headerCy);
+    const hx = colLeft[i] + colW[i] / 2;
+    ctx.fillText(headers[i], hx, headerCy);
+    if (headers[i] === "상대") {
+      const tw = ctx.measureText(headers[i]).width;
+      oppColStartX = hx - tw / 2;
+    }
   }
 
   const headerLineY = tableTop + 64;
@@ -1168,14 +1187,14 @@ function drawBattingGameTable(
   const firstRowY = headerLineY + 28;
   if (!list.length) {
     ctx.fillStyle = "rgba(255,255,255,0.65)";
-    ctx.font = `600 36px "${FONT_BODY}", sans-serif`;
+    ctx.font = `600 38px "${FONT_BODY}", sans-serif`;
     ctx.fillText("경기별 타격 기록 없음", w / 2, firstRowY + rowH);
     return;
   }
 
   const logoSize = 44;
-  const bodyFontPx = 34;
-  const statFontPx = 36;
+  const bodyFontPx = 36;
+  const statFontPx = 38;
 
   for (let i = 0; i < list.length; i++) {
     const g = list[i];
@@ -1195,13 +1214,12 @@ function drawBattingGameTable(
     const opp = String(g.opponent || "—").trim() || "—";
     const ok = teamKeyword(opp);
     const oppLogo = ok && logosByTeamKey ? logosByTeamKey[ok] : null;
-    const oppCellCx = colLeft[1] + colW[1] / 2;
-    let oppTextX = oppCellCx;
+    let oppTextX = oppColStartX;
     if (oppLogo && oppLogo.width > 0) {
       const scale = Math.min(logoSize / oppLogo.width, logoSize / oppLogo.height);
       const dw = oppLogo.width * scale;
       const dh = oppLogo.height * scale;
-      const lx = colLeft[1] + 20;
+      const lx = oppColStartX;
       ctx.drawImage(oppLogo, lx, rowCy - dh / 2, dw, dh);
       oppTextX = lx + dw + 12;
     }
@@ -1274,8 +1292,9 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
   drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
+  const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
   ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(0, topDividerY, w, h - topDividerY);
+  ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
 
   if (!mvp?.player) {
     ctx.fillStyle = "rgba(255,255,255,0.7)";
