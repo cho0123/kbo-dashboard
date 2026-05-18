@@ -756,10 +756,13 @@ const MVP_STAT_LINE_GAP = Math.round(54 * 1.45);
 const MVP_STAT_BLOCK_SHIFT_Y = -30;
 const MVP_LOGO_HEADER_H = 100;
 const MVP_LOGO_HEADER_MAX_W = 280;
-const MVP_TITLE_LOGO_H = 80;
-const MVP_TITLE_LOGO_MAX_W = 120;
+const MVP_TITLE_LOGO_H = 120;
+const MVP_TITLE_LOGO_MAX_W = 180;
+const MVP_TITLE_FONT_PX = MVP_HEADER_FONT_PX + 7;
 const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
+/** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
+const BATTING_GAME_TABLE_SHIFT_Y = -60;
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
 const MVP_BAR_GAP = 18;
@@ -856,7 +859,7 @@ function drawBattingMvpTitleRow(ctx, w, centerY, teamName, playerName, logoImg) 
   const logoW = measureBattingTitleLogoWidth(logoImg, maxLogoW, MVP_TITLE_LOGO_H);
 
   ctx.save();
-  ctx.font = `800 ${MVP_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `800 ${MVP_TITLE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   const labelW = ctx.measureText(label).width;
   const nameW = ctx.measureText(name).width;
   const totalW = logoW + gapLogoText + labelW + gapLabelName + nameW;
@@ -1285,7 +1288,7 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
 
   drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey);
 
-  const tableTitleY = topDividerY + 44;
+  const tableTitleY = topDividerY + 44 + BATTING_GAME_TABLE_SHIFT_Y;
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = `800 40px "${FONT_BODY}", sans-serif`;
