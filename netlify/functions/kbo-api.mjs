@@ -2843,6 +2843,50 @@ function resolveTeamDisplayName(teamKw) {
   return normalizeTeamKey(kw) || kw;
 }
 
+/** 주간 MVP 타자에 네이버 시즌 사진·시즌 누적 타격(홈런/안타/타점) 부가 */
+async function enrichTeamWeeklyMvpBatter(mvpBase, seasonYear) {
+  if (!mvpBase || typeof mvpBase !== "object") return mvpBase;
+  const y = Number(seasonYear) || Number(String(mvpBase?.games?.[0]?.game_date || "").slice(0, 4)) || 2026;
+  const seasonHitterStats = await fetchNaverHitterSeasonStats(y);
+  const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
+  const weekHr = Number(mvpBase.total?.hr) || 0;
+  const weekH = Number(mvpBase.total?.h) || 0;
+  const weekRbi = Number(mvpBase.total?.rbi) || 0;
+  const mvp_batter_raw = {
+    player: mvpBase.player,
+    team: mvpBase.team,
+    hr: weekHr,
+    h: weekH,
+    rbi: weekRbi,
+    avg: mvpBase.total?.avg ?? null,
+  };
+  const enriched = await enrichHotPlayerWithSeasonStats(
+    mvp_batter_raw,
+    seasonHitterStats,
+    hitterRankIndex,
+    y
+  );
+  const resolveSeasonStat = (seasonKey, flatKey, weekVal) => {
+    const fromSeason = enriched?.[seasonKey];
+    if (fromSeason != null && Number.isFinite(Number(fromSeason))) return Number(fromSeason);
+    const flat = Number(enriched?.[flatKey]);
+    if (Number.isFinite(flat) && flat > weekVal) return flat;
+    return null;
+  };
+  const season_hr = resolveSeasonStat("season_hr", "hr", weekHr);
+  const season_h = resolveSeasonStat("season_hit", "h", weekH);
+  const season_rbi = resolveSeasonStat("season_rbi", "rbi", weekRbi);
+  return {
+    ...mvpBase,
+    player_image_url: enriched?.player_image_url ?? null,
+    season: {
+      hr: season_hr,
+      h: season_h,
+      rbi: season_rbi,
+    },
+  };
+}
+
 async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
   const week_start = safeIsoDate(weekStartIso);
   if (!week_start) {
@@ -2866,7 +2910,11 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     boxByGameId
   );
   const week_record = buildTeamWeekRecordForKw(teamGames, teamKw);
-  const mvp_batter = buildTeamWeeklyMvpBatter(box.batters, teamKw, gameResults);
+  const seasonYear = Number(String(week_start).slice(0, 4)) || 2026;
+  let mvp_batter = buildTeamWeeklyMvpBatter(box.batters, teamKw, gameResults);
+  if (mvp_batter) {
+    mvp_batter = await enrichTeamWeeklyMvpBatter(mvp_batter, seasonYear);
+  }
   const top_batter = mvp_batter
     ? {
         player: mvp_batter.player,
