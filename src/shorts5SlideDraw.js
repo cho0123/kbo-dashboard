@@ -178,8 +178,10 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game, pitcherFontPx)
   const winP = String(game?.win_pitcher ?? "").trim();
   const loseP = String(game?.lose_pitcher ?? "").trim();
 
-  const midX = line2Left + (line2Right - line2Left) * 0.48;
-  const rightEdge = line2Right - 8;
+  const spanW = line2Right - line2Left;
+  const midX = line2Left + spanW * 0.48;
+  const wlStartX = line2Left + spanW * 0.5;
+  const maxRight = line2Right - 8;
 
   if (ourS || oppS) {
     const starterText = `선발 ${ourS || "—"} : ${oppS || "—"}`;
@@ -195,49 +197,57 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game, pitcherFontPx)
 
   if (!winP && !loseP) return;
 
-  let leftName = winP;
-  let rightName = loseP;
-  if (game?.result === "loss") {
-    leftName = loseP || "";
-    rightName = winP || "";
-  } else if (game?.result === "win") {
-    leftName = winP || "";
-    rightName = loseP || "";
+  const result = game?.result;
+  let ourPitcher = "";
+  let oppPitcher = "";
+  let ourBadge = null;
+  let oppBadge = null;
+
+  if (result === "win") {
+    ourPitcher = winP;
+    oppPitcher = loseP;
+    if (ourPitcher) ourBadge = { label: "승", color: "#4ade80" };
+    if (oppPitcher) oppBadge = { label: "패", color: "#f87171" };
+  } else if (result === "loss") {
+    ourPitcher = loseP;
+    oppPitcher = winP;
+    if (ourPitcher) ourBadge = { label: "패", color: "#f87171" };
+    if (oppPitcher) oppBadge = { label: "승", color: "#4ade80" };
+  } else {
+    ourPitcher = winP;
+    oppPitcher = loseP;
   }
 
-  const gap = 6;
+  if (!ourPitcher && !oppPitcher) return;
+
   ctx.textAlign = "left";
-  ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
-  ctx.fillStyle = "#FFFFFF";
+  ctx.textBaseline = "middle";
+  let x = wlStartX;
 
-  const loseBadgeW = loseP ? 36 : 0;
-  const colonW = leftName && rightName ? ctx.measureText(" : ").width : 0;
-  const rightNameW = rightName ? ctx.measureText(rightName).width : 0;
-  const leftNameW = leftName ? ctx.measureText(leftName).width : 0;
-  const winBadgeW = winP ? 36 : 0;
-  const totalW = winBadgeW + leftNameW + colonW + rightNameW + loseBadgeW + gap * 3;
-
-  let x = rightEdge - totalW;
-  if (x < midX + 8) x = midX + 8;
-
-  if (winP) x += drawRecordPitcherBadge(ctx, x, cy, "승", "#4ade80");
-  if (leftName) {
-    const draw = truncateTextToWidth(ctx, leftName, Math.max(40, rightEdge - x - 80));
-    ctx.fillText(draw, x, cy);
-    x += ctx.measureText(draw).width;
-  }
-  if (leftName && rightName) {
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.fillText(" : ", x, cy);
-    x += colonW;
+  if (ourBadge) x += drawRecordPitcherBadge(ctx, x, cy, ourBadge.label, ourBadge.color);
+  if (ourPitcher) {
+    ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
     ctx.fillStyle = "#FFFFFF";
-  }
-  if (rightName) {
-    const draw = truncateTextToWidth(ctx, rightName, Math.max(40, rightEdge - x - 50));
+    const draw = truncateTextToWidth(ctx, ourPitcher, Math.max(24, maxRight - x - 24));
     ctx.fillText(draw, x, cy);
     x += ctx.measureText(draw).width;
   }
-  if (loseP) drawRecordPitcherBadge(ctx, x + gap, cy, "패", "#f87171");
+
+  if (ourPitcher && oppPitcher) {
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
+    const colon = " : ";
+    ctx.fillText(colon, x, cy);
+    x += ctx.measureText(colon).width;
+  }
+
+  if (oppBadge) x += drawRecordPitcherBadge(ctx, x, cy, oppBadge.label, oppBadge.color);
+  if (oppPitcher) {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
+    const draw = truncateTextToWidth(ctx, oppPitcher, Math.max(24, maxRight - x));
+    ctx.fillText(draw, x, cy);
+  }
 }
 
 function fmtWeekRecordSummary(rec) {
@@ -376,17 +386,18 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
   const titleCy = divY - 20 - titleFontPx / 2;
   const logoTop = titleCy - LOGO_BOX / 2;
-  const titleTextX = Math.max(LOGO_X + LOGO_BOX + 20, Math.round(w * 0.45));
+  const logoRightX = LOGO_X + LOGO_BOX;
+  const summaryCenterX = (logoRightX + w) / 2;
   const lineStartX = LOGO_X + LOGO_BOX + 16;
 
   drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, logoImg);
 
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 ${titleFontPx}px ${RECORD_FONT}`;
   shadowTextSoft(ctx);
-  ctx.fillText("주간 경기결과", titleTextX, titleCy);
+  ctx.fillText("주간 경기결과", summaryCenterX, titleCy);
   resetShadow(ctx);
 
   ctx.strokeStyle = "rgba(255,255,255,0.9)";
@@ -398,8 +409,6 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
   const summaryFontPx = 48;
   const summaryGapBelowLine = 40;
-  const logoRightX = LOGO_X + LOGO_BOX;
-  const summaryCenterX = (logoRightX + w) / 2;
   const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
   const summaryLine = fmtRecordWeekSummaryLine(data);
   ctx.textAlign = "center";
