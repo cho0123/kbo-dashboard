@@ -353,16 +353,11 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillRect(0, 0, w, h);
 
   const teamNameY = h * 0.08 + 110;
-  const teamNameTargetW = w * 0.8;
-  let teamFontPx = 80;
+  const teamFontPx = 160;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  while (ctx.measureText(team).width < teamNameTargetW && teamFontPx < 200) {
-    teamFontPx += 2;
-    ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  }
   ctx.fillStyle = "#ffffff";
+  ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(team, w / 2, teamNameY);
 
   const logoBox = Math.round(840 * 0.8);
@@ -379,17 +374,11 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.lineTo(w / 2 + dividerLineW / 2, dividerLineY);
   ctx.stroke();
 
-  const weeklyTitleY = dividerLineY + 210;
-  const weeklyLabel = "주간결산";
-  const weeklyTargetW = w * 0.55;
-  let weeklyFontPx = Math.round(w * 0.085);
-  ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  while (ctx.measureText(weeklyLabel).width < weeklyTargetW && weeklyFontPx < 200) {
-    weeklyFontPx += 2;
-    ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-  }
+  const weeklyTitleY = dividerLineY + 210 - 40;
+  const weeklyFontPx = 130;
   ctx.fillStyle = "#FFD700";
-  ctx.fillText(weeklyLabel, w / 2, weeklyTitleY);
+  ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillText("주간결산", w / 2, weeklyTitleY);
 
   const gamePreviewY = h * 0.93 - 50;
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
