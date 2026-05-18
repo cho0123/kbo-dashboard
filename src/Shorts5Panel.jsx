@@ -4,14 +4,18 @@ import { postKbo } from "./api.js";
 import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import { drawStandingsSlide, loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import { loadShortsBaseballDecor } from "./shortsBaseballDecor.js";
-import { drawableShorts4Portrait } from "./shorts4PlayerImage.js";
+import {
+  drawableShorts4Portrait,
+  loadDefaultPlayerImage,
+  loadPlayerImage,
+  loadPlayerImageFromNaverProxy,
+} from "./shorts4PlayerImage.js";
 import {
   drawShorts5BattingSlide,
   drawShorts5GamesSlide,
   drawShorts5IntroSlide,
   drawShorts5PitcherSlide,
   drawShorts5RecordSlide,
-  loadShorts5BattingPortrait,
   loadShorts5BattingSlideAssets,
   shorts5StandingsDateLabel,
 } from "./shorts5SlideDraw.js";
@@ -20,6 +24,37 @@ import "./Shorts4Panel.css";
 const SHORTS_EXPORT_W = 1080;
 const SHORTS_EXPORT_H = 1920;
 const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
+
+/** 쇼츠4 hot_player(339~365행)와 동일: 네이버 URL → S3 → 기본 실루엣 */
+async function loadShorts5MvpPortrait(mvp, teamKw, data) {
+  const mvp0 = mvp && typeof mvp === "object" ? mvp : {};
+  const tk =
+    teamKeyword(String(teamKw || "").trim()) ||
+    teamKeyword(String(data?.team_keyword || "").trim()) ||
+    teamKeyword(String(data?.team_name || "").trim()) ||
+    teamKeyword(String(mvp0.team || "").trim());
+  const player = String(mvp0.player || "").trim();
+  const url = String(mvp0.player_image_url || mvp0.image_url || "").trim();
+
+  console.log("[shorts5] mvp portrait load", { tk, player, player_image_url: url || null });
+
+  const [portrait, defImg] = await Promise.all([
+    url ? loadPlayerImageFromNaverProxy(url) : loadPlayerImage(tk, player),
+    loadDefaultPlayerImage(),
+  ]);
+  const finalPortrait = portrait ?? defImg;
+
+  console.log("[shorts5] mvp portrait result", {
+    tk,
+    player,
+    viaNaver: Boolean(url),
+    loaded: Boolean(drawableShorts4Portrait(portrait)),
+    default: Boolean(drawableShorts4Portrait(defImg)),
+    final: Boolean(drawableShorts4Portrait(finalPortrait)),
+  });
+
+  return finalPortrait;
+}
 
 const TEAM_BUTTONS = [
   { keyword: "KT", label: "KT" },
@@ -205,21 +240,11 @@ export default function Shorts5Panel() {
       else if (slide.type === "record")
         drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
       else if (slide.type === "batting") {
-        const mvpPlayer = String(data?.mvp_batter?.player || "").trim();
-        console.log("[shorts5] batting slide load", {
-          teamKw,
-          team_keyword: data?.team_keyword,
-          team_name: data?.team_name,
-          player: mvpPlayer,
-        });
+        const mvp = data?.mvp_batter;
         const [battingAssets, portrait] = await Promise.all([
-          loadShorts5BattingSlideAssets(data),
-          loadShorts5BattingPortrait(data, teamKw),
+          loadShorts5BattingSlideAssets(data, teamKw),
+          loadShorts5MvpPortrait(mvp, teamKw, data),
         ]);
-        console.log("[shorts5] batting assets portrait", {
-          included: Boolean(portrait),
-          drawable: Boolean(drawableShorts4Portrait(portrait)),
-        });
         await drawShorts5BattingSlide(
           ctx,
           w,
@@ -269,8 +294,8 @@ export default function Shorts5Panel() {
       if (res?.mvp_batter?.player) {
         const preloadTeam = String(overrides?.team ?? teamKw).trim();
         Promise.all([
-          loadShorts5BattingSlideAssets(res),
-          loadShorts5BattingPortrait(res, preloadTeam),
+          loadShorts5BattingSlideAssets(res, preloadTeam),
+          loadShorts5MvpPortrait(res.mvp_batter, preloadTeam, res),
         ]).catch(() => {});
       }
       setCapturedSlides([]);
