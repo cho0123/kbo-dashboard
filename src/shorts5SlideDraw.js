@@ -283,6 +283,28 @@ function fmtWeekStartMd(weekStartIso) {
   return `${Number(m[2])}월${Number(m[3])}일`;
 }
 
+function isoAddDaysYmd(weekStartIso, deltaDays) {
+  const s = String(weekStartIso || "").slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return "";
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + deltaDays, 12, 0, 0);
+  const d = new Date(t);
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const da = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
+/** week_start ~ week_end(또는 +6일) "M월D일 ~ M월D일" */
+function fmtWeekRangeMd(weekStartIso, weekEndIso) {
+  const start = fmtWeekStartMd(weekStartIso);
+  if (!start) return "";
+  const endIso =
+    String(weekEndIso || "").slice(0, 10) || isoAddDaysYmd(weekStartIso, 6);
+  const end = fmtWeekStartMd(endIso);
+  return end ? `${start} ~ ${end}` : start;
+}
+
 /** 흰선 아래 주간 요약: "5월11일 주간  3승 3패  (3위)" */
 function fmtRecordWeekSummaryLine(data) {
   const datePart = fmtWeekStartMd(data?.week_start);
@@ -379,6 +401,14 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillStyle = "#FFD700";
   ctx.font = `700 ${weeklyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText("주간결산", w / 2, weeklyTitleY);
+
+  const weekRangeY = weeklyTitleY + 80;
+  const weekRangeStr = fmtWeekRangeMd(data?.week_start, data?.week_end);
+  if (weekRangeStr) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = `500 52px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(weekRangeStr, w / 2, weekRangeY);
+  }
 
   const gamePreviewY = h * 0.93 - 50;
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
