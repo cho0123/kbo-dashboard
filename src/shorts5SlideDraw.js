@@ -38,9 +38,27 @@ const TEAM_STRONG_COLOR = {
   키움: "#820024",
 };
 
+const TEAM_DARK_COLOR = {
+  삼성: "#002D5C",
+  LG: "#6B000E",
+  KT: "#111111",
+  SSG: "#7A0819",
+  NC: "#030E25",
+  두산: "#080818",
+  KIA: "#7A0015",
+  롯데: "#001540",
+  한화: "#8B3300",
+  키움: "#3D0011",
+};
+
 function getTeamStrongColor(teamName) {
   const kw = teamKeyword(teamName);
   return (kw && TEAM_STRONG_COLOR[kw]) || "#131922";
+}
+
+function getTeamDarkColor(teamName) {
+  const kw = teamKeyword(teamName);
+  return (kw && TEAM_DARK_COLOR[kw]) || "#0c0f14";
 }
 
 function fmtTeamShort(team) {
@@ -369,8 +387,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const games = Array.isArray(data?.games) ? data.games.slice(0, 6) : [];
 
   ctx.clearRect(0, 0, w, h);
-  const [solidBg] = teamGrad(teamName);
-  ctx.fillStyle = solidBg || "#131922";
+  ctx.fillStyle = getTeamDarkColor(teamName);
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
