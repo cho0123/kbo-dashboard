@@ -756,8 +756,9 @@ const MVP_STAT_LINE_GAP = Math.round(54 * 1.45);
 const MVP_STAT_BLOCK_SHIFT_Y = -30;
 const MVP_LOGO_HEADER_H = 100;
 const MVP_LOGO_HEADER_MAX_W = 280;
-const MVP_TITLE_LOGO_H = 48;
-const MVP_TITLE_LOGO_MAX_W = 72;
+const MVP_TITLE_LOGO_H = 80;
+const MVP_TITLE_LOGO_MAX_W = 120;
+const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
@@ -832,31 +833,56 @@ function drawBattingHeaderLogo(ctx, left, centerY, maxW, teamName, logoImg, boxH
   return dw;
 }
 
-/** 작은 팀 로고 + "주간 타격 MVP" + 선수명 (한 줄) */
-function drawBattingMvpTitleRow(ctx, w, centerY, padL, teamName, playerName, logoImg) {
-  const maxLogoW = Math.min(MVP_TITLE_LOGO_MAX_W, Math.max(40, w - padL - 420));
-  const logoW = drawBattingHeaderLogo(
+function measureBattingTitleLogoWidth(logoImg, maxW, boxH) {
+  if (!logoImg || !(logoImg.width > 0)) return boxH;
+  const iw = Number(logoImg.naturalWidth || logoImg.width) || maxW;
+  const ih = Number(logoImg.naturalHeight || logoImg.height) || boxH;
+  let scale = boxH / ih;
+  let dw = iw * scale;
+  if (dw > maxW) {
+    scale = maxW / iw;
+    dw = iw * scale;
+  }
+  return dw;
+}
+
+/** 팀 로고 + "주간 타격 MVP" + 선수명 — w/2 기준 가운데 정렬 */
+function drawBattingMvpTitleRow(ctx, w, centerY, teamName, playerName, logoImg) {
+  const maxLogoW = MVP_TITLE_LOGO_MAX_W;
+  const gapLogoText = 16;
+  const gapLabelName = 14;
+  const name = String(playerName || "").trim() || "—";
+  const label = MVP_TITLE_LABEL;
+  const logoW = measureBattingTitleLogoWidth(logoImg, maxLogoW, MVP_TITLE_LOGO_H);
+
+  ctx.save();
+  ctx.font = `800 ${MVP_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  const labelW = ctx.measureText(label).width;
+  const nameW = ctx.measureText(name).width;
+  const totalW = logoW + gapLogoText + labelW + gapLabelName + nameW;
+  const left = w / 2 - totalW / 2;
+
+  const drawnLogoW = drawBattingHeaderLogo(
     ctx,
-    padL,
+    left,
     centerY,
     maxLogoW,
     teamName,
     logoImg,
     MVP_TITLE_LOGO_H
   );
-  const name = String(playerName || "").trim() || "—";
-  const label = MVP_TITLE_LABEL;
-  const gap = 14;
-  ctx.save();
+  const textX = left + drawnLogoW + gapLogoText;
+
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${MVP_HEADER_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  const textX = padL + logoW + 16;
   shadowTextSoft(ctx);
   ctx.fillText(label, textX, centerY);
-  const labelW = ctx.measureText(label).width;
-  ctx.fillText(name, textX + labelW + gap, centerY);
+  resetShadow(ctx);
+
+  ctx.fillStyle = MVP_TITLE_PLAYER_COLOR;
+  shadowTextSoft(ctx);
+  ctx.fillText(name, textX + labelW + gapLabelName, centerY);
   resetShadow(ctx);
   ctx.restore();
 }
@@ -944,7 +970,7 @@ function drawBattingMvpStatBlock(ctx, statX, cy, mvp) {
 
 function pickMvpWar(mvp, total) {
   const t = total && typeof total === "object" ? total : {};
-  const raw = t.war ?? t.WAR ?? mvp?.war ?? mvp?.WAR;
+  const raw = t.war ?? t.WAR ?? t.season_war ?? mvp?.season_war;
   if (raw == null || raw === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
@@ -1053,7 +1079,7 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   const playerName = String(mvp?.player || "").trim();
   const usePhoto = Boolean(drawableShorts4Portrait(portrait));
 
-  drawBattingMvpTitleRow(ctx, w, upperHeaderCy, padL, teamName, playerName, teamLogoImg);
+  drawBattingMvpTitleRow(ctx, w, upperHeaderCy, teamName, playerName, teamLogoImg);
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;

@@ -2876,9 +2876,20 @@ async function enrichTeamWeeklyMvpBatter(mvpBase, seasonYear) {
   const season_hr = resolveSeasonStat("season_hr", "hr", weekHr);
   const season_h = resolveSeasonStat("season_hit", "h", weekH);
   const season_rbi = resolveSeasonStat("season_rbi", "rbi", weekRbi);
+  const season_war =
+    enriched?.season_war != null && Number.isFinite(Number(enriched.season_war))
+      ? Number(enriched.season_war)
+      : null;
+  const baseTotal =
+    mvpBase.total && typeof mvpBase.total === "object" ? { ...mvpBase.total } : {};
   return {
     ...mvpBase,
     player_image_url: enriched?.player_image_url ?? null,
+    season_war,
+    total: {
+      ...baseTotal,
+      war: season_war,
+    },
     season: {
       hr: season_hr,
       h: season_h,
