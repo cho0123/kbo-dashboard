@@ -120,8 +120,7 @@ function drawRecordResultBadge(ctx, x, cy, result) {
   const fontPx = 32;
   const padX = 14;
   const padY = 8;
-  const fontFamily = `"${FONT_TITLE}", system-ui, sans-serif`;
-  ctx.font = `900 ${fontPx}px ${fontFamily}`;
+  ctx.font = `900 ${fontPx}px ${RECORD_FONT}`;
   const tw = ctx.measureText(label).width;
   const bw = tw + padX * 2;
   const bh = fontPx + padY * 2;
@@ -140,8 +139,7 @@ function drawRecordPitcherBadge(ctx, x, cy, label, bgColor) {
   const fontPx = 24;
   const padX = 10;
   const padY = 5;
-  const fontFamily = `"${FONT_TITLE}", system-ui, sans-serif`;
-  ctx.font = `900 ${fontPx}px ${fontFamily}`;
+  ctx.font = `900 ${fontPx}px ${RECORD_FONT}`;
   const tw = ctx.measureText(label).width;
   const bw = tw + padX * 2;
   const bh = fontPx + padY * 2;
@@ -157,7 +155,6 @@ function drawRecordPitcherBadge(ctx, x, cy, label, bgColor) {
 }
 
 function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
-  const fontFamily = `"${FONT_BODY}", system-ui, sans-serif`;
   const fontPx = 28;
   const ourS = String(game?.our_starter ?? "").trim();
   const oppS = String(game?.opp_starter ?? "").trim();
@@ -171,7 +168,7 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
     const starterText = `선발 ${ourS || "—"} : ${oppS || "—"}`;
     ctx.textAlign = "left";
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = `600 ${fontPx}px ${fontFamily}`;
+    ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
     ctx.fillText(
       truncateTextToWidth(ctx, starterText, Math.max(80, midX - line2Left - 12)),
       line2Left + 8,
@@ -193,7 +190,7 @@ function drawRecordRowLine2(ctx, line2Left, line2Right, cy, game) {
 
   const gap = 6;
   ctx.textAlign = "left";
-  ctx.font = `600 ${fontPx}px ${fontFamily}`;
+  ctx.font = `600 ${fontPx}px ${RECORD_FONT}`;
   ctx.fillStyle = "#FFFFFF";
 
   const loseBadgeW = loseP ? 36 : 0;
@@ -233,6 +230,30 @@ function fmtWeekRecordSummary(rec) {
   if (draws > 0) return `${wins}승 ${draws}무 ${losses}패`;
   return `${wins}승 ${losses}패`;
 }
+
+function fmtWeekStartMd(weekStartIso) {
+  const s = String(weekStartIso || "").slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return "";
+  return `${Number(m[2])}월${Number(m[3])}일`;
+}
+
+/** 흰선 아래 주간 요약: "5월11일 주간  3승 3패  (3위)" */
+function fmtRecordWeekSummaryLine(data) {
+  const datePart = fmtWeekStartMd(data?.week_start);
+  const rec = data?.week_record || {};
+  const wins = Number(rec.wins) || 0;
+  const losses = Number(rec.losses) || 0;
+  const draws = Number(rec.draws) || 0;
+  const wlPart = draws > 0 ? `${wins}승 ${draws}무 ${losses}패` : `${wins}승 ${losses}패`;
+  const rank = data?.rank_change?.current_rank;
+  const rankPart =
+    rank != null && Number.isFinite(Number(rank)) ? `(${Number(rank)}위)` : "";
+  const dateLabel = datePart ? `${datePart} 주간` : "주간";
+  return [dateLabel, wlPart, rankPart].filter(Boolean).join("  ");
+}
+
+const RECORD_FONT = `"${FONT_BODY}", system-ui, sans-serif`;
 
 
 function drawSmallOpponentLogo(ctx, x, cy, size, img) {
@@ -327,7 +348,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
-  const HEADER_Y_SHIFT = -50;
+  const HEADER_Y_SHIFT = -50 - 120;
   const LOGO_X = 60;
   const LOGO_BOX = 300;
   const titleFontPx = 64;
@@ -347,7 +368,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 ${titleFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `900 ${titleFontPx}px ${RECORD_FONT}`;
   shadowTextSoft(ctx);
   ctx.fillText("주간 경기결과", titleTextX, titleCy);
   resetShadow(ctx);
@@ -359,7 +380,17 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.lineTo(w * 0.95, divY);
   ctx.stroke();
 
-  const tableTop = divY + 32 + 40;
+  const summaryFontPx = 48;
+  const summaryGapBelowLine = 60;
+  const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
+  const summaryLine = fmtRecordWeekSummaryLine(data);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
+  ctx.fillText(summaryLine, w / 2, summaryCy);
+
+  const tableTop = summaryCy + summaryFontPx / 2 + 40;
   const headerDividerAnchorY = tableTop + 20 + 40;
   const headerLineY = headerDividerAnchorY + 12;
   const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
@@ -383,7 +414,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
-  ctx.font = `700 ${headerFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `700 ${headerFontPx}px ${RECORD_FONT}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
@@ -405,7 +436,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
     const emptyCy = firstRowY + (maxRows * rowH) / 2;
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `700 44px ${RECORD_FONT}`;
     ctx.fillText("해당 주간 경기 없음", w / 2, emptyCy);
     lastRowBottom = firstRowY + rowH * 2;
     ctx.textAlign = "left";
@@ -454,7 +485,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       ctx.textAlign = "left";
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `600 ${bodyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
       ctx.fillText(dateStr, datePadLeft, rowDateCy);
 
       ctx.fillStyle = "rgba(255,255,255,0.88)";
@@ -463,20 +494,20 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const oppCellX = colLeft[2] + cellPad;
       const logoOffset = drawSmallOpponentLogo(ctx, oppCellX, line1Cy, oppLogoSize, oppLogo);
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `700 ${oppNameFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.font = `700 ${oppNameFontPx}px ${RECORD_FONT}`;
       const oppTextX = oppCellX + logoOffset;
       const oppMaxW = colLeft[2] + colW[2] - cellPad - oppTextX;
       ctx.fillText(truncateTextToWidth(ctx, opp, oppMaxW), oppTextX, line1Cy);
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `600 ${scoreFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.font = `600 ${scoreFontPx}px ${RECORD_FONT}`;
       ctx.fillText(score, colLeft[3] + cellPad, line1Cy);
 
       drawRecordResultBadge(ctx, colLeft[4] + cellPad, line1Cy, g.result);
 
       if (rankCell.text) {
         ctx.fillStyle = rankCell.color || "#94a3b8";
-        ctx.font = `800 ${rankFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+        ctx.font = `800 ${rankFontPx}px ${RECORD_FONT}`;
         ctx.fillText(rankCell.text, colLeft[5] + cellPad, line1Cy);
       }
 
@@ -490,7 +521,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 72px "${FONT_TITLE}", system-ui, sans-serif`;
+  ctx.font = `900 72px ${RECORD_FONT}`;
   shadowTextSoft(ctx);
   ctx.fillText(fmtWeekRecordSummary(rec), w / 2, summaryY);
   resetShadow(ctx);
