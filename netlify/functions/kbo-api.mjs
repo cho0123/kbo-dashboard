@@ -5143,7 +5143,7 @@ ${JSON.stringify(games, null, 2)}`;
           const endMs = Number.isFinite(endMsRaw)
             ? Math.min(99, Math.max(0, Math.round(endMsRaw)))
             : 0;
-          segments.push({
+          const segOut = {
             start: st,
             end: en,
             startMs,
@@ -5165,7 +5165,11 @@ ${JSON.stringify(games, null, 2)}`;
             textShadow2: Boolean(s.textShadow2),
             narration:
               s.narration != null ? String(s.narration).trim() : "",
-          });
+          };
+          if (s._thumbnailClip === true) {
+            segOut._thumbnailClip = true;
+          }
+          segments.push(segOut);
         }
         if (segments.length < 1) {
           return {
@@ -5341,6 +5345,71 @@ ${JSON.stringify(games, null, 2)}`;
         }
         if (thumbnailTextMeta) {
           Object.assign(meta, thumbnailTextMeta);
+        }
+
+        const clampGlobalTextY = (raw, fallback) => {
+          const n = Number(raw);
+          return Number.isFinite(n)
+            ? Math.min(100, Math.max(0, Math.round(n)))
+            : fallback;
+        };
+        const globalText1 =
+          payload.globalText1 != null
+            ? String(payload.globalText1).trim()
+            : "";
+        const globalText2 =
+          payload.globalText2 != null
+            ? String(payload.globalText2).trim()
+            : "";
+        if (globalText1) {
+          if (globalText1.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "전체 유지 텍스트 1은 500자 이하로 입력하세요.",
+              }),
+            };
+          }
+          meta.globalText1 = globalText1;
+          meta.globalText1Y = clampGlobalTextY(payload.globalText1Y, 85);
+          let c1 = "#ffffff";
+          if (payload.globalText1Color != null) {
+            const c = String(payload.globalText1Color).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c)) c1 = c.toLowerCase();
+          }
+          meta.globalText1Color = c1;
+          const ts1 = Number(payload.globalText1Size);
+          meta.globalText1Size = Number.isFinite(ts1)
+            ? Math.min(200, Math.max(20, Math.round(ts1)))
+            : 88;
+          meta.globalText1Font = sanitizeHighlightFont(payload.globalText1Font);
+        }
+        if (globalText2) {
+          if (globalText2.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "전체 유지 텍스트 2는 500자 이하로 입력하세요.",
+              }),
+            };
+          }
+          meta.globalText2 = globalText2;
+          meta.globalText2Y = clampGlobalTextY(payload.globalText2Y, 85);
+          let c2 = "#ffffff";
+          if (payload.globalText2Color != null) {
+            const c = String(payload.globalText2Color).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c)) c2 = c.toLowerCase();
+          }
+          meta.globalText2Color = c2;
+          const ts2 = Number(payload.globalText2Size);
+          meta.globalText2Size = Number.isFinite(ts2)
+            ? Math.min(200, Math.max(20, Math.round(ts2)))
+            : 52;
+          meta.globalText2Font = sanitizeHighlightFont(payload.globalText2Font);
         }
 
         await s3.send(
