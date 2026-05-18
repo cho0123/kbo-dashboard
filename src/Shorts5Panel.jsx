@@ -178,6 +178,15 @@ export default function Shorts5Panel() {
       const logoImg = await loadSvgLogo(tk);
       const logosByTeamKey = { [tk]: logoImg };
 
+      if (slide.type === "record" || slide.type === "games") {
+        const games = Array.isArray(data.games) ? data.games : [];
+        for (const g of games) {
+          const opp = String(g?.opponent ?? g?.opp_team_name ?? "").trim();
+          const k = teamKeyword(opp);
+          if (k && !logosByTeamKey[k]) logosByTeamKey[k] = await loadSvgLogo(k);
+        }
+      }
+
       if (slide.type === "standings") {
         const standings = Array.isArray(data.standings) ? data.standings : [];
         for (const r of standings) {
@@ -190,7 +199,8 @@ export default function Shorts5Panel() {
       await loadShortsBaseballDecor();
 
       if (slide.type === "intro") drawShorts5IntroSlide(ctx, w, h, data, logoImg);
-      else if (slide.type === "record") drawShorts5RecordSlide(ctx, w, h, data, logoImg);
+      else if (slide.type === "record")
+        drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
       else if (slide.type === "batting") drawShorts5BattingSlide(ctx, w, h, data);
       else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
       else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);

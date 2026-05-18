@@ -83,11 +83,11 @@ function fmtWeekRecordSummary(rec) {
   return `${wins}승 ${losses}패`;
 }
 
-/** 표 영역 5컬럼 좌표 (날짜 15% · 홈/원정 10% · 상대 25% · 스코어 30% · 승패 20%) */
+/** 표 영역 5컬럼 좌표 (날짜 15% · 홈/원정 15% · 상대 40% · 스코어 15% · 승패 15%) */
 function recordTableColumnLayout(w) {
   const tableLeft = 64;
   const tableW = w - 128;
-  const ratios = [0.15, 0.1, 0.25, 0.3, 0.2];
+  const ratios = [0.15, 0.15, 0.4, 0.15, 0.15];
   const left = [];
   const width = ratios.map((r) => tableW * r);
   let x = tableLeft;
@@ -234,6 +234,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const oppLogoSize = 50;
   const headerFontPx = 36;
   const bodyFontPx = 38;
+  const scoreFontPx = 41;
   const oppNameFontPx = 40;
   const resultFontPx = 42;
 
@@ -282,7 +283,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
 
       const dateStr = String(g.game_date || "").slice(5).replace("-", "/") || "—";
       const homeMark = g.is_home ? "홈" : "원정";
-      const oppFull = String(g.opponent || "").trim();
+      const oppFull = String(g.opponent ?? g.opp_team_name ?? "").trim();
       const opp = fmtTeamShort(oppFull);
       const score = `${g.team_score ?? "—"} : ${g.opp_score ?? "—"}`;
       const { label: resultLabel, color: resultColor } = resultLabelAndColor(g.result);
@@ -313,7 +314,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       ctx.fillText(oppDraw, oppTextX, rowTextCy);
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `600 ${bodyFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.font = `600 ${scoreFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
       ctx.fillText(score, colLeft[3] + cellPad, rowTextCy);
 
       ctx.fillStyle = resultColor;
