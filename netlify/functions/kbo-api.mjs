@@ -4520,6 +4520,12 @@ async function fetchNaverPitcherSeasonStats(seasonYear) {
     const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
     const merged = chunks.flat();
     if (merged.length === 0) return null;
+    const arr = merged;
+    console.log("[pitcherStats] sample row:", JSON.stringify(arr[0]));
+    const sample = arr.find(
+      (r) => r.playerName?.includes("톨") || r.playerName?.includes("Thor")
+    );
+    console.log("[pitcherStats] tolhurst:", JSON.stringify(sample));
     return merged;
   } catch (e) {
     console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
