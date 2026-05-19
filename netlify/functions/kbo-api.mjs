@@ -2919,30 +2919,173 @@ function mapPitcherAppearanceResult(r, gr) {
   return rowRes || "—";
 }
 
-function buildStarterPitcherGameDetail(r, gr) {
+function coalescePitcherStat(fsVal, nvVal) {
+  if (fsVal != null && fsVal !== "") return fsVal;
+  if (nvVal != null && nvVal !== "") return nvVal;
+  return null;
+}
+
+function normalizeNaverGameRecordPitcherRow(row) {
+  if (!row || typeof row !== "object") return null;
+  const playerName = String(
+    row.playerName ?? row.player_name ?? row.name ?? row.player ?? ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!playerName) return null;
+  const inningsRaw = row.innings ?? row.inning ?? row.ip ?? row.IP ?? null;
+  return {
+    playerName,
+    innings: inningsRaw,
+    hits: pickNumOrNull(row, ["hits", "hit", "h", "H"]),
+    runs: pickNumOrNull(row, ["runs", "r", "R", "runsAllowed", "runs_allowed"]),
+    earnedRuns: pickNumOrNull(row, [
+      "earnedRuns",
+      "earned_runs",
+      "er",
+      "ER",
+      "earnedRun",
+    ]),
+    baseOnBalls: pickNumOrNull(row, [
+      "baseOnBalls",
+      "base_on_balls",
+      "bb",
+      "BB",
+      "walks",
+      "walk",
+    ]),
+    strikeouts: pickNumOrNull(row, [
+      "strikeouts",
+      "strikeOuts",
+      "so",
+      "SO",
+      "k",
+      "K",
+    ]),
+    homeRuns: pickNumOrNull(row, ["homeRuns", "home_runs", "hr", "HR"]),
+    numberOfPitches: pickNumOrNull(row, [
+      "numberOfPitches",
+      "number_of_pitches",
+      "pitchCount",
+      "pitch_count",
+      "pitches",
+      "pc",
+    ]),
+    isStarter: __starterBoolTrue(row?.isStarter ?? row?.is_starter ?? row?.starter),
+  };
+}
+
+function parseNaverGameRecordPitchers(result) {
+  const r = result && typeof result === "object" ? result : {};
+  const homeRaw = r.homeTeamPitchers ?? r.home_team_pitchers ?? r.homePitchers ?? [];
+  const awayRaw = r.awayTeamPitchers ?? r.away_team_pitchers ?? r.awayPitchers ?? [];
+  const home = (Array.isArray(homeRaw) ? homeRaw : [])
+    .map(normalizeNaverGameRecordPitcherRow)
+    .filter(Boolean);
+  const away = (Array.isArray(awayRaw) ? awayRaw : [])
+    .map(normalizeNaverGameRecordPitcherRow)
+    .filter(Boolean);
+  return { home, away };
+}
+
+/**
+ * 네이버 경기 기록 API — 홈/원정 투수 배열.
+ * @returns {Promise<{ home: Array<object>, away: Array<object> } | null>}
+ */
+async function fetchNaverGameRecord(gameId, gameYear) {
+  const gid = String(gameId || "").trim();
+  const gy = String(gameYear || "").trim();
+  if (!gid || !gy) return null;
+  const naverGameId = `${gid}${gy}`;
+  const url = `https://api-gw.sports.naver.com/schedule/games/${encodeURIComponent(naverGameId)}/record`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const result = json?.result;
+    if (!result || typeof result !== "object") return null;
+    const parsed = parseNaverGameRecordPitchers(result);
+    if (!parsed.home.length && !parsed.away.length) return null;
+    return parsed;
+  } catch (e) {
+    console.warn("[fetchNaverGameRecord]", naverGameId, e?.message || e);
+    return null;
+  }
+}
+
+function findNaverPitcherInGameRecord(record, playerNameRaw, sideRaw) {
+  if (!record || !playerNameRaw) return null;
+  const want = normalizePitcherNameForMatch(playerNameRaw);
+  if (!want) return null;
+  const side = String(sideRaw || "").trim().toLowerCase();
+  const list = side === "home" ? record.home || [] : record.away || [];
+  const matches = (list || []).filter(
+    (row) => normalizePitcherNameForMatch(row?.playerName) === want
+  );
+  if (!matches.length) return null;
+  const starter = matches.find((row) => row.isStarter);
+  return starter || matches[0];
+}
+
+function resolveMvpPitcherSideForNaver(r0, gr0) {
+  const side = String(r0?.side ?? "").trim().toLowerCase();
+  if (side === "home" || side === "away") return side;
+  if (gr0 && typeof gr0 === "object" && gr0.is_home != null) {
+    return gr0.is_home ? "home" : "away";
+  }
+  return "home";
+}
+
+function buildStarterPitcherGameDetail(r, gr, naverPitcherRow = null) {
   const r0 = r && typeof r === "object" ? r : {};
   const gr0 = gr && typeof gr === "object" ? gr : {};
-  const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
-  const er = pickNumOrNull(r0, ["er", "ER", "earned_runs", "earnedRuns"]);
-  const runs = pickNumOrNull(r0, ["r", "R", "runs", "runs_allowed"]);
-  const pitch_count = pickNumOrNull(r0, [
-    "pitch_count",
-    "pitches",
-    "pc",
-    "num_pitches",
-  ]);
+  const nv =
+    naverPitcherRow && typeof naverPitcherRow === "object" ? naverPitcherRow : null;
+  let ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
+  if (!(ipn > 0) && nv?.innings != null) {
+    ipn = sumInningsToNumber(nv.innings);
+  }
+  const er = coalescePitcherStat(
+    pickNumOrNull(r0, ["er", "ER", "earned_runs", "earnedRuns"]),
+    nv?.earnedRuns
+  );
+  const runs = coalescePitcherStat(
+    pickNumOrNull(r0, ["r", "R", "runs", "runs_allowed"]),
+    nv?.runs
+  );
+  const pitch_count = coalescePitcherStat(
+    pickNumOrNull(r0, ["pitch_count", "pitches", "pc", "num_pitches"]),
+    nv?.numberOfPitches
+  );
   const bf = pickNumOrNull(r0, ["bf", "BF", "batters_faced", "batters", "num_bf"]);
-  const hr = pickNumOrNull(r0, ["hr", "HR", "home_runs", "home_runs_allowed"]);
+  const hr = coalescePitcherStat(
+    pickNumOrNull(r0, ["hr", "HR", "home_runs", "home_runs_allowed"]),
+    nv?.homeRuns
+  );
+  const gid = normalizeGameId(r0?.game_id ?? r0?.gameId ?? gr0?.game_id ?? "");
   return {
+    game_id: gid || null,
     game_date: String(gr0?.game_date || r0?.game_date || r0?.gameDate || "").slice(0, 10),
     opponent: gr0?.opponent ?? null,
     is_home: Boolean(gr0?.is_home),
+    side: resolveMvpPitcherSideForNaver(r0, gr0),
     ip: ipn > 0 ? Number(ipn.toFixed(2)) : ipn,
     er,
     runs,
-    h: pickNumOrNull(r0, ["h", "H", "hits", "hits_allowed", "hit"]),
-    so: pickNumOrNull(r0, ["so", "SO", "k", "K", "strikeouts"]),
-    bb: pickNumOrNull(r0, ["bb", "BB", "walk", "walks"]),
+    h: coalescePitcherStat(
+      pickNumOrNull(r0, ["h", "H", "hits", "hits_allowed", "hit"]),
+      nv?.hits
+    ),
+    so: coalescePitcherStat(
+      pickNumOrNull(r0, ["so", "SO", "k", "K", "strikeouts"]),
+      nv?.strikeouts
+    ),
+    bb: coalescePitcherStat(
+      pickNumOrNull(r0, ["bb", "BB", "walk", "walks"]),
+      nv?.baseOnBalls
+    ),
     hbp: pickNumOrNull(r0, ["hbp", "HBP", "hit_by_pitch"]),
     hr,
     pitch_count,
@@ -3046,6 +3189,8 @@ function buildTeamWeeklyMvpStarterPitcher(pitcherRows, teamKw, gameResults) {
       so: totals.so,
     },
     game,
+    __mvp_fs_row: best.r,
+    __mvp_gr: best.gr,
   };
 }
 
@@ -3210,8 +3355,30 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
       mvpBase.team
     );
   }
+
+  const fsRow = mvpBase.__mvp_fs_row;
+  const grRow = mvpBase.__mvp_gr;
+  const gid = normalizeGameId(
+    mvpBase.game?.game_id ?? fsRow?.game_id ?? fsRow?.gameId ?? ""
+  );
+  const gy = extractScheduleYearFromGameId(gid) || String(y);
+  let game = mvpBase.game;
+  if (gid && mvpBase.player) {
+    const naverRecord = await fetchNaverGameRecord(gid, gy);
+    const side = resolveMvpPitcherSideForNaver(
+      fsRow && typeof fsRow === "object" ? fsRow : {},
+      grRow && typeof grRow === "object" ? grRow : mvpBase.game
+    );
+    const naverPitcher = findNaverPitcherInGameRecord(naverRecord, mvpBase.player, side);
+    if (fsRow && grRow) {
+      game = buildStarterPitcherGameDetail(fsRow, grRow, naverPitcher);
+    }
+  }
+
+  const { __mvp_fs_row, __mvp_gr, ...mvpPublic } = mvpBase;
   return {
-    ...mvpBase,
+    ...mvpPublic,
+    game,
     player_image_url: player_image_url ?? null,
     season: {
       ip: season_ip,
