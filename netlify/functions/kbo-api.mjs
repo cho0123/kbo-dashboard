@@ -2991,6 +2991,58 @@ function splitNaverPitchersArrayBySide(rows) {
   return { home, away };
 }
 
+function pitcherListFromTeamNode(node) {
+  if (node == null) return [];
+  if (Array.isArray(node)) return node;
+  if (typeof node !== "object") return [];
+  const inner =
+    node.pitchers ??
+    node.pitcherList ??
+    node.pitcherRecords ??
+    node.records ??
+    node.rows ??
+    node.list ??
+    node.data;
+  return Array.isArray(inner) ? inner : [];
+}
+
+/** pitchersBoxscore / pitchingResult 등 중첩 홈·원정 블록 */
+function naverPitcherRowsFromNestedBlock(block) {
+  if (block == null) return { home: [], away: [] };
+  if (Array.isArray(block)) {
+    const split = splitNaverPitchersArrayBySide(block);
+    if (split.home.length || split.away.length) return split;
+    return { home: block, away: [] };
+  }
+  if (typeof block !== "object") return { home: [], away: [] };
+
+  const home = pitcherListFromTeamNode(
+    block.home ??
+      block.homeTeam ??
+      block.home_team ??
+      block.homeSide ??
+      block.homeTeamPitchers ??
+      block.HOME
+  );
+  const away = pitcherListFromTeamNode(
+    block.away ??
+      block.awayTeam ??
+      block.away_team ??
+      block.awaySide ??
+      block.awayTeamPitchers ??
+      block.AWAY
+  );
+  if (home.length || away.length) return { home, away };
+
+  const flat = block.pitchers ?? block.records ?? block.rows ?? block.list;
+  if (Array.isArray(flat)) {
+    const split = splitNaverPitchersArrayBySide(flat);
+    if (split.home.length || split.away.length) return split;
+    return { home: flat, away: [] };
+  }
+  return { home: [], away: [] };
+}
+
 /** recordData 또는 result 루트에서 홈/원정 투수 배열 추출 */
 function extractNaverGameRecordPitcherLists(source) {
   const src = source && typeof source === "object" ? source : {};
@@ -3011,6 +3063,22 @@ function extractNaverGameRecordPitcherLists(source) {
     } else {
       homeRaw = pitchersCombined;
       awayRaw = [];
+    }
+  }
+
+  if (
+    (!Array.isArray(homeRaw) || !homeRaw.length) &&
+    (!Array.isArray(awayRaw) || !awayRaw.length)
+  ) {
+    for (const key of ["pitchersBoxscore", "pitchingResult"]) {
+      const block = src[key];
+      if (block == null) continue;
+      const split = naverPitcherRowsFromNestedBlock(block);
+      if (split.home.length || split.away.length) {
+        homeRaw = split.home;
+        awayRaw = split.away;
+        break;
+      }
     }
   }
 
@@ -3098,6 +3166,14 @@ async function fetchNaverGameRecord(gameId, gameYear) {
       "[fetchNaverGameRecord] recordData preview:",
       JSON.stringify(recordData).slice(0, 500)
     );
+    console.log(
+      "[fetchNaverGameRecord] pitchersBoxscore:",
+      JSON.stringify(recordData?.pitchersBoxscore ?? null).slice(0, 800)
+    );
+    console.log(
+      "[fetchNaverGameRecord] pitchingResult:",
+      JSON.stringify(recordData?.pitchingResult ?? null).slice(0, 800)
+    );
     const rdHome =
       recordData?.homeTeamPitchers ??
       recordData?.home_team_pitchers ??
@@ -3128,6 +3204,14 @@ async function fetchNaverGameRecord(gameId, gameYear) {
       recordDataHomeLen: Array.isArray(rdHome) ? rdHome.length : 0,
       recordDataAwayLen: Array.isArray(rdAway) ? rdAway.length : 0,
       recordDataPitchersLen: Array.isArray(rdPitchers) ? rdPitchers.length : 0,
+      hasPitchersBoxscore: Object.prototype.hasOwnProperty.call(
+        recordData || {},
+        "pitchersBoxscore"
+      ),
+      hasPitchingResult: Object.prototype.hasOwnProperty.call(
+        recordData || {},
+        "pitchingResult"
+      ),
       hasHomeTeamPitchers: Object.prototype.hasOwnProperty.call(
         result || {},
         "homeTeamPitchers"
