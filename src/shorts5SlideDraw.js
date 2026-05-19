@@ -762,10 +762,11 @@ const MVP_TITLE_FONT_PX = MVP_HEADER_FONT_PX + 7;
 const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
 const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
-const MVP_BAR_LABELS_PITCHER = ["ERA", "이닝", "삼진"];
-const MVP_BASE_ERA = 5.0;
+const MVP_BAR_LABELS_PITCHER = ["이닝", "자책", "삼진"];
 const MVP_BASE_IP = 7.0;
+const MVP_BASE_ER = 3.0;
 const MVP_BASE_SO = 10.0;
+const MVP_PITCHER_DATE_FONT_PX = 30;
 const PITCHER_GAME_SECTION_SHIFT_Y = -40;
 const PITCHER_RELIEF_SECTION_SHIFT_Y = 20;
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
@@ -1423,30 +1424,39 @@ function fmtPitcherIp(v) {
   return s || "—";
 }
 
-function fmtMvpSeasonIpSuffix(n) {
-  if (n == null || n === "") return "시즌 -이닝";
-  const s = String(n).trim();
-  return s ? `시즌 ${s}이닝` : "시즌 -이닝";
+/** MM월DD일 vs 상대 (홈/원정) */
+function fmtPitcherGameDateLine(game) {
+  const g = game && typeof game === "object" ? game : {};
+  const raw = String(g.game_date || "").trim();
+  if (!raw) return "";
+  const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return "";
+  const mm = String(m[2]).padStart(2, "0");
+  const dd = String(m[3]).padStart(2, "0");
+  const opp = fmtTeamShort(g.opponent || "—");
+  const homeMark = g.is_home ? "홈" : "원정";
+  return `${mm}월${dd}일 vs ${opp} (${homeMark})`;
 }
 
-function mvpPitcherWeeklyStatLines(mvp) {
-  const mvp0 = mvp && typeof mvp === "object" ? mvp : {};
-  const t = mvp0.total && typeof mvp0.total === "object" ? mvp0.total : {};
-  const ip = fmtPitcherIp(t.ip);
-  const er = Number(t.er) || 0;
-  const era = fmtPitcherEra(t.era);
-  const wins = Number(t.wins) || 0;
-  const seasonIp = mvp0?.season?.ip;
-  const seasonWins = pickMvpSeasonStat(mvp0, ["wins", "season_wins"], ["season_wins", "seasonWins"]);
-  return [
-    `- 주간 ${ip}이닝 (${fmtMvpSeasonIpSuffix(seasonIp)})`,
-    `- 주간 ${er}자책 (ERA ${era})`,
-    `- 주간 ${wins}승 (${fmtMvpSeasonSuffix(seasonWins, "승")})`,
-  ];
+function fmtPitcherGameResult(result) {
+  const r = String(result ?? "").trim();
+  if (r === "승" || r === "패" || r === "무") return r;
+  if (r === "win") return "승";
+  if (r === "loss") return "패";
+  if (r === "draw") return "무";
+  return r || "—";
+}
+
+function mvpPitcherGameStatLines(mvp) {
+  const g = mvp?.game && typeof mvp.game === "object" ? mvp.game : {};
+  const ip = fmtPitcherIp(g.ip);
+  const er = g.er != null && g.er !== "" ? Number(g.er) : 0;
+  const result = fmtPitcherGameResult(g.result);
+  return [`- ${ip}이닝 투구`, `- ${er}자책점`, `- ${result}`];
 }
 
 function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
-  const lines = mvpPitcherWeeklyStatLines(mvp);
+  const lines = mvpPitcherGameStatLines(mvp);
   const gap = MVP_STAT_LINE_GAP;
   const totalH = (lines.length - 1) * gap;
   let y = cy - totalH / 2;
@@ -1464,27 +1474,31 @@ function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
   return lastCenterY + MVP_STAT_FONT_PX / 2;
 }
 
-function mvpPitcherEraIpSoBarRatios(total) {
-  const era = Number(total?.era);
-  const ip = Number(total?.ip);
-  const so = Number(total?.so);
-  const w0 = Number.isFinite(era) && era >= 0 ? MVP_BASE_ERA / Math.max(era, 0.01) : 0;
-  const w1 = Number.isFinite(ip) && ip >= 0 ? ip / MVP_BASE_IP : 0;
+function mvpPitcherGameIpErSoBarRatios(game) {
+  const ip = Number(game?.ip);
+  const er = Number(game?.er);
+  const so = Number(game?.so);
+  const w0 = Number.isFinite(ip) && ip >= 0 ? ip / MVP_BASE_IP : 0;
+  const w1 = Number.isFinite(er) && er >= 0 ? er / MVP_BASE_ER : 0;
   const w2 = Number.isFinite(so) && so >= 0 ? so / MVP_BASE_SO : 0;
   const s = w0 + w1 + w2;
   return s > 0 ? [w0, w1, w2] : [1, 1, 1];
 }
 
-function drawPitcherMvpEraIpSoBar(ctx, wCanvas, topBelowStats, total) {
-  const ratios = mvpPitcherEraIpSoBarRatios(total);
+function drawPitcherMvpGameIpErSoBar(ctx, wCanvas, topBelowStats, game) {
+  const ratios = mvpPitcherGameIpErSoBarRatios(game);
   const barW = Math.floor(wCanvas * MVP_BAR_W_FRAC);
   const barLeft = Math.floor((wCanvas - barW) / 2);
   if (barW < 120) return topBelowStats;
 
   const segWs = splitMvpBarSegmentWidths(barW, ratios);
   const barTop = topBelowStats + MVP_BAR_GAP;
-  const valueStrs = [fmtPitcherEra(total?.era), fmtPitcherIp(total?.ip), String(Number(total?.so) || 0)];
-  const summaryLine = `ERA ${valueStrs[0]}  이닝 ${valueStrs[1]}  삼진 ${valueStrs[2]}`;
+  const valueStrs = [
+    fmtPitcherIp(game?.ip),
+    String(game?.er != null && game?.er !== "" ? Number(game.er) : 0),
+    String(Number(game?.so) || 0),
+  ];
+  const summaryLine = `이닝 ${valueStrs[0]}  자책 ${valueStrs[1]}  삼진 ${valueStrs[2]}`;
 
   ctx.save();
   ctx.beginPath();
@@ -1553,16 +1567,32 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   const teamLogoImg = tk && logosByTeamKey ? logosByTeamKey[tk] : null;
   const playerName = String(mvp?.player || "").trim();
   const usePhoto = Boolean(drawableShorts4Portrait(portrait));
+  const titleCy = upperHeaderCy + MVP_TITLE_ROW_SHIFT_Y;
 
   drawBattingMvpTitleRow(
     ctx,
     w,
-    upperHeaderCy + MVP_TITLE_ROW_SHIFT_Y,
+    titleCy,
     teamName,
     playerName,
     teamLogoImg,
     MVP_TITLE_LABEL_PITCHER
   );
+
+  const dateLine = fmtPitcherGameDateLine(mvp?.game);
+  if (dateLine) {
+    const dateY = titleCy + Math.round(MVP_TITLE_LOGO_H / 2) + 20;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `600 ${MVP_PITCHER_DATE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    shadowTextSoft(ctx);
+    ctx.fillText(dateLine, w / 2, dateY);
+    resetShadow(ctx);
+    ctx.restore();
+  }
+
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;
@@ -1583,7 +1613,7 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     mvp
   );
   const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
-  return drawPitcherMvpEraIpSoBar(ctx, w, contentBottom, mvp?.total);
+  return drawPitcherMvpGameIpErSoBar(ctx, w, contentBottom, mvp?.game);
 }
 
 function drawPitcherGameDetailSection(ctx, w, topY, game) {
