@@ -2872,7 +2872,16 @@ function aggregatePitcherWeeklyByPlayer(rows) {
     acc.rows.push(r);
     const ipn = sumInningsToNumber(r?.ip ?? r?.IP ?? r?.inn ?? r?.innings ?? 0);
     if (ipn > 0) acc.ip += ipn;
-    const er = pickAny(r, ["er", "ER", "earned_runs", "earnedRuns"]);
+    const er = pickAny(r, [
+      "er",
+      "ER",
+      "earned_runs",
+      "earnedRuns",
+      "r",
+      "R",
+      "runs",
+      "runs_allowed",
+    ]);
     const erNum = er == null ? null : Number(er);
     if (erNum != null && Number.isFinite(erNum) && erNum >= 0) {
       acc._er += erNum;
@@ -2914,7 +2923,16 @@ function buildStarterPitcherGameDetail(r, gr) {
   const r0 = r && typeof r === "object" ? r : {};
   const gr0 = gr && typeof gr === "object" ? gr : {};
   const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
-  const er = pickNum(r0, ["er", "ER", "earned_runs", "earnedRuns"]);
+  const er = pickNum(r0, [
+    "er",
+    "ER",
+    "earned_runs",
+    "earnedRuns",
+    "r",
+    "R",
+    "runs",
+    "runs_allowed",
+  ]);
   return {
     game_date: String(gr0?.game_date || r0?.game_date || r0?.gameDate || "").slice(0, 10),
     opponent: gr0?.opponent ?? null,
@@ -2932,7 +2950,16 @@ function buildStarterPitcherGameDetail(r, gr) {
 function starterPitcherSingleGameMvpScore(r, gr) {
   const r0 = r && typeof r === "object" ? r : {};
   const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
-  const erRaw = pickNum(r0, ["er", "ER", "earned_runs", "earnedRuns"]);
+  const erRaw = pickNum(r0, [
+    "er",
+    "ER",
+    "earned_runs",
+    "earnedRuns",
+    "r",
+    "R",
+    "runs",
+    "runs_allowed",
+  ]);
   const er = erRaw != null && Number.isFinite(Number(erRaw)) ? Number(erRaw) : 0;
   const isWin =
     pitchRowWeeklyWinIncrement(r0) > 0 || mapPitcherAppearanceResult(r0, gr) === "승";
