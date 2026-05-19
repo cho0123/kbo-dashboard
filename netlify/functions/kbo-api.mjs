@@ -4687,6 +4687,18 @@ function buildPitcherRankIndex(statsArr) {
   }
 
   const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
+  console.log("[pitcherRankIndex] qualified count:", qualifiedRows.length);
+  console.log(
+    "[pitcherRankIndex] sample qualified:",
+    JSON.stringify(
+      qualifiedRows.slice(0, 3).map((r) => ({
+        name: r.playerName,
+        whip: r.pitcherWhip,
+        era: r.pitcherEra,
+        qualified: r.isQualified,
+      }))
+    )
+  );
   for (const def of PITCHER_COMPUTED_RANK_FIELDS) {
     const withVal = qualifiedRows
       .map((r) => ({ r, v: def.get(r) }))
