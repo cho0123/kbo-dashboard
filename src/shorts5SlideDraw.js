@@ -448,7 +448,7 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   const games = Array.isArray(data?.games) ? data.games.slice(0, 6) : [];
 
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = getTeamDarkColor(teamName);
+  ctx.fillStyle = getTeamStrongColor(teamName);
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
