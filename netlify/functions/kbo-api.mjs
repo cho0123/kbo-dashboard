@@ -4741,6 +4741,16 @@ function buildPitcherRankIndex(statsArr) {
 
   const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
 
+  const soSorted = qualifiedRows
+    .filter((r) => Number.isFinite(Number(r.pitcherKk)))
+    .sort((a, b) => Number(b.pitcherKk) - Number(a.pitcherKk));
+  console.log(
+    "[pitcherRankIndex] so top20:",
+    JSON.stringify(
+      soSorted.slice(0, 20).map((r, i) => ({ rank: i + 1, name: r.playerName, kk: r.pitcherKk }))
+    )
+  );
+
   for (const def of PITCHER_RANK_FIELD_DEFS) {
     const withVal = qualifiedRows
       .map((r) => ({ r, v: def.get(r) }))
