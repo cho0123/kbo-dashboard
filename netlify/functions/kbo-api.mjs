@@ -3762,7 +3762,7 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   if (!mvpBase || typeof mvpBase !== "object") return mvpBase;
   const y = Number(seasonYear) || 2026;
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(y);
-  const pitcherRankIndex = await buildPitcherRankIndex(db, y);
+  const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
   const mvpNameKey = String(mvpBase.player || "").replace(/\s+/g, " ").trim();
   const mvpPitcherRanks = mvpNameKey ? pitcherRankIndex[mvpNameKey] : null;
   const player_image_url = findPitcherImageUrlByStarterName(
@@ -4710,6 +4710,59 @@ function parsePitcherInningString(raw) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+const PITCHER_RANK_FIELD_DEFS = [
+  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true, qualifiedOnly: true },
+  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true, qualifiedOnly: true },
+  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false, qualifiedOnly: false },
+  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false, qualifiedOnly: false },
+];
+
+/**
+ * seasonPlayerStats → playerName 기반 순위 인덱스 (네이버).
+ * ERA/WHIP: isQualified만. 승/이닝: 전체 선수. 동률: competition ranking.
+ * @returns {Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, ip_rank:number|null}>}
+ */
+function buildPitcherRankIndex(statsArr) {
+  const idx = {};
+  if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
+
+  const ensure = (name) => {
+    if (!idx[name]) {
+      idx[name] = {
+        era_rank: null,
+        win_rank: null,
+        whip_rank: null,
+        ip_rank: null,
+      };
+    }
+    return idx[name];
+  };
+
+  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
+
+  for (const def of PITCHER_RANK_FIELD_DEFS) {
+    const pool = def.qualifiedOnly ? qualifiedRows : statsArr;
+    const withVal = pool
+      .map((r) => ({ r, v: def.get(r) }))
+      .filter((x) => Number.isFinite(x.v));
+    withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
+
+    let lastVal = null;
+    let lastRank = 0;
+    for (let i = 0; i < withVal.length; i++) {
+      const { r, v } = withVal[i];
+      const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
+      lastVal = v;
+      lastRank = rank;
+      const name = pitcherRankIndexPlayerName(r);
+      if (!name) continue;
+      ensure(name)[def.key] = rank;
+    }
+  }
+
+  return idx;
+}
+
 const PITCHER_RANK_FS_FIELD_DEFS = [
   { key: "era_rank", get: (r) => Number(r?.era), asc: true },
   { key: "whip_rank", get: (r) => Number(r?.whip), asc: true },
@@ -4747,7 +4800,7 @@ async function fetchPitcherRankingsFromFirestore(db, seasonYear) {
  * KBO 기록실 rank(ERA 표) + era/whip/w/ip 부문별 competition ranking.
  * @returns {Promise<Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, ip_rank:number|null}>>}
  */
-async function buildPitcherRankIndex(db, seasonYear) {
+async function buildPitcherRankIndexFromFirestore(db, seasonYear) {
   const rows = await fetchPitcherRankingsFromFirestore(db, seasonYear);
   const idx = {};
   if (!Array.isArray(rows) || rows.length === 0) return idx;
