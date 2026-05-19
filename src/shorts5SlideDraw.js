@@ -761,27 +761,31 @@ const MVP_TITLE_LOGO_MAX_W = 180;
 const MVP_TITLE_FONT_PX = MVP_HEADER_FONT_PX + 7;
 const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
-const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
+const MVP_TITLE_LABEL_PITCHER = "오늘의 투수";
 /** 사진 옆 4줄 스탯 블록 아래로 */
 const MVP_PITCHER_STAT_LINES_SHIFT_Y = 20;
 const PITCHER_GAME_TABLE_AT_BAR_SHIFT_Y = 0;
 /** 등판기록 표만 아래로 (타이틀 Y는 유지) */
 const PITCHER_GAME_TABLE_SHIFT_Y = 5;
 const PITCHER_GAME_SECTION_SHIFT_Y = 80;
-const PITCHER_GAME_TITLE_FONT_PX = 39;
+const PITCHER_GAME_DETAIL_TITLE_FONT_PX = 41;
+const PITCHER_GAME_TABLE_VALUE_FONT_PX = 31;
+const PITCHER_SEASON_RANK_TITLE_FONT_PX = 39;
 const PITCHER_GAME_HEADER_BG = "rgba(0,0,0,0.3)";
 const PITCHER_GAME_TABLE_HEADER_H = 36;
 const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 /** 등판기록 구분 흰선 — 섹션 시작 기준 추가 위로 이동 */
 const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
 /** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
-const PITCHER_SECTION_BG_SHIFT_Y = 100;
+const PITCHER_SECTION_BG_SHIFT_Y = 170;
+const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = 10;
 const PITCHER_SEASON_RANK_TITLE_OFFSET_Y = 40;
+/** drawShorts5BattingSlide: tableTitleY − sectionBgY (= 44−60 − (−70)) */
+const BATTING_LOWER_SECTION_TITLE_GAP_Y = 54;
 const PITCHER_SEASON_RANK_TITLE_TO_BADGE_Y = 64;
 const PITCHER_MVP_DATE_LINE_COLOR = "#FFE87C";
-const PITCHER_RELIEF_SECTION_SHIFT_Y = 220;
 const PITCHER_SEASON_RANK_BADGE_H = 44;
-const PITCHER_SEASON_RANK_BADGE_FONT_PX = 28;
+const PITCHER_SEASON_RANK_BADGE_FONT_PX = 30;
 const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
@@ -1634,7 +1638,7 @@ function drawPitcherSeasonRankSection(ctx, w, topY, ranks) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `800 ${PITCHER_GAME_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
+  ctx.font = `800 ${PITCHER_SEASON_RANK_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("시즌 순위", w / 2, titleY);
 
   const rowCy = titleY + PITCHER_SEASON_RANK_TITLE_TO_BADGE_Y;
@@ -1672,7 +1676,7 @@ function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
 
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.95)";
-  ctx.font = `800 ${PITCHER_GAME_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
+  ctx.font = `800 ${PITCHER_GAME_DETAIL_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText(`등판 기록: ${dateStr} vs ${opp} (${homeMark}) ${result}`, w / 2, titleY);
 
   const cols = [
@@ -1710,20 +1714,20 @@ function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
     ctx.fillText(cols[i].label, cx, labelY);
     resetShadow(ctx);
   }
-  ctx.font = `800 28px "${FONT_BODY}", sans-serif`;
+  ctx.font = `800 ${PITCHER_GAME_TABLE_VALUE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   for (let i = 0; i < cols.length; i++) {
     const cx = padX + colW * i + colW / 2;
     ctx.fillText(cols[i].val, cx, valueY);
   }
-  let bottomY = valueY + 36;
+  let bottomY = valueY + 36 + PITCHER_SEASON_RANK_SECTION_SHIFT_Y;
   bottomY = drawPitcherSeasonRankSection(ctx, w, bottomY, seasonRanks);
   return bottomY;
 }
 
-function drawPitcherReliefSection(ctx, w, topY, reliefList) {
+function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
   const list = Array.isArray(reliefList) ? reliefList.slice(0, 3) : [];
-  const titleY = topY + 36 + PITCHER_RELIEF_SECTION_SHIFT_Y;
+  const titleY = reliefTitleY;
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.font = `800 38px "${FONT_BODY}", sans-serif`;
@@ -1865,7 +1869,8 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
       mvp.season?.ranks
     );
   }
-  drawPitcherReliefSection(ctx, w, midY, data?.relief_top_pitchers);
+  const reliefTitleY = sectionBgY + BATTING_LOWER_SECTION_TITLE_GAP_Y;
+  drawPitcherReliefSection(ctx, w, reliefTitleY, data?.relief_top_pitchers);
 
   primeShorts5PitcherAssets(data, teamKwOverride);
 }
