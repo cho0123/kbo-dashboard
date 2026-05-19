@@ -3725,6 +3725,12 @@ async function enrichTeamWeeklyMvpBatter(mvpBase, seasonYear) {
     enriched?.season_war != null && Number.isFinite(Number(enriched.season_war))
       ? Number(enriched.season_war)
       : null;
+  const mvpName = String(mvpBase.player || "").replace(/\s+/g, " ").trim();
+  const mvpHitterRanks = lookupHitterRankRowForPlayer(
+    hitterRankIndex,
+    seasonHitterStats,
+    mvpName
+  );
   const baseTotal =
     mvpBase.total && typeof mvpBase.total === "object" ? { ...mvpBase.total } : {};
   return {
@@ -3739,6 +3745,14 @@ async function enrichTeamWeeklyMvpBatter(mvpBase, seasonYear) {
       hr: season_hr,
       h: season_h,
       rbi: season_rbi,
+      ranks: {
+        avg: mvpHitterRanks?.avg_rank ?? null,
+        hr: mvpHitterRanks?.hr_rank ?? null,
+        rbi: mvpHitterRanks?.rbi_rank ?? null,
+        hit: mvpHitterRanks?.hit_rank ?? null,
+        ops: mvpHitterRanks?.ops_rank ?? null,
+        war: mvpHitterRanks?.war_rank ?? null,
+      },
     },
   };
 }
@@ -4591,6 +4605,7 @@ const HITTER_RANK_FIELDS = [
   { key: "hr_rank", stat: "hitterHr" },
   { key: "rbi_rank", stat: "hitterRbi" },
   { key: "avg_rank", stat: "hitterHra" },
+  { key: "hit_rank", stat: "hitterHit" },
   { key: "ops_rank", stat: "hitterOps" },
   { key: "war_rank", stat: "hitterWar" },
 ];
@@ -4599,7 +4614,7 @@ const HITTER_RANK_FIELDS = [
  * seasonPlayerStats → playerId/playerName 기반 부문별 Top-10 순위 인덱스.
  * 동률 처리: standard competition ranking (예: 1, 2, 2, 4).
  * 11위 이상은 인덱스에 누적되지 않음(조회 시 자연스레 null).
- * @returns {Map<string, {hr_rank:number|null, rbi_rank:number|null, avg_rank:number|null, ops_rank:number|null, war_rank:number|null}>}
+ * @returns {Map<string, {hr_rank:number|null, rbi_rank:number|null, avg_rank:number|null, hit_rank:number|null, ops_rank:number|null, war_rank:number|null}>}
  */
 function buildHitterRankIndex(statsArr) {
   const idx = new Map();
@@ -4611,6 +4626,7 @@ function buildHitterRankIndex(statsArr) {
         hr_rank: null,
         rbi_rank: null,
         avg_rank: null,
+        hit_rank: null,
         ops_rank: null,
         war_rank: null,
       });
@@ -4638,6 +4654,20 @@ function buildHitterRankIndex(statsArr) {
     }
   }
   return idx;
+}
+
+function lookupHitterRankRowForPlayer(rankIndex, seasonHitterStats, playerName) {
+  const name = String(playerName || "").replace(/\s+/g, " ").trim();
+  if (!name || !(rankIndex instanceof Map)) return null;
+  const rows = Array.isArray(seasonHitterStats) ? seasonHitterStats : [];
+  const row = rows.find(
+    (r) => String(r?.playerName || "").replace(/\s+/g, " ").trim() === name
+  );
+  const id =
+    row?.playerId != null && String(row.playerId).trim() !== ""
+      ? String(row.playerId).trim()
+      : name;
+  return rankIndex.get(id) ?? rankIndex.get(name) ?? null;
 }
 
 /** 네이버 seasonPlayerStats — 규정이닝 등 자격(isQualified) */
