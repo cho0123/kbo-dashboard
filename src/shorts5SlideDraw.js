@@ -797,11 +797,11 @@ const PITCHER_RELIEF_BADGE_HOLD = "#3b82f6";
 const PITCHER_RELIEF_BADGE_SAVE = "#eab308";
 const PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
-const BATTING_GAME_TABLE_SHIFT_Y = -60;
+const BATTING_GAME_TABLE_SHIFT_Y = -30;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
 const MVP_TITLE_ROW_SHIFT_Y = -20;
 /** 하단 경기별 기록 섹션 배경 fillRect 시작 Y (위로 이동 시 음수) */
-const BATTING_SECTION_BG_SHIFT_Y = -70;
+const BATTING_SECTION_BG_SHIFT_Y = -40;
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
 const MVP_BAR_GAP = 18;
@@ -1351,7 +1351,21 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
     return;
   }
 
-  drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey);
+  const avgBarBottom = drawBattingMvpUpperBlock(
+    ctx,
+    w,
+    h,
+    teamName,
+    mvp,
+    portrait,
+    logosByTeamKey
+  );
+  drawBattingSeasonRankSection(
+    ctx,
+    w,
+    avgBarBottom + PITCHER_SEASON_RANK_SECTION_SHIFT_Y,
+    mvp?.season?.ranks
+  );
 
   const tableTitleY = topDividerY + 44 + BATTING_GAME_TABLE_SHIFT_Y;
   ctx.textAlign = "center";
@@ -1359,19 +1373,13 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
   ctx.font = `800 40px "${FONT_BODY}", sans-serif`;
   ctx.fillText("경기별 기록", w / 2, tableTitleY);
 
-  const tableBottom = drawBattingGameTable(
+  drawBattingGameTable(
     ctx,
     w,
     h,
     mvp.games,
     logosByTeamKey,
     tableTitleY + 36
-  );
-  drawBattingSeasonRankSection(
-    ctx,
-    w,
-    tableBottom + PITCHER_SEASON_RANK_SECTION_SHIFT_Y,
-    mvp?.season?.ranks
   );
 
   primeShorts5BattingAssets(data, teamKwOverride);
@@ -1630,13 +1638,17 @@ function pitcherGameWalks4(g) {
 const BATTING_SEASON_RANK_BADGE_BLUE = "rgba(37, 99, 235, 0.72)";
 const BATTING_SEASON_RANK_BADGE_RED = "rgba(220, 38, 38, 0.72)";
 const BATTING_SEASON_RANK_BADGE_GOLD = "rgba(202, 138, 4, 0.82)";
+/** 시즌 순위 배지: 20위 이내만 표시 */
+const SEASON_RANK_BADGE_MAX = 20;
+
+function seasonRankBadgeRank(v) {
+  const x = Number(v);
+  return Number.isFinite(x) && x > 0 && x <= SEASON_RANK_BADGE_MAX ? x : null;
+}
 
 function battingSeasonRankBadgeItems(ranks) {
   const r = ranks && typeof ranks === "object" ? ranks : {};
-  const n = (v) => {
-    const x = Number(v);
-    return Number.isFinite(x) && x > 0 ? x : null;
-  };
+  const n = (v) => seasonRankBadgeRank(v);
   const items = [];
   const avg = n(r.avg);
   const hit = n(r.hit);
@@ -1693,23 +1705,16 @@ function drawBattingSeasonRankSection(ctx, w, topY, ranks) {
 
 function pitcherSeasonRankBadgeItems(ranks) {
   const r = ranks && typeof ranks === "object" ? ranks : {};
-  const n = (v) => {
-    const x = Number(v);
-    return Number.isFinite(x) && x > 0 ? x : null;
-  };
+  const n = (v) => seasonRankBadgeRank(v);
   const items = [];
   const win = n(r.win);
   const era = n(r.era);
   const whip = n(r.whip);
-  const so = n(r.so);
   const ip = n(r.ip);
-  const war = n(r.war);
   if (win != null) items.push({ text: `승 ${win}위`, bg: PITCHER_SEASON_RANK_BADGE_WIN });
   if (era != null) items.push({ text: `ERA ${era}위`, bg: "rgba(37, 99, 235, 0.72)" });
   if (whip != null) items.push({ text: `WHIP ${whip}위`, bg: "rgba(37, 99, 235, 0.72)" });
-  if (so != null) items.push({ text: `삼진 ${so}위`, bg: "rgba(22, 163, 74, 0.72)" });
   if (ip != null) items.push({ text: `이닝 ${ip}위`, bg: "rgba(22, 163, 74, 0.72)" });
-  if (war != null) items.push({ text: `WAR ${war}위`, bg: "rgba(202, 138, 4, 0.82)" });
   return items;
 }
 
