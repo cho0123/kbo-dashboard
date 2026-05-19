@@ -4679,6 +4679,23 @@ function buildPitcherRankIndex(statsArr) {
       ensure(name)[def.key] = rank;
     }
   }
+
+  console.log("[pitcherRankIndex] qualified count:", qualifiedRows.length);
+  console.log(
+    "[pitcherRankIndex] tolhurst ranks:",
+    JSON.stringify(idx["톨허스트"] || idx["앤더스 톨허스트"])
+  );
+  console.log(
+    "[pitcherRankIndex] whip top5:",
+    JSON.stringify(
+      [...qualifiedRows]
+        .filter((r) => Number.isFinite(Number(r?.pitcherWhip)))
+        .sort((a, b) => Number(a.pitcherWhip) - Number(b.pitcherWhip))
+        .slice(0, 5)
+        .map((r) => ({ name: r.playerName, whip: r.pitcherWhip }))
+    )
+  );
+
   return idx;
 }
 
