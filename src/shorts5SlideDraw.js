@@ -771,6 +771,10 @@ const PITCHER_GAME_HEADER_BG = "rgba(0,0,0,0.3)";
 const PITCHER_GAME_TABLE_HEADER_H = 36;
 const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 const PITCHER_RELIEF_SECTION_SHIFT_Y = 220;
+const PITCHER_SEASON_RANK_BADGE_H = 44;
+const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
+const PITCHER_SEASON_RANK_BADGE_GAP = 12;
+const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
@@ -1586,7 +1590,62 @@ function pitcherGameWalks4(g) {
   return null;
 }
 
-function drawPitcherGameDetailSection(ctx, w, topY, game) {
+function pitcherSeasonRankBadgeItems(ranks) {
+  const r = ranks && typeof ranks === "object" ? ranks : {};
+  const n = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) && x > 0 ? x : null;
+  };
+  const items = [];
+  const era = n(r.era);
+  const whip = n(r.whip);
+  const so = n(r.so);
+  const ip = n(r.ip);
+  const war = n(r.war);
+  if (era != null) items.push({ text: `ERA ${era}위`, bg: "rgba(37, 99, 235, 0.72)" });
+  if (whip != null) items.push({ text: `WHIP ${whip}위`, bg: "rgba(37, 99, 235, 0.72)" });
+  if (so != null) items.push({ text: `삼진 ${so}위`, bg: "rgba(22, 163, 74, 0.72)" });
+  if (ip != null) items.push({ text: `이닝 ${ip}위`, bg: "rgba(22, 163, 74, 0.72)" });
+  if (war != null) items.push({ text: `WAR ${war}위`, bg: "rgba(202, 138, 4, 0.82)" });
+  return items;
+}
+
+function drawPitcherSeasonRankSection(ctx, w, topY, ranks) {
+  const badges = pitcherSeasonRankBadgeItems(ranks);
+  if (!badges.length) return topY;
+
+  const titleY = topY + 20;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.font = `800 32px "${FONT_BODY}", sans-serif`;
+  ctx.fillText("시즌 순위", w / 2, titleY);
+
+  const rowCy = titleY + 44;
+  const badgeH = PITCHER_SEASON_RANK_BADGE_H;
+  const padX = PITCHER_SEASON_RANK_BADGE_PAD_X;
+  const gap = PITCHER_SEASON_RANK_BADGE_GAP;
+  ctx.font = `700 26px "${FONT_BODY}", sans-serif`;
+  const widths = badges.map((b) => ctx.measureText(b.text).width + padX * 2);
+  const totalW = widths.reduce((a, x) => a + x, 0) + gap * (badges.length - 1);
+  let x = (w - totalW) / 2;
+  for (let i = 0; i < badges.length; i++) {
+    const bw = widths[i];
+    ctx.fillStyle = badges[i].bg;
+    ctx.beginPath();
+    ctx.roundRect(x, rowCy - badgeH / 2, bw, badgeH, PITCHER_SEASON_RANK_BADGE_RADIUS);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    shadowTextSoft(ctx);
+    ctx.fillText(badges[i].text, x + bw / 2, rowCy);
+    resetShadow(ctx);
+    x += bw + gap;
+  }
+  return rowCy + badgeH / 2 + 16;
+}
+
+function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
   const g = game && typeof game === "object" ? game : {};
   console.log("[shorts5] pitcher game full:", JSON.stringify(game));
   const dateStr = fmtBattingSlideDate(g.game_date);
@@ -1641,7 +1700,9 @@ function drawPitcherGameDetailSection(ctx, w, topY, game) {
     const cx = padX + colW * i + colW / 2;
     ctx.fillText(cols[i].val, cx, valueY);
   }
-  return valueY + 36;
+  let bottomY = valueY + 36;
+  bottomY = drawPitcherSeasonRankSection(ctx, w, bottomY, seasonRanks);
+  return bottomY;
 }
 
 function drawPitcherReliefSection(ctx, w, topY, reliefList) {
@@ -1749,7 +1810,13 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
 
   let midY = gameSectionStartY;
   if (mvp.game) {
-    midY = drawPitcherGameDetailSection(ctx, w, gameSectionStartY, mvp.game);
+    midY = drawPitcherGameDetailSection(
+      ctx,
+      w,
+      gameSectionStartY,
+      mvp.game,
+      mvp.season?.ranks
+    );
   }
   drawPitcherReliefSection(ctx, w, midY, data?.relief_top_pitchers);
 

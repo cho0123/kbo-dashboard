@@ -3611,6 +3611,9 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   if (!mvpBase || typeof mvpBase !== "object") return mvpBase;
   const y = Number(seasonYear) || 2026;
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(y);
+  const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
+  const mvpNameKey = String(mvpBase.player || "").replace(/\s+/g, " ").trim();
+  const mvpPitcherRanks = mvpNameKey ? pitcherRankIndex[mvpNameKey] : null;
   const player_image_url = findPitcherImageUrlByStarterName(
     seasonPitcherStats,
     mvpBase.player,
@@ -3693,6 +3696,13 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
       losses: season_losses,
       whip: season_whip,
       era: season_era,
+      ranks: {
+        era: mvpPitcherRanks?.era_rank ?? null,
+        whip: mvpPitcherRanks?.whip_rank ?? null,
+        so: mvpPitcherRanks?.so_rank ?? null,
+        ip: mvpPitcherRanks?.ip_rank ?? null,
+        war: mvpPitcherRanks?.war_rank ?? null,
+      },
     },
   };
 }
@@ -4442,6 +4452,72 @@ function buildHitterRankIndex(statsArr) {
       const id = String(r?.playerId ?? r?.playerName ?? "").trim();
       if (!id) continue;
       ensure(id)[def.key] = rank;
+    }
+  }
+  return idx;
+}
+
+/** 네이버 투수 시즌 삼진 (pitcherKk 우선) */
+function pitcherSeasonSoFromNaverRow(r) {
+  const n = Number(r?.pitcherKk ?? r?.kk ?? r?.strikeouts);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** 네이버 투수 시즌 이닝 */
+function pitcherSeasonIpFromNaverRow(r) {
+  const n = Number(r?.pitcherInning);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+const PITCHER_RANK_FIELDS = [
+  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true },
+  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
+  { key: "so_rank", get: pitcherSeasonSoFromNaverRow, asc: false },
+  { key: "ip_rank", get: pitcherSeasonIpFromNaverRow, asc: false },
+  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false },
+];
+
+const PITCHER_RANK_TOP_N = 50;
+
+/**
+ * seasonPlayerStats → playerName 기반 부문별 Top-50 순위.
+ * ERA/WHIP 오름차순(낮을수록 좋음), 삼진/이닝/WAR 내림차순.
+ * @returns {Record<string, {era_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
+ */
+function buildPitcherRankIndex(statsArr) {
+  const idx = {};
+  if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
+
+  const ensure = (name) => {
+    if (!idx[name]) {
+      idx[name] = {
+        era_rank: null,
+        whip_rank: null,
+        so_rank: null,
+        ip_rank: null,
+        war_rank: null,
+      };
+    }
+    return idx[name];
+  };
+
+  for (const def of PITCHER_RANK_FIELDS) {
+    const withVal = statsArr
+      .map((r) => ({ r, v: def.get(r) }))
+      .filter((x) => Number.isFinite(x.v));
+    withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
+
+    let lastVal = null;
+    let lastRank = 0;
+    for (let i = 0; i < withVal.length; i++) {
+      const { r, v } = withVal[i];
+      const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
+      lastVal = v;
+      lastRank = rank;
+      if (rank > PITCHER_RANK_TOP_N) continue;
+      const name = String(r?.playerName || "").replace(/\s+/g, " ").trim();
+      if (!name) continue;
+      ensure(name)[def.key] = rank;
     }
   }
   return idx;
