@@ -72,20 +72,31 @@ const TEAM_BUTTONS = [
 
 const SLIDES = [
   { type: "intro" },
-  { type: "record" },
-  { type: "batting" },
-  { type: "pitcher" },
-  { type: "games" },
+  { type: "record", step: 1 },
+  { type: "record", step: 2 },
+  { type: "record", step: 3 },
+  { type: "batting", step: 1 },
+  { type: "batting", step: 2 },
+  { type: "batting", step: 3 },
+  { type: "batting", step: 4 },
+  { type: "pitcher", step: 1 },
+  { type: "pitcher", step: 2 },
+  { type: "pitcher", step: 3 },
+  { type: "pitcher", step: 4 },
+  { type: "games", step: 1 },
+  { type: "games", step: 2 },
+  { type: "games", step: 3 },
   { type: "standings" },
 ];
 
 function slideExportKeyShorts5Capture(slide) {
   if (!slide?.type) return "intro";
+  const stepSuffix = slide.step != null ? `_s${slide.step}` : "";
   if (slide.type === "intro") return "intro";
-  if (slide.type === "record") return "record";
-  if (slide.type === "batting") return "batting";
-  if (slide.type === "pitcher") return "pitcher";
-  if (slide.type === "games") return "games";
+  if (slide.type === "record") return `record${stepSuffix}`;
+  if (slide.type === "batting") return `batting${stepSuffix}`;
+  if (slide.type === "pitcher") return `pitcher${stepSuffix}`;
+  if (slide.type === "games") return `games${stepSuffix}`;
   if (slide.type === "standings") return "standings";
   return "intro";
 }
@@ -246,7 +257,15 @@ export default function Shorts5Panel() {
 
       if (slide.type === "intro") drawShorts5IntroSlide(ctx, w, h, data, logoImg);
       else if (slide.type === "record")
-        drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey);
+        drawShorts5RecordSlide(
+          ctx,
+          w,
+          h,
+          data,
+          logoImg,
+          logosByTeamKey,
+          slide.step ?? 3
+        );
       else if (slide.type === "batting") {
         const mvp = data?.mvp_batter;
         const [battingAssets, portrait] = await Promise.all([
@@ -259,7 +278,8 @@ export default function Shorts5Panel() {
           h,
           data,
           { ...battingAssets, portrait },
-          teamKw
+          teamKw,
+          slide.step ?? 4
         );
       }
       else if (slide.type === "pitcher") {
@@ -274,11 +294,20 @@ export default function Shorts5Panel() {
           h,
           data,
           { ...pitcherAssets, portrait },
-          teamKw
+          teamKw,
+          slide.step ?? 4
         );
       }
       else if (slide.type === "games")
-        drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey);
+        drawShorts5GamesSlide(
+          ctx,
+          w,
+          h,
+          data,
+          logoImg,
+          logosByTeamKey,
+          slide.step ?? 3
+        );
       else
         drawStandingsSlide(
           ctx,

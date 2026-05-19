@@ -443,7 +443,16 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
  * slide2: 주간 경기결과 (쇼츠4 라인업 슬라이드 레이아웃 계열)
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} [logosByTeamKey] 상대팀 로고
  */
-export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey = null) {
+export function drawShorts5RecordSlide(
+  ctx,
+  w,
+  h,
+  data,
+  logoImg,
+  logosByTeamKey = null,
+  step = 3
+) {
+  const reveal = Math.max(1, Math.min(3, Number(step) || 3));
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
   const games = Array.isArray(data?.games) ? data.games.slice(0, 6) : [];
 
@@ -494,6 +503,8 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
   ctx.fillStyle = "#FFD700";
   ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
   ctx.fillText(summaryLine, summaryCenterX, summaryCy);
+
+  if (reveal < 2) return;
 
   const tableTop = summaryCy + summaryFontPx / 2 + 40;
   const headerDividerAnchorY = tableTop + 20 + 40;
@@ -614,7 +625,9 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
         drawRecordRankCell(ctx, colLeft[5] + cellPad, line1Cy, rankParts, rankFontPx);
       }
 
-      drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
+      if (reveal >= 3) {
+        drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
+      }
 
       if (rankAfter != null) prevRankForDelta = rankAfter;
     }
@@ -921,7 +934,8 @@ function drawBattingMvpTitleRow(
   teamName,
   playerName,
   logoImg,
-  titleLabel = MVP_TITLE_LABEL
+  titleLabel = MVP_TITLE_LABEL,
+  showPlayerName = true
 ) {
   const maxLogoW = MVP_TITLE_LOGO_MAX_W;
   const gapLogoText = 16;
@@ -933,8 +947,9 @@ function drawBattingMvpTitleRow(
   ctx.save();
   ctx.font = `800 ${MVP_TITLE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   const labelW = ctx.measureText(label).width;
-  const nameW = ctx.measureText(name).width;
-  const totalW = logoW + gapLogoText + labelW + gapLabelName + nameW;
+  const nameW = showPlayerName ? ctx.measureText(name).width : 0;
+  const totalW =
+    logoW + gapLogoText + labelW + (showPlayerName ? gapLabelName + nameW : 0);
   const left = w / 2 - totalW / 2;
 
   const drawnLogoW = drawBattingHeaderLogo(
@@ -955,10 +970,12 @@ function drawBattingMvpTitleRow(
   ctx.fillText(label, textX, centerY);
   resetShadow(ctx);
 
-  ctx.fillStyle = MVP_TITLE_PLAYER_COLOR;
-  shadowTextSoft(ctx);
-  ctx.fillText(name, textX + labelW + gapLabelName, centerY);
-  resetShadow(ctx);
+  if (showPlayerName) {
+    ctx.fillStyle = MVP_TITLE_PLAYER_COLOR;
+    shadowTextSoft(ctx);
+    ctx.fillText(name, textX + labelW + gapLabelName, centerY);
+    resetShadow(ctx);
+  }
   ctx.restore();
 }
 
@@ -1142,7 +1159,8 @@ function battingMvpContentBottom(statBottomY, faceCy) {
 }
 
 /** 쇼츠4 drawHotPlayerHomeUpperBlock 동일 구조 */
-function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey) {
+function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey, step = 4) {
+  const reveal = Math.max(1, Math.min(4, Number(step) || 4));
   const faceBox = MVP_FACE_BOX;
   const rPhoto = faceBox / 2;
   const padL = 48;
@@ -1160,9 +1178,15 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     upperHeaderCy + MVP_TITLE_ROW_SHIFT_Y,
     teamName,
     playerName,
-    teamLogoImg
+    teamLogoImg,
+    MVP_TITLE_LABEL,
+    reveal >= 2
   );
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
+
+  if (reveal < 2) {
+    return upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP;
+  }
 
   const upperPhotoCx = w * 0.25;
   const upperCy = upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP;
@@ -1323,7 +1347,16 @@ function drawBattingGameTable(
 }
 
 /** slide3: 주간 MVP 타자 (@param assets `loadShorts5BattingSlideAssets` 결과 권장) */
-export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, teamKwOverride = "") {
+export async function drawShorts5BattingSlide(
+  ctx,
+  w,
+  h,
+  data,
+  assetsIn = null,
+  teamKwOverride = "",
+  step = 4
+) {
+  const reveal = Math.max(1, Math.min(4, Number(step) || 4));
   const mvp = data?.mvp_batter;
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
 
@@ -1364,15 +1397,21 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
+  if (reveal >= 2) {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
+  }
 
   if (!mvp?.player) {
+    if (reveal >= 1) {
+      drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey, reveal);
+    }
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("주간 타자 기록 없음", w / 2, h / 2);
+    primeShorts5BattingAssets(data, teamKwOverride);
     return;
   }
 
@@ -1383,29 +1422,35 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
     teamName,
     mvp,
     portrait,
-    logosByTeamKey
-  );
-  drawBattingSeasonRankSection(
-    ctx,
-    w,
-    avgBarBottom + PITCHER_SEASON_RANK_SECTION_SHIFT_Y,
-    mvp?.season?.ranks
-  );
-
-  const tableTitleY = topDividerY + 44 + BATTING_GAME_TABLE_SHIFT_Y;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = `800 40px "${FONT_BODY}", sans-serif`;
-  ctx.fillText("경기별 기록", w / 2, tableTitleY);
-
-  drawBattingGameTable(
-    ctx,
-    w,
-    h,
-    mvp.games,
     logosByTeamKey,
-    tableTitleY + 36
+    reveal
   );
+
+  if (reveal >= 3) {
+    drawBattingSeasonRankSection(
+      ctx,
+      w,
+      avgBarBottom + PITCHER_SEASON_RANK_SECTION_SHIFT_Y,
+      mvp?.season?.ranks
+    );
+  }
+
+  if (reveal >= 4) {
+    const tableTitleY = topDividerY + 44 + BATTING_GAME_TABLE_SHIFT_Y;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = `800 40px "${FONT_BODY}", sans-serif`;
+    ctx.fillText("경기별 기록", w / 2, tableTitleY);
+
+    drawBattingGameTable(
+      ctx,
+      w,
+      h,
+      mvp.games,
+      logosByTeamKey,
+      tableTitleY + 36
+    );
+  }
 
   primeShorts5BattingAssets(data, teamKwOverride);
 }
@@ -1593,7 +1638,8 @@ function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
 }
 
 /** 상단 블록 하단 Y — 예전 컬러바 시작 위치 */
-function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey) {
+function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey, step = 4) {
+  const reveal = Math.max(1, Math.min(4, Number(step) || 4));
   const faceBox = MVP_FACE_BOX;
   const rPhoto = faceBox / 2;
   const padL = 48;
@@ -1613,10 +1659,15 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     teamName,
     playerName,
     teamLogoImg,
-    MVP_TITLE_LABEL_PITCHER
+    MVP_TITLE_LABEL_PITCHER,
+    reveal >= 2
   );
 
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
+
+  if (reveal < 2) {
+    return upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP + MVP_BAR_GAP;
+  }
 
   const upperPhotoCx = w * 0.25;
   const upperCy = upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP;
@@ -1747,7 +1798,7 @@ function drawPitcherSeasonRankSection(ctx, w, topY, ranks) {
   return drawSeasonRankBadgeSection(ctx, w, topY, pitcherSeasonRankBadgeItems(ranks));
 }
 
-function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
+function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks, includeSeasonRanks = true) {
   const g = game && typeof game === "object" ? game : {};
   console.log("[shorts5] pitcher game full:", JSON.stringify(game));
   const dateStr = fmtBattingSlideDate(g.game_date);
@@ -1803,7 +1854,9 @@ function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
     ctx.fillText(cols[i].val, cx, valueY);
   }
   let bottomY = valueY + 36 + PITCHER_SEASON_RANK_SECTION_SHIFT_Y;
-  bottomY = drawPitcherSeasonRankSection(ctx, w, bottomY, seasonRanks);
+  if (includeSeasonRanks) {
+    bottomY = drawPitcherSeasonRankSection(ctx, w, bottomY, seasonRanks);
+  }
   return bottomY;
 }
 
@@ -1886,7 +1939,16 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
 }
 
 /** slide4: 주간 투수 MVP + 불펜 TOP3 */
-export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, teamKwOverride = "") {
+export async function drawShorts5PitcherSlide(
+  ctx,
+  w,
+  h,
+  data,
+  assetsIn = null,
+  teamKwOverride = "",
+  step = 4
+) {
+  const reveal = Math.max(1, Math.min(4, Number(step) || 4));
   const mvp = data?.mvp_starter_pitcher;
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
 
@@ -1921,17 +1983,23 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
+  if (reveal >= 2) {
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
+  }
 
   const padL = 48;
 
   if (!mvp?.player) {
+    if (reveal >= 1) {
+      drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey, reveal);
+    }
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("주간 투수 기록 없음", w / 2, h / 2);
+    primeShorts5PitcherAssets(data, teamKwOverride);
     return;
   }
 
@@ -1942,29 +2010,35 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
     teamName,
     mvp,
     portrait,
-    logosByTeamKey
+    logosByTeamKey,
+    reveal
   );
 
-  const gameSectionStartY = gameTableTopY + PITCHER_GAME_SECTION_SHIFT_Y;
-  drawBattingMvpHeaderDivider(
-    ctx,
-    w,
-    padL,
-    gameSectionStartY - PITCHER_GAME_SECTION_DIVIDER_GAP - PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y
-  );
-
-  let midY = gameSectionStartY;
-  if (mvp.game) {
-    midY = drawPitcherGameDetailSection(
+  if (reveal >= 3) {
+    const gameSectionStartY = gameTableTopY + PITCHER_GAME_SECTION_SHIFT_Y;
+    drawBattingMvpHeaderDivider(
       ctx,
       w,
-      gameSectionStartY,
-      mvp.game,
-      mvp.season?.ranks
+      padL,
+      gameSectionStartY - PITCHER_GAME_SECTION_DIVIDER_GAP - PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y
     );
+
+    if (mvp.game) {
+      drawPitcherGameDetailSection(
+        ctx,
+        w,
+        gameSectionStartY,
+        mvp.game,
+        mvp.season?.ranks,
+        true
+      );
+    }
   }
-  const reliefTitleY = sectionBgY + BATTING_LOWER_SECTION_TITLE_GAP_Y;
-  drawPitcherReliefSection(ctx, w, reliefTitleY, data?.relief_top_pitchers);
+
+  if (reveal >= 4) {
+    const reliefTitleY = sectionBgY + BATTING_LOWER_SECTION_TITLE_GAP_Y;
+    drawPitcherReliefSection(ctx, w, reliefTitleY, data?.relief_top_pitchers);
+  }
 
   primeShorts5PitcherAssets(data, teamKwOverride);
 }
@@ -1973,7 +2047,16 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
  * slide5: 이번주 경기 일정
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} [logosByTeamKey]
  */
-export function drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey = null) {
+export function drawShorts5GamesSlide(
+  ctx,
+  w,
+  h,
+  data,
+  logoImg,
+  logosByTeamKey = null,
+  step = 3
+) {
+  const reveal = Math.max(1, Math.min(3, Number(step) || 3));
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
   const scheduleGames = Array.isArray(data?.schedule_games)
     ? data.schedule_games.slice(0, 7)
@@ -2029,6 +2112,8 @@ export function drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey =
   ctx.fillStyle = "#FFD700";
   ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
   ctx.fillText(weekRangeStr || "—", summaryCenterX, summaryCy);
+
+  if (reveal < 2) return;
 
   const tableTop = summaryCy + summaryFontPx / 2 + 40;
   const headerDividerAnchorY = tableTop + 20 + 40;
