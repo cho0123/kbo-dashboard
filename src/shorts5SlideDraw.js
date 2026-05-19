@@ -790,9 +790,14 @@ const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
 const PITCHER_RELIEF_TITLE_FONT_PX = 44;
-const PITCHER_RELIEF_ROW_H = 116;
-const PITCHER_RELIEF_LINE1_FONT_PX = 38;
-const PITCHER_RELIEF_LINE2_FONT_PX = 28;
+/** 2줄 레이아웃용 행 높이 (이전 116 × 1.6) */
+const PITCHER_RELIEF_ROW_H = 186;
+const PITCHER_RELIEF_NAME_FONT_PX = 40;
+const PITCHER_RELIEF_DATE_FONT_PX = 34;
+const PITCHER_RELIEF_STATS_FONT_PX = 32;
+const PITCHER_RELIEF_ROW_PAD_TOP = 26;
+const PITCHER_RELIEF_LINE1_LINE2_GAP = 14;
+const PITCHER_RELIEF_ROW_BOX_INSET = 8;
 /** 주간 불펜 타이틀 → 첫 선수 행 */
 const PITCHER_RELIEF_TITLE_TO_FIRST_ROW_Y = 58;
 /** 불펜 선수 행 사이 추가 간격 */
@@ -1791,6 +1796,7 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
   const list = Array.isArray(reliefList) ? reliefList.slice(0, 3) : [];
   const titleY = reliefTitleY;
   ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.font = `800 ${PITCHER_RELIEF_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("주간 불펜", w / 2, titleY);
@@ -1799,7 +1805,7 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
   const padX = 56;
   const innerPad = 24;
   let y = titleY + PITCHER_RELIEF_TITLE_TO_FIRST_ROW_Y;
-  ctx.textBaseline = "middle";
+
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
     const name = String(r?.player || "—").trim() || "—";
@@ -1811,17 +1817,23 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
     const hStr = Number.isFinite(hN) ? hN : 0;
     const soStr = Number.isFinite(soN) ? soN : 0;
     const dateVs = `${fmtBattingSlideDate(r?.game_date)} vs ${fmtTeamShort(r?.opponent || "—")}`;
-    const line1Cy = y + 30;
-    const line2Cy = y + 66;
+
+    const rowTop = y;
+    const boxH = rowH - PITCHER_RELIEF_ROW_BOX_INSET * 2;
+    const contentTop = rowTop + PITCHER_RELIEF_ROW_PAD_TOP;
+    const line1Cy = contentTop + Math.round(PITCHER_RELIEF_NAME_FONT_PX * 0.52);
+    const line2Y = contentTop + PITCHER_RELIEF_NAME_FONT_PX + PITCHER_RELIEF_LINE1_LINE2_GAP;
 
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.beginPath();
-    ctx.roundRect(padX, y, w - padX * 2, rowH - 10, 16);
+    ctx.roundRect(padX, rowTop + PITCHER_RELIEF_ROW_BOX_INSET, w - padX * 2, boxH, 16);
     ctx.fill();
 
+    // 1줄: 이름 + 승/홀/세 배지 | 우측 날짜
+    ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     ctx.fillStyle = "#ffffff";
-    ctx.font = `800 ${PITCHER_RELIEF_LINE1_FONT_PX}px "${FONT_BODY}", sans-serif`;
+    ctx.font = `800 ${PITCHER_RELIEF_NAME_FONT_PX}px "${FONT_BODY}", sans-serif`;
     let bx = padX + innerPad;
     ctx.fillText(name, bx, line1Cy);
     bx += ctx.measureText(name).width + 10;
@@ -1837,20 +1849,24 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
 
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.font = `700 ${PITCHER_RELIEF_LINE1_FONT_PX - 6}px "${FONT_BODY}", sans-serif`;
+    ctx.font = `700 ${PITCHER_RELIEF_DATE_FONT_PX}px "${FONT_BODY}", sans-serif`;
     ctx.fillText(dateVs, w - padX - innerPad, line1Cy);
 
+    // 2줄: 이닝 / 자책 / 피안타 / 삼진
     ctx.textAlign = "left";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = `600 ${PITCHER_RELIEF_LINE2_FONT_PX}px "${FONT_BODY}", sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = `600 ${PITCHER_RELIEF_STATS_FONT_PX}px "${FONT_BODY}", sans-serif`;
     ctx.fillText(
       `${ip}이닝 / 자책 ${erStr} / 피안타 ${hStr} / 삼진 ${soStr}`,
       padX + innerPad,
-      line2Cy
+      line2Y
     );
+
     y += rowH;
     if (i < list.length - 1) y += PITCHER_RELIEF_ROW_GAP_Y;
   }
+  ctx.textBaseline = "middle";
   return y;
 }
 
