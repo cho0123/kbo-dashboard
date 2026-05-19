@@ -4445,7 +4445,7 @@ async function fetchNaverHitterSeasonStats(seasonYear) {
 
   try {
     const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
-    const merged = chunks.flat();
+    const merged = dedupeNaverHitterSeasonStatsByPlayer(chunks.flat());
     if (merged.length === 0) return null;
     return merged;
   } catch (e) {
@@ -4529,6 +4529,11 @@ function dedupeNaverPitcherSeasonStatsByPlayer(rows) {
     out.push(r);
   }
   return out;
+}
+
+/** 타자 시즌 스탯 — playerId 우선, 없으면 playerName (투수 dedupe와 동일) */
+function dedupeNaverHitterSeasonStatsByPlayer(rows) {
+  return dedupeNaverPitcherSeasonStatsByPlayer(rows);
 }
 
 /**
