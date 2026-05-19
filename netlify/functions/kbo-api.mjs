@@ -200,6 +200,16 @@ function isoSeoulToday() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
+/** KBO 주차: 월~일. 오늘(KST) 기준 이번 주 월요일 (Shorts5Panel getMondayKst와 동일) */
+function getMondayKst(weekOffset = 0) {
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const dow = now.getDay();
+  const daysFromMon = (dow + 6) % 7;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - daysFromMon + weekOffset * 7);
+  return safeIsoDate(mon.toLocaleDateString("sv-SE")) || "";
+}
+
 function isoSeoulTomorrow() {
   const s = isoSeoulToday();
   const parts = s.split("-").map((x) => parseInt(String(x), 10));
@@ -3916,7 +3926,9 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     throw new Error("Invalid week_start (YYYY-MM-DD)");
   }
   const week_end = isoAddDays(week_start, 6);
-  const scheduleRows = await fetchScheduleRowsDateRange(db, week_start, week_end);
+  const thisWeekStart = getMondayKst(0);
+  const thisWeekEnd = isoAddDays(thisWeekStart, 6);
+  const scheduleRows = await fetchScheduleRowsDateRange(db, thisWeekStart, thisWeekEnd);
   const schedule_games = buildTeamWeeklyScheduleGames(scheduleRows, teamKw);
   const gamesAll = await fetchGamesDateRange(db, week_start, week_end);
   const teamGames = filterGamesForTeamKw(gamesAll, teamKw);
@@ -4009,6 +4021,8 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     best_game,
     games: gameResults,
     schedule_games,
+    schedule_week_start: thisWeekStart,
+    schedule_week_end: thisWeekEnd,
     standings: curRows,
     standings_year: curLive?.year ?? 2026,
   };
