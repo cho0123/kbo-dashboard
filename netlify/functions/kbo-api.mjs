@@ -4602,17 +4602,17 @@ function findPitcherImageUrlByStarterName(statsArr, starterName, teamName) {
 const HITTER_RANK_TOP = 50;
 
 const HITTER_RANK_FIELDS = [
-  { key: "hr_rank", stat: "hitterHr", qualifiedOnly: false },
-  { key: "rbi_rank", stat: "hitterRbi", qualifiedOnly: false },
+  { key: "hr_rank", stat: "hitterHr", qualifiedOnly: true },
+  { key: "rbi_rank", stat: "hitterRbi", qualifiedOnly: true },
   { key: "avg_rank", stat: "hitterHra", qualifiedOnly: true },
-  { key: "hit_rank", stat: "hitterHit", qualifiedOnly: false },
+  { key: "hit_rank", stat: "hitterHit", qualifiedOnly: true },
   { key: "ops_rank", stat: "hitterOps", qualifiedOnly: true },
-  { key: "war_rank", stat: "hitterWar", qualifiedOnly: false },
+  { key: "war_rank", stat: "hitterWar", qualifiedOnly: true },
 ];
 
 /**
  * seasonPlayerStats → playerId/playerName 기반 부문별 Top-50 순위 인덱스.
- * avg/ops: isQualified만. hr/rbi/hit/war: 전체 선수. 동률: competition ranking.
+ * 전 부문 isQualified=true 선수만. 동률: competition ranking.
  * 51위 이상은 인덱스에 누적되지 않음(조회 시 자연스레 null).
  * @returns {Map<string, {hr_rank:number|null, rbi_rank:number|null, avg_rank:number|null, hit_rank:number|null, ops_rank:number|null, war_rank:number|null}>}
  */
