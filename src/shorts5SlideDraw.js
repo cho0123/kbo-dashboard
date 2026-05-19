@@ -795,6 +795,7 @@ const PITCHER_RELIEF_LINE2_FONT_PX = 24;
 const PITCHER_RELIEF_BADGE_WIN = "#22c55e";
 const PITCHER_RELIEF_BADGE_HOLD = "#3b82f6";
 const PITCHER_RELIEF_BADGE_SAVE = "#eab308";
+const PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
@@ -1617,11 +1618,13 @@ function pitcherSeasonRankBadgeItems(ranks) {
     return Number.isFinite(x) && x > 0 ? x : null;
   };
   const items = [];
+  const win = n(r.win);
   const era = n(r.era);
   const whip = n(r.whip);
   const so = n(r.so);
   const ip = n(r.ip);
   const war = n(r.war);
+  if (win != null) items.push({ text: `승 ${win}위`, bg: PITCHER_SEASON_RANK_BADGE_WIN });
   if (era != null) items.push({ text: `ERA ${era}위`, bg: "rgba(37, 99, 235, 0.72)" });
   if (whip != null) items.push({ text: `WHIP ${whip}위`, bg: "rgba(37, 99, 235, 0.72)" });
   if (so != null) items.push({ text: `삼진 ${so}위`, bg: "rgba(22, 163, 74, 0.72)" });

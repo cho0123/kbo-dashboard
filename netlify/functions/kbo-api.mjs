@@ -3834,6 +3834,7 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
       whip: season_whip,
       era: season_era,
       ranks: {
+        win: mvpPitcherRanks?.win_rank ?? null,
         era: mvpPitcherRanks?.era_rank ?? null,
         whip: mvpPitcherRanks?.whip_rank ?? null,
         so: mvpPitcherRanks?.so_rank ?? null,
@@ -4627,6 +4628,7 @@ function pitcherSeasonIpFromNaverRow(r) {
 }
 
 const PITCHER_COMPUTED_RANK_FIELDS = [
+  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false },
   { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
   { key: "so_rank", get: pitcherSeasonSoFromNaverRow, asc: false },
   { key: "ip_rank", get: pitcherSeasonIpFromNaverRow, asc: false },
@@ -4657,7 +4659,7 @@ function pitcherRankIndexPlayerName(r) {
 /**
  * seasonPlayerStats → playerName 기반 순위 인덱스.
  * era_rank: 네이버 ranking 그대로. whip/so/ip/war: isQualified만 직접 정렬(Top-50).
- * @returns {Record<string, {era_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
+ * @returns {Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
  */
 function buildPitcherRankIndex(statsArr) {
   const idx = {};
@@ -4667,6 +4669,7 @@ function buildPitcherRankIndex(statsArr) {
     if (!idx[name]) {
       idx[name] = {
         era_rank: null,
+        win_rank: null,
         whip_rank: null,
         so_rank: null,
         ip_rank: null,
