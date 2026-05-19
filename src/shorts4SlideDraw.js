@@ -785,11 +785,13 @@ function shorts4HitterRankBadgeItems(hp) {
   const n = shorts4SeasonRankBadgeRank;
   const items = [];
   const avg = n(o.avg_rank);
+  const hit = n(o.hit_rank);
   const hr = n(o.hr_rank);
   const rbi = n(o.rbi_rank);
   const ops = n(o.ops_rank);
   const war = n(o.war_rank);
   if (avg != null) items.push({ text: `타율 ${avg}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
+  if (hit != null) items.push({ text: `안타 ${hit}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
   if (hr != null) items.push({ text: `홈런 ${hr}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_RED });
   if (rbi != null) items.push({ text: `타점 ${rbi}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_RED });
   if (ops != null) items.push({ text: `OPS ${ops}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_GOLD });

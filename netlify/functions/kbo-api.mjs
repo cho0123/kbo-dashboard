@@ -5034,6 +5034,7 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     hr_rank: null,
     rbi_rank: null,
     avg_rank: null,
+    hit_rank: null,
     ops_rank: null,
     war_rank: null,
     player_image_url: null,
@@ -5055,6 +5056,7 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     hr_rank: ranks.hr_rank,
     rbi_rank: ranks.rbi_rank,
     avg_rank: ranks.avg_rank,
+    hit_rank: ranks.hit_rank,
     ops_rank: ranks.ops_rank,
     war_rank: ranks.war_rank,
     player_image_url: imageUrl,
@@ -5073,6 +5075,7 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
       hr_rank: null,
       rbi_rank: null,
       avg_rank: null,
+      hit_rank: null,
       ops_rank: null,
       war_rank: null,
     };
@@ -5097,6 +5100,7 @@ async function enrichHotPlayerWithSeasonStats(hp, statsArr, rankIndex, seasonYea
     hr_rank: null,
     rbi_rank: null,
     avg_rank: null,
+    hit_rank: null,
     ops_rank: null,
     war_rank: null,
   };
