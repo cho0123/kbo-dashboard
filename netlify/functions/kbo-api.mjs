@@ -2850,6 +2850,40 @@ function pitchRowWeeklyWinIncrement(r) {
   return pitcherDecisionWlFromRow(r) === "w" ? 1 : 0;
 }
 
+function pitcherRowHasWinResult(r) {
+  return String(r?.result || "").trim() === "승";
+}
+
+function pitcherRowHoldFieldPresent(r) {
+  if (!r || typeof r !== "object") return false;
+  for (const key of ["hold", "Hold", "HOLD", "홀드", "hld", "HLD"]) {
+    if (!(key in r)) continue;
+    const v = r[key];
+    if (v == null || v === "" || v === false || v === 0) continue;
+    if (v === true || v === 1) return true;
+    const s = String(v).trim().toLowerCase();
+    if (s === "true" || s === "1" || s === "hold" || s === "홀드" || s === "h") return true;
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return true;
+  }
+  return false;
+}
+
+function pitcherRowSaveFieldPresent(r) {
+  if (!r || typeof r !== "object") return false;
+  for (const key of ["save", "Save", "SAVE", "세이브", "sv", "SV"]) {
+    if (!(key in r)) continue;
+    const v = r[key];
+    if (v == null || v === "" || v === false || v === 0) continue;
+    if (v === true || v === 1) return true;
+    const s = String(v).trim().toLowerCase();
+    if (s === "true" || s === "1" || s === "save" || s === "세이브" || s === "s") return true;
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return true;
+  }
+  return false;
+}
+
 function aggregatePitcherWeeklyByPlayer(rows) {
   const byPlayer = new Map();
   for (const r0 of rows) {
@@ -2865,6 +2899,11 @@ function aggregatePitcherWeeklyByPlayer(rows) {
         _hasEr: false,
         wins: 0,
         so: 0,
+        h: 0,
+        bb: 0,
+        has_win: false,
+        has_hold: false,
+        has_save: false,
         rows: [],
       });
     }
@@ -2890,6 +2929,13 @@ function aggregatePitcherWeeklyByPlayer(rows) {
     acc.wins += pitchRowWeeklyWinIncrement(r);
     const so = pickNum(r, ["so", "SO", "k", "K", "strikeouts"]);
     if (so != null && Number.isFinite(Number(so))) acc.so += Number(so);
+    const h = pickNum(r, ["h", "H", "hits", "hit", "ha"]);
+    if (h != null && Number.isFinite(Number(h))) acc.h += Number(h);
+    const bb = pickNum(r, ["bb", "BB", "walk", "walks"]);
+    if (bb != null && Number.isFinite(Number(bb))) acc.bb += Number(bb);
+    if (pitcherRowHasWinResult(r)) acc.has_win = true;
+    if (pitcherRowHoldFieldPresent(r)) acc.has_hold = true;
+    if (pitcherRowSaveFieldPresent(r)) acc.has_save = true;
   }
   return byPlayer;
 }
@@ -3483,12 +3529,14 @@ function buildTeamWeeklyMvpStarterPitcher(pitcherRows, teamKw, gameResults) {
   };
 }
 
-/** 주간 불펜 TOP3: is_starter=false, IP 내림차순 */
+/** 주간 불펜 TOP3: 비선발, 승·홀드·세이브 우선 → ER↓ → IP↑ → H↓ → SO↑ */
 function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, topN = 3) {
   const rows = filterStatRowsForTeamKw(pitcherRows, teamKw).filter(
     (r) => !__starterBoolTrue(r?.is_starter ?? r?.isStarter)
   );
   const byPlayer = aggregatePitcherWeeklyByPlayer(rows);
+  const reliefCred = (x) => (x.has_win || x.has_hold || x.has_save ? 1 : 0);
+  const weeklyEr = (acc, t) => (acc._hasEr ? t.er : Infinity);
   return [...byPlayer.values()]
     .map((acc) => {
       const t = pitcherWeeklyTotalsFromAcc(acc);
@@ -3497,18 +3545,28 @@ function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, topN = 3) {
         ip: t.ip,
         era: t.era,
         wins: t.wins,
+        so: acc.so,
+        h: acc.h,
+        bb: acc.bb,
+        has_win: Boolean(acc.has_win),
+        has_hold: Boolean(acc.has_hold),
+        has_save: Boolean(acc.has_save),
+        _weeklyEr: weeklyEr(acc, t),
       };
     })
     .filter((x) => Number(x.ip) > 0)
     .sort((a, b) => {
+      const ac = reliefCred(a);
+      const bc = reliefCred(b);
+      if (bc !== ac) return bc - ac;
+      if (a._weeklyEr !== b._weeklyEr) return a._weeklyEr - b._weeklyEr;
       if (b.ip !== a.ip) return b.ip - a.ip;
-      const ae = a.era == null ? Infinity : a.era;
-      const be = b.era == null ? Infinity : b.era;
-      if (ae !== be) return ae - be;
-      if (b.wins !== a.wins) return b.wins - a.wins;
+      if (a.h !== b.h) return a.h - b.h;
+      if (b.so !== a.so) return b.so - a.so;
       return String(a.player).localeCompare(String(b.player), "ko");
     })
-    .slice(0, Number(topN) || 3);
+    .slice(0, Number(topN) || 3)
+    .map(({ _weeklyEr, ...rest }) => rest);
 }
 
 function pickTopPitcherForTeamWeek(pitcherRows, teamKw) {

@@ -785,6 +785,12 @@ const PITCHER_SEASON_RANK_BADGE_FONT_PX = 28;
 const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
+const PITCHER_RELIEF_ROW_H = 96;
+const PITCHER_RELIEF_LINE1_FONT_PX = 34;
+const PITCHER_RELIEF_LINE2_FONT_PX = 24;
+const PITCHER_RELIEF_BADGE_WIN = "#22c55e";
+const PITCHER_RELIEF_BADGE_HOLD = "#3b82f6";
+const PITCHER_RELIEF_BADGE_SAVE = "#eab308";
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
@@ -1723,28 +1729,59 @@ function drawPitcherReliefSection(ctx, w, topY, reliefList) {
   ctx.font = `800 38px "${FONT_BODY}", sans-serif`;
   ctx.fillText("주간 불펜", w / 2, titleY);
 
-  const rowH = 72;
+  const rowH = PITCHER_RELIEF_ROW_H;
   const padX = 56;
+  const innerPad = 24;
   let y = titleY + 48;
-  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
     const name = String(r?.player || "—").trim() || "—";
     const ip = fmtPitcherIp(r?.ip);
     const era = fmtPitcherEra(r?.era);
-    const wins = Number(r?.wins) || 0;
+    const hN = Number(r?.h);
+    const soN = Number(r?.so);
+    const bbN = Number(r?.bb);
+    const hStr = Number.isFinite(hN) ? hN : 0;
+    const soStr = Number.isFinite(soN) ? soN : 0;
+    const bbStr = Number.isFinite(bbN) ? bbN : 0;
+    const line1Cy = y + 30;
+    const line2Cy = y + 66;
+
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.beginPath();
     ctx.roundRect(padX, y, w - padX * 2, rowH - 10, 16);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `800 34px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(name, padX + 24, y + rowH / 2 - 6);
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.font = `700 30px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(`${ip}이닝  ERA ${era}  ${wins}승`, w - padX - 24, y + rowH / 2 - 6);
+
     ctx.textAlign = "left";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 ${PITCHER_RELIEF_LINE1_FONT_PX}px "${FONT_BODY}", sans-serif`;
+    let bx = padX + innerPad;
+    ctx.fillText(name, bx, line1Cy);
+    bx += ctx.measureText(name).width + 10;
+    if (r?.has_win) {
+      bx += drawRecordPitcherBadge(ctx, bx, line1Cy, "승", PITCHER_RELIEF_BADGE_WIN);
+    }
+    if (r?.has_hold) {
+      bx += drawRecordPitcherBadge(ctx, bx, line1Cy, "홀", PITCHER_RELIEF_BADGE_HOLD);
+    }
+    if (r?.has_save) {
+      bx += drawRecordPitcherBadge(ctx, bx, line1Cy, "세", PITCHER_RELIEF_BADGE_SAVE);
+    }
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = `700 ${PITCHER_RELIEF_LINE1_FONT_PX - 4}px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(`${ip}이닝 / ERA ${era}`, w - padX - innerPad, line1Cy);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = `600 ${PITCHER_RELIEF_LINE2_FONT_PX}px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(
+      `피안타 ${hStr} / 삼진 ${soStr} / 볼넷 ${bbStr}`,
+      padX + innerPad,
+      line2Cy
+    );
     y += rowH;
   }
   return y;
