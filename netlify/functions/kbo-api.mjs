@@ -2440,6 +2440,59 @@ function filterGamesForTeamKw(games, teamKw) {
   );
 }
 
+function pickScheduleVenueName(r) {
+  const venueRaw = pickStr(r, ["venue", "stadium", "S_NM", "ballpark", "park", "place", "경기장"]) || "";
+  if (!venueRaw) return null;
+  const trimmed = venueRaw.trim();
+  return (
+    VENUE_MAP[trimmed] ||
+    Object.entries(VENUE_MAP).find(([k]) => trimmed.includes(k))?.[1] ||
+    trimmed
+  );
+}
+
+function homeTeamStadiumName(homeTeamRaw) {
+  for (const [k, stadium] of Object.entries(TEAM_STADIUM)) {
+    if (teamMatches(homeTeamRaw, k)) return stadium;
+  }
+  return null;
+}
+
+/** 주간 schedule → 팀별 이번주 경기 일정 */
+function buildTeamWeeklyScheduleGames(scheduleRows, teamKw) {
+  const kw = String(teamKw || "").trim();
+  if (!kw) return [];
+  const out = [];
+  for (const r of Array.isArray(scheduleRows) ? scheduleRows : []) {
+    const home =
+      pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm", "home"]) || "";
+    const away =
+      pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm", "away"]) || "";
+    const isHome = teamMatches(home, kw);
+    const isAway = teamMatches(away, kw);
+    if (!isHome && !isAway) continue;
+    const game_date = safeIsoDate(r?.game_date ?? r?.gameDate ?? "");
+    if (!game_date) continue;
+    const opponent = isHome ? away : home;
+    const game_time = pickStr(r, ["game_time", "gameTime", "time", "G_TM"]) || null;
+    let venue = pickScheduleVenueName(r);
+    if (!venue && isHome) venue = homeTeamStadiumName(home);
+    out.push({
+      game_date,
+      game_time,
+      opponent: opponent || null,
+      is_home: isHome,
+      venue: venue || null,
+    });
+  }
+  out.sort((a, b) => {
+    const byDate = String(a.game_date).localeCompare(String(b.game_date));
+    if (byDate !== 0) return byDate;
+    return String(a.game_time || "").localeCompare(String(b.game_time || ""));
+  });
+  return out;
+}
+
 function standingsRankForTeamKw(standingsRows, teamKw) {
   const kw = String(teamKw || "").trim();
   if (!kw) return null;
@@ -3863,6 +3916,8 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     throw new Error("Invalid week_start (YYYY-MM-DD)");
   }
   const week_end = isoAddDays(week_start, 6);
+  const scheduleRows = await fetchScheduleRowsDateRange(db, week_start, week_end);
+  const schedule_games = buildTeamWeeklyScheduleGames(scheduleRows, teamKw);
   const gamesAll = await fetchGamesDateRange(db, week_start, week_end);
   const teamGames = filterGamesForTeamKw(gamesAll, teamKw);
   const gameIds = [
@@ -3953,6 +4008,7 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     relief_top_pitchers,
     best_game,
     games: gameResults,
+    schedule_games,
     standings: curRows,
     standings_year: curLive?.year ?? 2026,
   };

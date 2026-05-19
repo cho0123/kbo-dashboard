@@ -218,7 +218,14 @@ export default function Shorts5Panel() {
       const logosByTeamKey = { [tk]: logoImg };
 
       if (slide.type === "record" || slide.type === "games") {
-        const games = Array.isArray(data.games) ? data.games : [];
+        const games =
+          slide.type === "games"
+            ? Array.isArray(data.schedule_games)
+              ? data.schedule_games
+              : []
+            : Array.isArray(data.games)
+              ? data.games
+              : [];
         for (const g of games) {
           const opp = String(g?.opponent ?? g?.opp_team_name ?? "").trim();
           const k = teamKeyword(opp);
@@ -270,7 +277,8 @@ export default function Shorts5Panel() {
           teamKw
         );
       }
-      else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
+      else if (slide.type === "games")
+        drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey);
       else
         drawStandingsSlide(
           ctx,
