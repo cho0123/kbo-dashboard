@@ -761,6 +761,13 @@ const MVP_TITLE_LOGO_MAX_W = 180;
 const MVP_TITLE_FONT_PX = MVP_HEADER_FONT_PX + 7;
 const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
+const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
+const MVP_BAR_LABELS_PITCHER = ["ERA", "이닝", "삼진"];
+const MVP_BASE_ERA = 5.0;
+const MVP_BASE_IP = 7.0;
+const MVP_BASE_SO = 10.0;
+const PITCHER_GAME_SECTION_SHIFT_Y = -40;
+const PITCHER_RELIEF_SECTION_SHIFT_Y = 20;
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
@@ -854,12 +861,20 @@ function measureBattingTitleLogoWidth(logoImg, maxW, boxH) {
 }
 
 /** 팀 로고 + "주간 타격 MVP" + 선수명 — w/2 기준 가운데 정렬 */
-function drawBattingMvpTitleRow(ctx, w, centerY, teamName, playerName, logoImg) {
+function drawBattingMvpTitleRow(
+  ctx,
+  w,
+  centerY,
+  teamName,
+  playerName,
+  logoImg,
+  titleLabel = MVP_TITLE_LABEL
+) {
   const maxLogoW = MVP_TITLE_LOGO_MAX_W;
   const gapLogoText = 16;
   const gapLabelName = 14;
   const name = String(playerName || "").trim() || "—";
-  const label = MVP_TITLE_LABEL;
+  const label = titleLabel;
   const logoW = measureBattingTitleLogoWidth(logoImg, maxLogoW, MVP_TITLE_LOGO_H);
 
   ctx.save();
@@ -1318,40 +1333,383 @@ export async function drawShorts5BattingSlide(ctx, w, h, data, assetsIn = null, 
   primeShorts5BattingAssets(data, teamKwOverride);
 }
 
-/** slide4: 투수 하이라이트 */
-export function drawShorts5PitcherSlide(ctx, w, h, data) {
-  const p = data?.top_pitcher;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#142018";
-  ctx.fillRect(0, 0, w, h);
+const __shorts5PitcherAssetsCache = new Map();
+
+function pitcherAssetsCacheKey(data) {
+  const mvp = data?.mvp_starter_pitcher;
+  const tk = teamKeyword(data?.team_name || data?.team_keyword || "");
+  return `p|${tk}|${String(mvp?.player || "").trim()}`;
+}
+
+function resolvePitcherPortraitTeamKey(data, teamKwOverride = "") {
+  const fromPanel = String(teamKwOverride || "").trim();
+  if (fromPanel) {
+    const tk = teamKeyword(fromPanel);
+    if (tk) return tk;
+  }
+  const fromApiKw = String(data?.team_keyword || "").trim();
+  if (fromApiKw) {
+    const tk = teamKeyword(fromApiKw);
+    if (tk) return tk;
+  }
+  const fromMvpTeam = String(data?.mvp_starter_pitcher?.team || "").trim();
+  if (fromMvpTeam) {
+    const tk = teamKeyword(fromMvpTeam);
+    if (tk) return tk;
+  }
+  const fromTeamName = String(data?.team_name || "").trim();
+  if (fromTeamName) {
+    const tk = teamKeyword(fromTeamName);
+    if (tk) return tk;
+  }
+  return "";
+}
+
+export async function loadShorts5PitcherPortrait(data, teamKwOverride = "") {
+  const mvp = data?.mvp_starter_pitcher;
+  const tk = resolvePitcherPortraitTeamKey(data, teamKwOverride);
+  const player = String(mvp?.player || mvp?.name || "").trim();
+  const url = String(mvp?.player_image_url || mvp?.image_url || "").trim();
+
+  const defImg = await loadDefaultPlayerImage();
+  let loaded = null;
+  if (url) {
+    loaded = await loadPlayerImageFromNaverProxy(url);
+  } else if (player && tk) {
+    loaded = await loadPlayerImage(tk, player);
+  }
+  return drawableShorts4Portrait(loaded)
+    ? loaded
+    : drawableShorts4Portrait(defImg)
+      ? defImg
+      : loaded ?? defImg;
+}
+
+export async function loadShorts5PitcherSlideAssets(data) {
+  const mvp = data?.mvp_starter_pitcher;
+  const tk = resolvePitcherPortraitTeamKey(data);
+  const logosByTeamKey = {};
+  if (tk) logosByTeamKey[tk] = await loadSvgLogo(tk);
+  const opp = teamKeyword(mvp?.game?.opponent || "");
+  if (opp && !logosByTeamKey[opp]) logosByTeamKey[opp] = await loadSvgLogo(opp);
+  return { logosByTeamKey };
+}
+
+function primeShorts5PitcherAssets(data, teamKwOverride = "") {
+  const key = pitcherAssetsCacheKey(data);
+  if (__shorts5PitcherAssetsCache.has(key)) return __shorts5PitcherAssetsCache.get(key);
+  const p = Promise.all([
+    loadShorts5PitcherSlideAssets(data),
+    loadShorts5PitcherPortrait(data, teamKwOverride),
+  ]).then(([logosPack, portrait]) => {
+    const assets = { ...logosPack, portrait };
+    __shorts5PitcherAssetsCache.set(key, assets);
+    return assets;
+  });
+  __shorts5PitcherAssetsCache.set(key, p);
+  return p;
+}
+
+function fmtPitcherEra(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "—";
+  return Number(v).toFixed(2);
+}
+
+function fmtPitcherIp(v) {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (Number.isFinite(n)) return n % 1 === 0 ? String(n) : n.toFixed(1);
+  const s = String(v).trim();
+  return s || "—";
+}
+
+function fmtMvpSeasonIpSuffix(n) {
+  if (n == null || n === "") return "시즌 -이닝";
+  const s = String(n).trim();
+  return s ? `시즌 ${s}이닝` : "시즌 -이닝";
+}
+
+function mvpPitcherWeeklyStatLines(mvp) {
+  const mvp0 = mvp && typeof mvp === "object" ? mvp : {};
+  const t = mvp0.total && typeof mvp0.total === "object" ? mvp0.total : {};
+  const ip = fmtPitcherIp(t.ip);
+  const er = Number(t.er) || 0;
+  const era = fmtPitcherEra(t.era);
+  const wins = Number(t.wins) || 0;
+  const seasonIp = mvp0?.season?.ip;
+  const seasonWins = pickMvpSeasonStat(mvp0, ["wins", "season_wins"], ["season_wins", "seasonWins"]);
+  return [
+    `- 주간 ${ip}이닝 (${fmtMvpSeasonIpSuffix(seasonIp)})`,
+    `- 주간 ${er}자책 (ERA ${era})`,
+    `- 주간 ${wins}승 (${fmtMvpSeasonSuffix(seasonWins, "승")})`,
+  ];
+}
+
+function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
+  const lines = mvpPitcherWeeklyStatLines(mvp);
+  const gap = MVP_STAT_LINE_GAP;
+  const totalH = (lines.length - 1) * gap;
+  let y = cy - totalH / 2;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `800 ${MVP_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  for (const line of lines) {
+    shadowTextSoft(ctx);
+    ctx.fillText(line, statX, y);
+    resetShadow(ctx);
+    y += gap;
+  }
+  const lastCenterY = cy + totalH / 2;
+  return lastCenterY + MVP_STAT_FONT_PX / 2;
+}
+
+function mvpPitcherEraIpSoBarRatios(total) {
+  const era = Number(total?.era);
+  const ip = Number(total?.ip);
+  const so = Number(total?.so);
+  const w0 = Number.isFinite(era) && era >= 0 ? MVP_BASE_ERA / Math.max(era, 0.01) : 0;
+  const w1 = Number.isFinite(ip) && ip >= 0 ? ip / MVP_BASE_IP : 0;
+  const w2 = Number.isFinite(so) && so >= 0 ? so / MVP_BASE_SO : 0;
+  const s = w0 + w1 + w2;
+  return s > 0 ? [w0, w1, w2] : [1, 1, 1];
+}
+
+function drawPitcherMvpEraIpSoBar(ctx, wCanvas, topBelowStats, total) {
+  const ratios = mvpPitcherEraIpSoBarRatios(total);
+  const barW = Math.floor(wCanvas * MVP_BAR_W_FRAC);
+  const barLeft = Math.floor((wCanvas - barW) / 2);
+  if (barW < 120) return topBelowStats;
+
+  const segWs = splitMvpBarSegmentWidths(barW, ratios);
+  const barTop = topBelowStats + MVP_BAR_GAP;
+  const valueStrs = [fmtPitcherEra(total?.era), fmtPitcherIp(total?.ip), String(Number(total?.so) || 0)];
+  const summaryLine = `ERA ${valueStrs[0]}  이닝 ${valueStrs[1]}  삼진 ${valueStrs[2]}`;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(barLeft, barTop, barW, MVP_BAR_H);
+  ctx.clip();
+  ctx.fillStyle = MVP_BAR_BG;
+  ctx.fillRect(barLeft, barTop, barW, MVP_BAR_H);
+  let x = barLeft;
+  for (let i = 0; i < 3; i++) {
+    const sw = segWs[i] || 0;
+    if (sw > 0) {
+      ctx.fillStyle = MVP_BAR_COLORS[i];
+      ctx.fillRect(x, barTop, sw, MVP_BAR_H);
+    }
+    x += sw;
+  }
+  ctx.restore();
+
+  x = barLeft;
+  for (let i = 0; i < 3; i++) {
+    const sw = segWs[i] || 0;
+    const cx = x + sw / 2;
+    if (sw > 0 && sw >= MVP_BAR_MIN_SEG_W) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, barTop, sw, MVP_BAR_H);
+      ctx.clip();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `800 31px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(MVP_BAR_LABELS_PITCHER[i], cx, barTop + MVP_BAR_H * 0.32);
+      resetShadow(ctx);
+      ctx.font = `700 23px "${FONT_BODY}", system-ui, sans-serif`;
+      shadowTextSoft(ctx);
+      ctx.fillText(valueStrs[i], cx, barTop + MVP_BAR_H * 0.78);
+      resetShadow(ctx);
+      ctx.restore();
+    }
+    x += sw;
+  }
+
+  const summaryTop = barTop + MVP_BAR_H + MVP_SUMMARY_GAP;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `500 ${MVP_SUMMARY_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(summaryLine, wCanvas / 2, summaryTop);
+  resetShadow(ctx);
+  ctx.restore();
+
+  return barTop + MVP_BAR_H + MVP_SUMMARY_BLOCK_H;
+}
+
+function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey) {
+  const faceBox = MVP_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const padL = 48;
+  const yShift = MVP_UPPER_BLOCK_SHIFT_Y;
+  const upperDividerY = MVP_UPPER_DIVIDER_Y + yShift;
+  const upperHeaderCy = upperDividerY - MVP_HEADER_GAP_LINE_TO_CENTER;
+  const tk = teamKeyword(teamName);
+  const teamLogoImg = tk && logosByTeamKey ? logosByTeamKey[tk] : null;
+  const playerName = String(mvp?.player || "").trim();
+  const usePhoto = Boolean(drawableShorts4Portrait(portrait));
+
+  drawBattingMvpTitleRow(
+    ctx,
+    w,
+    upperHeaderCy + MVP_TITLE_ROW_SHIFT_Y,
+    teamName,
+    playerName,
+    teamLogoImg,
+    MVP_TITLE_LABEL_PITCHER
+  );
+  drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
+
+  const upperPhotoCx = w * 0.25;
+  const upperCy = upperDividerY + rPhoto + MVP_DIVIDER_TO_FACE_TOP;
+  const upperBoxTop = upperCy - rPhoto;
+  if (usePhoto) {
+    drawPortraitContain(ctx, portrait, upperPhotoCx, upperBoxTop, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(portrait)) {
+      drawDefaultPortraitNameOverlay(ctx, upperPhotoCx, upperBoxTop, faceBox, faceBox, playerName);
+    }
+  }
+
+  const upperStatX = upperPhotoCx + rPhoto + 28;
+  const upperStatBottom = drawPitcherMvpStatBlock(
+    ctx,
+    upperStatX,
+    upperCy + MVP_STAT_BLOCK_SHIFT_Y,
+    mvp
+  );
+  const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
+  return drawPitcherMvpEraIpSoBar(ctx, w, contentBottom, mvp?.total);
+}
+
+function drawPitcherGameDetailSection(ctx, w, topY, game) {
+  const g = game && typeof game === "object" ? game : {};
+  const dateStr = fmtBattingSlideDate(g.game_date);
+  const opp = fmtTeamShort(g.opponent || "—");
+  const homeMark = g.is_home ? "홈" : "원정";
+  const result = String(g.result || "—").trim() || "—";
+  const titleY = topY + 52 + PITCHER_GAME_SECTION_SHIFT_Y;
 
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#7fd4a8";
-  ctx.font = `800 72px "${FONT_TITLE}", sans-serif`;
-  ctx.fillText("투수 하이라이트", w / 2, 200);
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.font = `800 36px "${FONT_BODY}", sans-serif`;
+  ctx.fillText(`등판 기록: ${dateStr} vs ${opp} (${homeMark}) ${result}`, w / 2, titleY);
 
-  if (!p?.player) {
+  const statY = titleY + 56;
+  const ip = fmtPitcherIp(g.ip);
+  const h = g.h != null ? String(g.h) : "0";
+  const so = g.so != null ? String(g.so) : "0";
+  const bb = g.bb != null ? String(g.bb) : "0";
+  const er = g.er != null ? String(g.er) : "0";
+  ctx.font = `700 34px "${FONT_BODY}", sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.fillText(
+    `이닝 ${ip}  /  피안타 ${h}  /  삼진 ${so}  /  볼넷 ${bb}  /  자책 ${er}`,
+    w / 2,
+    statY
+  );
+  return statY + 40;
+}
+
+function drawPitcherReliefSection(ctx, w, topY, reliefList) {
+  const list = Array.isArray(reliefList) ? reliefList.slice(0, 3) : [];
+  const titleY = topY + 36 + PITCHER_RELIEF_SECTION_SHIFT_Y;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = `800 38px "${FONT_BODY}", sans-serif`;
+  ctx.fillText("주간 불펜", w / 2, titleY);
+
+  const rowH = 72;
+  const padX = 56;
+  let y = titleY + 48;
+  ctx.textAlign = "left";
+  for (let i = 0; i < list.length; i++) {
+    const r = list[i];
+    const name = String(r?.player || "—").trim() || "—";
+    const ip = fmtPitcherIp(r?.ip);
+    const era = fmtPitcherEra(r?.era);
+    const wins = Number(r?.wins) || 0;
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.beginPath();
+    ctx.roundRect(padX, y, w - padX * 2, rowH - 10, 16);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 34px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(name, padX + 24, y + rowH / 2 - 6);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = `700 30px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(`${ip}이닝  ERA ${era}  ${wins}승`, w - padX - 24, y + rowH / 2 - 6);
+    ctx.textAlign = "left";
+    y += rowH;
+  }
+  return y;
+}
+
+/** slide4: 주간 투수 MVP + 불펜 TOP3 */
+export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, teamKwOverride = "") {
+  const mvp = data?.mvp_starter_pitcher;
+  const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
+
+  let assets = assetsIn;
+  if (!assets) {
+    const key = pitcherAssetsCacheKey(data);
+    const cached = __shorts5PitcherAssetsCache.get(key);
+    if (cached && typeof cached.then === "function") assets = await cached;
+    else if (cached) assets = cached;
+    else {
+      const [logosPack, portraitImg] = await Promise.all([
+        loadShorts5PitcherSlideAssets(data),
+        loadShorts5PitcherPortrait(data, teamKwOverride),
+      ]);
+      assets = { ...logosPack, portrait: portraitImg };
+    }
+  }
+
+  let portrait = drawableShorts4Portrait(assets?.portrait);
+  if (!portrait && mvp?.player) {
+    portrait = drawableShorts4Portrait(
+      await loadShorts5PitcherPortrait(data, teamKwOverride)
+    );
+  }
+  const logosByTeamKey = assets?.logosByTeamKey || {};
+
+  ctx.clearRect(0, 0, w, h);
+  const [accentBg] = teamGrad(teamName);
+  ctx.fillStyle = accentBg || "#131922";
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
+
+  const topDividerY = Math.round(h * 0.52);
+  const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
+
+  const padL = 48;
+  drawBattingMvpHeaderDivider(ctx, w, padL, topDividerY);
+
+  if (!mvp?.player) {
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.font = `700 48px "${FONT_BODY}", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText("주간 투수 기록 없음", w / 2, h / 2);
     return;
   }
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `900 96px "${FONT_TITLE}", sans-serif`;
-  shadowText(ctx);
-  ctx.fillText(String(p.player), w / 2, h * 0.42);
-  resetShadow(ctx);
+  drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey);
 
-  const ip = p.ip != null ? String(p.ip) : "—";
-  const era = p.era != null ? Number(p.era).toFixed(2) : "—";
-  const wins = Number(p.wins) || 0;
-  ctx.font = `800 64px "${FONT_BODY}", sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  const statLine =
-    p.era != null ? `ERA ${era}  ${ip}이닝  ${wins}승` : `${ip}이닝  ${wins}승`;
-  ctx.fillText(statLine, w / 2, h * 0.58);
+  let midY = topDividerY + 28;
+  if (mvp.game) {
+    midY = drawPitcherGameDetailSection(ctx, w, midY, mvp.game);
+  }
+  drawPitcherReliefSection(ctx, w, midY, data?.relief_top_pitchers);
+
+  primeShorts5PitcherAssets(data, teamKwOverride);
 }
 
 /** slide5: 경기 결과 목록 */

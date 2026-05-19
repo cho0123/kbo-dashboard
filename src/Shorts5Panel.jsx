@@ -17,6 +17,7 @@ import {
   drawShorts5PitcherSlide,
   drawShorts5RecordSlide,
   loadShorts5BattingSlideAssets,
+  loadShorts5PitcherSlideAssets,
   shorts5StandingsDateLabel,
 } from "./shorts5SlideDraw.js";
 import "./Shorts4Panel.css";
@@ -254,7 +255,21 @@ export default function Shorts5Panel() {
           teamKw
         );
       }
-      else if (slide.type === "pitcher") drawShorts5PitcherSlide(ctx, w, h, data);
+      else if (slide.type === "pitcher") {
+        const mvpPitcher = data?.mvp_starter_pitcher;
+        const [pitcherAssets, portrait] = await Promise.all([
+          loadShorts5PitcherSlideAssets(data),
+          loadShorts5MvpPortrait(mvpPitcher, teamKw, data),
+        ]);
+        await drawShorts5PitcherSlide(
+          ctx,
+          w,
+          h,
+          data,
+          { ...pitcherAssets, portrait },
+          teamKw
+        );
+      }
       else if (slide.type === "games") drawShorts5GamesSlide(ctx, w, h, data);
       else
         drawStandingsSlide(
@@ -296,6 +311,13 @@ export default function Shorts5Panel() {
         Promise.all([
           loadShorts5BattingSlideAssets(res, preloadTeam),
           loadShorts5MvpPortrait(res.mvp_batter, preloadTeam, res),
+        ]).catch(() => {});
+      }
+      if (res?.mvp_starter_pitcher?.player) {
+        const preloadTeam = String(overrides?.team ?? teamKw).trim();
+        Promise.all([
+          loadShorts5PitcherSlideAssets(res),
+          loadShorts5MvpPortrait(res.mvp_starter_pitcher, preloadTeam, res),
         ]).catch(() => {});
       }
       setCapturedSlides([]);
