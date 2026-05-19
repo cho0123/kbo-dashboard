@@ -4635,6 +4635,19 @@ async function fetchNaverPitcherRankBySortType(sortType, seasonYear) {
     const json = await res.json();
     const arr = json?.result?.seasonPlayerStats;
     if (!Array.isArray(arr)) return out;
+    console.log(
+      "[pitcherRankBySortType] sortType:",
+      sortType,
+      "top3:",
+      JSON.stringify(
+        arr.slice(0, 3).map((r) => ({
+          name: r.playerName,
+          ranking: r.ranking,
+          whip: r.pitcherWhip,
+          era: r.pitcherEra,
+        }))
+      )
+    );
     for (const r of arr) {
       const name = String(r?.playerName || "").replace(/\s+/g, " ").trim();
       const ranking = Number(r?.ranking);
