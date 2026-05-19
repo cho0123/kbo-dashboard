@@ -3003,15 +3003,79 @@ async function fetchNaverGameRecord(gameId, gameYear) {
     const res = await fetch(url, {
       headers: { Referer: "https://m.sports.naver.com" },
     });
+    const status = res.status;
+    const bodyText = await res.text();
+    const bodyPreview = bodyText.slice(0, 500);
+    console.log("[fetchNaverGameRecord] response", {
+      status,
+      url,
+      bodyPreview,
+      bodyLength: bodyText.length,
+    });
     if (!res.ok) {
-      console.log("[fetchNaverGameRecord] http", res.status, url);
+      console.log("[fetchNaverGameRecord] http failed", {
+        status,
+        url,
+        bodyPreview,
+      });
       return null;
     }
-    const json = await res.json();
+    let json = null;
+    try {
+      json = bodyText ? JSON.parse(bodyText) : null;
+    } catch (parseErr) {
+      console.log("[fetchNaverGameRecord] json parse failed", {
+        status,
+        url,
+        message: parseErr?.message || String(parseErr),
+        bodyPreview,
+      });
+      return null;
+    }
     const result = json?.result;
-    if (!result || typeof result !== "object") return null;
+    const resultKeys =
+      result && typeof result === "object" ? Object.keys(result) : [];
+    const homeRaw =
+      result?.homeTeamPitchers ?? result?.home_team_pitchers ?? result?.homePitchers;
+    const awayRaw =
+      result?.awayTeamPitchers ?? result?.away_team_pitchers ?? result?.awayPitchers;
+    console.log("[fetchNaverGameRecord] result structure", {
+      hasResult: Boolean(result && typeof result === "object"),
+      resultKeys: resultKeys.slice(0, 40),
+      hasHomeTeamPitchers: Object.prototype.hasOwnProperty.call(
+        result || {},
+        "homeTeamPitchers"
+      ),
+      hasAwayTeamPitchers: Object.prototype.hasOwnProperty.call(
+        result || {},
+        "awayTeamPitchers"
+      ),
+      homeTeamPitchersIsArray: Array.isArray(homeRaw),
+      awayTeamPitchersIsArray: Array.isArray(awayRaw),
+      homeTeamPitchersLength: Array.isArray(homeRaw) ? homeRaw.length : 0,
+      awayTeamPitchersLength: Array.isArray(awayRaw) ? awayRaw.length : 0,
+    });
+    if (!result || typeof result !== "object") {
+      console.log("[fetchNaverGameRecord] result missing or invalid", {
+        status,
+        url,
+        topLevelKeys:
+          json && typeof json === "object" ? Object.keys(json).slice(0, 20) : [],
+        bodyPreview,
+      });
+      return null;
+    }
     const parsed = parseNaverGameRecordPitchers(result);
-    if (!parsed.home.length && !parsed.away.length) return null;
+    if (!parsed.home.length && !parsed.away.length) {
+      console.log("[fetchNaverGameRecord] parse empty pitchers", {
+        status,
+        url,
+        parsedHome: parsed.home.length,
+        parsedAway: parsed.away.length,
+        resultKeys: resultKeys.slice(0, 40),
+      });
+      return null;
+    }
     return parsed;
   } catch (e) {
     console.warn("[fetchNaverGameRecord]", naverGameId, e?.message || e);
