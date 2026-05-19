@@ -4599,19 +4599,21 @@ function findPitcherImageUrlByStarterName(statsArr, starterName, teamName) {
 }
 
 /** 각 부문 → (Naver 응답 필드 / 클라이언트 노출 키) 매핑 */
+const HITTER_RANK_TOP = 50;
+
 const HITTER_RANK_FIELDS = [
-  { key: "hr_rank", stat: "hitterHr" },
-  { key: "rbi_rank", stat: "hitterRbi" },
-  { key: "avg_rank", stat: "hitterHra" },
-  { key: "hit_rank", stat: "hitterHit" },
-  { key: "ops_rank", stat: "hitterOps" },
-  { key: "war_rank", stat: "hitterWar" },
+  { key: "hr_rank", stat: "hitterHr", qualifiedOnly: false },
+  { key: "rbi_rank", stat: "hitterRbi", qualifiedOnly: false },
+  { key: "avg_rank", stat: "hitterHra", qualifiedOnly: true },
+  { key: "hit_rank", stat: "hitterHit", qualifiedOnly: false },
+  { key: "ops_rank", stat: "hitterOps", qualifiedOnly: true },
+  { key: "war_rank", stat: "hitterWar", qualifiedOnly: false },
 ];
 
 /**
- * seasonPlayerStats → playerId/playerName 기반 부문별 Top-10 순위 인덱스.
- * 동률 처리: standard competition ranking (예: 1, 2, 2, 4).
- * 11위 이상은 인덱스에 누적되지 않음(조회 시 자연스레 null).
+ * seasonPlayerStats → playerId/playerName 기반 부문별 Top-50 순위 인덱스.
+ * avg/ops: isQualified만. hr/rbi/hit/war: 전체 선수. 동률: competition ranking.
+ * 51위 이상은 인덱스에 누적되지 않음(조회 시 자연스레 null).
  * @returns {Map<string, {hr_rank:number|null, rbi_rank:number|null, avg_rank:number|null, hit_rank:number|null, ops_rank:number|null, war_rank:number|null}>}
  */
 function buildHitterRankIndex(statsArr) {
@@ -4633,7 +4635,10 @@ function buildHitterRankIndex(statsArr) {
   };
 
   for (const def of HITTER_RANK_FIELDS) {
-    const withVal = statsArr
+    const pool = def.qualifiedOnly
+      ? statsArr.filter(naverPitcherRowIsQualified)
+      : statsArr;
+    const withVal = pool
       .map((r) => ({ r, v: Number(r?.[def.stat]) }))
       .filter((x) => Number.isFinite(x.v));
     withVal.sort((a, b) => b.v - a.v);
@@ -4645,7 +4650,7 @@ function buildHitterRankIndex(statsArr) {
       const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
       lastVal = v;
       lastRank = rank;
-      if (rank > 10) continue;
+      if (rank > HITTER_RANK_TOP) continue;
       const id = String(r?.playerId ?? r?.playerName ?? "").trim();
       if (!id) continue;
       ensure(id)[def.key] = rank;
