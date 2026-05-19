@@ -2998,11 +2998,15 @@ async function fetchNaverGameRecord(gameId, gameYear) {
   if (!gid || !gy) return null;
   const naverGameId = `${gid}${gy}`;
   const url = `https://api-gw.sports.naver.com/schedule/games/${encodeURIComponent(naverGameId)}/record`;
+  console.log("[fetchNaverGameRecord] url", url, { gameId: gid, gameYear: gy, naverGameId });
   try {
     const res = await fetch(url, {
       headers: { Referer: "https://m.sports.naver.com" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log("[fetchNaverGameRecord] http", res.status, url);
+      return null;
+    }
     const json = await res.json();
     const result = json?.result;
     if (!result || typeof result !== "object") return null;
@@ -3365,6 +3369,12 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   let game = mvpBase.game;
   if (gid && mvpBase.player) {
     const naverRecord = await fetchNaverGameRecord(gid, gy);
+    console.log("[enrichTeamWeeklyMvpStarterPitcher] fetchNaverGameRecord result", {
+      game_id: gid,
+      gameYear: gy,
+      player: mvpBase.player,
+      naverRecord,
+    });
     const side = resolveMvpPitcherSideForNaver(
       fsRow && typeof fsRow === "object" ? fsRow : {},
       grRow && typeof grRow === "object" ? grRow : mvpBase.game
