@@ -2975,17 +2975,68 @@ function normalizeNaverGameRecordPitcherRow(row) {
   };
 }
 
+function splitNaverPitchersArrayBySide(rows) {
+  const home = [];
+  const away = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const side = String(
+      row.side ?? row.homeAway ?? row.teamSide ?? row.home_away ?? row.team_side ?? ""
+    )
+      .trim()
+      .toLowerCase();
+    if (side === "home" || side === "h" || side === "1") home.push(row);
+    else if (side === "away" || side === "a" || side === "2") away.push(row);
+  }
+  return { home, away };
+}
+
+/** recordData 또는 result 루트에서 홈/원정 투수 배열 추출 */
+function extractNaverGameRecordPitcherLists(source) {
+  const src = source && typeof source === "object" ? source : {};
+  let homeRaw = src.homeTeamPitchers ?? src.home_team_pitchers ?? src.homePitchers ?? null;
+  let awayRaw = src.awayTeamPitchers ?? src.away_team_pitchers ?? src.awayPitchers ?? null;
+
+  const pitchersCombined = src.pitchers ?? src.Pitchers ?? src.pitcherRecords ?? src.pitcher_list;
+  if (
+    (!Array.isArray(homeRaw) || !homeRaw.length) &&
+    (!Array.isArray(awayRaw) || !awayRaw.length) &&
+    Array.isArray(pitchersCombined) &&
+    pitchersCombined.length
+  ) {
+    const split = splitNaverPitchersArrayBySide(pitchersCombined);
+    if (split.home.length || split.away.length) {
+      homeRaw = split.home;
+      awayRaw = split.away;
+    } else {
+      homeRaw = pitchersCombined;
+      awayRaw = [];
+    }
+  }
+
+  return {
+    homeRaw: Array.isArray(homeRaw) ? homeRaw : [],
+    awayRaw: Array.isArray(awayRaw) ? awayRaw : [],
+  };
+}
+
+function parseNaverGameRecordPitchersFromSource(source) {
+  const { homeRaw, awayRaw } = extractNaverGameRecordPitcherLists(source);
+  const home = homeRaw.map(normalizeNaverGameRecordPitcherRow).filter(Boolean);
+  const away = awayRaw.map(normalizeNaverGameRecordPitcherRow).filter(Boolean);
+  return { home, away };
+}
+
 function parseNaverGameRecordPitchers(result) {
   const r = result && typeof result === "object" ? result : {};
-  const homeRaw = r.homeTeamPitchers ?? r.home_team_pitchers ?? r.homePitchers ?? [];
-  const awayRaw = r.awayTeamPitchers ?? r.away_team_pitchers ?? r.awayPitchers ?? [];
-  const home = (Array.isArray(homeRaw) ? homeRaw : [])
-    .map(normalizeNaverGameRecordPitcherRow)
-    .filter(Boolean);
-  const away = (Array.isArray(awayRaw) ? awayRaw : [])
-    .map(normalizeNaverGameRecordPitcherRow)
-    .filter(Boolean);
-  return { home, away };
+  const sources = [];
+  if (r.recordData && typeof r.recordData === "object") sources.push(r.recordData);
+  sources.push(r);
+  for (const src of sources) {
+    const parsed = parseNaverGameRecordPitchersFromSource(src);
+    if (parsed.home.length || parsed.away.length) return parsed;
+  }
+  return { home: [], away: [] };
 }
 
 /**
@@ -3035,13 +3086,48 @@ async function fetchNaverGameRecord(gameId, gameYear) {
     const result = json?.result;
     const resultKeys =
       result && typeof result === "object" ? Object.keys(result) : [];
-    const homeRaw =
+    const recordData =
+      result?.recordData && typeof result.recordData === "object"
+        ? result.recordData
+        : null;
+    console.log(
+      "[fetchNaverGameRecord] recordData keys:",
+      JSON.stringify(Object.keys(recordData || {}))
+    );
+    console.log(
+      "[fetchNaverGameRecord] recordData preview:",
+      JSON.stringify(recordData).slice(0, 500)
+    );
+    const rdHome =
+      recordData?.homeTeamPitchers ??
+      recordData?.home_team_pitchers ??
+      recordData?.homePitchers;
+    const rdAway =
+      recordData?.awayTeamPitchers ??
+      recordData?.away_team_pitchers ??
+      recordData?.awayPitchers;
+    const rdPitchers = recordData?.pitchers ?? recordData?.Pitchers;
+    const rootHome =
       result?.homeTeamPitchers ?? result?.home_team_pitchers ?? result?.homePitchers;
-    const awayRaw =
+    const rootAway =
       result?.awayTeamPitchers ?? result?.away_team_pitchers ?? result?.awayPitchers;
     console.log("[fetchNaverGameRecord] result structure", {
       hasResult: Boolean(result && typeof result === "object"),
       resultKeys: resultKeys.slice(0, 40),
+      hasRecordData: Boolean(recordData),
+      recordDataKeys: recordData ? Object.keys(recordData).slice(0, 40) : [],
+      recordDataHasHomeTeamPitchers: Object.prototype.hasOwnProperty.call(
+        recordData || {},
+        "homeTeamPitchers"
+      ),
+      recordDataHasAwayTeamPitchers: Object.prototype.hasOwnProperty.call(
+        recordData || {},
+        "awayTeamPitchers"
+      ),
+      recordDataHasPitchers: Object.prototype.hasOwnProperty.call(recordData || {}, "pitchers"),
+      recordDataHomeLen: Array.isArray(rdHome) ? rdHome.length : 0,
+      recordDataAwayLen: Array.isArray(rdAway) ? rdAway.length : 0,
+      recordDataPitchersLen: Array.isArray(rdPitchers) ? rdPitchers.length : 0,
       hasHomeTeamPitchers: Object.prototype.hasOwnProperty.call(
         result || {},
         "homeTeamPitchers"
@@ -3050,10 +3136,8 @@ async function fetchNaverGameRecord(gameId, gameYear) {
         result || {},
         "awayTeamPitchers"
       ),
-      homeTeamPitchersIsArray: Array.isArray(homeRaw),
-      awayTeamPitchersIsArray: Array.isArray(awayRaw),
-      homeTeamPitchersLength: Array.isArray(homeRaw) ? homeRaw.length : 0,
-      awayTeamPitchersLength: Array.isArray(awayRaw) ? awayRaw.length : 0,
+      rootHomeLen: Array.isArray(rootHome) ? rootHome.length : 0,
+      rootAwayLen: Array.isArray(rootAway) ? rootAway.length : 0,
     });
     if (!result || typeof result !== "object") {
       console.log("[fetchNaverGameRecord] result missing or invalid", {
