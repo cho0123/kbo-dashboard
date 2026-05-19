@@ -4494,6 +4494,31 @@ function winRateFromWinsLosses3(wins, losses) {
   return Math.round((w / d) * 1000) / 1000;
 }
 
+function naverPitcherStatsRowKey(r) {
+  const id = r?.playerId ?? r?.player_id;
+  if (id != null && String(id).trim() !== "") return `id:${String(id).trim()}`;
+  const name = String(r?.playerName || "").replace(/\s+/g, " ").trim();
+  if (name) return `name:${name}`;
+  return null;
+}
+
+/** playerId 또는 playerName 기준 중복 제거 (먼저 나온 행 유지) */
+function dedupeNaverPitcherSeasonStatsByPlayer(rows) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    const key = naverPitcherStatsRowKey(r);
+    if (!key) {
+      out.push(r);
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
 /**
  * 네이버 KBO 시즌 투수 순위 조회 (page 1~3 병렬, page당 100명 → 최대 300명).
  * 응답 result.seasonPlayerStats 배열을 페이지 순으로 이어 붙여 반환. 전부 실패 시 null.
@@ -4519,7 +4544,7 @@ async function fetchNaverPitcherSeasonStats(seasonYear) {
 
   try {
     const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
-    const merged = chunks.flat();
+    const merged = dedupeNaverPitcherSeasonStatsByPlayer(chunks.flat());
     if (merged.length === 0) return null;
     const arr = merged;
     console.log("[pitcherStats] sample row:", JSON.stringify(arr[0]));
@@ -4627,12 +4652,37 @@ function pitcherRankIndexPlayerName(r) {
   return String(r?.playerName || "").replace(/\s+/g, " ").trim();
 }
 
+/** 네이버 pitcherInning: "45 2/3" → 45.667, "58" → 58 */
+function parsePitcherInningString(raw) {
+  if (raw == null || raw === "") return NaN;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  const s = String(raw).trim();
+  if (!s) return NaN;
+  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) {
+    const whole = Number(mixed[1]);
+    const num = Number(mixed[2]);
+    const den = Number(mixed[3]);
+    if (Number.isFinite(whole) && den > 0 && Number.isFinite(num)) {
+      return whole + num / den;
+    }
+  }
+  const fracOnly = s.match(/^(\d+)\/(\d+)$/);
+  if (fracOnly) {
+    const num = Number(fracOnly[1]);
+    const den = Number(fracOnly[2]);
+    if (den > 0 && Number.isFinite(num)) return num / den;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 const PITCHER_RANK_FIELD_DEFS = [
   { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true },
   { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
   { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false },
   { key: "so_rank", get: (r) => Number(r?.pitcherKk), asc: false },
-  { key: "ip_rank", get: (r) => Number(r?.pitcherInning), asc: false },
+  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false },
   { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false },
 ];
 
