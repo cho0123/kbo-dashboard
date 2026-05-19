@@ -4708,17 +4708,17 @@ function parsePitcherInningString(raw) {
 }
 
 const PITCHER_RANK_FIELD_DEFS = [
-  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true },
-  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
-  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false },
-  { key: "so_rank", get: (r) => Number(r?.pitcherKk), asc: false },
-  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false },
-  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false },
+  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true, qualifiedOnly: true },
+  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true, qualifiedOnly: true },
+  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false, qualifiedOnly: false },
+  { key: "so_rank", get: (r) => Number(r?.pitcherKk), asc: false, qualifiedOnly: false },
+  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false, qualifiedOnly: false },
+  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false, qualifiedOnly: false },
 ];
 
 /**
  * seasonPlayerStats → playerName 기반 순위 인덱스.
- * isQualified=true 선수만 부문별 직접 정렬 후 순위 부여 (동률: competition ranking).
+ * ERA/WHIP: isQualified만. 승/삼진/이닝/WAR: 전체 선수. 동률: competition ranking.
  * @returns {Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
  */
 function buildPitcherRankIndex(statsArr) {
@@ -4741,7 +4741,7 @@ function buildPitcherRankIndex(statsArr) {
 
   const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
 
-  const soSorted = qualifiedRows
+  const soSorted = statsArr
     .filter((r) => Number.isFinite(Number(r.pitcherKk)))
     .sort((a, b) => Number(b.pitcherKk) - Number(a.pitcherKk));
   console.log(
@@ -4752,7 +4752,8 @@ function buildPitcherRankIndex(statsArr) {
   );
 
   for (const def of PITCHER_RANK_FIELD_DEFS) {
-    const withVal = qualifiedRows
+    const pool = def.qualifiedOnly ? qualifiedRows : statsArr;
+    const withVal = pool
       .map((r) => ({ r, v: def.get(r) }))
       .filter((x) => Number.isFinite(x.v));
     withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
