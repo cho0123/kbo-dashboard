@@ -1133,7 +1133,7 @@ function fmtRate3(v) {
 }
 
 function battingStatCellColor(hr, h) {
-  if (Number(hr) > 0) return "#f87171";
+  if (Number(hr) > 0) return "#FF0000";
   if (Number(h) > 0) return "#ffffff";
   return "#94a3b8";
 }
@@ -1194,7 +1194,7 @@ function drawBattingGameTable(
 
   const logoSize = 44;
   const bodyFontPx = 36;
-  const statFontPx = 38;
+  const statFontPx = 41;
 
   for (let i = 0; i < list.length; i++) {
     const g = list[i];
