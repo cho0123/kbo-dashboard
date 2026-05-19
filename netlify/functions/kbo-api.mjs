@@ -3748,7 +3748,7 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   if (!mvpBase || typeof mvpBase !== "object") return mvpBase;
   const y = Number(seasonYear) || 2026;
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(y);
-  const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
+  const pitcherRankIndex = await buildPitcherRankIndex(y);
   const mvpNameKey = String(mvpBase.player || "").replace(/\s+/g, " ").trim();
   const mvpPitcherRanks = mvpNameKey ? pitcherRankIndex[mvpNameKey] : null;
   const player_image_url = findPitcherImageUrlByStarterName(
@@ -4615,56 +4615,54 @@ function buildHitterRankIndex(statsArr) {
   return idx;
 }
 
-/** 네이버 투수 시즌 삼진 (pitcherKk 우선) */
-function pitcherSeasonSoFromNaverRow(r) {
-  const n = Number(r?.pitcherKk ?? r?.kk ?? r?.strikeouts);
-  return Number.isFinite(n) ? n : NaN;
+/**
+ * 네이버 투수 부문별 순위 (sortType) — ranking 필드 그대로.
+ * @returns {Promise<Map<string, number>>} playerName → ranking
+ */
+async function fetchNaverPitcherRankBySortType(sortType, seasonYear) {
+  const y = String(Number(seasonYear) || "").trim();
+  const st = String(sortType || "").trim();
+  const out = new Map();
+  if (!y || !st) return out;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&sortType=${encodeURIComponent(
+    st
+  )}&page=1&pageSize=200`;
+  try {
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return out;
+    const json = await res.json();
+    const arr = json?.result?.seasonPlayerStats;
+    if (!Array.isArray(arr)) return out;
+    for (const r of arr) {
+      const name = String(r?.playerName || "").replace(/\s+/g, " ").trim();
+      const ranking = Number(r?.ranking);
+      if (!name || !Number.isFinite(ranking) || ranking <= 0) continue;
+      out.set(name, ranking);
+    }
+    return out;
+  } catch (e) {
+    console.warn("[fetchNaverPitcherRankBySortType]", st, y, e?.message || e);
+    return out;
+  }
 }
 
-/** 네이버 투수 시즌 이닝 */
-function pitcherSeasonIpFromNaverRow(r) {
-  const n = Number(r?.pitcherInning);
-  return Number.isFinite(n) ? n : NaN;
-}
-
-const PITCHER_COMPUTED_RANK_FIELDS = [
-  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false },
-  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
-  { key: "so_rank", get: pitcherSeasonSoFromNaverRow, asc: false },
-  { key: "ip_rank", get: pitcherSeasonIpFromNaverRow, asc: false },
-  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false },
+const PITCHER_RANK_SORT_TYPES = [
+  { key: "era_rank", sortType: "pitcherEra" },
+  { key: "whip_rank", sortType: "pitcherWhip" },
+  { key: "win_rank", sortType: "pitcherWin" },
+  { key: "so_rank", sortType: "pitcherKk" },
+  { key: "ip_rank", sortType: "pitcherInning" },
+  { key: "war_rank", sortType: "pitcherWar" },
 ];
 
-const PITCHER_RANK_TOP_N = 50;
-
-/** 네이버 seasonPlayerStats — 규정이닝 등 자격(isQualified) */
-function naverPitcherRowIsQualified(r) {
-  const v = r?.isQualified;
-  if (v === true || v === 1) return true;
-  const s = String(v ?? "").trim().toLowerCase();
-  return s === "true" || s === "1";
-}
-
-/** 네이버 ERA(종합) 순위 — ranking 필드 */
-function naverPitcherEraRankFromRow(r) {
-  const n = Number(r?.ranking);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
-
-function pitcherRankIndexPlayerName(r) {
-  return String(r?.playerName || "").replace(/\s+/g, " ").trim();
-}
-
 /**
- * seasonPlayerStats → playerName 기반 순위 인덱스.
- * era_rank: 네이버 ranking 그대로. whip/so/ip/war: isQualified만 직접 정렬(Top-50).
- * @returns {Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
+ * 네이버 부문별 sortType API → playerName 기반 순위 인덱스 (ranking 필드 그대로).
+ * @returns {Promise<Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>>}
  */
-function buildPitcherRankIndex(statsArr) {
+async function buildPitcherRankIndex(seasonYear) {
   const idx = {};
-  if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
-
   const ensure = (name) => {
     if (!idx[name]) {
       idx[name] = {
@@ -4679,43 +4677,17 @@ function buildPitcherRankIndex(statsArr) {
     return idx[name];
   };
 
-  for (const r of statsArr) {
-    const name = pitcherRankIndexPlayerName(r);
-    if (!name) continue;
-    const eraRank = naverPitcherEraRankFromRow(r);
-    if (eraRank != null) ensure(name).era_rank = eraRank;
-  }
-
-  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
-  console.log("[pitcherRankIndex] qualified count:", qualifiedRows.length);
-  console.log(
-    "[pitcherRankIndex] sample qualified:",
-    JSON.stringify(
-      qualifiedRows.slice(0, 3).map((r) => ({
-        name: r.playerName,
-        whip: r.pitcherWhip,
-        era: r.pitcherEra,
-        qualified: r.isQualified,
-      }))
-    )
+  const y = Number(seasonYear) || new Date().getFullYear();
+  const branchMaps = await Promise.all(
+    PITCHER_RANK_SORT_TYPES.map(async ({ key, sortType }) => ({
+      key,
+      map: await fetchNaverPitcherRankBySortType(sortType, y),
+    }))
   );
-  for (const def of PITCHER_COMPUTED_RANK_FIELDS) {
-    const withVal = qualifiedRows
-      .map((r) => ({ r, v: def.get(r) }))
-      .filter((x) => Number.isFinite(x.v));
-    withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
 
-    let lastVal = null;
-    let lastRank = 0;
-    for (let i = 0; i < withVal.length; i++) {
-      const { r, v } = withVal[i];
-      const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
-      lastVal = v;
-      lastRank = rank;
-      if (rank > PITCHER_RANK_TOP_N) continue;
-      const name = pitcherRankIndexPlayerName(r);
-      if (!name) continue;
-      ensure(name)[def.key] = rank;
+  for (const { key, map } of branchMaps) {
+    for (const [name, ranking] of map.entries()) {
+      ensure(name)[key] = ranking;
     }
   }
   return idx;
