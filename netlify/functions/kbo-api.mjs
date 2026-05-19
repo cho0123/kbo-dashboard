@@ -4626,8 +4626,7 @@ function pitcherSeasonIpFromNaverRow(r) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-const PITCHER_RANK_FIELDS = [
-  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true },
+const PITCHER_COMPUTED_RANK_FIELDS = [
   { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true },
   { key: "so_rank", get: pitcherSeasonSoFromNaverRow, asc: false },
   { key: "ip_rank", get: pitcherSeasonIpFromNaverRow, asc: false },
@@ -4644,17 +4643,25 @@ function naverPitcherRowIsQualified(r) {
   return s === "true" || s === "1";
 }
 
+/** 네이버 ERA(종합) 순위 — ranking 필드 */
+function naverPitcherEraRankFromRow(r) {
+  const n = Number(r?.ranking);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function pitcherRankIndexPlayerName(r) {
+  return String(r?.playerName || "").replace(/\s+/g, " ").trim();
+}
+
 /**
- * seasonPlayerStats → playerName 기반 부문별 Top-50 순위.
- * isQualified=true 선수만 포함. ERA/WHIP 오름차순, 삼진/이닝/WAR 내림차순.
- * (네이버 ranking 필드는 종합순위일 수 있어 부문별 직접 계산 유지)
+ * seasonPlayerStats → playerName 기반 순위 인덱스.
+ * era_rank: 네이버 ranking 그대로. whip/so/ip/war: isQualified만 직접 정렬(Top-50).
  * @returns {Record<string, {era_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
  */
 function buildPitcherRankIndex(statsArr) {
   const idx = {};
   if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
-  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
-  if (qualifiedRows.length === 0) return idx;
 
   const ensure = (name) => {
     if (!idx[name]) {
@@ -4669,7 +4676,15 @@ function buildPitcherRankIndex(statsArr) {
     return idx[name];
   };
 
-  for (const def of PITCHER_RANK_FIELDS) {
+  for (const r of statsArr) {
+    const name = pitcherRankIndexPlayerName(r);
+    if (!name) continue;
+    const eraRank = naverPitcherEraRankFromRow(r);
+    if (eraRank != null) ensure(name).era_rank = eraRank;
+  }
+
+  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
+  for (const def of PITCHER_COMPUTED_RANK_FIELDS) {
     const withVal = qualifiedRows
       .map((r) => ({ r, v: def.get(r) }))
       .filter((x) => Number.isFinite(x.v));
@@ -4683,7 +4698,7 @@ function buildPitcherRankIndex(statsArr) {
       lastVal = v;
       lastRank = rank;
       if (rank > PITCHER_RANK_TOP_N) continue;
-      const name = String(r?.playerName || "").replace(/\s+/g, " ").trim();
+      const name = pitcherRankIndexPlayerName(r);
       if (!name) continue;
       ensure(name)[def.key] = rank;
     }
