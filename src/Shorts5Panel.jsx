@@ -188,7 +188,7 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide },
 });
 
 export default function Shorts5Panel() {
-  const [teamKw, setTeamKw] = useState("LG");
+  const [teamKw, setTeamKw] = useState("삼성");
   const [weekStart, setWeekStart] = useState(() => getLastWeekMondayKst());
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);

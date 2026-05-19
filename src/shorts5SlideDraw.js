@@ -544,6 +544,8 @@ export function drawShorts5RecordSlide(
   ctx.lineTo(w - 64, headerLineY);
   ctx.stroke();
 
+  if (reveal < 3) return;
+
   const firstRowY = headerDividerAnchorY + 52 + 60 - 30;
   let lastRowBottom = headerLineY;
 
@@ -625,9 +627,7 @@ export function drawShorts5RecordSlide(
         drawRecordRankCell(ctx, colLeft[5] + cellPad, line1Cy, rankParts, rankFontPx);
       }
 
-      if (reveal >= 3) {
-        drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
-      }
+      drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
 
       if (rankAfter != null) prevRankForDelta = rankAfter;
     }
@@ -2143,6 +2143,8 @@ export function drawShorts5GamesSlide(
   ctx.moveTo(64, headerLineY);
   ctx.lineTo(w - 64, headerLineY);
   ctx.stroke();
+
+  if (reveal < 3) return;
 
   const firstRowY = headerDividerAnchorY + 52 + 60 - 30;
 
