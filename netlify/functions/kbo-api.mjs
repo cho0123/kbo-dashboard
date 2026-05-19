@@ -3529,44 +3529,102 @@ function buildTeamWeeklyMvpStarterPitcher(pitcherRows, teamKw, gameResults) {
   };
 }
 
-/** 주간 불펜 TOP3: 비선발, 승·홀드·세이브 우선 → ER↓ → IP↑ → H↓ → SO↑ */
-function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, topN = 3) {
+/** 불펜 단일 등판 점수: 승·홀드·세이브 +10, 이닝당 +2, 자책당 -3 */
+function reliefPitcherSingleGameScore(r) {
+  const r0 = r && typeof r === "object" ? r : {};
+  const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
+  const erRaw = pickNum(r0, [
+    "er",
+    "ER",
+    "earned_runs",
+    "earnedRuns",
+    "r",
+    "R",
+    "runs",
+    "runs_allowed",
+  ]);
+  const er = erRaw != null && Number.isFinite(Number(erRaw)) ? Number(erRaw) : 0;
+  const has_win = pitcherRowHasWinResult(r0);
+  const has_hold = pitcherRowHoldFieldPresent(r0);
+  const has_save = pitcherRowSaveFieldPresent(r0);
+  let score = ipn * 2 - er * 3;
+  if (has_win || has_hold || has_save) score += 10;
+  return { score, ipn, er, has_win, has_hold, has_save };
+}
+
+function resolveReliefAppearanceGameMeta(r, gr) {
+  if (gr && typeof gr === "object") {
+    return {
+      game_date: gr.game_date ?? null,
+      opponent: gr.opponent ?? null,
+      is_home: gr.is_home === true,
+    };
+  }
+  const teamCode = teamCodeFromGameIdAndSide(r?.game_id ?? r?.gameId, r?.side);
+  const { opponent, home_away } = deriveOpponentFromGameId(r?.game_id ?? r?.gameId, teamCode);
+  return {
+    game_date: safeIsoDate(r?.game_date || r?.gameDate || "") || null,
+    opponent: opponent || null,
+    is_home: home_away === "home",
+  };
+}
+
+function reliefAppearanceFromPitcherRow(r0, gr) {
+  const r = r0 && typeof r0 === "object" ? r0 : {};
+  const player = pickPitcherName(r) || pickPlayerName(r);
+  if (!player || player === "—") return null;
+  const { score, ipn, er, has_win, has_hold, has_save } = reliefPitcherSingleGameScore(r);
+  if (!(ipn > 0)) return null;
+  const soRaw = pickNum(r, ["so", "SO", "k", "K", "strikeouts"]);
+  const hRaw = pickNum(r, ["h", "H", "hits", "hit", "ha"]);
+  const bbRaw = pickNum(r, ["bb", "BB", "walk", "walks"]);
+  const so = soRaw != null && Number.isFinite(Number(soRaw)) ? Number(soRaw) : 0;
+  const h = hRaw != null && Number.isFinite(Number(hRaw)) ? Number(hRaw) : 0;
+  const bb = bbRaw != null && Number.isFinite(Number(bbRaw)) ? Number(bbRaw) : 0;
+  const meta = resolveReliefAppearanceGameMeta(r, gr);
+  return {
+    player,
+    ip: Number.isFinite(ipn) ? Number(ipn.toFixed(2)) : ipn,
+    er,
+    so,
+    h,
+    bb,
+    has_win,
+    has_hold,
+    has_save,
+    game_date: meta.game_date,
+    opponent: meta.opponent,
+    is_home: meta.is_home,
+    _score: score,
+  };
+}
+
+/** 주간 불펜 TOP3: 비선발 등판별 점수 상위 (동일 선수 중복 허용) */
+function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, gameResults, topN = 3) {
   const rows = filterStatRowsForTeamKw(pitcherRows, teamKw).filter(
     (r) => !__starterBoolTrue(r?.is_starter ?? r?.isStarter)
   );
-  const byPlayer = aggregatePitcherWeeklyByPlayer(rows);
-  const reliefCred = (x) => (x.has_win || x.has_hold || x.has_save ? 1 : 0);
-  const weeklyEr = (acc, t) => (acc._hasEr ? t.er : Infinity);
-  return [...byPlayer.values()]
-    .map((acc) => {
-      const t = pitcherWeeklyTotalsFromAcc(acc);
-      return {
-        player: acc.player,
-        ip: t.ip,
-        era: t.era,
-        wins: t.wins,
-        so: acc.so,
-        h: acc.h,
-        bb: acc.bb,
-        has_win: Boolean(acc.has_win),
-        has_hold: Boolean(acc.has_hold),
-        has_save: Boolean(acc.has_save),
-        _weeklyEr: weeklyEr(acc, t),
-      };
-    })
-    .filter((x) => Number(x.ip) > 0)
+  const grByGid = new Map();
+  for (const gr of Array.isArray(gameResults) ? gameResults : []) {
+    const gid = normalizeGameId(gr?.game_id ?? "");
+    if (gid) grByGid.set(gid, gr);
+  }
+  const appearances = [];
+  for (const r0 of rows) {
+    const gid = normalizeGameId(r0?.game_id ?? r0?.gameId ?? "");
+    const gr = gid ? grByGid.get(gid) : null;
+    const app = reliefAppearanceFromPitcherRow(r0, gr);
+    if (app) appearances.push(app);
+  }
+  return appearances
     .sort((a, b) => {
-      const ac = reliefCred(a);
-      const bc = reliefCred(b);
-      if (bc !== ac) return bc - ac;
-      if (a._weeklyEr !== b._weeklyEr) return a._weeklyEr - b._weeklyEr;
+      if (b._score !== a._score) return b._score - a._score;
       if (b.ip !== a.ip) return b.ip - a.ip;
-      if (a.h !== b.h) return a.h - b.h;
-      if (b.so !== a.so) return b.so - a.so;
+      if (a.er !== b.er) return a.er - b.er;
       return String(a.player).localeCompare(String(b.player), "ko");
     })
     .slice(0, Number(topN) || 3)
-    .map(({ _weeklyEr, ...rest }) => rest);
+    .map(({ _score, ...rest }) => rest);
 }
 
 function pickTopPitcherForTeamWeek(pitcherRows, teamKw) {
@@ -3817,7 +3875,12 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
       db
     );
   }
-  const relief_top_pitchers = buildTeamWeeklyReliefTopPitchers(box.pitchers, teamKw, 3);
+  const relief_top_pitchers = buildTeamWeeklyReliefTopPitchers(
+    box.pitchers,
+    teamKw,
+    gameResults,
+    3
+  );
   const best_game = pickBestWinGameForTeam(gameResults);
 
   const prevDay = isoAddDays(week_start, -1);

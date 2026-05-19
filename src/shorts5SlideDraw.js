@@ -1738,13 +1738,13 @@ function drawPitcherReliefSection(ctx, w, topY, reliefList) {
     const r = list[i];
     const name = String(r?.player || "—").trim() || "—";
     const ip = fmtPitcherIp(r?.ip);
-    const era = fmtPitcherEra(r?.era);
+    const erN = Number(r?.er);
+    const erStr = Number.isFinite(erN) ? erN : 0;
     const hN = Number(r?.h);
     const soN = Number(r?.so);
-    const bbN = Number(r?.bb);
     const hStr = Number.isFinite(hN) ? hN : 0;
     const soStr = Number.isFinite(soN) ? soN : 0;
-    const bbStr = Number.isFinite(bbN) ? bbN : 0;
+    const dateVs = `${fmtBattingSlideDate(r?.game_date)} vs ${fmtTeamShort(r?.opponent || "—")}`;
     const line1Cy = y + 30;
     const line2Cy = y + 66;
 
@@ -1770,15 +1770,15 @@ function drawPitcherReliefSection(ctx, w, topY, reliefList) {
     }
 
     ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = `700 ${PITCHER_RELIEF_LINE1_FONT_PX - 4}px "${FONT_BODY}", sans-serif`;
-    ctx.fillText(`${ip}이닝 / ERA ${era}`, w - padX - innerPad, line1Cy);
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = `700 ${PITCHER_RELIEF_LINE1_FONT_PX - 6}px "${FONT_BODY}", sans-serif`;
+    ctx.fillText(dateVs, w - padX - innerPad, line1Cy);
 
     ctx.textAlign = "left";
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.font = `600 ${PITCHER_RELIEF_LINE2_FONT_PX}px "${FONT_BODY}", sans-serif`;
     ctx.fillText(
-      `피안타 ${hStr} / 삼진 ${soStr} / 볼넷 ${bbStr}`,
+      `${ip}이닝 / 자책 ${erStr} / 피안타 ${hStr} / 삼진 ${soStr}`,
       padX + innerPad,
       line2Cy
     );
