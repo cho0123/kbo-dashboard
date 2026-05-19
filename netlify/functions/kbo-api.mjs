@@ -2854,8 +2854,13 @@ function pitcherRowHasWinResult(r) {
   return String(r?.result || "").trim() === "승";
 }
 
+const PITCHER_HOLD_RESULT_LABELS = new Set(["홀드", "홀", "hold", "H", "HD"]);
+const PITCHER_SAVE_RESULT_LABELS = new Set(["세이브", "세", "save", "S", "SV"]);
+
 function pitcherRowHoldFieldPresent(r) {
   if (!r || typeof r !== "object") return false;
+  const resultLabel = String(r?.result ?? "").trim();
+  if (PITCHER_HOLD_RESULT_LABELS.has(resultLabel)) return true;
   for (const key of ["hold", "Hold", "HOLD", "홀드", "hld", "HLD"]) {
     if (!(key in r)) continue;
     const v = r[key];
@@ -2871,6 +2876,8 @@ function pitcherRowHoldFieldPresent(r) {
 
 function pitcherRowSaveFieldPresent(r) {
   if (!r || typeof r !== "object") return false;
+  const resultLabel = String(r?.result ?? "").trim();
+  if (PITCHER_SAVE_RESULT_LABELS.has(resultLabel)) return true;
   for (const key of ["save", "Save", "SAVE", "세이브", "sv", "SV"]) {
     if (!(key in r)) continue;
     const v = r[key];
@@ -3599,7 +3606,20 @@ function reliefAppearanceFromPitcherRow(r0, gr) {
   };
 }
 
-/** 주간 불펜 TOP3: 비선발 등판별 점수 상위 (동일 선수 중복 허용) */
+function sortReliefAppearancesByScore(appearances) {
+  return [...appearances].sort((a, b) => {
+    if (b._score !== a._score) return b._score - a._score;
+    if (b.ip !== a.ip) return b.ip - a.ip;
+    if (a.er !== b.er) return a.er - b.er;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+}
+
+function reliefAppearanceHasCred(app) {
+  return Boolean(app?.has_win || app?.has_hold || app?.has_save);
+}
+
+/** 주간 불펜 TOP3: 승·홀드·세이브 등판 우선 → 점수 순 (동일 선수 중복 허용) */
 function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, gameResults, topN = 3) {
   const rows = filterStatRowsForTeamKw(pitcherRows, teamKw).filter(
     (r) => !__starterBoolTrue(r?.is_starter ?? r?.isStarter)
@@ -3616,14 +3636,15 @@ function buildTeamWeeklyReliefTopPitchers(pitcherRows, teamKw, gameResults, topN
     const app = reliefAppearanceFromPitcherRow(r0, gr);
     if (app) appearances.push(app);
   }
-  return appearances
-    .sort((a, b) => {
-      if (b._score !== a._score) return b._score - a._score;
-      if (b.ip !== a.ip) return b.ip - a.ip;
-      if (a.er !== b.er) return a.er - b.er;
-      return String(a.player).localeCompare(String(b.player), "ko");
-    })
-    .slice(0, Number(topN) || 3)
+  const limit = Number(topN) || 3;
+  const withCred = sortReliefAppearancesByScore(
+    appearances.filter((a) => reliefAppearanceHasCred(a))
+  );
+  const withoutCred = sortReliefAppearancesByScore(
+    appearances.filter((a) => !reliefAppearanceHasCred(a))
+  );
+  return [...withCred, ...withoutCred]
+    .slice(0, limit)
     .map(({ _score, ...rest }) => rest);
 }
 
