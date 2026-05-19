@@ -4569,6 +4569,10 @@ async function fetchNaverPitcherSeasonStats(seasonYear) {
       (r) => r.playerName?.includes("톨") || r.playerName?.includes("Thor")
     );
     console.log("[pitcherStats] tolhurst:", JSON.stringify(sample));
+    const jangChanHee = arr.find(
+      (r) => r.playerName?.includes("장찬희") || r.playerName?.includes("장 찬희")
+    );
+    console.log("[pitcherStats] 장찬희:", JSON.stringify(jangChanHee));
     return merged;
   } catch (e) {
     console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
