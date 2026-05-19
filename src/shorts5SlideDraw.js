@@ -765,12 +765,12 @@ const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
 /** 사진 옆 4줄 스탯 블록 아래로 */
 const MVP_PITCHER_STAT_LINES_SHIFT_Y = 20;
 const PITCHER_GAME_TABLE_AT_BAR_SHIFT_Y = 0;
-const PITCHER_GAME_SECTION_SHIFT_Y = 40;
+const PITCHER_GAME_SECTION_SHIFT_Y = 80;
 const PITCHER_GAME_TITLE_FONT_PX = 39;
 const PITCHER_GAME_HEADER_BG = "rgba(0,0,0,0.3)";
 const PITCHER_GAME_TABLE_HEADER_H = 36;
 const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
-const PITCHER_RELIEF_SECTION_SHIFT_Y = 20;
+const PITCHER_RELIEF_SECTION_SHIFT_Y = 220;
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
