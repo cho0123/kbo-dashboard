@@ -4725,20 +4725,6 @@ function buildPitcherRankIndex(statsArr) {
   const idx = {};
   if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
 
-  const yangHyunjong = statsArr.find((r) => r.playerName?.includes("양현종"));
-  console.log(
-    "[pitcherRankIndex] 양현종:",
-    JSON.stringify(
-      yangHyunjong
-        ? {
-            name: yangHyunjong.playerName,
-            win: yangHyunjong.pitcherWin,
-            qualified: yangHyunjong.isQualified,
-          }
-        : null
-    )
-  );
-
   const ensure = (name) => {
     if (!idx[name]) {
       idx[name] = {
