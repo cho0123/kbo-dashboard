@@ -4630,14 +4630,25 @@ const PITCHER_RANK_FIELDS = [
 
 const PITCHER_RANK_TOP_N = 50;
 
+/** 네이버 seasonPlayerStats — 규정이닝 등 자격(isQualified) */
+function naverPitcherRowIsQualified(r) {
+  const v = r?.isQualified;
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "true" || s === "1";
+}
+
 /**
  * seasonPlayerStats → playerName 기반 부문별 Top-50 순위.
- * ERA/WHIP 오름차순(낮을수록 좋음), 삼진/이닝/WAR 내림차순.
+ * isQualified=true 선수만 포함. ERA/WHIP 오름차순, 삼진/이닝/WAR 내림차순.
+ * (네이버 ranking 필드는 종합순위일 수 있어 부문별 직접 계산 유지)
  * @returns {Record<string, {era_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
  */
 function buildPitcherRankIndex(statsArr) {
   const idx = {};
   if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
+  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
+  if (qualifiedRows.length === 0) return idx;
 
   const ensure = (name) => {
     if (!idx[name]) {
@@ -4653,7 +4664,7 @@ function buildPitcherRankIndex(statsArr) {
   };
 
   for (const def of PITCHER_RANK_FIELDS) {
-    const withVal = statsArr
+    const withVal = qualifiedRows
       .map((r) => ({ r, v: def.get(r) }))
       .filter((x) => Number.isFinite(x.v));
     withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
