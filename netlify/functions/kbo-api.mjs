@@ -4638,6 +4638,21 @@ function buildHitterRankIndex(statsArr) {
     const pool = def.qualifiedOnly
       ? statsArr.filter(naverPitcherRowIsQualified)
       : statsArr;
+    console.log(
+      `[hitterRank] ${def.key} top10:`,
+      JSON.stringify(
+        pool
+          .filter((r) => Number.isFinite(Number(r?.[def.stat])))
+          .sort((a, b) => Number(b?.[def.stat]) - Number(a?.[def.stat]))
+          .slice(0, 10)
+          .map((r, i) => ({
+            rank: i + 1,
+            name: r.playerName,
+            val: r?.[def.stat],
+            qualified: r.isQualified,
+          }))
+      )
+    );
     const withVal = pool
       .map((r) => ({ r, v: Number(r?.[def.stat]) }))
       .filter((x) => Number.isFinite(x.v));
