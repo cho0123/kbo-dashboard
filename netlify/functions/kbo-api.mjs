@@ -3762,7 +3762,7 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   if (!mvpBase || typeof mvpBase !== "object") return mvpBase;
   const y = Number(seasonYear) || 2026;
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(y);
-  const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
+  const pitcherRankIndex = await buildPitcherRankIndex(db, y);
   const mvpNameKey = String(mvpBase.player || "").replace(/\s+/g, " ").trim();
   const mvpPitcherRanks = mvpNameKey ? pitcherRankIndex[mvpNameKey] : null;
   const player_image_url = findPitcherImageUrlByStarterName(
@@ -3851,9 +3851,7 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
         win: mvpPitcherRanks?.win_rank ?? null,
         era: mvpPitcherRanks?.era_rank ?? null,
         whip: mvpPitcherRanks?.whip_rank ?? null,
-        so: mvpPitcherRanks?.so_rank ?? null,
         ip: mvpPitcherRanks?.ip_rank ?? null,
-        war: mvpPitcherRanks?.war_rank ?? null,
       },
     },
   };
@@ -4707,23 +4705,47 @@ function parsePitcherInningString(raw) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-const PITCHER_RANK_FIELD_DEFS = [
-  { key: "era_rank", get: (r) => Number(r?.pitcherEra), asc: true, qualifiedOnly: true },
-  { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true, qualifiedOnly: true },
-  { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false, qualifiedOnly: false },
-  { key: "so_rank", get: (r) => Number(r?.pitcherKk), asc: false, qualifiedOnly: false },
-  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false, qualifiedOnly: false },
-  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false, qualifiedOnly: false },
+const PITCHER_RANK_FS_FIELD_DEFS = [
+  { key: "era_rank", get: (r) => Number(r?.era), asc: true },
+  { key: "whip_rank", get: (r) => Number(r?.whip), asc: true },
+  { key: "win_rank", get: (r) => Number(r?.w), asc: false },
+  { key: "ip_rank", get: (r) => parsePitcherInningString(r?.ip), asc: false },
 ];
 
+function pitcherRankIndexPlayerNameFromFirestore(r) {
+  return String(r?.player || "").replace(/\s+/g, " ").trim();
+}
+
 /**
- * seasonPlayerStats → playerName 기반 순위 인덱스.
- * ERA/WHIP: isQualified만. 승/삼진/이닝/WAR: 전체 선수. 동률: competition ranking.
- * @returns {Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, so_rank:number|null, ip_rank:number|null, war_rank:number|null}>}
+ * Firestore pitcher_rankings/{year}_{player} 문서 조회.
+ * @returns {Promise<Array<object>>}
  */
-function buildPitcherRankIndex(statsArr) {
+async function fetchPitcherRankingsFromFirestore(db, seasonYear) {
+  const y = String(Number(seasonYear) || "").trim();
+  if (!db || !y) return [];
+  try {
+    const FieldPath = admin.firestore.FieldPath;
+    const snap = await db
+      .collection("pitcher_rankings")
+      .where(FieldPath.documentId(), ">=", `${y}_`)
+      .where(FieldPath.documentId(), "<", `${y}a`)
+      .get();
+    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (e) {
+    console.warn("[fetchPitcherRankingsFromFirestore]", y, e?.message || e);
+    return [];
+  }
+}
+
+/**
+ * pitcher_rankings → playerName 기반 순위 인덱스.
+ * KBO 기록실 rank(ERA 표) + era/whip/w/ip 부문별 competition ranking.
+ * @returns {Promise<Record<string, {era_rank:number|null, win_rank:number|null, whip_rank:number|null, ip_rank:number|null}>>}
+ */
+async function buildPitcherRankIndex(db, seasonYear) {
+  const rows = await fetchPitcherRankingsFromFirestore(db, seasonYear);
   const idx = {};
-  if (!Array.isArray(statsArr) || statsArr.length === 0) return idx;
+  if (!Array.isArray(rows) || rows.length === 0) return idx;
 
   const ensure = (name) => {
     if (!idx[name]) {
@@ -4731,29 +4753,23 @@ function buildPitcherRankIndex(statsArr) {
         era_rank: null,
         win_rank: null,
         whip_rank: null,
-        so_rank: null,
         ip_rank: null,
-        war_rank: null,
       };
     }
     return idx[name];
   };
 
-  const qualifiedRows = statsArr.filter(naverPitcherRowIsQualified);
+  for (const r of rows) {
+    const name = pitcherRankIndexPlayerNameFromFirestore(r);
+    const tableRank = Number(r?.rank);
+    if (name && Number.isFinite(tableRank) && tableRank > 0) {
+      ensure(name).era_rank = tableRank;
+    }
+  }
 
-  const soSorted = statsArr
-    .filter((r) => Number.isFinite(Number(r.pitcherKk)))
-    .sort((a, b) => Number(b.pitcherKk) - Number(a.pitcherKk));
-  console.log(
-    "[pitcherRankIndex] so top20:",
-    JSON.stringify(
-      soSorted.slice(0, 20).map((r, i) => ({ rank: i + 1, name: r.playerName, kk: r.pitcherKk }))
-    )
-  );
-
-  for (const def of PITCHER_RANK_FIELD_DEFS) {
-    const pool = def.qualifiedOnly ? qualifiedRows : statsArr;
-    const withVal = pool
+  for (const def of PITCHER_RANK_FS_FIELD_DEFS) {
+    if (def.key === "era_rank") continue;
+    const withVal = rows
       .map((r) => ({ r, v: def.get(r) }))
       .filter((x) => Number.isFinite(x.v));
     withVal.sort((a, b) => (def.asc ? a.v - b.v : b.v - a.v));
@@ -4765,27 +4781,11 @@ function buildPitcherRankIndex(statsArr) {
       const rank = lastVal != null && v === lastVal ? lastRank : i + 1;
       lastVal = v;
       lastRank = rank;
-      const name = pitcherRankIndexPlayerName(r);
+      const name = pitcherRankIndexPlayerNameFromFirestore(r);
       if (!name) continue;
       ensure(name)[def.key] = rank;
     }
   }
-
-  console.log("[pitcherRankIndex] qualified count:", qualifiedRows.length);
-  console.log(
-    "[pitcherRankIndex] tolhurst ranks:",
-    JSON.stringify(idx["톨허스트"] || idx["앤더스 톨허스트"])
-  );
-  console.log(
-    "[pitcherRankIndex] whip top5:",
-    JSON.stringify(
-      [...qualifiedRows]
-        .filter((r) => Number.isFinite(Number(r?.pitcherWhip)))
-        .sort((a, b) => Number(a.pitcherWhip) - Number(b.pitcherWhip))
-        .slice(0, 5)
-        .map((r) => ({ name: r.playerName, whip: r.pitcherWhip }))
-    )
-  );
 
   return idx;
 }
