@@ -2928,28 +2928,27 @@ function buildStarterPitcherGameDetail(r, gr) {
   };
 }
 
-/** 주간 선발 MVP: is_starter=true, 주간 ERA 최저(동률 시 이닝·승) */
+/** 선발 단일 경기 MVP 점수: 승 +10, 이닝당 +2, 자책당 -3 */
+function starterPitcherSingleGameMvpScore(r, gr) {
+  const r0 = r && typeof r === "object" ? r : {};
+  const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
+  const erRaw = pickNum(r0, ["er", "ER", "earned_runs", "earnedRuns"]);
+  const er = erRaw != null && Number.isFinite(Number(erRaw)) ? Number(erRaw) : 0;
+  const isWin =
+    pitchRowWeeklyWinIncrement(r0) > 0 || mapPitcherAppearanceResult(r0, gr) === "승";
+  let score = 0;
+  if (isWin) score += 10;
+  score += ipn * 2;
+  score -= er * 3;
+  return { score, ipn, er, isWin };
+}
+
+/** 주간 선발 MVP: is_starter=true, 단일 최고 경기 점수(동률 시 이닝·자책) */
 function buildTeamWeeklyMvpStarterPitcher(pitcherRows, teamKw, gameResults) {
   const rows = filterStatRowsForTeamKw(pitcherRows, teamKw).filter((r) =>
     __starterBoolTrue(r?.is_starter ?? r?.isStarter)
   );
-  const byPlayer = aggregatePitcherWeeklyByPlayer(rows);
-  const withEra = [...byPlayer.values()]
-    .map((acc) => ({
-      ...acc,
-      totals: pitcherWeeklyTotalsFromAcc(acc),
-    }))
-    .filter((x) => Number(x.totals.ip) >= 1);
-  withEra.sort((a, b) => {
-    const ae = a.totals.era == null ? Infinity : a.totals.era;
-    const be = b.totals.era == null ? Infinity : b.totals.era;
-    if (ae !== be) return ae - be;
-    if (b.totals.ip !== a.totals.ip) return b.totals.ip - a.totals.ip;
-    if (b.totals.wins !== a.totals.wins) return b.totals.wins - a.totals.wins;
-    return String(a.player).localeCompare(String(b.player), "ko");
-  });
-  const best = withEra[0] || null;
-  if (!best) return null;
+  if (!rows.length) return null;
 
   const grByGid = new Map();
   for (const gr of Array.isArray(gameResults) ? gameResults : []) {
@@ -2957,24 +2956,62 @@ function buildTeamWeeklyMvpStarterPitcher(pitcherRows, teamKw, gameResults) {
     if (gid) grByGid.set(gid, gr);
   }
 
-  const games = [];
-  for (const r of best.rows) {
+  const candidates = [];
+  for (const r0 of rows) {
+    const r = r0 && typeof r0 === "object" ? r0 : {};
+    const player = pickPitcherName(r) || pickPlayerName(r);
+    if (!player || player === "—") continue;
     const gid = normalizeGameId(r?.game_id ?? r?.gameId ?? "");
-    if (!gid) continue;
-    games.push(buildStarterPitcherGameDetail(r, grByGid.get(gid)));
+    const gr = gid ? grByGid.get(gid) : null;
+    const { score, ipn, er } = starterPitcherSingleGameMvpScore(r, gr);
+    candidates.push({
+      r,
+      gr,
+      player,
+      team: pickTeamName(r) || resolveTeamDisplayName(teamKw),
+      score,
+      ipn,
+      er,
+    });
   }
-  games.sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)));
-  const game = games.length ? games[games.length - 1] : null;
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.ipn !== a.ipn) return b.ipn - a.ipn;
+    if (a.er !== b.er) return a.er - b.er;
+    return String(a.player).localeCompare(String(b.player), "ko");
+  });
+
+  const best = candidates[0];
+  const game = buildStarterPitcherGameDetail(best.r, best.gr);
+
+  const playerRows = rows.filter((r) => {
+    const p = pickPitcherName(r) || pickPlayerName(r);
+    return p === best.player;
+  });
+  const accMap = aggregatePitcherWeeklyByPlayer(playerRows);
+  const acc = accMap.get(best.player);
+  const totals = acc
+    ? pitcherWeeklyTotalsFromAcc(acc)
+    : {
+        ip: best.ipn > 0 ? Number(best.ipn.toFixed(2)) : best.ipn,
+        era:
+          best.ipn > 0 ? Number(((best.er * 9) / best.ipn).toFixed(2)) : null,
+        wins: pitchRowWeeklyWinIncrement(best.r) > 0 ? 1 : 0,
+        er: best.er,
+        so: pickNum(best.r, ["so", "SO", "k", "K", "strikeouts"]) ?? 0,
+      };
 
   return {
     player: best.player,
     team: best.team || resolveTeamDisplayName(teamKw),
     total: {
-      ip: best.totals.ip,
-      era: best.totals.era,
-      wins: best.totals.wins,
-      er: best.totals.er,
-      so: best.totals.so,
+      ip: totals.ip,
+      era: totals.era,
+      wins: totals.wins,
+      er: totals.er,
+      so: totals.so,
     },
     game,
   };
