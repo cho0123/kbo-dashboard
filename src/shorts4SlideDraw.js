@@ -475,6 +475,18 @@ const STARTER_PITCH_SUMMARY_FONT_PX = 26;
 const STARTER_PITCH_AWAY_DIAG_PAD = 10;
 const STARTER_PITCH_HOME_BOTTOM_PAD = 36;
 const STARTER_PITCH_BAR_BG = "rgba(0,0,0,0.3)";
+/** 쇼츠5 drawSeasonRankBadgeSection 배지 스타일 (타이틀 없음) */
+const SHORTS4_SEASON_RANK_BADGE_MAX = 20;
+const SHORTS4_SEASON_RANK_BADGE_H = 44;
+const SHORTS4_SEASON_RANK_BADGE_FONT_PX = 30;
+const SHORTS4_SEASON_RANK_BADGE_PAD_X = 18;
+const SHORTS4_SEASON_RANK_BADGE_GAP = 12;
+const SHORTS4_SEASON_RANK_BADGE_RADIUS = 22;
+const SHORTS4_SEASON_RANK_BADGE_SECTION_GAP = 16;
+const SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
+const SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE = "rgba(37, 99, 235, 0.72)";
+const SHORTS4_BATTING_SEASON_RANK_BADGE_RED = "rgba(220, 38, 38, 0.72)";
+const SHORTS4_BATTING_SEASON_RANK_BADGE_GOLD = "rgba(202, 138, 4, 0.82)";
 /** 구종 코드 → 세그먼트 색 (순서 index와 무관, 코드/한글 역매핑으로만 결정) */
 const STARTER_PITCH_CODE_COLOR = {
   FAST: "#C0392B",
@@ -748,6 +760,81 @@ function starterPitchKindsSummaryLine(pitchKinds) {
     .join("  ");
 }
 
+function shorts4SeasonRankBadgeRank(v) {
+  const x = Number(v);
+  return Number.isFinite(x) && x > 0 && x <= SHORTS4_SEASON_RANK_BADGE_MAX ? x : null;
+}
+
+function shorts4StarterRankBadgeItems(g, side) {
+  const pref = side === "away" ? "away" : "home";
+  const n = shorts4SeasonRankBadgeRank;
+  const items = [];
+  const win = n(g?.[`${pref}_starter_win_rank`]);
+  const era = n(g?.[`${pref}_starter_era_rank`]);
+  const whip = n(g?.[`${pref}_starter_whip_rank`]);
+  const ip = n(g?.[`${pref}_starter_ip_rank`]);
+  if (win != null) items.push({ text: `승 ${win}위`, bg: SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN });
+  if (era != null) items.push({ text: `ERA ${era}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
+  if (whip != null) items.push({ text: `WHIP ${whip}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
+  if (ip != null) items.push({ text: `이닝 ${ip}위`, bg: "rgba(22, 163, 74, 0.72)" });
+  return items;
+}
+
+function shorts4HitterRankBadgeItems(hp) {
+  const o = hp && typeof hp === "object" ? hp : {};
+  const n = shorts4SeasonRankBadgeRank;
+  const items = [];
+  const avg = n(o.avg_rank);
+  const hr = n(o.hr_rank);
+  const rbi = n(o.rbi_rank);
+  const ops = n(o.ops_rank);
+  const war = n(o.war_rank);
+  if (avg != null) items.push({ text: `타율 ${avg}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
+  if (hr != null) items.push({ text: `홈런 ${hr}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_RED });
+  if (rbi != null) items.push({ text: `타점 ${rbi}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_RED });
+  if (ops != null) items.push({ text: `OPS ${ops}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_GOLD });
+  if (war != null) items.push({ text: `WAR ${war}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_GOLD });
+  return items;
+}
+
+/** 쇼츠5 drawSeasonRankBadgeSection과 동일 배지, 타이틀 없음 */
+function drawShorts4SeasonRankBadgesOnly(ctx, w, topY, badges) {
+  if (!badges.length) return topY;
+
+  const rowCy = topY + SHORTS4_SEASON_RANK_BADGE_H / 2 + 8;
+  const badgeH = SHORTS4_SEASON_RANK_BADGE_H;
+  const padX = SHORTS4_SEASON_RANK_BADGE_PAD_X;
+  const gap = SHORTS4_SEASON_RANK_BADGE_GAP;
+  ctx.font = `700 ${SHORTS4_SEASON_RANK_BADGE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  const widths = badges.map((b) => ctx.measureText(b.text).width + padX * 2);
+  const totalW = widths.reduce((a, x) => a + x, 0) + gap * (badges.length - 1);
+  let x = (w - totalW) / 2;
+  for (let i = 0; i < badges.length; i++) {
+    const bw = widths[i];
+    ctx.fillStyle = badges[i].bg;
+    ctx.beginPath();
+    ctx.roundRect(x, rowCy - badgeH / 2, bw, badgeH, SHORTS4_SEASON_RANK_BADGE_RADIUS);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    shadowTextSoft(ctx);
+    ctx.fillText(badges[i].text, x + bw / 2, rowCy);
+    resetShadow(ctx);
+    x += bw + gap;
+  }
+  return rowCy + badgeH / 2 + 16;
+}
+
+function drawStarterSideRankBadges(ctx, w, contentBottomY, g, side) {
+  return drawShorts4SeasonRankBadgesOnly(
+    ctx,
+    w,
+    contentBottomY + SHORTS4_SEASON_RANK_BADGE_SECTION_GAP,
+    shorts4StarterRankBadgeItems(g, side)
+  );
+}
+
 function splitSegmentPixelWidths(innerW, ratios) {
   const n = ratios.length;
   const s = ratios.reduce((a, b) => a + b, 0);
@@ -777,25 +864,28 @@ function splitSegmentPixelWidths(innerW, ratios) {
  * @param {string} _teamName 호출부 호환용(미사용)
  * @param {"away"|"home"} region 원정: 사선 위로 클램프, 홈: 슬라이드 하단 여백
  */
+/**
+ * @returns {number} 구종바·요약 하단 y (배지 배치용). 구종 없으면 스탯/사진 하단.
+ */
 function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName, region, faceCy) {
-  if (!pitchKinds || pitchKinds.length === 0) return;
-
-  const barW = Math.floor(wCanvas * STARTER_PITCH_BAR_W_FRAC);
-  const barLeft = Math.floor((wCanvas - barW) / 2);
-  if (barW < 120) return;
-
-  const n = pitchKinds.length;
-  const ratios = pitchKinds.map((row) => Math.max(0, Number(row.ratio) || 0));
-  const sumR = ratios.reduce((a, b) => a + b, 0);
-  if (!(sumR > 0)) return;
-
-  const innerW = barW;
-  const segWs = splitSegmentPixelWidths(innerW, ratios);
-
   const rPhoto = STARTER_SLIDE_FACE_BOX / 2;
   const photoBottom = faceCy + rPhoto;
   const statsBottom = starterStatBlockBottomY(faceCy);
   const contentBottom = Math.max(photoBottom, statsBottom);
+
+  if (!pitchKinds || pitchKinds.length === 0) return contentBottom;
+
+  const barW = Math.floor(wCanvas * STARTER_PITCH_BAR_W_FRAC);
+  const barLeft = Math.floor((wCanvas - barW) / 2);
+  if (barW < 120) return contentBottom;
+
+  const n = pitchKinds.length;
+  const ratios = pitchKinds.map((row) => Math.max(0, Number(row.ratio) || 0));
+  const sumR = ratios.reduce((a, b) => a + b, 0);
+  if (!(sumR > 0)) return contentBottom;
+
+  const innerW = barW;
+  const segWs = splitSegmentPixelWidths(innerW, ratios);
 
   const barH = STARTER_PITCH_SEGMENTED_BAR_H;
   const summaryBlockH = STARTER_PITCH_SUMMARY_GAP + STARTER_PITCH_SUMMARY_FONT_PX + 6;
@@ -881,6 +971,8 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
   ctx.fillText(summaryLine, wCanvas / 2, summaryTop);
   resetShadow(ctx);
   ctx.restore();
+
+  return summaryTop + STARTER_PITCH_SUMMARY_FONT_PX + 6;
 }
 
 /**
@@ -921,9 +1013,8 @@ function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUse
   const statX = awayPhotoCx + rPhoto + 28;
   drawStarterSlideRightStatBlock(ctx, statX, awayCy, g, "away");
   const awayKinds = pickStarterPitchKinds(g, "away");
-  if (awayKinds) {
-    drawStarterPitchKindsBlock(ctx, w, h, awayKinds, awayTeam, "away", awayCy);
-  }
+  const pitchBottom = drawStarterPitchKindsBlock(ctx, w, h, awayKinds, awayTeam, "away", awayCy);
+  drawStarterSideRankBadges(ctx, w, pitchBottom, g, "away");
 }
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
@@ -1050,9 +1141,8 @@ export function drawShorts4StarterSlide(
     }
     drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
     const homeKinds = pickStarterPitchKinds(g, "home");
-    if (homeKinds) {
-      drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
-    }
+    const pitchBottom = drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
+    drawStarterSideRankBadges(ctx, w, pitchBottom, g, "home");
   }
 
   if (stepN >= 2) {
@@ -1096,24 +1186,12 @@ function fmtDec3OrDash(v) {
   return Number.isFinite(n) ? n.toFixed(3) : "-";
 }
 
-function hotPlayerStatLineSeasonSuffix(rank) {
-  const n = Number(rank);
-  if (!Number.isFinite(n) || n <= 0 || n > 10) return "";
-  return `, ${Math.round(n)}위`;
-}
-
-function hotPlayerSummaryParenRank(rank) {
-  const n = Number(rank);
-  if (!Number.isFinite(n) || n <= 0 || n > 10) return "";
-  return `(${Math.round(n)}위)`;
-}
-
 function hotPlayerStatLines(hp) {
   const o = hp && typeof hp === "object" ? hp : {};
   return [
-    `- ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개${hotPlayerStatLineSeasonSuffix(o.hr_rank)})`,
+    `- ${fmtIntOrDash(o.hr)}홈런 (시즌 ${fmtIntOrDash(o.season_hr)}개)`,
     `- ${fmtIntOrDash(o.h)}안타 (시즌 ${fmtIntOrDash(o.season_hit)}개)`,
-    `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점${hotPlayerStatLineSeasonSuffix(o.rbi_rank)})`,
+    `- ${fmtIntOrDash(o.rbi)}타점 (시즌 ${fmtIntOrDash(o.season_rbi)}점)`,
   ];
 }
 
@@ -1221,7 +1299,7 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
     Number.isFinite(opsN) ? opsN.toFixed(3) : "—",
     Number.isFinite(warN) ? warN.toFixed(2) : "—",
   ];
-  const summaryLine = `타율 ${valueStrs[0]}${hotPlayerSummaryParenRank(hp.avg_rank)}  OPS ${valueStrs[1]}${hotPlayerSummaryParenRank(hp.ops_rank)}  WAR ${valueStrs[2]}${hotPlayerSummaryParenRank(hp.war_rank)}`;
+  const summaryLine = `타율 ${valueStrs[0]}  OPS ${valueStrs[1]}  WAR ${valueStrs[2]}`;
 
   ctx.save();
   ctx.beginPath();
@@ -1276,7 +1354,13 @@ function drawHotPlayerAvgOpsWarBar(ctx, wCanvas, hCanvas, topBelowStats, hp, ver
   resetShadow(ctx);
   ctx.restore();
 
-  return barTop + barH + summaryBlockH;
+  const barBottom = barTop + barH + summaryBlockH;
+  return drawShorts4SeasonRankBadgesOnly(
+    ctx,
+    wCanvas,
+    barBottom + SHORTS4_SEASON_RANK_BADGE_SECTION_GAP,
+    shorts4HitterRankBadgeItems(hp)
+  );
 }
 
 /** 슬라이드7 `drawStarterPitchKindsBlock`과 동일: max(사진 하단, 스탯 하단) */

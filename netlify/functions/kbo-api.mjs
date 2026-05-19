@@ -4783,6 +4783,21 @@ function buildPitcherRankIndex(statsArr) {
   return idx;
 }
 
+function lookupPitcherRanksByStarterName(pitcherRankIndex, starterName) {
+  const name = String(starterName || "").replace(/\s+/g, " ").trim();
+  if (!name) {
+    return { era_rank: null, win_rank: null, whip_rank: null, ip_rank: null };
+  }
+  return (
+    pitcherRankIndex?.[name] || {
+      era_rank: null,
+      win_rank: null,
+      whip_rank: null,
+      ip_rank: null,
+    }
+  );
+}
+
 const PITCHER_RANK_FS_FIELD_DEFS = [
   { key: "era_rank", get: (r) => Number(r?.era), asc: true },
   { key: "whip_rank", get: (r) => Number(r?.whip), asc: true },
@@ -5293,6 +5308,7 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
+  const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
   const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
   const teamBattingAvgByNorm = buildTeamBattingAvgByNormKey(seasonTeamHitterStats || []);
 
@@ -5560,6 +5576,9 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_team
     );
 
+    const homeStarterRanks = lookupPitcherRanksByStarterName(pitcherRankIndex, home_starter);
+    const awayStarterRanks = lookupPitcherRanksByStarterName(pitcherRankIndex, away_starter);
+
     games.push({
       game_id,
       game_date,
@@ -5590,6 +5609,14 @@ async function buildMatchupPreviewPayload(db, dateStr) {
       away_starter_ip: awPitch?.ip ?? null,
       home_starter_so: hsPitch?.so ?? null,
       away_starter_so: awPitch?.so ?? null,
+      home_starter_era_rank: homeStarterRanks.era_rank ?? null,
+      home_starter_win_rank: homeStarterRanks.win_rank ?? null,
+      home_starter_whip_rank: homeStarterRanks.whip_rank ?? null,
+      home_starter_ip_rank: homeStarterRanks.ip_rank ?? null,
+      away_starter_era_rank: awayStarterRanks.era_rank ?? null,
+      away_starter_win_rank: awayStarterRanks.win_rank ?? null,
+      away_starter_whip_rank: awayStarterRanks.whip_rank ?? null,
+      away_starter_ip_rank: awayStarterRanks.ip_rank ?? null,
       home_rank,
       away_rank,
       home_win_rate,
