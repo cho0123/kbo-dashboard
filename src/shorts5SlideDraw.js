@@ -794,7 +794,7 @@ const PITCHER_RELIEF_TITLE_FONT_PX = 44;
 const PITCHER_RELIEF_ROW_H = 186;
 const PITCHER_RELIEF_NAME_FONT_PX = 40;
 const PITCHER_RELIEF_DATE_FONT_PX = 34;
-const PITCHER_RELIEF_STATS_FONT_PX = 32;
+const PITCHER_RELIEF_STATS_FONT_PX = 34;
 const PITCHER_RELIEF_ROW_PAD_TOP = 26;
 const PITCHER_RELIEF_LINE1_LINE2_GAP = 14;
 const PITCHER_RELIEF_ROW_BOX_INSET = 8;
@@ -1822,7 +1822,7 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
     const boxH = rowH - PITCHER_RELIEF_ROW_BOX_INSET * 2;
     const contentTop = rowTop + PITCHER_RELIEF_ROW_PAD_TOP;
     const line1Cy = contentTop + Math.round(PITCHER_RELIEF_NAME_FONT_PX * 0.52);
-    const line2Y = contentTop + PITCHER_RELIEF_NAME_FONT_PX + PITCHER_RELIEF_LINE1_LINE2_GAP;
+    const line2Y = contentTop + PITCHER_RELIEF_NAME_FONT_PX + PITCHER_RELIEF_LINE1_LINE2_GAP + 5;
 
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.beginPath();
