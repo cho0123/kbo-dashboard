@@ -4563,16 +4563,6 @@ async function fetchNaverPitcherSeasonStats(seasonYear) {
     const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
     const merged = dedupeNaverPitcherSeasonStatsByPlayer(chunks.flat());
     if (merged.length === 0) return null;
-    const arr = merged;
-    console.log("[pitcherStats] sample row:", JSON.stringify(arr[0]));
-    const sample = arr.find(
-      (r) => r.playerName?.includes("톨") || r.playerName?.includes("Thor")
-    );
-    console.log("[pitcherStats] tolhurst:", JSON.stringify(sample));
-    const jangChanHee = arr.find(
-      (r) => r.playerName?.includes("장찬희") || r.playerName?.includes("장 찬희")
-    );
-    console.log("[pitcherStats] 장찬희:", JSON.stringify(jangChanHee));
     return merged;
   } catch (e) {
     console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
@@ -4647,21 +4637,6 @@ function buildHitterRankIndex(statsArr) {
     const pool = def.qualifiedOnly
       ? statsArr.filter(naverPitcherRowIsQualified)
       : statsArr;
-    console.log(
-      `[hitterRank] ${def.key} top10:`,
-      JSON.stringify(
-        pool
-          .filter((r) => Number.isFinite(Number(r?.[def.stat])))
-          .sort((a, b) => Number(b?.[def.stat]) - Number(a?.[def.stat]))
-          .slice(0, 10)
-          .map((r, i) => ({
-            rank: i + 1,
-            name: r.playerName,
-            val: r?.[def.stat],
-            qualified: r.isQualified,
-          }))
-      )
-    );
     const withVal = pool
       .map((r) => ({ r, v: Number(r?.[def.stat]) }))
       .filter((x) => Number.isFinite(x.v));
