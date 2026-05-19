@@ -770,8 +770,15 @@ const PITCHER_GAME_TITLE_FONT_PX = 39;
 const PITCHER_GAME_HEADER_BG = "rgba(0,0,0,0.3)";
 const PITCHER_GAME_TABLE_HEADER_H = 36;
 const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
+/** 등판기록 구분 흰선 — 섹션 시작 기준 추가 위로 이동 */
+const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
+/** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
+const PITCHER_SECTION_BG_SHIFT_Y = 50;
+const PITCHER_MVP_DATE_LINE_COLOR = "#FFE87C";
 const PITCHER_RELIEF_SECTION_SHIFT_Y = 220;
 const PITCHER_SEASON_RANK_BADGE_H = 44;
+const PITCHER_SEASON_RANK_BADGE_FONT_PX = 28;
+const PITCHER_SEASON_RANK_BADGE_SHIFT_Y = 10;
 const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
@@ -1496,7 +1503,7 @@ function mvpPitcherGameStatLines(mvp) {
   const line4 = `${er}자책점`;
   const dash = (s) => (String(s || "").trim() ? `- ${s}` : "-");
   return [
-    { text: dash(line1), color: "#FFD700" },
+    { text: dash(line1), color: PITCHER_MVP_DATE_LINE_COLOR },
     { text: dash(line2), color: "#ffffff" },
     { text: dash(line3), color: "#ffffff" },
     { text: dash(line4), color: "#ffffff" },
@@ -1618,14 +1625,14 @@ function drawPitcherSeasonRankSection(ctx, w, topY, ranks) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `800 32px "${FONT_BODY}", sans-serif`;
+  ctx.font = `800 ${PITCHER_GAME_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("시즌 순위", w / 2, titleY);
 
-  const rowCy = titleY + 44;
+  const rowCy = titleY + 44 + PITCHER_SEASON_RANK_BADGE_SHIFT_Y;
   const badgeH = PITCHER_SEASON_RANK_BADGE_H;
   const padX = PITCHER_SEASON_RANK_BADGE_PAD_X;
   const gap = PITCHER_SEASON_RANK_BADGE_GAP;
-  ctx.font = `700 26px "${FONT_BODY}", sans-serif`;
+  ctx.font = `700 ${PITCHER_SEASON_RANK_BADGE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   const widths = badges.map((b) => ctx.measureText(b.text).width + padX * 2);
   const totalW = widths.reduce((a, x) => a + x, 0) + gap * (badges.length - 1);
   let x = (w - totalW) / 2;
@@ -1775,7 +1782,7 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
   drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
-  const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
+  const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
 
@@ -1805,7 +1812,7 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
     ctx,
     w,
     padL,
-    gameSectionStartY - PITCHER_GAME_SECTION_DIVIDER_GAP
+    gameSectionStartY - PITCHER_GAME_SECTION_DIVIDER_GAP - PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y
   );
 
   let midY = gameSectionStartY;
