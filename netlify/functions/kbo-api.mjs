@@ -4494,24 +4494,33 @@ function winRateFromWinsLosses3(wins, losses) {
 }
 
 /**
- * 네이버 KBO 시즌 투수 순위 200명(1~200위) 조회.
- * 응답 result.seasonPlayerStats 배열을 그대로 반환. 실패 시 null.
+ * 네이버 KBO 시즌 투수 순위 조회 (page 1~3 병렬, page당 100명 → 최대 300명).
+ * 응답 result.seasonPlayerStats 배열을 페이지 순으로 이어 붙여 반환. 전부 실패 시 null.
  * @param {number|string} seasonYear
  * @returns {Promise<Array<object> | null>}
  */
 async function fetchNaverPitcherSeasonStats(seasonYear) {
   const y = String(Number(seasonYear) || "").trim();
   if (!y) return null;
-  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=200`;
-  try {
+  const pageSize = 100;
+  const pages = [1, 2, 3];
+
+  const fetchPage = async (page) => {
+    const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=${page}&pageSize=${pageSize}`;
     const res = await fetch(url, {
       headers: { Referer: "https://m.sports.naver.com" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const json = await res.json();
     const arr = json?.result?.seasonPlayerStats;
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-    return arr;
+    return Array.isArray(arr) ? arr : [];
+  };
+
+  try {
+    const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
+    const merged = chunks.flat();
+    if (merged.length === 0) return null;
+    return merged;
   } catch (e) {
     console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
     return null;
