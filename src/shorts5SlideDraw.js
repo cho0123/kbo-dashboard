@@ -762,12 +762,9 @@ const MVP_TITLE_FONT_PX = MVP_HEADER_FONT_PX + 7;
 const MVP_TITLE_PLAYER_COLOR = "#FFD700";
 const MVP_TITLE_LABEL = "주간 타격 MVP";
 const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
-const MVP_BAR_LABELS_PITCHER = ["이닝", "자책", "삼진"];
-const MVP_BASE_IP = 7.0;
-const MVP_BASE_ER = 3.0;
-const MVP_BASE_SO = 10.0;
-const MVP_PITCHER_DATE_FONT_PX = 30;
-const PITCHER_GAME_SECTION_SHIFT_Y = -40;
+/** 사진 옆 4줄 스탯 블록 아래로 */
+const MVP_PITCHER_STAT_LINES_SHIFT_Y = 20;
+const PITCHER_GAME_TABLE_AT_BAR_SHIFT_Y = 0;
 const PITCHER_RELIEF_SECTION_SHIFT_Y = 20;
 /** drawShorts5BattingSlide 하단 경기별 기록표 블록 (위로 이동 시 음수) */
 const BATTING_GAME_TABLE_SHIFT_Y = -60;
@@ -1471,14 +1468,6 @@ function fmtPitcherSeasonIpLabel(seasonIp) {
   return s ? s : "-";
 }
 
-function pitcherResultLineColor(result) {
-  const r = fmtPitcherGameResult(result);
-  if (r === "승") return "#4ade80";
-  if (r === "패") return "#f87171";
-  if (r === "무") return "#94a3b8";
-  return "#ffffff";
-}
-
 function mvpPitcherGameStatLines(mvp) {
   const g = mvp?.game && typeof mvp.game === "object" ? mvp.game : {};
   const season = mvp?.season && typeof mvp.season === "object" ? mvp.season : {};
@@ -1492,120 +1481,35 @@ function mvpPitcherGameStatLines(mvp) {
   const lStr = Number.isFinite(losses) ? String(Math.round(losses)) : "-";
   const eraStr = fmtPitcherEra(season.era);
   const line1 = fmtPitcherGameDateLine(g);
-  const line2 = `시즌 ${wStr}승 ${lStr}패 (ERA ${eraStr})`;
+  const line2 = `시즌 ${wStr}승 ${lStr}패 (${eraStr})`;
   const line3 = pitcherQsMet(g.ip, er)
-    ? `${ip}이닝 / 퀄스 (시즌 ${seasonIp}ip)`
-    : `${ip}이닝 (시즌 ${seasonIp}ip)`;
+    ? `${ip}이닝 / 퀄스 (시즌 ${seasonIp})`
+    : `${ip}이닝 (시즌 ${seasonIp})`;
   const line4 = `${result} / ${er}자책점`;
-  return [
-    { text: line1, color: "#ffffff" },
-    { text: line2, color: "#ffffff" },
-    { text: line3, color: "#ffffff" },
-    { text: line4, color: pitcherResultLineColor(g.result) },
-  ];
+  const dash = (s) => (String(s || "").trim() ? `- ${s}` : "-");
+  return [dash(line1), dash(line2), dash(line3), dash(line4)];
 }
 
 function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
   const lines = mvpPitcherGameStatLines(mvp);
   const gap = MVP_STAT_LINE_GAP;
   const totalH = (lines.length - 1) * gap;
-  let y = cy - totalH / 2;
+  let y = cy - totalH / 2 + MVP_PITCHER_STAT_LINES_SHIFT_Y;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
   ctx.font = `800 ${MVP_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   for (const line of lines) {
-    ctx.fillStyle = line.color || "#ffffff";
     shadowTextSoft(ctx);
-    ctx.fillText(line.text, statX, y);
+    ctx.fillText(line, statX, y);
     resetShadow(ctx);
     y += gap;
   }
-  const lastCenterY = cy + totalH / 2;
+  const lastCenterY = cy + totalH / 2 + MVP_PITCHER_STAT_LINES_SHIFT_Y;
   return lastCenterY + MVP_STAT_FONT_PX / 2;
 }
 
-function mvpPitcherGameIpErSoBarRatios(game) {
-  const ip = Number(game?.ip);
-  const er = Number(game?.er);
-  const so = Number(game?.so);
-  const w0 = Number.isFinite(ip) && ip >= 0 ? ip / MVP_BASE_IP : 0;
-  const w1 = Number.isFinite(er) && er >= 0 ? er / MVP_BASE_ER : 0;
-  const w2 = Number.isFinite(so) && so >= 0 ? so / MVP_BASE_SO : 0;
-  const s = w0 + w1 + w2;
-  return s > 0 ? [w0, w1, w2] : [1, 1, 1];
-}
-
-function drawPitcherMvpGameIpErSoBar(ctx, wCanvas, topBelowStats, game) {
-  const ratios = mvpPitcherGameIpErSoBarRatios(game);
-  const barW = Math.floor(wCanvas * MVP_BAR_W_FRAC);
-  const barLeft = Math.floor((wCanvas - barW) / 2);
-  if (barW < 120) return topBelowStats;
-
-  const segWs = splitMvpBarSegmentWidths(barW, ratios);
-  const barTop = topBelowStats + MVP_BAR_GAP;
-  const valueStrs = [
-    fmtPitcherIp(game?.ip),
-    String(game?.er != null && game?.er !== "" ? Number(game.er) : 0),
-    String(Number(game?.so) || 0),
-  ];
-  const summaryLine = `이닝 ${valueStrs[0]}  자책 ${valueStrs[1]}  삼진 ${valueStrs[2]}`;
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(barLeft, barTop, barW, MVP_BAR_H);
-  ctx.clip();
-  ctx.fillStyle = MVP_BAR_BG;
-  ctx.fillRect(barLeft, barTop, barW, MVP_BAR_H);
-  let x = barLeft;
-  for (let i = 0; i < 3; i++) {
-    const sw = segWs[i] || 0;
-    if (sw > 0) {
-      ctx.fillStyle = MVP_BAR_COLORS[i];
-      ctx.fillRect(x, barTop, sw, MVP_BAR_H);
-    }
-    x += sw;
-  }
-  ctx.restore();
-
-  x = barLeft;
-  for (let i = 0; i < 3; i++) {
-    const sw = segWs[i] || 0;
-    const cx = x + sw / 2;
-    if (sw > 0 && sw >= MVP_BAR_MIN_SEG_W) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, barTop, sw, MVP_BAR_H);
-      ctx.clip();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `800 31px "${FONT_BODY}", system-ui, sans-serif`;
-      shadowTextSoft(ctx);
-      ctx.fillText(MVP_BAR_LABELS_PITCHER[i], cx, barTop + MVP_BAR_H * 0.32);
-      resetShadow(ctx);
-      ctx.font = `700 23px "${FONT_BODY}", system-ui, sans-serif`;
-      shadowTextSoft(ctx);
-      ctx.fillText(valueStrs[i], cx, barTop + MVP_BAR_H * 0.78);
-      resetShadow(ctx);
-      ctx.restore();
-    }
-    x += sw;
-  }
-
-  const summaryTop = barTop + MVP_BAR_H + MVP_SUMMARY_GAP;
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `500 ${MVP_SUMMARY_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.fillText(summaryLine, wCanvas / 2, summaryTop);
-  resetShadow(ctx);
-  ctx.restore();
-
-  return barTop + MVP_BAR_H + MVP_SUMMARY_BLOCK_H;
-}
-
+/** 상단 블록 하단 Y — 예전 컬러바 시작 위치 */
 function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey) {
   const faceBox = MVP_FACE_BOX;
   const rPhoto = faceBox / 2;
@@ -1649,7 +1553,7 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     mvp
   );
   const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
-  return drawPitcherMvpGameIpErSoBar(ctx, w, contentBottom, mvp?.game);
+  return contentBottom + MVP_BAR_GAP;
 }
 
 function fmtPitcherGameDetailCell(v) {
@@ -1675,11 +1579,17 @@ function pitcherGameWalks4(g) {
 
 function drawPitcherGameDetailSection(ctx, w, topY, game) {
   const g = game && typeof game === "object" ? game : {};
+  console.log("[shorts5] drawShorts5PitcherSlide game", g);
+  console.log("[shorts5] pitcher game hr / pitch_count / bf", {
+    hr: g.hr,
+    pitch_count: g.pitch_count,
+    bf: g.bf,
+  });
   const dateStr = fmtBattingSlideDate(g.game_date);
   const opp = fmtTeamShort(g.opponent || "—");
   const homeMark = g.is_home ? "홈" : "원정";
   const result = String(g.result || "—").trim() || "—";
-  const titleY = topY + 52 + PITCHER_GAME_SECTION_SHIFT_Y;
+  const titleY = topY + 8 + PITCHER_GAME_TABLE_AT_BAR_SHIFT_Y;
 
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.95)";
@@ -1808,11 +1718,19 @@ export async function drawShorts5PitcherSlide(ctx, w, h, data, assetsIn = null, 
     return;
   }
 
-  drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTeamKey);
+  const gameTableTopY = drawPitcherMvpUpperBlock(
+    ctx,
+    w,
+    h,
+    teamName,
+    mvp,
+    portrait,
+    logosByTeamKey
+  );
 
-  let midY = topDividerY + 28;
+  let midY = gameTableTopY;
   if (mvp.game) {
-    midY = drawPitcherGameDetailSection(ctx, w, midY, mvp.game);
+    midY = drawPitcherGameDetailSection(ctx, w, gameTableTopY, mvp.game);
   }
   drawPitcherReliefSection(ctx, w, midY, data?.relief_top_pitchers);
 
