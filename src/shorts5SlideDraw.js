@@ -541,8 +541,8 @@ export function drawShorts5RecordSlide(ctx, w, h, data, logoImg, logosByTeamKey 
       const line2Cy = line2Top + line2H / 2;
       const rowDateCy = rowBoxTop + rowBoxH / 2;
 
-      const line1Bg = i % 2 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.12)";
-      const line2Bg = i % 2 === 0 ? "rgba(0,0,0,0.34)" : "rgba(0,0,0,0.24)";
+      const line1Bg = "rgba(0,0,0,0.12)";
+      const line2Bg = "rgba(0,0,0,0.24)";
 
       ctx.fillStyle = line1Bg;
       ctx.beginPath();
