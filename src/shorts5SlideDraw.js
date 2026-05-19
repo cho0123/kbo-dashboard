@@ -156,6 +156,21 @@ function recordTableRow1Layout(w) {
   return { tableLeft, tableW, left, width, dateColEnd: left[1] };
 }
 
+/** slide5 일정표: 날짜 20% / 홈·원정 15% / 상대 40% / 경기장 25% */
+function scheduleTableLayout(w) {
+  const tableLeft = 64;
+  const tableW = w - 128;
+  const ratios = [0.2, 0.15, 0.4, 0.25];
+  const left = [];
+  const width = ratios.map((r) => tableW * r);
+  let x = tableLeft;
+  for (let i = 0; i < ratios.length; i++) {
+    left.push(x);
+    x += width[i];
+  }
+  return { tableLeft, tableW, left, width, datePadLeft: left[0] + 24 };
+}
+
 function drawRecordResultBadge(ctx, x, cy, result) {
   const { label, color } = resultLabelAndColor(result);
   const fontPx = 32;
@@ -2002,28 +2017,33 @@ export function drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey =
   ctx.lineTo(w * 0.95, divY);
   ctx.stroke();
 
-  const weekRangeFontPx = 48;
-  const weekRangeGapBelowLine = 40;
-  const weekRangeCy = divY + weekRangeGapBelowLine + weekRangeFontPx / 2;
-  const weekRangeStr = fmtWeekRangeMd(data?.week_start, data?.week_end);
+  const summaryFontPx = 48;
+  const summaryGapBelowLine = 40;
+  const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
+  const weekRangeStr = fmtWeekRangeMd(
+    data?.this_week_start ?? data?.schedule_week_start,
+    data?.this_week_end ?? data?.schedule_week_end
+  );
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFD700";
-  ctx.font = `700 ${weekRangeFontPx}px ${RECORD_FONT}`;
-  ctx.fillText(weekRangeStr || "—", summaryCenterX, weekRangeCy);
+  ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
+  ctx.fillText(weekRangeStr || "—", summaryCenterX, summaryCy);
 
-  const tableTop = weekRangeCy + weekRangeFontPx / 2 + 36;
-  const headerLineY = tableTop + 44;
-  const headerTextCy = tableTop + 22;
-  const rowH = 108;
+  const tableTop = summaryCy + summaryFontPx / 2 + 40;
+  const headerDividerAnchorY = tableTop + 20 + 40;
+  const headerLineY = headerDividerAnchorY + 12;
+  const headerTextCy = tableTop + (headerLineY - tableTop) / 2;
+  const line1H = 100;
+  const line2H = 100;
+  const rowH = line1H + line2H + 6;
   const maxRows = 7;
-  const padX = 64;
-  const colDate = padX + 8;
-  const colHa = padX + 200;
-  const colOpp = padX + 320;
-  const colVenueRight = w - padX - 16;
-  const headerFontPx = 34;
-  const bodyFontPx = 36;
-  const dateFontPx = 32;
-  const venueFontPx = 30;
+  const { left: colLeft, width: colW, datePadLeft } = scheduleTableLayout(w);
+  const cellPad = 10;
+  const oppLogoSize = 65;
+  const headerFontPx = 36;
+  const bodyFontPx = 38;
+  const oppNameFontPx = 40;
 
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
@@ -2031,81 +2051,89 @@ export function drawShorts5GamesSlide(ctx, w, h, data, logoImg, logosByTeamKey =
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("날짜", colDate, headerTextCy);
-  ctx.fillText("홈·원정", colHa, headerTextCy);
-  ctx.fillText("상대팀", colOpp, headerTextCy);
-  ctx.textAlign = "right";
-  ctx.fillText("경기장", colVenueRight, headerTextCy);
-  ctx.textAlign = "left";
+  ctx.fillText("날짜", datePadLeft, headerTextCy);
+  ctx.fillText("홈·원정", colLeft[1] + cellPad, headerTextCy);
+  ctx.fillText("상대팀", colLeft[2] + cellPad, headerTextCy);
+  ctx.fillText("경기장", colLeft[3] + cellPad, headerTextCy);
   ctx.beginPath();
-  ctx.moveTo(padX, headerLineY);
-  ctx.lineTo(w - padX, headerLineY);
+  ctx.moveTo(64, headerLineY);
+  ctx.lineTo(w - 64, headerLineY);
   ctx.stroke();
 
-  const firstRowY = headerLineY + 28;
+  const firstRowY = headerDividerAnchorY + 52 + 60 - 30;
 
   if (!scheduleGames.length) {
+    const emptyCy = firstRowY + (maxRows * rowH) / 2;
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.font = `700 44px ${RECORD_FONT}`;
-    ctx.fillText("이번주 경기 없음", w / 2, firstRowY + (maxRows * rowH) / 2);
+    ctx.fillText("이번주 경기 없음", w / 2, emptyCy);
     return;
   }
 
-  const oppLogoSize = 56;
   for (let i = 0; i < scheduleGames.length; i++) {
     const g = scheduleGames[i];
-    const rowTop = firstRowY + i * rowH;
-    const rowCy = rowTop + (rowH - 12) / 2;
-    const rowBg = i % 2 === 0 ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.07)";
-    ctx.fillStyle = rowBg;
+    const y = firstRowY + i * rowH;
+    const rowBoxTop = y - 42;
+    const rowBoxH = rowH - 6;
+    const line1Top = rowBoxTop;
+    const line2Top = rowBoxTop + line1H;
+    const line1Cy = line1Top + line1H / 2;
+    const line2Cy = line2Top + line2H / 2;
+    const rowDateCy = rowBoxTop + rowBoxH / 2;
+
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
     ctx.beginPath();
-    ctx.roundRect(padX, rowTop, w - padX * 2, rowH - 12, 16);
+    ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
     ctx.fill();
 
-    const dateLabel = fmtWeekStartMd(g.game_date) || "—";
+    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.beginPath();
+    ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
+    ctx.fill();
+
+    const dateStr = fmtWeekStartMd(g.game_date) || "—";
     const timeLabel = String(g.game_time || "").trim();
-    const haLabel = g.is_home ? "홈" : "원정";
-    const oppFull = String(g.opponent || "—").trim() || "—";
-    const oppShort = fmtTeamShort(oppFull);
+    const homeMark = g.is_home ? "홈" : "원정";
+    const oppFull = String(g.opponent ?? "").trim();
+    const opp = fmtTeamShort(oppFull);
     const venueLabel = String(g.venue || "—").trim() || "—";
-    const oppKey = teamKeyword(oppFull);
-    const oppLogo = logosByTeamKey?.[oppKey];
+    const oppTk = teamKeyword(oppFull || opp);
+    const oppLogo = oppTk && logosByTeamKey ? logosByTeamKey[oppTk] : null;
 
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = `800 ${dateFontPx}px ${RECORD_FONT}`;
-    ctx.fillText(dateLabel, colDate, rowCy - (timeLabel ? 14 : 0));
-    if (timeLabel) {
-      ctx.fillStyle = "rgba(255,255,255,0.65)";
-      ctx.font = `600 26px ${RECORD_FONT}`;
-      ctx.fillText(timeLabel.slice(0, 5), colDate, rowCy + 16);
-    }
-
-    ctx.fillStyle = g.is_home ? "#93c5fd" : "#fcd34d";
-    ctx.font = `800 ${bodyFontPx}px ${RECORD_FONT}`;
-    ctx.fillText(haLabel, colHa, rowCy);
-
-    let oppX = colOpp;
-    if (oppLogo) {
-      oppX += drawSmallOpponentLogo(ctx, colOpp, rowCy, oppLogoSize, oppLogo);
-    }
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `800 ${bodyFontPx}px ${RECORD_FONT}`;
-    ctx.fillText(
-      truncateTextToWidth(ctx, oppShort, Math.max(80, colVenueRight - oppX - 24)),
-      oppX,
-      rowCy
-    );
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.font = `600 ${venueFontPx}px ${RECORD_FONT}`;
-    ctx.fillText(
-      truncateTextToWidth(ctx, venueLabel, w - padX - colOpp - 80),
-      colVenueRight,
-      rowCy
-    );
+    ctx.textBaseline = "middle";
     ctx.textAlign = "left";
+
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+    ctx.fillText(dateStr, datePadLeft, line1Cy);
+
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+    ctx.fillText(homeMark, colLeft[1] + cellPad, line1Cy);
+
+    const oppCellX = colLeft[2] + cellPad;
+    const logoOffset = drawSmallOpponentLogo(ctx, oppCellX, line1Cy, oppLogoSize, oppLogo);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `700 ${oppNameFontPx}px ${RECORD_FONT}`;
+    const oppTextX = oppCellX + logoOffset;
+    const oppMaxW = colLeft[2] + colW[2] - cellPad - oppTextX;
+    ctx.fillText(truncateTextToWidth(ctx, opp, oppMaxW), oppTextX, line1Cy);
+
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+    const venueMaxW = colLeft[3] + colW[3] - cellPad - (colLeft[3] + cellPad);
+    ctx.fillText(
+      truncateTextToWidth(ctx, venueLabel, Math.max(80, venueMaxW)),
+      colLeft[3] + cellPad,
+      line1Cy
+    );
+
+    if (timeLabel) {
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+      ctx.fillText(timeLabel.slice(0, 5), datePadLeft, line2Cy);
+    }
   }
 }
 

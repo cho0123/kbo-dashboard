@@ -4021,8 +4021,8 @@ async function buildTeamWeeklySummaryPayload(db, teamKw, weekStartIso) {
     best_game,
     games: gameResults,
     schedule_games,
-    schedule_week_start: thisWeekStart,
-    schedule_week_end: thisWeekEnd,
+    this_week_start: thisWeekStart,
+    this_week_end: thisWeekEnd,
     standings: curRows,
     standings_year: curLive?.year ?? 2026,
   };
