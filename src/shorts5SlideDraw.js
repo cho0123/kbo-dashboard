@@ -1579,12 +1579,7 @@ function pitcherGameWalks4(g) {
 
 function drawPitcherGameDetailSection(ctx, w, topY, game) {
   const g = game && typeof game === "object" ? game : {};
-  console.log("[shorts5] drawShorts5PitcherSlide game", g);
-  console.log("[shorts5] pitcher game hr / pitch_count / bf", {
-    hr: g.hr,
-    pitch_count: g.pitch_count,
-    bf: g.bf,
-  });
+  console.log("[shorts5] pitcher game full:", JSON.stringify(game));
   const dateStr = fmtBattingSlideDate(g.game_date);
   const opp = fmtTeamShort(g.opponent || "—");
   const homeMark = g.is_home ? "홈" : "원정";
