@@ -1447,12 +1447,62 @@ function fmtPitcherGameResult(result) {
   return r || "—";
 }
 
+function pitcherIpToNumber(ip) {
+  const n = Number(ip);
+  if (Number.isFinite(n)) return n;
+  const s = String(ip ?? "").trim();
+  const m = s.match(/^(\d+)(?:\.(\d))?$/);
+  if (!m) return NaN;
+  const whole = Number(m[1]);
+  const frac = m[2] != null ? Number(m[2]) : 0;
+  if (frac === 1) return whole + 1 / 3;
+  if (frac === 2) return whole + 2 / 3;
+  return whole;
+}
+
+function pitcherQsMet(ip, er) {
+  const ipn = pitcherIpToNumber(ip);
+  const ern = Number(er);
+  return Number.isFinite(ipn) && ipn >= 6 && Number.isFinite(ern) && ern <= 3;
+}
+
+function fmtPitcherSeasonIpLabel(seasonIp) {
+  const s = seasonIp != null ? String(seasonIp).trim() : "";
+  return s ? s : "-";
+}
+
+function pitcherResultLineColor(result) {
+  const r = fmtPitcherGameResult(result);
+  if (r === "승") return "#4ade80";
+  if (r === "패") return "#f87171";
+  if (r === "무") return "#94a3b8";
+  return "#ffffff";
+}
+
 function mvpPitcherGameStatLines(mvp) {
   const g = mvp?.game && typeof mvp.game === "object" ? mvp.game : {};
+  const season = mvp?.season && typeof mvp.season === "object" ? mvp.season : {};
   const ip = fmtPitcherIp(g.ip);
   const er = g.er != null && g.er !== "" ? Number(g.er) : 0;
   const result = fmtPitcherGameResult(g.result);
-  return [`- ${ip}이닝 투구`, `- ${er}자책점`, `- ${result}`];
+  const seasonIp = fmtPitcherSeasonIpLabel(season.ip);
+  const wins = season.wins != null && season.wins !== "" ? Number(season.wins) : null;
+  const losses = season.losses != null && season.losses !== "" ? Number(season.losses) : null;
+  const wStr = Number.isFinite(wins) ? String(Math.round(wins)) : "-";
+  const lStr = Number.isFinite(losses) ? String(Math.round(losses)) : "-";
+  const eraStr = fmtPitcherEra(season.era);
+  const line1 = fmtPitcherGameDateLine(g);
+  const line2 = `시즌 ${wStr}승 ${lStr}패 (ERA ${eraStr})`;
+  const line3 = pitcherQsMet(g.ip, er)
+    ? `${ip}이닝 / 퀄스 (시즌 ${seasonIp}ip)`
+    : `${ip}이닝 (시즌 ${seasonIp}ip)`;
+  const line4 = `${result} / ${er}자책점`;
+  return [
+    { text: line1, color: "#ffffff" },
+    { text: line2, color: "#ffffff" },
+    { text: line3, color: "#ffffff" },
+    { text: line4, color: pitcherResultLineColor(g.result) },
+  ];
 }
 
 function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
@@ -1462,11 +1512,11 @@ function drawPitcherMvpStatBlock(ctx, statX, cy, mvp) {
   let y = cy - totalH / 2;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
   ctx.font = `800 ${MVP_STAT_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   for (const line of lines) {
+    ctx.fillStyle = line.color || "#ffffff";
     shadowTextSoft(ctx);
-    ctx.fillText(line, statX, y);
+    ctx.fillText(line.text, statX, y);
     resetShadow(ctx);
     y += gap;
   }
@@ -1579,20 +1629,6 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     MVP_TITLE_LABEL_PITCHER
   );
 
-  const dateLine = fmtPitcherGameDateLine(mvp?.game);
-  if (dateLine) {
-    const dateY = titleCy + Math.round(MVP_TITLE_LOGO_H / 2) + 20;
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `600 ${MVP_PITCHER_DATE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
-    shadowTextSoft(ctx);
-    ctx.fillText(dateLine, w / 2, dateY);
-    resetShadow(ctx);
-    ctx.restore();
-  }
-
   drawBattingMvpHeaderDivider(ctx, w, padL, upperDividerY);
 
   const upperPhotoCx = w * 0.25;
@@ -1616,6 +1652,27 @@ function drawPitcherMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
   return drawPitcherMvpGameIpErSoBar(ctx, w, contentBottom, mvp?.game);
 }
 
+function fmtPitcherGameDetailCell(v) {
+  if (v == null || v === "") return "-";
+  const n = Number(v);
+  if (Number.isFinite(n)) return String(n);
+  const s = String(v).trim();
+  return s || "-";
+}
+
+function pitcherGameWalks4(g) {
+  const bb = g?.bb;
+  const hbp = g?.hbp;
+  const bbN = bb != null && bb !== "" ? Number(bb) : null;
+  const hbpN = hbp != null && hbp !== "" ? Number(hbp) : null;
+  if (bbN != null && Number.isFinite(bbN) && hbpN != null && Number.isFinite(hbpN)) {
+    return bbN + hbpN;
+  }
+  if (bbN != null && Number.isFinite(bbN)) return bbN;
+  if (hbpN != null && Number.isFinite(hbpN)) return hbpN;
+  return null;
+}
+
 function drawPitcherGameDetailSection(ctx, w, topY, game) {
   const g = game && typeof game === "object" ? game : {};
   const dateStr = fmtBattingSlideDate(g.game_date);
@@ -1629,20 +1686,40 @@ function drawPitcherGameDetailSection(ctx, w, topY, game) {
   ctx.font = `800 36px "${FONT_BODY}", sans-serif`;
   ctx.fillText(`등판 기록: ${dateStr} vs ${opp} (${homeMark}) ${result}`, w / 2, titleY);
 
-  const statY = titleY + 56;
-  const ip = fmtPitcherIp(g.ip);
-  const h = g.h != null ? String(g.h) : "0";
-  const so = g.so != null ? String(g.so) : "0";
-  const bb = g.bb != null ? String(g.bb) : "0";
-  const er = g.er != null ? String(g.er) : "0";
-  ctx.font = `700 34px "${FONT_BODY}", sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.fillText(
-    `이닝 ${ip}  /  피안타 ${h}  /  삼진 ${so}  /  볼넷 ${bb}  /  자책 ${er}`,
-    w / 2,
-    statY
-  );
-  return statY + 40;
+  const cols = [
+    { label: "이닝", val: fmtPitcherGameDetailCell(g.ip != null ? fmtPitcherIp(g.ip) : null) },
+    { label: "피안타", val: fmtPitcherGameDetailCell(g.h) },
+    { label: "실점", val: fmtPitcherGameDetailCell(g.runs) },
+    { label: "자책", val: fmtPitcherGameDetailCell(g.er) },
+    { label: "4사구", val: fmtPitcherGameDetailCell(pitcherGameWalks4(g)) },
+    { label: "삼진", val: fmtPitcherGameDetailCell(g.so) },
+    { label: "피홈런", val: fmtPitcherGameDetailCell(g.hr) },
+    {
+      label: "투구수",
+      val: fmtPitcherGameDetailCell(
+        g.pitch_count != null && g.pitch_count !== "" ? g.pitch_count : g.bf
+      ),
+    },
+  ];
+
+  const labelY = titleY + 52;
+  const valueY = labelY + 40;
+  const padX = 40;
+  const innerW = w - padX * 2;
+  const colW = innerW / cols.length;
+  ctx.font = `700 26px "${FONT_BODY}", sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  for (let i = 0; i < cols.length; i++) {
+    const cx = padX + colW * i + colW / 2;
+    ctx.fillText(cols[i].label, cx, labelY);
+  }
+  ctx.font = `800 28px "${FONT_BODY}", sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  for (let i = 0; i < cols.length; i++) {
+    const cx = padX + colW * i + colW / 2;
+    ctx.fillText(cols[i].val, cx, valueY);
+  }
+  return valueY + 36;
 }
 
 function drawPitcherReliefSection(ctx, w, topY, reliefList) {

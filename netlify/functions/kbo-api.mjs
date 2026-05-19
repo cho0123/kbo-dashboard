@@ -2923,25 +2923,30 @@ function buildStarterPitcherGameDetail(r, gr) {
   const r0 = r && typeof r === "object" ? r : {};
   const gr0 = gr && typeof gr === "object" ? gr : {};
   const ipn = sumInningsToNumber(r0?.ip ?? r0?.IP ?? r0?.inn ?? r0?.innings ?? 0);
-  const er = pickNum(r0, [
-    "er",
-    "ER",
-    "earned_runs",
-    "earnedRuns",
-    "r",
-    "R",
-    "runs",
-    "runs_allowed",
+  const er = pickNumOrNull(r0, ["er", "ER", "earned_runs", "earnedRuns"]);
+  const runs = pickNumOrNull(r0, ["r", "R", "runs", "runs_allowed"]);
+  const pitch_count = pickNumOrNull(r0, [
+    "pitch_count",
+    "pitches",
+    "pc",
+    "num_pitches",
   ]);
+  const bf = pickNumOrNull(r0, ["bf", "BF", "batters_faced", "batters", "num_bf"]);
+  const hr = pickNumOrNull(r0, ["hr", "HR", "home_runs", "home_runs_allowed"]);
   return {
     game_date: String(gr0?.game_date || r0?.game_date || r0?.gameDate || "").slice(0, 10),
     opponent: gr0?.opponent ?? null,
     is_home: Boolean(gr0?.is_home),
     ip: ipn > 0 ? Number(ipn.toFixed(2)) : ipn,
-    er: er != null && Number.isFinite(Number(er)) ? Number(er) : 0,
-    h: pickNum(r0, ["h", "H", "hits", "hits_allowed", "hit"]) ?? 0,
-    so: pickNum(r0, ["so", "SO", "k", "K", "strikeouts"]) ?? 0,
-    bb: pickNum(r0, ["bb", "BB", "walk", "walks"]) ?? 0,
+    er,
+    runs,
+    h: pickNumOrNull(r0, ["h", "H", "hits", "hits_allowed", "hit"]),
+    so: pickNumOrNull(r0, ["so", "SO", "k", "K", "strikeouts"]),
+    bb: pickNumOrNull(r0, ["bb", "BB", "walk", "walks"]),
+    hbp: pickNumOrNull(r0, ["hbp", "HBP", "hit_by_pitch"]),
+    hr,
+    pitch_count,
+    bf,
     result: mapPitcherAppearanceResult(r0, gr0),
   };
 }
@@ -3179,12 +3184,31 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
   );
   let season_ip = null;
   let season_wins = null;
+  let season_losses = null;
+  let season_whip = null;
+  let season_era = null;
   if (db && mvpBase.player) {
-    const wl = await fetchPitcherSeasonWlWhip(db, y, mvpBase.player, new Map(), mvpBase.team);
+    const wlCache = new Map();
+    const wl = await fetchPitcherSeasonWlWhip(
+      db,
+      y,
+      mvpBase.player,
+      wlCache,
+      mvpBase.team
+    );
     if (wl) {
       season_ip = wl.total_ip ?? null;
       season_wins = wl.has_result ? wl.wins : null;
+      season_losses = wl.has_result ? wl.losses : null;
+      season_whip = wl.whip ?? null;
     }
+    season_era = await fetchLatestSeasonEraByPitcherName(
+      db,
+      y,
+      mvpBase.player,
+      wlCache,
+      mvpBase.team
+    );
   }
   return {
     ...mvpBase,
@@ -3192,6 +3216,9 @@ async function enrichTeamWeeklyMvpStarterPitcher(mvpBase, seasonYear, db) {
     season: {
       ip: season_ip,
       wins: season_wins,
+      losses: season_losses,
+      whip: season_whip,
+      era: season_era,
     },
   };
 }
