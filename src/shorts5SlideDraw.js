@@ -544,10 +544,31 @@ export function drawShorts5RecordSlide(
   ctx.lineTo(w - 64, headerLineY);
   ctx.stroke();
 
-  if (reveal < 3) return;
-
   const firstRowY = headerDividerAnchorY + 52 + 60 - 30;
   let lastRowBottom = headerLineY;
+
+  const drawRecordEmptyRowBands = (rowIndex) => {
+    const y = firstRowY + rowIndex * rowH;
+    const rowBoxTop = y - 42;
+    const line1Top = rowBoxTop;
+    const line2Top = rowBoxTop + line1H;
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.beginPath();
+    ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.beginPath();
+    ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
+    ctx.fill();
+    lastRowBottom = rowBoxTop + (rowH - 6);
+  };
+
+  if (reveal === 2) {
+    for (let i = 0; i < maxRows; i++) drawRecordEmptyRowBands(i);
+    return;
+  }
+
+  if (reveal < 3) return;
 
   if (!games.length) {
     const emptyCy = firstRowY + (maxRows * rowH) / 2;
@@ -569,20 +590,7 @@ export function drawShorts5RecordSlide(
       const line2Cy = line2Top + line2H / 2;
       const rowDateCy = rowBoxTop + rowBoxH / 2;
 
-      const line1Bg = "rgba(0,0,0,0.12)";
-      const line2Bg = "rgba(0,0,0,0.24)";
-
-      ctx.fillStyle = line1Bg;
-      ctx.beginPath();
-      ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
-      ctx.fill();
-
-      ctx.fillStyle = line2Bg;
-      ctx.beginPath();
-      ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
-      ctx.fill();
-
-      lastRowBottom = rowBoxTop + rowBoxH;
+      drawRecordEmptyRowBands(i);
 
       const g = games[i];
       if (!g) continue;
@@ -1206,7 +1214,10 @@ function drawBattingMvpUpperBlock(ctx, w, h, teamName, mvp, portrait, logosByTea
     mvp
   );
   const contentBottom = battingMvpContentBottom(upperStatBottom, upperCy);
-  return drawBattingMvpAvgOpsWarBar(ctx, w, contentBottom, mvp?.total, mvp);
+  if (reveal >= 3) {
+    return drawBattingMvpAvgOpsWarBar(ctx, w, contentBottom, mvp?.total, mvp);
+  }
+  return contentBottom;
 }
 
 function fmtBattingSlideDate(iso) {
@@ -2144,9 +2155,31 @@ export function drawShorts5GamesSlide(
   ctx.lineTo(w - 64, headerLineY);
   ctx.stroke();
 
-  if (reveal < 3) return;
-
   const firstRowY = headerDividerAnchorY + 52 + 60 - 30;
+  const emptyRowCount =
+    scheduleGames.length > 0 ? Math.min(scheduleGames.length, maxRows) : maxRows;
+
+  const drawGamesEmptyRowBands = (rowIndex) => {
+    const y = firstRowY + rowIndex * rowH;
+    const rowBoxTop = y - 42;
+    const line1Top = rowBoxTop;
+    const line2Top = rowBoxTop + line1H;
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.beginPath();
+    ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.beginPath();
+    ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
+    ctx.fill();
+  };
+
+  if (reveal === 2) {
+    for (let i = 0; i < emptyRowCount; i++) drawGamesEmptyRowBands(i);
+    return;
+  }
+
+  if (reveal < 3) return;
 
   if (!scheduleGames.length) {
     const emptyCy = firstRowY + (maxRows * rowH) / 2;
@@ -2166,17 +2199,8 @@ export function drawShorts5GamesSlide(
     const line2Top = rowBoxTop + line1H;
     const line1Cy = line1Top + line1H / 2;
     const line2Cy = line2Top + line2H / 2;
-    const rowDateCy = rowBoxTop + rowBoxH / 2;
 
-    ctx.fillStyle = "rgba(0,0,0,0.12)";
-    ctx.beginPath();
-    ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(0,0,0,0.24)";
-    ctx.beginPath();
-    ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
-    ctx.fill();
+    drawGamesEmptyRowBands(i);
 
     const dateStr = fmtWeekStartMd(g.game_date) || "—";
     const timeLabel = String(g.game_time || "").trim();
