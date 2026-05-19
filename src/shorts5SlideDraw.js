@@ -789,9 +789,14 @@ const PITCHER_SEASON_RANK_BADGE_FONT_PX = 30;
 const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
-const PITCHER_RELIEF_ROW_H = 96;
-const PITCHER_RELIEF_LINE1_FONT_PX = 34;
-const PITCHER_RELIEF_LINE2_FONT_PX = 24;
+const PITCHER_RELIEF_TITLE_FONT_PX = 44;
+const PITCHER_RELIEF_ROW_H = 116;
+const PITCHER_RELIEF_LINE1_FONT_PX = 38;
+const PITCHER_RELIEF_LINE2_FONT_PX = 28;
+/** 주간 불펜 타이틀 → 첫 선수 행 */
+const PITCHER_RELIEF_TITLE_TO_FIRST_ROW_Y = 58;
+/** 불펜 선수 행 사이 추가 간격 */
+const PITCHER_RELIEF_ROW_GAP_Y = 6;
 const PITCHER_RELIEF_BADGE_WIN = "#22c55e";
 const PITCHER_RELIEF_BADGE_HOLD = "#3b82f6";
 const PITCHER_RELIEF_BADGE_SAVE = "#eab308";
@@ -1787,13 +1792,13 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
   const titleY = reliefTitleY;
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = `800 38px "${FONT_BODY}", sans-serif`;
+  ctx.font = `800 ${PITCHER_RELIEF_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("주간 불펜", w / 2, titleY);
 
   const rowH = PITCHER_RELIEF_ROW_H;
   const padX = 56;
   const innerPad = 24;
-  let y = titleY + 48;
+  let y = titleY + PITCHER_RELIEF_TITLE_TO_FIRST_ROW_Y;
   ctx.textBaseline = "middle";
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
@@ -1844,6 +1849,7 @@ function drawPitcherReliefSection(ctx, w, reliefTitleY, reliefList) {
       line2Cy
     );
     y += rowH;
+    if (i < list.length - 1) y += PITCHER_RELIEF_ROW_GAP_Y;
   }
   return y;
 }
