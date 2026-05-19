@@ -765,6 +765,8 @@ const MVP_TITLE_LABEL_PITCHER = "주간 투수 MVP";
 /** 사진 옆 4줄 스탯 블록 아래로 */
 const MVP_PITCHER_STAT_LINES_SHIFT_Y = 20;
 const PITCHER_GAME_TABLE_AT_BAR_SHIFT_Y = 0;
+/** 등판기록 표만 아래로 (타이틀 Y는 유지) */
+const PITCHER_GAME_TABLE_SHIFT_Y = 5;
 const PITCHER_GAME_SECTION_SHIFT_Y = 80;
 const PITCHER_GAME_TITLE_FONT_PX = 39;
 const PITCHER_GAME_HEADER_BG = "rgba(0,0,0,0.3)";
@@ -773,12 +775,13 @@ const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 /** 등판기록 구분 흰선 — 섹션 시작 기준 추가 위로 이동 */
 const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
 /** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
-const PITCHER_SECTION_BG_SHIFT_Y = 50;
+const PITCHER_SECTION_BG_SHIFT_Y = 100;
+const PITCHER_SEASON_RANK_TITLE_OFFSET_Y = 40;
+const PITCHER_SEASON_RANK_TITLE_TO_BADGE_Y = 64;
 const PITCHER_MVP_DATE_LINE_COLOR = "#FFE87C";
 const PITCHER_RELIEF_SECTION_SHIFT_Y = 220;
 const PITCHER_SEASON_RANK_BADGE_H = 44;
 const PITCHER_SEASON_RANK_BADGE_FONT_PX = 28;
-const PITCHER_SEASON_RANK_BADGE_SHIFT_Y = 10;
 const PITCHER_SEASON_RANK_BADGE_PAD_X = 18;
 const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
@@ -1621,14 +1624,14 @@ function drawPitcherSeasonRankSection(ctx, w, topY, ranks) {
   const badges = pitcherSeasonRankBadgeItems(ranks);
   if (!badges.length) return topY;
 
-  const titleY = topY + 20;
+  const titleY = topY + PITCHER_SEASON_RANK_TITLE_OFFSET_Y;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,0.88)";
   ctx.font = `800 ${PITCHER_GAME_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
   ctx.fillText("시즌 순위", w / 2, titleY);
 
-  const rowCy = titleY + 44 + PITCHER_SEASON_RANK_BADGE_SHIFT_Y;
+  const rowCy = titleY + PITCHER_SEASON_RANK_TITLE_TO_BADGE_Y;
   const badgeH = PITCHER_SEASON_RANK_BADGE_H;
   const padX = PITCHER_SEASON_RANK_BADGE_PAD_X;
   const gap = PITCHER_SEASON_RANK_BADGE_GAP;
@@ -1682,7 +1685,7 @@ function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks) {
     },
   ];
 
-  const labelY = titleY + 52;
+  const labelY = titleY + 52 + PITCHER_GAME_TABLE_SHIFT_Y;
   const valueY = labelY + 40;
   const padX = 40;
   const innerW = w - padX * 2;
