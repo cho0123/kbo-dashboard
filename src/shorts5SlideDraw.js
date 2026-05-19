@@ -156,11 +156,11 @@ function recordTableRow1Layout(w) {
   return { tableLeft, tableW, left, width, dateColEnd: left[1] };
 }
 
-/** slide5 일정표: 날짜 15% / 홈·원정 10% / 상대 40% / 경기장 35% */
+/** slide5 일정표: 날짜 20% / 홈·원정 15% / 상대 30% / 경기장 35% */
 function scheduleTableLayout(w) {
   const tableLeft = 64;
   const tableW = w - 128;
-  const ratios = [0.15, 0.1, 0.4, 0.35];
+  const ratios = [0.2, 0.15, 0.3, 0.35];
   const left = [];
   const width = ratios.map((r) => tableW * r);
   let x = tableLeft;
