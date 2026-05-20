@@ -114,7 +114,7 @@ Style: Clean, modern, trustworthy product review for YouTube Shorts. Korean cons
         style: 0.5,
       });
       if (res?.ok === false) throw new Error(res.error || "나레이션 생성 실패");
-      setNarrationUrl(res?.audioUrl || "");
+      setNarrationUrl(res?.presignedUrl || "");
     } catch (e) {
       setError(e.message);
     } finally {

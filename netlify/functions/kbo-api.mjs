@@ -6060,6 +6060,55 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "generate_product_review_script": {
+        const { productName, category, rating, pros, cons, summary } = payload;
+        if (!productName) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "productName required" }),
+          };
+        }
+        const starStr = "⭐".repeat(Number(rating) || 5);
+        const systemPrompt = `당신은 유튜브 쇼츠 전문 대본 작가입니다.
+주어진 제품 정보를 바탕으로 60초 분량의 한국어 쇼츠 대본을 작성합니다.
+자연스럽고 친근한 말투로, 시청자가 공감할 수 있는 리뷰 스타일로 작성하세요.
+대본만 출력하고 다른 설명은 하지 마세요.`;
+        const userPrompt = `아래 제품 정보로 유튜브 쇼츠 60초 대본을 작성해줘.
+
+제품명: ${productName}
+카테고리: ${category || "기타"}
+별점: ${starStr} (${rating}/5)
+장점: ${pros || "없음"}
+단점: ${cons || "없음"}
+한줄 총평: ${summary || "없음"}
+
+형식:
+[후킹 첫문장 - 3초]
+(내용)
+
+[제품 소개 - 10초]
+(내용)
+
+[장점 소개 - 20초]
+(내용)
+
+[단점/솔직한 평가 - 10초]
+(내용)
+
+[총평 + 구독 유도 - 10초]
+(내용)`;
+
+        const result = await claude(systemPrompt, userPrompt, 1000);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            script: result,
+          }),
+        };
+      }
       case "elevenlabs_tts": {
         const jobId = String(payload.jobId || "").trim();
         const segRaw = payload.segIndex;
