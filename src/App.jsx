@@ -4141,19 +4141,6 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">쇼츠-주간-분석(월요일)</div>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => {
-                    setActiveKey("shorts_weekly_summary");
-                  }}
-                >
-                  열기
-                </button>
-              </div>
-
-              <div className="side-group">
                 <div className="side-group-title">⚙️ 영상 설정</div>
                 <div className="side-video-settings-actions">
                   <button
@@ -4977,8 +4964,6 @@ export default function App() {
                     <Shorts4Panel />
                   ) : activeKey === "shorts5_team_weekly" ? (
                     <Shorts5Panel />
-                  ) : activeKey === "shorts_weekly_summary" ? (
-                    <Card9WeeklySummary />
                   ) : activeKey === "shorts_pitcher_week" ? (
                     <ResultBlock
                       title={null}
