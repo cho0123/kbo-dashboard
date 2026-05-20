@@ -10,6 +10,7 @@ import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
 import Shorts4Panel from "./Shorts4Panel.jsx";
 import Shorts5Panel from "./Shorts5Panel.jsx";
+import ShortsProductReviewPanel from "./ShortsProductReviewPanel.jsx";
 import VideoPrep from "./VideoPrep.jsx";
 import MemoPadModal from "./MemoPadModal.jsx";
 import JSZip from "jszip";
@@ -4972,9 +4973,7 @@ export default function App() {
                       pending={pending("shorts_pitcher_week_9")}
                     />
                   ) : activeKey === "shorts_product_review" ? (
-                    <div style={{ padding: "40px", color: "#fff" }}>
-                      🛒 쇼츠-제품리뷰 패널 (준비중)
-                    </div>
+                    <ShortsProductReviewPanel />
                   ) : (
                     <div className="muted">← 좌측에서 실행하세요</div>
                   )}
