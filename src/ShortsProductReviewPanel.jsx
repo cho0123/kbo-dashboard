@@ -106,7 +106,7 @@ No audio. Silent video only. Background video without sound.`;
     try {
       const res = await postKbo({
         action: "elevenlabs_tts",
-        jobId: `prod${Date.now()}`,
+        jobId: crypto.randomUUID(),
         segIndex: 0,
         text: script,
         voiceId,
