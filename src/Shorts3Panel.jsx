@@ -99,6 +99,17 @@ const NARRATION_ROW_BTN_SEGMENT_PLAY = {
   color: "#fff",
 };
 
+/** ElevenLabs TTS 음성 선택 */
+const VOICE_OPTIONS = [
+  { id: "m3gJBS8OofDJfycyA2Ip", label: "기본음성" },
+  { id: "5n5gqmaQi9Ewevrz7bOS", label: "음성1" },
+  { id: "QPFsEL6IBxlT15xfiD6C", label: "음성2" },
+  { id: "iWLjl1zCuqXRkW6494ve", label: "음성3" },
+  { id: "RU7aSi6lT4uQBXMLgDxK", label: "음성4" },
+];
+
+const DEFAULT_NARRATION_VOICE_ID = VOICE_OPTIONS[0].id;
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -963,6 +974,7 @@ export default function Shorts3Panel({
   const [bgmStartTime, setBgmStartTime] = useState(0);
   const [bgmFadeOut, setBgmFadeOut] = useState(2);
 
+  const [narrationVoiceId, setNarrationVoiceId] = useState(DEFAULT_NARRATION_VOICE_ID);
   const [narrationSpeed, setNarrationSpeed] = useState(1.0);
   const [narrationStability, setNarrationStability] = useState(0.5);
   const [narrationStyle, setNarrationStyle] = useState(0.3);
@@ -1009,6 +1021,7 @@ export default function Shorts3Panel({
         bgmFadeOut,
         highlightMusicS3Key,
         selectedTeam,
+        narrationVoiceId,
         narrationSpeed,
         narrationStability,
         narrationStyle,
@@ -1034,6 +1047,7 @@ export default function Shorts3Panel({
     bgmFadeOut,
     highlightMusicS3Key,
     selectedTeam,
+    narrationVoiceId,
     narrationSpeed,
     narrationStability,
     narrationStyle,
@@ -2985,6 +2999,10 @@ export default function Shorts3Panel({
         if (d.narrationStyle != null && Number.isFinite(Number(d.narrationStyle))) {
           setNarrationStyle(Math.min(1, Math.max(0, Number(d.narrationStyle))));
         }
+        const draftVoice = String(d.narrationVoiceId || "").trim();
+        if (VOICE_OPTIONS.some((o) => o.id === draftVoice)) {
+          setNarrationVoiceId(draftVoice);
+        }
         if (d.coverBox && typeof d.coverBox === "object") {
           const clampP = (v, fallback) => {
             const n = Number(v);
@@ -3244,6 +3262,7 @@ export default function Shorts3Panel({
             jobId,
             segIndex: 0,
             text: thumbNarr,
+            voiceId: narrationVoiceId,
             speed: narrationSpeed,
             stability: narrationStability,
             style: narrationStyle,
@@ -3273,6 +3292,7 @@ export default function Shorts3Panel({
           jobId,
           segIndex: segIndexForS3,
           text: narrText,
+          voiceId: narrationVoiceId,
           speed: narrationSpeed,
           stability: narrationStability,
           style: narrationStyle,
@@ -5376,6 +5396,7 @@ export default function Shorts3Panel({
                           jobId,
                           segIndex: 0,
                           text: narrText,
+                          voiceId: narrationVoiceId,
                           speed: narrationSpeed,
                           stability: narrationStability,
                           style: narrationStyle,
@@ -6156,6 +6177,7 @@ export default function Shorts3Panel({
                             jobId,
                             segIndex: segIdxTts,
                             text: narrText,
+                            voiceId: narrationVoiceId,
                             speed: narrationSpeed,
                             stability: narrationStability,
                             style: narrationStyle,
@@ -6513,6 +6535,20 @@ export default function Shorts3Panel({
             <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
               나레이션 설정
             </div>
+            <label className="preset-field">
+              <span>음성 선택</span>
+              <select
+                value={narrationVoiceId}
+                disabled={busy || uploading}
+                onChange={(e) => setNarrationVoiceId(e.target.value)}
+              >
+                {VOICE_OPTIONS.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="preset-field">
               <span>속도 ({narrationSpeed.toFixed(2)})</span>
               <input
