@@ -48,15 +48,23 @@ export default function ShortsProductReviewPanel() {
     }
     setError("");
     const starStr = "⭐".repeat(rating);
-    const prompt = `Marketing Studio "${preset}" preset. 9:16 vertical shorts video.
+    const prompt = `Marketing Studio "Product Review" preset. 9:16 vertical shorts video.
 Product: ${productName} (${category})
 Rating: ${starStr} (${rating}/5)
 Pros: ${pros}
 Cons: ${cons}
 Summary: ${summary}
 Product image: ${imageUrl || "없음"}
-Style: Clean, modern, trustworthy product review for YouTube Shorts. Korean consumer product review style.
-No audio. Silent video only. Background video without sound.`;
+
+STRICT REQUIREMENTS:
+- NO people, NO humans, NO faces, NO hands
+- NO voiceover, NO speech, NO narration, NO text overlays
+- Product only — clean close-up shots of the product itself
+- Simple, minimal background (white, light gray, or gradient)
+- Slow cinematic movement: gentle rotation or zoom on the product
+- Silent background video, no audio
+- Professional product photography style
+- Korean consumer product, clean and trustworthy feel`;
     setGeneratedPrompt(prompt);
   };
 
