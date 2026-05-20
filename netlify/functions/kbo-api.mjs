@@ -4278,6 +4278,9 @@ function findPrevGameSideForTeam(seasonGames, teamKeyNorm, beforeDateIso, curren
     const gd = safeIsoDate(g?.game_date || g?.gameDate || "");
     if (!gid || !gd || gd >= beforeDateIso) continue;
     if (currentGameId && gid === currentGameId) continue;
+    const hs = Number(g?.home_score ?? g?.homeScore);
+    const as = Number(g?.away_score ?? g?.awayScore);
+    if (!Number.isFinite(hs) && !Number.isFinite(as)) continue;
     const ht = normalizeTeamKey(
       pickStr(g, ["home_team", "homeTeam", "HOME_NM", "home_nm"]) ||
         String(g?.home_team || g?.home || g?.homeTeam || "")
