@@ -55,7 +55,8 @@ Pros: ${pros}
 Cons: ${cons}
 Summary: ${summary}
 Product image: ${imageUrl || "없음"}
-Style: Clean, modern, trustworthy product review for YouTube Shorts. Korean consumer product review style.`;
+Style: Clean, modern, trustworthy product review for YouTube Shorts. Korean consumer product review style.
+No audio. Silent video only. Background video without sound.`;
     setGeneratedPrompt(prompt);
   };
 
@@ -105,7 +106,7 @@ Style: Clean, modern, trustworthy product review for YouTube Shorts. Korean cons
     try {
       const res = await postKbo({
         action: "elevenlabs_tts",
-        jobId: `product_review_${Date.now()}`,
+        jobId: `prod${Date.now()}`,
         segIndex: 0,
         text: script,
         voiceId,
