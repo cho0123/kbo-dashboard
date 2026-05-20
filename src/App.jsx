@@ -3492,7 +3492,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              쇼츠 (1–5)
+              KBO-쇼츠 (1-5)
             </button>
             <button
               type="button"
@@ -3502,7 +3502,7 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              분석 (4–8)
+              KBO-분석 (4-8)
             </button>
             <button
               type="button"
@@ -3512,7 +3512,17 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              예측 (9–10)
+              KBO-예측 (9-10)
+            </button>
+            <button
+              type="button"
+              className={`side-tab ${tab === "etc_shorts" ? "active" : ""}`}
+              onClick={() => {
+                setTab("etc_shorts");
+                setActiveKey(null);
+              }}
+            >
+              기타-쇼츠
             </button>
           </nav>
 
@@ -3968,6 +3978,22 @@ export default function App() {
                   }}
                 >
                   예측 실행
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === "etc_shorts" && (
+            <div className="side-section">
+              <div className="side-group">
+                <div className="side-group-title">1. 쇼츠-제품리뷰</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => setActiveKey("shorts_product_review")}
+                >
+                  패널 열기
                 </button>
               </div>
             </div>
@@ -4960,6 +4986,10 @@ export default function App() {
                       error={wkOut.error}
                       pending={pending("shorts_pitcher_week_9")}
                     />
+                  ) : activeKey === "shorts_product_review" ? (
+                    <div style={{ padding: "40px", color: "#fff" }}>
+                      🛒 쇼츠-제품리뷰 패널 (준비중)
+                    </div>
                   ) : (
                     <div className="muted">← 좌측에서 실행하세요</div>
                   )}
