@@ -101,11 +101,11 @@ const NARRATION_ROW_BTN_SEGMENT_PLAY = {
 
 /** ElevenLabs TTS 음성 선택 */
 const VOICE_OPTIONS = [
-  { id: "m3gJBS8OofDJfycyA2Ip", label: "기본음성" },
-  { id: "5n5gqmaQi9Ewevrz7bOS", label: "음성1" },
-  { id: "QPFsEL6IBxlT15xfiD6C", label: "음성2" },
-  { id: "iWLjl1zCuqXRkW6494ve", label: "음성3" },
-  { id: "RU7aSi6lT4uQBXMLgDxK", label: "음성4" },
+  { id: "m3gJBS8OofDJfycyA2Ip", label: "남(기본)" },
+  { id: "5n5gqmaQi9Ewevrz7bOS", label: "여(차분)" },
+  { id: "QPFsEL6IBxlT15xfiD6C", label: "여(발랄)" },
+  { id: "iWLjl1zCuqXRkW6494ve", label: "여(아나운서)" },
+  { id: "RU7aSi6lT4uQBXMLgDxK", label: "남(저음)" },
 ];
 
 const DEFAULT_NARRATION_VOICE_ID = VOICE_OPTIONS[0].id;
