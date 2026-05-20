@@ -24,7 +24,7 @@ export default function ShortsProductReviewPanel() {
   const [summary, setSummary] = useState("");
 
   // 영상 설정
-  const [preset, setPreset] = useState("Product Review");
+  const [preset, setPreset] = useState("Hyper Motion");
   const [imageUrl, setImageUrl] = useState("");
 
   // 프롬프트
@@ -48,7 +48,7 @@ export default function ShortsProductReviewPanel() {
     }
     setError("");
     const starStr = "⭐".repeat(rating);
-    const prompt = `Marketing Studio "Product Review" preset. 9:16 vertical shorts video.
+    const prompt = `Marketing Studio "Hyper Motion" preset. 9:16 vertical shorts video.
 Product: ${productName} (${category})
 Rating: ${starStr} (${rating}/5)
 Pros: ${pros}
