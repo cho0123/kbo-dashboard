@@ -6120,10 +6120,10 @@ ${JSON.stringify(games, null, 2)}`;
         }
         const starStr = "⭐".repeat(Number(rating) || 5);
         const systemPrompt = `당신은 유튜브 쇼츠 전문 대본 작가입니다.
-주어진 제품 정보를 바탕으로 60초 분량의 한국어 쇼츠 대본을 작성합니다.
+주어진 제품 정보를 바탕으로 58초 이내 한국어 쇼츠 대본을 작성합니다.
 자연스럽고 친근한 말투로, 시청자가 공감할 수 있는 리뷰 스타일로 작성하세요.
-대본만 출력하고 다른 설명은 하지 마세요.`;
-        const userPrompt = `아래 제품 정보로 유튜브 쇼츠 60초 대본을 작성해줘.
+반드시 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.`;
+        const userPrompt = `아래 제품 정보로 유튜브 쇼츠 대본을 작성해줘.
 
 제품명: ${productName}
 카테고리: ${category || "기타"}
@@ -6132,29 +6132,26 @@ ${JSON.stringify(games, null, 2)}`;
 단점: ${cons || "없음"}
 한줄 총평: ${summary || "없음"}
 
-형식:
-[후킹 첫문장 - 3초]
-(내용)
+아래 JSON 형식으로만 응답해줘 (마크다운 코드블록 없이):
+{
+  "script": "58초 이내 전체 대본. 한국어 250자 이내. 인트로(5초)→제품소개(10초)→장점(15초)→단점(10초)→총평+구독유도(10초) 순서. 각 구간 앞에 [인트로] [제품소개] [장점] [단점] [총평] 태그 붙여줘."
+}`;
 
-[제품 소개 - 10초]
-(내용)
-
-[장점 소개 - 20초]
-(내용)
-
-[단점/솔직한 평가 - 10초]
-(내용)
-
-[총평 + 구독 유도 - 10초]
-(내용)`;
-
-        const result = await claude(systemPrompt, userPrompt, 1000);
+        const result = await claude(systemPrompt, userPrompt, 1200);
+        let scriptText = result;
+        try {
+          const clean = result.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(clean);
+          if (parsed.script) scriptText = String(parsed.script).trim();
+        } catch {
+          /* plain text fallback */
+        }
         return {
           statusCode: 200,
           headers: corsHeaders(),
           body: JSON.stringify({
             ok: true,
-            script: result,
+            script: scriptText,
           }),
         };
       }
