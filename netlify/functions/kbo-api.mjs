@@ -6060,6 +6060,52 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
       }
+      case "generate_product_review_info": {
+        const { productName, category, rating } = payload;
+        if (!productName) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "productName required" }),
+          };
+        }
+        const systemPrompt = `당신은 제품 리뷰 전문가입니다.
+제품명과 카테고리를 보고 일반적인 장점, 단점, 총평을 한국어로 작성합니다.
+실제 사용자 리뷰 스타일로 자연스럽고 솔직하게 작성하세요.
+반드시 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.`;
+        const userPrompt = `제품명: ${productName}
+카테고리: ${category || "기타"}
+별점: ${rating}/5
+
+아래 JSON 형식으로만 응답해줘 (마크다운 코드블록 없이):
+{
+  "pros": "장점 2~3가지를 자연스러운 문장으로",
+  "cons": "단점 1~2가지를 솔직하게",
+  "summary": "한줄 총평"
+}`;
+
+        const result = await claude(systemPrompt, userPrompt, 500);
+        try {
+          const clean = result.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(clean);
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, ...parsed }),
+          };
+        } catch {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: true,
+              pros: result,
+              cons: "",
+              summary: "",
+            }),
+          };
+        }
+      }
       case "generate_product_review_script": {
         const { productName, category, rating, pros, cons, summary } = payload;
         if (!productName) {
