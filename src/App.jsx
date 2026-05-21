@@ -3490,7 +3490,7 @@ export default function App() {
               className={`side-tab ${tab === "shorts" ? "active" : ""}`}
               onClick={() => {
                 setTab("shorts");
-                setActiveKey(null);
+                setActiveKey("shorts_slides");
               }}
             >
               KBO-쇼츠
@@ -3516,6 +3516,46 @@ export default function App() {
               쇼츠-영상편집
             </button>
           </nav>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: "6px 8px",
+            }}
+          >
+            <a
+              href="https://m.sports.naver.com/kbaseball/schedule/index"
+              target="_blank"
+              rel="noreferrer"
+              className="primary"
+              style={{
+                textAlign: "center",
+                padding: "6px 0",
+                borderRadius: 6,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              📅 네이버 야구일정
+            </a>
+            <a
+              href="https://www.koreabaseball.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="primary"
+              style={{
+                textAlign: "center",
+                padding: "6px 0",
+                borderRadius: 6,
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              ⚾ KBO 공홈
+            </a>
+          </div>
 
           {tab === "etc_shorts" && (
             <div className="side-section">
@@ -3559,6 +3599,48 @@ export default function App() {
                   >
                     AI 분석
                   </button>
+                </div>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">⚙️ 영상 설정</div>
+                <div className="side-video-settings-actions">
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("video_presets");
+                    }}
+                  >
+                    프리셋 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setActiveKey("music_library");
+                    }}
+                  >
+                    음원 관리
+                  </button>
+                  <a
+                    className="primary primary-fill"
+                    href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+                    download="yt-dlp.exe"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ yt-dlp 다운로드
+                  </a>
+                  <a
+                    className="primary"
+                    href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                    download="ffmpeg-release-essentials.zip"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ FFmpeg 다운로드
+                  </a>
                 </div>
               </div>
             </div>
@@ -3639,48 +3721,6 @@ export default function App() {
                 >
                   패널 열기
                 </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">⚙️ 영상 설정</div>
-                <div className="side-video-settings-actions">
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    onClick={() => {
-                      setActiveKey("video_presets");
-                    }}
-                  >
-                    프리셋 열기
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => {
-                      setActiveKey("music_library");
-                    }}
-                  >
-                    음원 관리
-                  </button>
-                  <a
-                    className="primary primary-fill"
-                    href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-                    download="yt-dlp.exe"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ⬇ yt-dlp 다운로드
-                  </a>
-                  <a
-                    className="primary"
-                    href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-                    download="ffmpeg-release-essentials.zip"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ⬇ FFmpeg 다운로드
-                  </a>
-                </div>
               </div>
 
               <div className="side-group">
