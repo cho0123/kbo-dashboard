@@ -864,6 +864,7 @@ export default function Shorts3Panel({
   const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
     ...INITIAL_THUMBNAIL_SEGMENT,
   }));
+  const [thumbnailEnabled, setThumbnailEnabled] = useState(true);
   const [thumbnailSelected, setThumbnailSelected] = useState(true);
   const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
@@ -4950,9 +4951,43 @@ export default function Shorts3Panel({
                     border: "1px solid rgba(96,165,250,0.35)",
                     color: "#93c5fd",
                     lineHeight: 1.2,
+                    display: "inline-flex",
+                    alignItems: "center",
                   }}
                 >
                   썸
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (thumbnailEnabled) {
+                        setThumbnailSegment((prev) => ({
+                          ...prev,
+                          end: "",
+                          endMs: 0,
+                        }));
+                      } else {
+                        setThumbnailSegment((prev) => ({
+                          ...prev,
+                          end: "00:00:00",
+                          endMs: 10,
+                        }));
+                      }
+                      setThumbnailEnabled((prev) => !prev);
+                    }}
+                    style={{
+                      fontSize: 11,
+                      padding: "2px 7px",
+                      borderRadius: 4,
+                      border: "none",
+                      cursor: "pointer",
+                      background: thumbnailEnabled ? "#e74c3c" : "#27ae60",
+                      color: "#fff",
+                      marginLeft: 6,
+                    }}
+                  >
+                    {thumbnailEnabled ? "비활성화" : "활성화"}
+                  </button>
                 </span>
 
                 <button
@@ -4986,7 +5021,7 @@ export default function Shorts3Panel({
                   placeholder="00:00:00"
                   value={thumbnailSegment.start}
                   onChange={(e) => handleThumbnailTimeChange("start", e.target.value)}
-                  disabled={busy || uploading}
+                  disabled={busy || uploading || !thumbnailEnabled}
                   style={{
                     gridColumn: 3,
                     gridRow: 1,
@@ -5017,7 +5052,7 @@ export default function Shorts3Panel({
                     "0"
                   )}
                   onChange={(e) => handleThumbnailFracMsChange("startMs", e.target.value)}
-                  disabled={busy || uploading}
+                  disabled={busy || uploading || !thumbnailEnabled}
                   title="시작 소수 초 (0.01초 단위, 00~99)"
                   style={{
                     gridColumn: 5,
@@ -5071,7 +5106,7 @@ export default function Shorts3Panel({
                   placeholder="00:00:00"
                   value={thumbnailSegment.end}
                   onChange={(e) => handleThumbnailTimeChange("end", e.target.value)}
-                  disabled={busy || uploading}
+                  disabled={busy || uploading || !thumbnailEnabled}
                   style={{
                     gridColumn: 8,
                     gridRow: 1,
@@ -5102,7 +5137,7 @@ export default function Shorts3Panel({
                     "0"
                   )}
                   onChange={(e) => handleThumbnailFracMsChange("endMs", e.target.value)}
-                  disabled={busy || uploading}
+                  disabled={busy || uploading || !thumbnailEnabled}
                   title="종료 소수 초 (0.01초 단위, 00~99)"
                   style={{
                     gridColumn: 10,
