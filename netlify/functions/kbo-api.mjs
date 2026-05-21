@@ -6061,7 +6061,8 @@ ${JSON.stringify(games, null, 2)}`;
         }
       }
       case "generate_product_review_info": {
-        const { productName, category, rating } = payload;
+        const { productName, category, rating, prosKeyword, consKeyword } =
+          payload;
         if (!productName) {
           return {
             statusCode: 400,
@@ -6076,12 +6077,14 @@ ${JSON.stringify(games, null, 2)}`;
         const userPrompt = `제품명: ${productName}
 카테고리: ${category || "기타"}
 별점: ${rating}/5
+좋았던 점 키워드: ${prosKeyword || "없음"}
+아쉬운 점 키워드: ${consKeyword || "없음"}
 
-아래 JSON 형식으로만 응답해줘 (마크다운 코드블록 없이):
+위 키워드를 반드시 반영해서 아래 JSON 형식으로만 응답해줘 (마크다운 코드블록 없이):
 {
-  "pros": "장점 2~3가지를 자연스러운 문장으로",
-  "cons": "단점 1~2가지를 솔직하게",
-  "summary": "한줄 총평"
+  "pros": "키워드를 바탕으로 장점 2~3가지를 자연스러운 한국어 문장으로",
+  "cons": "키워드를 바탕으로 단점 1~2가지를 솔직한 한국어 문장으로",
+  "summary": "전체적인 한줄 총평"
 }`;
 
         const result = await claude(systemPrompt, userPrompt, 500);

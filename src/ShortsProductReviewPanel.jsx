@@ -42,6 +42,8 @@ export default function ShortsProductReviewPanel() {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [imagePrompts, setImagePrompts] = useState([]);
   const [videoCopied, setVideoCopied] = useState({});
+  const [prosKeyword, setProsKeyword] = useState("");
+  const [consKeyword, setConsKeyword] = useState("");
 
   // Higgsfield 프롬프트 자동생성
   const handleGeneratePrompt = () => {
@@ -86,6 +88,8 @@ Style B - Lifestyle zoom: Product placed in natural lifestyle setting (${
         productName,
         category,
         rating,
+        prosKeyword,
+        consKeyword,
       });
       if (res?.ok === false) throw new Error(res.error || "자동생성 실패");
       if (res?.pros) setPros(res.pros);
@@ -232,6 +236,27 @@ Style B - Lifestyle zoom: Product placed in natural lifestyle setting (${
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="preset-field">
+          <label>좋았던 점 키워드</label>
+          <input
+            type="text"
+            value={prosKeyword}
+            onChange={(e) => setProsKeyword(e.target.value)}
+            placeholder="예: 가격, 소용량, 휴대하기 편함"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="preset-field">
+          <label>아쉬운 점 키워드</label>
+          <input
+            type="text"
+            value={consKeyword}
+            onChange={(e) => setConsKeyword(e.target.value)}
+            placeholder="예: 향기 강함, 뚜껑 불편"
+            style={{ width: "100%" }}
+          />
         </div>
 
         <button
