@@ -3493,42 +3493,196 @@ export default function App() {
                 setActiveKey(null);
               }}
             >
-              KBO-쇼츠 (1-5)
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${tab === "analysis" ? "active" : ""}`}
-              onClick={() => {
-                setTab("analysis");
-                setActiveKey(null);
-              }}
-            >
-              KBO-분석 (4-8)
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${tab === "predict" ? "active" : ""}`}
-              onClick={() => {
-                setTab("predict");
-                setActiveKey(null);
-              }}
-            >
-              KBO-예측 (9-10)
+              KBO-쇼츠
             </button>
             <button
               type="button"
               className={`side-tab ${tab === "etc_shorts" ? "active" : ""}`}
               onClick={() => {
                 setTab("etc_shorts");
-                setActiveKey(null);
+                setActiveKey("shorts_product_review");
               }}
             >
-              기타-쇼츠
+              제품리뷰-쇼츠
+            </button>
+            <button
+              type="button"
+              className={`side-tab ${tab === "shorts_edit" ? "active" : ""}`}
+              onClick={() => {
+                setTab("shorts_edit");
+                setActiveKey("shorts3_highlight");
+              }}
+            >
+              쇼츠-영상편집
             </button>
           </nav>
 
-          {tab === "analysis" && (
+          {tab === "etc_shorts" && (
             <div className="side-section">
+              <div className="side-group">
+                <div className="side-group-title">1. 쇼츠-제품리뷰</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => setActiveKey("shorts_product_review")}
+                >
+                  패널 열기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === "shorts_edit" && (
+            <div className="side-section">
+              <div className="side-group">
+                <div className="side-group-title">쇼츠-영상편집</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setActiveKey("shorts3_highlight")}
+                  >
+                    패널 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setActiveKey("shorts3_thumbnail")}
+                  >
+                    썸네일
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setActiveKey("shorts3_ai")}
+                  >
+                    AI 분석
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "shorts" && (
+            <div className="side-section">
+              <div className="side-group">
+                <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
+                <button
+                  type="button"
+                  className="shorts-verify-link shorts-verify-link--naver"
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    boxSizing: "border-box",
+                  }}
+                  onClick={() => {
+                    const d = String(shDate || "").slice(0, 10);
+                    window.open(
+                      `https://m.sports.naver.com/kbaseball/schedule/index?date=${d}`,
+                      "_blank"
+                    );
+                  }}
+                >
+                  📅 네이버 야구 일정
+                </button>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  disabled={busy === "shorts_slides_open"}
+                  onClick={() => {
+                    setActiveKey("shorts_slides");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">2. 쇼츠-내일경기-예고</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts_tomorrow_preview");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">4. 쇼츠-예상전력-비교</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts4_matchup");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">5. 쇼츠-주간결산</div>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setActiveKey("shorts5_team_weekly");
+                  }}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
+                <div className="side-group-title">⚙️ 영상 설정</div>
+                <div className="side-video-settings-actions">
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    onClick={() => {
+                      setActiveKey("video_presets");
+                    }}
+                  >
+                    프리셋 열기
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setActiveKey("music_library");
+                    }}
+                  >
+                    음원 관리
+                  </button>
+                  <a
+                    className="primary primary-fill"
+                    href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+                    download="yt-dlp.exe"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ yt-dlp 다운로드
+                  </a>
+                  <a
+                    className="primary"
+                    href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+                    download="ffmpeg-release-essentials.zip"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ⬇ FFmpeg 다운로드
+                  </a>
+                </div>
+              </div>
+
               <div className="side-group">
                 <div className="side-group-title">4. 경기 결과 조회</div>
                 <label>날짜</label>
@@ -3844,11 +3998,7 @@ export default function App() {
                   비교 분석 실행
                 </button>
               </div>
-            </div>
-          )}
 
-          {tab === "predict" && (
-            <div className="side-section">
               <div className="side-group">
                 <div className="side-group-title">9. 선발 vs 상대 타선</div>
                 <div className="grid-2">
@@ -3980,207 +4130,6 @@ export default function App() {
                 >
                   예측 실행
                 </button>
-              </div>
-            </div>
-          )}
-
-          {tab === "etc_shorts" && (
-            <div className="side-section">
-              <div className="side-group">
-                <div className="side-group-title">1. 쇼츠-제품리뷰</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => setActiveKey("shorts_product_review")}
-                >
-                  패널 열기
-                </button>
-              </div>
-            </div>
-          )}
-
-          {tab === "shorts" && (
-            <div className="side-section">
-              <div className="side-group">
-                <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
-                <button
-                  type="button"
-                  className="shorts-verify-link shorts-verify-link--naver"
-                  style={{
-                    marginTop: 8,
-                    width: "100%",
-                    boxSizing: "border-box",
-                  }}
-                  onClick={() => {
-                    const d = String(shDate || "").slice(0, 10);
-                    window.open(
-                      `https://m.sports.naver.com/kbaseball/schedule/index?date=${d}`,
-                      "_blank"
-                    );
-                  }}
-                >
-                  📅 네이버 야구 일정
-                </button>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  disabled={busy === "shorts_slides_open"}
-                  onClick={() => {
-                    setActiveKey("shorts_slides");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">2. 쇼츠-내일경기-예고</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("shorts_tomorrow_preview");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">3. 쇼츠-하이라이트</div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: 6,
-                    marginTop: 10,
-                    width: "100%",
-                    alignItems: "stretch",
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    style={{
-                      flex: "0 0 auto",
-                      marginTop: 0,
-                      whiteSpace: "nowrap",
-                      boxSizing: "border-box",
-                    }}
-                    onClick={() => {
-                      setActiveKey("shorts3_highlight");
-                    }}
-                  >
-                    패널 열기
-                  </button>
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      marginTop: 0,
-                      boxSizing: "border-box",
-                      fontSize: 12,
-                      padding: "8px 6px",
-                    }}
-                    onClick={() => {
-                      setActiveKey("shorts3_thumbnail");
-                    }}
-                  >
-                    썸네일
-                  </button>
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      marginTop: 0,
-                      boxSizing: "border-box",
-                      fontSize: 12,
-                      padding: "8px 6px",
-                    }}
-                    onClick={() => {
-                      setActiveKey("shorts3_ai");
-                    }}
-                  >
-                    AI 분석
-                  </button>
-                </div>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">4. 쇼츠-예상전력-비교</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("shorts4_matchup");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">5. 쇼츠-주간결산</div>
-                <button
-                  type="button"
-                  className="primary primary-fill"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    setActiveKey("shorts5_team_weekly");
-                  }}
-                >
-                  패널 열기
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">⚙️ 영상 설정</div>
-                <div className="side-video-settings-actions">
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    onClick={() => {
-                      setActiveKey("video_presets");
-                    }}
-                  >
-                    프리셋 열기
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => {
-                      setActiveKey("music_library");
-                    }}
-                  >
-                    음원 관리
-                  </button>
-                  <a
-                    className="primary primary-fill"
-                    href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-                    download="yt-dlp.exe"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ⬇ yt-dlp 다운로드
-                  </a>
-                  <a
-                    className="primary"
-                    href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-                    download="ffmpeg-release-essentials.zip"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ⬇ FFmpeg 다운로드
-                  </a>
-                </div>
               </div>
 
             </div>
