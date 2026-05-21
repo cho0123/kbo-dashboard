@@ -4937,58 +4937,46 @@ export default function Shorts3Panel({
                 }}
               >
                 {/* 1행 */}
-                <span
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (thumbnailEnabled) {
+                      setThumbnailSegment((prev) => ({
+                        ...prev,
+                        end: "",
+                        endMs: 0,
+                      }));
+                    } else {
+                      setThumbnailSegment((prev) => ({
+                        ...prev,
+                        end: "00:00:00",
+                        endMs: 10,
+                      }));
+                    }
+                    setThumbnailEnabled((prev) => !prev);
+                  }}
                   style={{
                     gridColumn: 1,
                     gridRow: 1,
-                    fontWeight: 800,
-                    minWidth: 16,
-                    fontSize: 11,
                     justifySelf: "start",
-                    padding: "2px 6px",
-                    borderRadius: 999,
-                    background: "rgba(96,165,250,0.18)",
-                    border: "1px solid rgba(96,165,250,0.35)",
-                    color: "#93c5fd",
-                    lineHeight: 1.2,
-                    display: "inline-flex",
+                    width: 22,
+                    height: 22,
+                    borderRadius: 4,
+                    border: "none",
+                    cursor: "pointer",
+                    background: thumbnailEnabled ? "#27ae60" : "#e74c3c",
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: "bold",
+                    display: "flex",
                     alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
-                  썸
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (thumbnailEnabled) {
-                        setThumbnailSegment((prev) => ({
-                          ...prev,
-                          end: "",
-                          endMs: 0,
-                        }));
-                      } else {
-                        setThumbnailSegment((prev) => ({
-                          ...prev,
-                          end: "00:00:00",
-                          endMs: 10,
-                        }));
-                      }
-                      setThumbnailEnabled((prev) => !prev);
-                    }}
-                    style={{
-                      fontSize: 11,
-                      padding: "2px 7px",
-                      borderRadius: 4,
-                      border: "none",
-                      cursor: "pointer",
-                      background: thumbnailEnabled ? "#e74c3c" : "#27ae60",
-                      color: "#fff",
-                      marginLeft: 6,
-                    }}
-                  >
-                    {thumbnailEnabled ? "비활성화" : "활성화"}
-                  </button>
-                </span>
+                  {thumbnailEnabled ? "O" : "X"}
+                </button>
 
                 <button
                   type="button"
