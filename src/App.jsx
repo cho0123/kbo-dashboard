@@ -3660,7 +3660,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 쇼츠-예상전력-비교</div>
+                <div className="side-group-title">3. 쇼츠-경기별-전력비교</div>
                 <button
                   type="button"
                   className="primary primary-fill"
@@ -3674,7 +3674,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">5. 쇼츠-주간결산</div>
+                <div className="side-group-title">4. 쇼츠-주간결산(월)</div>
                 <button
                   type="button"
                   className="primary primary-fill"
@@ -3685,40 +3685,6 @@ export default function App() {
                 >
                   패널 열기
                 </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">4. 경기 결과 조회</div>
-                <label>날짜</label>
-                <input
-                  type="date"
-                  value={mvpDate}
-                  onChange={(e) => setMvpDate(e.target.value)}
-                />
-                <div className="date-actions-row">
-                  <button
-                    type="button"
-                    className="primary primary-sm"
-                    onClick={setToToday}
-                  >
-                    오늘
-                  </button>
-                  <button
-                    type="button"
-                    className="primary primary-sm"
-                    onClick={setToYesterday}
-                  >
-                    어제
-                  </button>
-                  <button
-                    type="button"
-                    className="primary primary-fill"
-                    disabled={grBusy}
-                    onClick={fetchGameResults}
-                  >
-                    경기 결과 조회
-                  </button>
-                </div>
               </div>
 
               <div className="side-group">
