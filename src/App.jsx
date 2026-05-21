@@ -3497,6 +3497,28 @@ export default function App() {
             </button>
             <button
               type="button"
+              className="shorts-verify-link shorts-verify-link--naver"
+              style={{ marginTop: 4, width: "100%", boxSizing: "border-box" }}
+              onClick={() => {
+                const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+                window.open(
+                  `https://m.sports.naver.com/kbaseball/schedule/index?date=${today}`,
+                  "_blank"
+                );
+              }}
+            >
+              📅 네이버 야구일정
+            </button>
+            <button
+              type="button"
+              className="shorts-verify-link shorts-verify-link--naver"
+              style={{ marginTop: 4, width: "100%", boxSizing: "border-box" }}
+              onClick={() => window.open("https://www.koreabaseball.com/", "_blank")}
+            >
+              ⚾ KBO 공홈
+            </button>
+            <button
+              type="button"
               className={`side-tab ${tab === "etc_shorts" ? "active" : ""}`}
               onClick={() => {
                 setTab("etc_shorts");
@@ -3516,46 +3538,6 @@ export default function App() {
               쇼츠-영상편집
             </button>
           </nav>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              padding: "6px 8px",
-            }}
-          >
-            <a
-              href="https://m.sports.naver.com/kbaseball/schedule/index"
-              target="_blank"
-              rel="noreferrer"
-              className="primary"
-              style={{
-                textAlign: "center",
-                padding: "6px 0",
-                borderRadius: 6,
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              📅 네이버 야구일정
-            </a>
-            <a
-              href="https://www.koreabaseball.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="primary"
-              style={{
-                textAlign: "center",
-                padding: "6px 0",
-                borderRadius: 6,
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              ⚾ KBO 공홈
-            </a>
-          </div>
 
           {tab === "etc_shorts" && (
             <div className="side-section">
@@ -3650,24 +3632,6 @@ export default function App() {
             <div className="side-section">
               <div className="side-group">
                 <div className="side-group-title">1. 쇼츠-일간-경기결과</div>
-                <button
-                  type="button"
-                  className="shorts-verify-link shorts-verify-link--naver"
-                  style={{
-                    marginTop: 8,
-                    width: "100%",
-                    boxSizing: "border-box",
-                  }}
-                  onClick={() => {
-                    const d = String(shDate || "").slice(0, 10);
-                    window.open(
-                      `https://m.sports.naver.com/kbaseball/schedule/index?date=${d}`,
-                      "_blank"
-                    );
-                  }}
-                >
-                  📅 네이버 야구 일정
-                </button>
                 <button
                   type="button"
                   className="primary primary-fill"
