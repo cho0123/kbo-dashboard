@@ -42,6 +42,9 @@ export default function ShortsProductReviewPanel() {
   const [videoCopied, setVideoCopied] = useState({});
   const [prosKeyword, setProsKeyword] = useState("");
   const [consKeyword, setConsKeyword] = useState("");
+  const [customImageConcept, setCustomImageConcept] = useState("");
+  const [customImagePrompt, setCustomImagePrompt] = useState("");
+  const [customImageCopied, setCustomImageCopied] = useState(false);
 
   // Higgsfield 프롬프트 자동생성
   const handleGeneratePrompt = () => {
@@ -462,6 +465,67 @@ Style B - Lifestyle zoom: Product placed in natural lifestyle setting (${
             ))}
           </div>
         )}
+
+        <div
+          style={{
+            marginTop: 12,
+            borderTop: "1px solid #333",
+            paddingTop: 12,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>
+            ✏️ 직접 컨셉 입력
+          </div>
+          <input
+            type="text"
+            value={customImageConcept}
+            onChange={(e) => setCustomImageConcept(e.target.value)}
+            placeholder="예: 욕실 선반 위에 다른 제품들과 함께"
+            style={{ width: "100%", marginBottom: 6 }}
+          />
+          <button
+            type="button"
+            className="primary primary-fill"
+            onClick={() => {
+              if (!customImageConcept.trim()) return;
+              const prompt = `Product photography. ${customImageConcept} ${productName}. 9:16 vertical format. Clean, professional, high quality. Soft natural lighting. No people, no faces, no hands. Korean consumer product style. Shot for YouTube Shorts thumbnail.`;
+              setCustomImagePrompt(prompt);
+            }}
+          >
+            📋 커스텀 프롬프트 생성
+          </button>
+
+          {customImagePrompt && (
+            <div style={{ marginTop: 8 }}>
+              <textarea
+                readOnly
+                value={customImagePrompt}
+                rows={3}
+                style={{
+                  width: "100%",
+                  fontSize: 11,
+                  background: "#111",
+                  color: "#ccc",
+                  border: "1px solid #333",
+                  borderRadius: 4,
+                  padding: 6,
+                }}
+              />
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(customImagePrompt);
+                  setCustomImageCopied(true);
+                  setTimeout(() => setCustomImageCopied(false), 2000);
+                }}
+                style={{ marginTop: 4 }}
+              >
+                {customImageCopied ? "✅ 복사됨!" : "📋 복사"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 대본 & 나레이션 */}
