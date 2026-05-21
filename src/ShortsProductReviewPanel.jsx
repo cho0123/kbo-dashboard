@@ -11,7 +11,6 @@ const VOICE_OPTIONS = [
 ];
 
 const CATEGORY_OPTIONS = ["전자제품", "식품", "생활용품", "화장품", "기타"];
-const PRESET_OPTIONS = ["Product Review", "UGC", "Unboxing"];
 const RATING_OPTIONS = [1, 2, 3, 4, 5];
 
 export default function ShortsProductReviewPanel() {
@@ -24,7 +23,6 @@ export default function ShortsProductReviewPanel() {
   const [summary, setSummary] = useState("");
 
   // 영상 설정
-  const [preset, setPreset] = useState("Hyper Motion");
   const [imageUrl, setImageUrl] = useState("");
 
   // 프롬프트
@@ -307,15 +305,6 @@ Style B - Lifestyle zoom: Product placed in natural lifestyle setting (${
       <div className="section" style={{ marginBottom: 12 }}>
         <div className="section-title" style={{ fontSize: 14 }}>
           🎬 영상 설정 (Higgsfield)
-        </div>
-
-        <div className="preset-field">
-          <label>프리셋</label>
-          <select value={preset} onChange={(e) => setPreset(e.target.value)}>
-            {PRESET_OPTIONS.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
         </div>
 
         <div className="preset-field">
