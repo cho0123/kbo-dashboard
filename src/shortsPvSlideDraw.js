@@ -172,7 +172,7 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
         : "—"
     }`,
     `이닝 ${seasonData.total_ip ?? "—"}  |  WHIP ${seasonData.whip != null && Number.isFinite(Number(seasonData.whip)) ? Number(seasonData.whip).toFixed(2) : "—"}`,
-    `삼진 ${seasonData.so ?? 0}  |  볼넷 ${seasonData.bb ?? 0}  |  피안타 ${seasonData.h ?? 0}`,
+    `삼진 ${seasonData.so ?? 0}  |  4사구 ${seasonData.bb ?? 0}  |  피안타 ${seasonData.h ?? 0}`,
     `피홈런 ${seasonData.hr ?? 0}  |  자책 ${seasonData.er ?? 0}`,
   ];
 
