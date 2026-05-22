@@ -3108,6 +3108,7 @@ export default function App() {
   const [pvAiBusy, setPvAiBusy] = useState(false);
   const [pvAiOut, setPvAiOut] = useState({ text: "", error: null });
   const [pvGamesOpen, setPvGamesOpen] = useState(false);
+  const [pvMode, setPvMode] = useState("pitcher");
 
   const loadPitchers = async (team) => {
     setPitcherTeam(team);
@@ -4453,33 +4454,153 @@ export default function App() {
                 </div>
               </div>
             ) : activeKey === "pv" ? (
-              <div className="result-page">
-                <div className="section soft" style={{ marginBottom: 16 }}>
-                  <div className="grid-2">
-                    <div>
-                      <label>투수팀</label>
+              <div className="section soft shorts4-root">
+                <div className="section-title">5. 쇼츠-투수VS타자</div>
+                <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <button type="button" className="primary" style={{ flex: 1 }}>
+                    슬라이드 캡처
+                  </button>
+                  <span className="muted">미캡처</span>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <select style={{ width: "100%" }}>
+                    <option>— 선택 —</option>
+                  </select>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <button type="button" className="primary" style={{ flex: 1 }}>
+                    영상 생성
+                  </button>
+                  <span className="muted">미캡처</span>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className={`primary${pvMode === "pitcher" ? " primary-fill" : ""}`}
+                    style={{ flex: 1 }}
+                    onClick={() => setPvMode("pitcher")}
+                  >
+                    투수 기준
+                  </button>
+                  <button
+                    type="button"
+                    className={`primary${pvMode === "batter" ? " primary-fill" : ""}`}
+                    style={{ flex: 1 }}
+                    onClick={() => setPvMode("batter")}
+                  >
+                    타자 기준
+                  </button>
+                </div>
+
+                {pvMode === "pitcher" && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="grid-2">
                       <select
                         value={pitcherTeam}
                         onChange={(e) => loadPitchers(e.target.value)}
+                        disabled={pvPlayersBusy}
                       >
-                        <option value="">팀 선택</option>
-                        {KBO_TEAM_NAMES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
+                        <option value="">투수팀 선택</option>
+                        {KBO_TEAMS.map((t) => (
+                          <option key={t.keyword} value={t.label}>
+                            {t.label}
                           </option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label>투수</label>
                       <select
                         value={pvP}
                         onChange={(e) => setPvP(e.target.value)}
                         disabled={!pitcherTeam || pvPlayersBusy}
                       >
-                        <option value="">
-                          {pvPlayersBusy ? "불러오는 중…" : "투수 선택"}
-                        </option>
+                        <option value="">투수 선택</option>
+                        {pitcherList.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid-2">
+                      <select
+                        value={batterTeam}
+                        onChange={(e) => loadBatters(e.target.value)}
+                        disabled={pvPlayersBusy}
+                      >
+                        <option value="">타자팀 선택</option>
+                        {KBO_TEAMS.filter((t) => t.label !== pitcherTeam).map((t) => (
+                          <option key={t.keyword} value={t.label}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={pvB}
+                        onChange={(e) => setPvB(e.target.value)}
+                        disabled={!batterTeam || pvPlayersBusy}
+                      >
+                        <option value="">타자 선택</option>
+                        {batterList.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {pvMode === "batter" && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="grid-2">
+                      <select
+                        value={batterTeam}
+                        onChange={(e) => loadBatters(e.target.value)}
+                        disabled={pvPlayersBusy}
+                      >
+                        <option value="">타자팀 선택</option>
+                        {KBO_TEAMS.map((t) => (
+                          <option key={t.keyword} value={t.label}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={pvB}
+                        onChange={(e) => setPvB(e.target.value)}
+                        disabled={!batterTeam || pvPlayersBusy}
+                      >
+                        <option value="">타자 선택</option>
+                        {batterList.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid-2">
+                      <select
+                        value={pitcherTeam}
+                        onChange={(e) => loadPitchers(e.target.value)}
+                        disabled={pvPlayersBusy}
+                      >
+                        <option value="">투수팀 선택</option>
+                        {KBO_TEAMS.filter((t) => t.label !== batterTeam).map((t) => (
+                          <option key={t.keyword} value={t.label}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={pvP}
+                        onChange={(e) => setPvP(e.target.value)}
+                        disabled={!pitcherTeam || pvPlayersBusy}
+                      >
+                        <option value="">투수 선택</option>
                         {pitcherList.map((p) => (
                           <option key={p} value={p}>
                             {p}
@@ -4488,45 +4609,15 @@ export default function App() {
                       </select>
                     </div>
                   </div>
-                  <div className="grid-2">
-                    <div>
-                      <label>타자팀</label>
-                      <select
-                        value={batterTeam}
-                        onChange={(e) => loadBatters(e.target.value)}
-                      >
-                        <option value="">팀 선택</option>
-                        {KBO_TEAM_NAMES.filter((t) => t !== pitcherTeam).map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label>타자</label>
-                      <select
-                        value={pvB}
-                        onChange={(e) => setPvB(e.target.value)}
-                        disabled={!batterTeam || pvPlayersBusy}
-                      >
-                        <option value="">
-                          {pvPlayersBusy ? "불러오는 중…" : "타자 선택"}
-                        </option>
-                        {batterList.map((b) => (
-                          <option key={b} value={b}>
-                            {b}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <button
                     type="button"
                     className="primary"
-                    disabled={pvBusy}
+                    style={{ flex: 1 }}
+                    disabled={pvBusy || !pvP || !pvB}
                     onClick={async () => {
-                      setActiveKey("pv");
                       setPvBusy(true);
                       setPvAiOut({ text: "", error: null });
                       setPvGamesOpen(false);
@@ -4547,39 +4638,53 @@ export default function App() {
                       }
                     }}
                   >
-                    상대전적 통계 보기
-                  </button>
-                </div>
-                <div className="result-hero-title">
-                  {pvP || "투수"} vs {pvB || "타자"}
-                </div>
-                <div className="mini-tabs" role="tablist" aria-label="기간 선택">
-                  <button
-                    type="button"
-                    className={`mini-tab ${pvTab === "this" ? "active" : ""}`}
-                    onClick={() => setPvTab("this")}
-                  >
-                    이번시즌 (2026)
+                    {pvBusy ? "불러오는 중..." : "데이터 불러오기"}
                   </button>
                   <button
                     type="button"
-                    className={`mini-tab ${pvTab === "prev" ? "active" : ""}`}
-                    onClick={() => setPvTab("prev")}
+                    className="primary primary-fill"
+                    style={{ flex: 1 }}
+                    disabled
                   >
-                    직전시즌 (2025)
-                  </button>
-                  <button
-                    type="button"
-                    className={`mini-tab ${pvTab === "both" ? "active" : ""}`}
-                    onClick={() => setPvTab("both")}
-                  >
-                    2시즌 합산 (2025~2026)
+                    전체 ZIP 다운로드
                   </button>
                 </div>
-                {pvStats.error ? (
-                  <pre className="result-error-light">{pvStats.error}</pre>
-                ) : pvStats.data ? (
-                  (() => {
+
+                {pvStats.error && (
+                  <div className="result-error-light" style={{ marginTop: 8 }}>
+                    {pvStats.error}
+                  </div>
+                )}
+
+                {pvStats.data && (
+                  <div style={{ marginTop: 12 }}>
+                    <div className="result-hero-title">
+                      {pvP || "투수"} vs {pvB || "타자"}
+                    </div>
+                    <div className="mini-tabs" role="tablist" aria-label="기간 선택">
+                      <button
+                        type="button"
+                        className={`mini-tab ${pvTab === "this" ? "active" : ""}`}
+                        onClick={() => setPvTab("this")}
+                      >
+                        이번시즌 (2026)
+                      </button>
+                      <button
+                        type="button"
+                        className={`mini-tab ${pvTab === "prev" ? "active" : ""}`}
+                        onClick={() => setPvTab("prev")}
+                      >
+                        직전시즌 (2025)
+                      </button>
+                      <button
+                        type="button"
+                        className={`mini-tab ${pvTab === "both" ? "active" : ""}`}
+                        onClick={() => setPvTab("both")}
+                      >
+                        2시즌 합산 (2025~2026)
+                      </button>
+                    </div>
+                  {(() => {
                     const d = pvStats.data;
                     const s =
                       pvTab === "this"
@@ -4720,9 +4825,8 @@ export default function App() {
                         </div>
                       </>
                     );
-                  })()
-                ) : (
-                  <div className="empty-state">← 좌측에서 상대전적 통계를 실행하세요</div>
+                  })()}
+                  </div>
                 )}
               </div>
             ) : (
