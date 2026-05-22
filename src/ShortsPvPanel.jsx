@@ -98,6 +98,7 @@ export default function ShortsPvPanel() {
 
   // 로고
   const [logosByTeamKey, setLogosByTeamKey] = useState({});
+  const [overlayImg, setOverlayImg] = useState(null);
 
   // refs
   const captureWrapRef = useRef(null);
@@ -108,6 +109,13 @@ export default function ShortsPvPanel() {
     const keys = ["삼성","LG","KT","SSG","NC","두산","KIA","롯데","한화","키움"];
     Promise.all(keys.map(k => loadSvgLogo(k).then(img => [k, img])))
       .then(entries => setLogosByTeamKey(Object.fromEntries(entries)));
+  }, []);
+
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setOverlayImg(img);
+    img.onerror = () => setOverlayImg(null);
+    img.src = "/overlays/samsung_overlay.png";
   }, []);
 
   // 선수 목록 로드
@@ -196,26 +204,27 @@ export default function ShortsPvPanel() {
     if (!slide) return;
     switch(slide.key) {
       case "intro":
-        drawPvIntroSlide(ctx, w, h, pvP || "투수", pitcherTeam, pvB || "타자", batterTeam, logosByTeamKey);
+        drawPvIntroSlide(ctx, w, h, pvP || "투수", pitcherTeam, pvB || "타자", batterTeam, logosByTeamKey, overlayImg);
         break;
       case "pitcher":
-        drawPvPitcherSlide(ctx, w, h, pvP || "투수", pitcherTeam, pitcherImg, logosByTeamKey, pitcherSeasonData);
+        drawPvPitcherSlide(ctx, w, h, pvP || "투수", pitcherTeam, pitcherImg, logosByTeamKey, pitcherSeasonData, overlayImg);
         break;
       case "batter":
-        drawPvBatterSlide(ctx, w, h, pvB || "타자", batterTeam, batterImg, logosByTeamKey);
+        drawPvBatterSlide(ctx, w, h, pvB || "타자", batterTeam, batterImg, logosByTeamKey, overlayImg);
         break;
       case "stats":
-        drawPvStatsSlide(ctx, w, h, pvP || "투수", pitcherTeam, pvB || "타자", batterTeam, currentStats, logosByTeamKey);
+        drawPvStatsSlide(ctx, w, h, pvP || "투수", pitcherTeam, pvB || "타자", batterTeam, currentStats, logosByTeamKey, overlayImg);
         break;
       case "timeline":
-        drawPvTimelineSlide(ctx, w, h, pvP || "투수", pvB || "타자", currentRows);
+        drawPvTimelineSlide(ctx, w, h, pvP || "투수", pvB || "타자", currentRows, overlayImg);
         break;
       case "standings":
         drawStandingsSlide(ctx, w, h, logosByTeamKey);
+        if (overlayImg) ctx.drawImage(overlayImg, 0, 0, w, h);
         break;
       default: break;
     }
-  }, [slideIdx, slides, pvP, pvB, pitcherTeam, batterTeam, pitcherImg, batterImg, currentStats, currentRows, logosByTeamKey, pitcherSeasonData]);
+  }, [slideIdx, slides, pvP, pvB, pitcherTeam, batterTeam, pitcherImg, batterImg, currentStats, currentRows, logosByTeamKey, pitcherSeasonData, overlayImg]);
 
   // 슬라이드 캡처
   const captureAllSlides = async () => {

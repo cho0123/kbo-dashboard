@@ -40,8 +40,13 @@ function shadowText(ctx, text, x, y) {
   ctx.restore();
 }
 
+function drawOverlay(ctx, w, h, overlayImg) {
+  if (!overlayImg) return;
+  ctx.drawImage(overlayImg, 0, 0, w, h);
+}
+
 // 슬라이드 1: 인트로
-export function drawPvIntroSlide(ctx, w, h, pitcher, pitcherTeam, batter, batterTeam, logosByTeamKey) {
+export function drawPvIntroSlide(ctx, w, h, pitcher, pitcherTeam, batter, batterTeam, logosByTeamKey, overlayImg) {
   ctx.clearRect(0, 0, w, h);
 
   // 배경: 상단 투수팀 / 하단 타자팀 대각 분할
@@ -106,10 +111,11 @@ export function drawPvIntroSlide(ctx, w, h, pitcher, pitcherTeam, batter, batter
   ctx.font = `500 44px ${FONT_BODY}`;
   ctx.fillStyle = TEXT_YELLOW;
   shadowText(ctx, "투수 VS 타자 상대전적", w/2, h * 0.93);
+  drawOverlay(ctx, w, h, overlayImg);
 }
 
 // 슬라이드 2: 투수 프로필
-export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, logosByTeamKey, seasonData) {
+export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, logosByTeamKey, seasonData, overlayImg) {
   ctx.clearRect(0, 0, w, h);
 
   const color = getTeamColor(pitcherTeam);
@@ -214,10 +220,11 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
       });
     }
   }
+  drawOverlay(ctx, w, h, overlayImg);
 }
 
 // 슬라이드 3: 타자 프로필
-export function drawPvBatterSlide(ctx, w, h, batter, batterTeam, batterImg, logosByTeamKey) {
+export function drawPvBatterSlide(ctx, w, h, batter, batterTeam, batterImg, logosByTeamKey, overlayImg) {
   ctx.clearRect(0, 0, w, h);
 
   const color = getTeamColor(batterTeam);
@@ -255,10 +262,11 @@ export function drawPvBatterSlide(ctx, w, h, batter, batterTeam, batterImg, logo
   ctx.font = `500 44px ${FONT_BODY}`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
   shadowText(ctx, "시즌 상대전적 기록", w/2, 1080);
+  drawOverlay(ctx, w, h, overlayImg);
 }
 
 // 슬라이드 4: 상대전적 통계
-export function drawPvStatsSlide(ctx, w, h, pitcher, pitcherTeam, batter, batterTeam, stats, logosByTeamKey) {
+export function drawPvStatsSlide(ctx, w, h, pitcher, pitcherTeam, batter, batterTeam, stats, logosByTeamKey, overlayImg) {
   ctx.clearRect(0, 0, w, h);
 
   // 배경: 다크 그라데이션
@@ -285,6 +293,7 @@ export function drawPvStatsSlide(ctx, w, h, pitcher, pitcherTeam, batter, batter
     ctx.font = `500 44px ${FONT_BODY}`;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     shadowText(ctx, "데이터 없음", w/2, h/2);
+    drawOverlay(ctx, w, h, overlayImg);
     return;
   }
 
@@ -326,10 +335,11 @@ export function drawPvStatsSlide(ctx, w, h, pitcher, pitcherTeam, batter, batter
       ? TEXT_YELLOW : TEXT_MAIN;
     shadowText(ctx, item.value, x + colW/2, y + 150);
   });
+  drawOverlay(ctx, w, h, overlayImg);
 }
 
 // 슬라이드 5: 경기별 타임라인
-export function drawPvTimelineSlide(ctx, w, h, pitcher, batter, rows) {
+export function drawPvTimelineSlide(ctx, w, h, pitcher, batter, rows, overlayImg) {
   ctx.clearRect(0, 0, w, h);
 
   const grad = ctx.createLinearGradient(0, 0, 0, h);
@@ -353,6 +363,7 @@ export function drawPvTimelineSlide(ctx, w, h, pitcher, batter, rows) {
     ctx.font = `500 44px ${FONT_BODY}`;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     shadowText(ctx, "경기 기록 없음", w/2, h/2);
+    drawOverlay(ctx, w, h, overlayImg);
     return;
   }
 
@@ -386,4 +397,5 @@ export function drawPvTimelineSlide(ctx, w, h, pitcher, batter, rows) {
     ctx.textAlign = "right";
     ctx.fillText(row.batter_stats || "", w - 60, y + 70);
   });
+  drawOverlay(ctx, w, h, overlayImg);
 }
