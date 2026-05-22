@@ -81,6 +81,8 @@ export default function ShortsPvPanel() {
 
   // 데이터
   const [pvStats, setPvStats] = useState({ data: null, error: null });
+  const [pitcherSeasonData, setPitcherSeasonData] = useState(null);
+  const [batterSeasonData, setBatterSeasonData] = useState(null);
   const [pvTab, setPvTab] = useState("this");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -146,9 +148,13 @@ export default function ShortsPvPanel() {
     setError("");
     setBusy(true);
     try {
-      const res = await postKbo({ action: "pv_batter_stats", pitcher: pvP, batter: pvB });
-      if (res?.ok === false) throw new Error(res.error || "데이터 조회 실패");
-      setPvStats({ data: res, error: null });
+      const [pvRes, pitcherRes] = await Promise.all([
+        postKbo({ action: "pv_batter_stats", pitcher: pvP, batter: pvB }),
+        postKbo({ action: "get_pitcher_season_stats", pitcher: pvP, team: pitcherTeam }),
+      ]);
+      if (pvRes?.ok === false) throw new Error(pvRes.error || "데이터 조회 실패");
+      setPvStats({ data: pvRes, error: null });
+      setPitcherSeasonData(pitcherRes?.ok !== false ? pitcherRes : null);
       setSlideIdx(0);
     } catch(e) {
       setError(e.message);
@@ -193,7 +199,7 @@ export default function ShortsPvPanel() {
         drawPvIntroSlide(ctx, w, h, pvP || "투수", pitcherTeam, pvB || "타자", batterTeam, logosByTeamKey);
         break;
       case "pitcher":
-        drawPvPitcherSlide(ctx, w, h, pvP || "투수", pitcherTeam, pitcherImg, logosByTeamKey);
+        drawPvPitcherSlide(ctx, w, h, pvP || "투수", pitcherTeam, pitcherImg, logosByTeamKey, pitcherSeasonData);
         break;
       case "batter":
         drawPvBatterSlide(ctx, w, h, pvB || "타자", batterTeam, batterImg, logosByTeamKey);
@@ -209,7 +215,7 @@ export default function ShortsPvPanel() {
         break;
       default: break;
     }
-  }, [slideIdx, slides, pvP, pvB, pitcherTeam, batterTeam, pitcherImg, batterImg, currentStats, currentRows, logosByTeamKey]);
+  }, [slideIdx, slides, pvP, pvB, pitcherTeam, batterTeam, pitcherImg, batterImg, currentStats, currentRows, logosByTeamKey, pitcherSeasonData]);
 
   // 슬라이드 캡처
   const captureAllSlides = async () => {

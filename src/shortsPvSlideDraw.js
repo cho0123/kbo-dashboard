@@ -109,7 +109,7 @@ export function drawPvIntroSlide(ctx, w, h, pitcher, pitcherTeam, batter, batter
 }
 
 // 슬라이드 2: 투수 프로필
-export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, logosByTeamKey) {
+export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, logosByTeamKey, seasonData) {
   ctx.clearRect(0, 0, w, h);
 
   const color = getTeamColor(pitcherTeam);
@@ -123,37 +123,97 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
   // 팀 로고
   const pkw = teamKeyword(pitcherTeam);
   const logo = logosByTeamKey?.[pkw];
-  if (logo) ctx.drawImage(logo, 40, 80, 120, 120);
+  if (logo) ctx.drawImage(logo, 40, 60, 110, 110);
 
   // 헤더
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `500 48px ${FONT_BODY}`;
+  ctx.font = `500 44px ${FONT_BODY}`;
   ctx.fillStyle = TEXT_MAIN;
-  shadowText(ctx, "⚾ 투수 프로필", w/2, 140);
+  shadowText(ctx, "⚾ 투수 프로필", w/2, 115);
 
   // 선수 사진
   if (pitcherImg && drawableShorts4Portrait(pitcherImg)) {
-    const imgW = 480, imgH = 540;
-    const imgX = (w - imgW) / 2;
-    ctx.drawImage(pitcherImg, imgX, 280, imgW, imgH);
+    const imgW = 420, imgH = 480;
+    ctx.drawImage(pitcherImg, (w - imgW) / 2, 180, imgW, imgH);
   }
 
   // 선수명
-  ctx.font = `bold 88px ${FONT_TITLE}`;
+  ctx.font = `bold 80px ${FONT_TITLE}`;
   ctx.fillStyle = TEXT_YELLOW;
   ctx.textAlign = "center";
-  shadowText(ctx, pitcher, w/2, 900);
+  shadowText(ctx, pitcher, w/2, 730);
 
   // 팀명
-  ctx.font = `500 52px ${FONT_BODY}`;
-  ctx.fillStyle = TEXT_MAIN;
-  shadowText(ctx, pitcherTeam, w/2, 980);
-
-  // 안내 문구
   ctx.font = `500 44px ${FONT_BODY}`;
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  shadowText(ctx, "시즌 상대전적 기록", w/2, 1080);
+  ctx.fillStyle = TEXT_MAIN;
+  shadowText(ctx, pitcherTeam, w/2, 800);
+
+  if (!seasonData) {
+    ctx.font = `500 38px ${FONT_BODY}`;
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    shadowText(ctx, "시즌 데이터 로딩 중...", w/2, 900);
+    return;
+  }
+
+  // 구분선
+  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(60, 850); ctx.lineTo(w - 60, 850);
+  ctx.stroke();
+
+  // 스탯 라인 (5줄)
+  const statLines = [
+    `ERA ${seasonData.era ?? "—"}  |  ${seasonData.games ?? 0}경기  |  QS ${seasonData.qs ?? 0}`,
+    `${seasonData.wins ?? 0}승 ${seasonData.losses ?? 0}패  |  승률 ${
+      (seasonData.wins + seasonData.losses) > 0
+        ? ((seasonData.wins / (seasonData.wins + seasonData.losses)) * 100).toFixed(1) + "%"
+        : "—"
+    }`,
+    `이닝 ${seasonData.total_ip ?? "—"}  |  WHIP ${seasonData.whip != null && Number.isFinite(Number(seasonData.whip)) ? Number(seasonData.whip).toFixed(2) : "—"}`,
+    `삼진 ${seasonData.so ?? 0}  |  볼넷 ${seasonData.bb ?? 0}  |  피안타 ${seasonData.h ?? 0}`,
+    `피홈런 ${seasonData.hr ?? 0}  |  자책 ${seasonData.er ?? 0}`,
+  ];
+
+  const lineH = 90;
+  const startY = 900;
+  statLines.forEach((line, i) => {
+    ctx.font = `500 40px ${FONT_BODY}`;
+    ctx.fillStyle = i === 0 ? TEXT_YELLOW : TEXT_MAIN;
+    ctx.textAlign = "center";
+    shadowText(ctx, line, w/2, startY + i * lineH);
+  });
+
+  // 시즌 순위 배지
+  if (seasonData.ranks) {
+    const badges = [];
+    const r = seasonData.ranks;
+    if (r.win_rank  && r.win_rank  <= 20) badges.push({ label: `승 ${r.win_rank}위`,  color: "#FFD700" });
+    if (r.era_rank  && r.era_rank  <= 20) badges.push({ label: `ERA ${r.era_rank}위`, color: "#4a86e8" });
+    if (r.whip_rank && r.whip_rank <= 20) badges.push({ label: `WHIP ${r.whip_rank}위`,color: "#4a86e8" });
+    if (r.ip_rank   && r.ip_rank   <= 20) badges.push({ label: `이닝 ${r.ip_rank}위`, color: "#27ae60" });
+
+    if (badges.length > 0) {
+      const badgeW = 180, badgeH = 54, gap = 16;
+      const totalW = badges.length * badgeW + (badges.length - 1) * gap;
+      let bx = (w - totalW) / 2;
+      const by = startY + statLines.length * lineH + 20;
+
+      badges.forEach(b => {
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, badgeW, badgeH, 27);
+        ctx.fill();
+        ctx.font = `bold 30px ${FONT_BODY}`;
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        shadowText(ctx, b.label, bx + badgeW / 2, by + badgeH / 2);
+        bx += badgeW + gap;
+      });
+    }
+  }
 }
 
 // 슬라이드 3: 타자 프로필
