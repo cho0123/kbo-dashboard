@@ -8302,16 +8302,55 @@ ${JSON.stringify(games, null, 2)}`;
             .map((d) => d.data())
             .filter((r) => Number(r.year || r.season || 0) === seasonYear);
           games = lines.length;
+
           qs = lines.filter((r) => {
-            const outs = typeof r.outs === "number" ? r.outs : 0;
+            let outs = typeof r.outs === "number" ? r.outs : 0;
+            if (outs === 0) {
+              const ipVal = r.ip ?? r.IP ?? r.inn ?? r.innings ?? null;
+              if (ipVal != null && Number.isFinite(Number(ipVal))) {
+                const n = Number(ipVal);
+                const full = Math.floor(n + 1e-9);
+                const frac = n - full;
+                let partialOuts = 0;
+                if (frac < 1e-6) partialOuts = 0;
+                else if (Math.abs(frac - 0.1) < 1e-5 || Math.abs(frac - 1 / 3) < 1e-5)
+                  partialOuts = 1;
+                else if (Math.abs(frac - 0.2) < 1e-5 || Math.abs(frac - 2 / 3) < 1e-5)
+                  partialOuts = 2;
+                else partialOuts = Math.round(frac * 3);
+                outs = full * 3 + partialOuts;
+              }
+            }
             const earned = r.earned_runs ?? r.er ?? 99;
             return outs >= 18 && earned <= 3;
           }).length;
-          so = lines.reduce((s, r) => s + (r.so ?? r.strikeouts ?? 0), 0);
-          bb = lines.reduce((s, r) => s + (r.bb ?? r.walks ?? 0), 0);
-          h = lines.reduce((s, r) => s + (r.h ?? r.hits ?? 0), 0);
-          hr = lines.reduce((s, r) => s + (r.hr ?? r.home_runs ?? 0), 0);
-          er = lines.reduce((s, r) => s + (r.earned_runs ?? r.er ?? 0), 0);
+
+          so = lines.reduce(
+            (s, r) => s + Number(r.so ?? r.SO ?? r.k ?? r.K ?? r.strikeouts ?? 0),
+            0
+          );
+
+          bb = lines.reduce(
+            (s, r) =>
+              s + Number(r.bb ?? r.BB ?? r.walk ?? r.walks ?? r["볼넷"] ?? 0),
+            0
+          );
+
+          h = lines.reduce(
+            (s, r) => s + Number(r.h ?? r.H ?? r.hits ?? r.hit ?? r["안타"] ?? 0),
+            0
+          );
+
+          hr = lines.reduce(
+            (s, r) =>
+              s + Number(r.hr ?? r.HR ?? r.home_runs ?? r["홈런"] ?? 0),
+            0
+          );
+
+          er = lines.reduce(
+            (s, r) => s + Number(r.earned_runs ?? r.er ?? r.ER ?? 0),
+            0
+          );
         } catch (e) {
           /* 집계 실패 시 0 유지 */
         }
