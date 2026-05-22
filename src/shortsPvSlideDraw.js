@@ -117,7 +117,6 @@ export function drawPvIntroSlide(ctx, w, h, pitcher, pitcherTeam, batter, batter
 // 슬라이드 2: 투수 프로필
 export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, logosByTeamKey, seasonData, overlayImg) {
   ctx.clearRect(0, 0, w, h);
-
   const color = getTeamColor(pitcherTeam);
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, color);
@@ -126,7 +125,7 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
 
-  // 팀 로고
+  // 팀 로고 (상단 중앙)
   const pkw = teamKeyword(pitcherTeam);
   const logo = logosByTeamKey?.[pkw];
   if (logo) ctx.drawImage(logo, 40, 60, 110, 110);
@@ -138,80 +137,125 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
   ctx.fillStyle = TEXT_MAIN;
   shadowText(ctx, "⚾ 투수 프로필", w/2, 115);
 
-  // 선수 사진
+  // === 상단 영역: 사진(왼쪽) + 텍스트(오른쪽) ===
+  const imgX = 40;
+  const imgY = 200;
+  const imgW = 380;
+  const imgH = 430;
+
+  // 선수 사진 (왼쪽 아래)
   if (pitcherImg && drawableShorts4Portrait(pitcherImg)) {
-    const imgW = 420, imgH = 480;
-    ctx.drawImage(pitcherImg, (w - imgW) / 2, 180, imgW, imgH);
+    ctx.drawImage(pitcherImg, imgX, imgY, imgW, imgH);
   }
 
-  // 선수명
-  ctx.font = `bold 80px ${FONT_TITLE}`;
-  ctx.fillStyle = TEXT_YELLOW;
-  ctx.textAlign = "center";
-  shadowText(ctx, pitcher, w/2, 730);
+  // 오른쪽 텍스트 영역
+  const textX = imgX + imgW + 40;
+  const textAreaW = w - textX - 40;
 
   // 팀명
-  ctx.font = `500 44px ${FONT_BODY}`;
-  ctx.fillStyle = TEXT_MAIN;
-  shadowText(ctx, pitcherTeam, w/2, 800);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.font = `500 38px ${FONT_BODY}`;
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  shadowText(ctx, pitcherTeam, textX, 280);
+
+  // 선수명
+  ctx.font = `bold 72px ${FONT_TITLE}`;
+  ctx.fillStyle = TEXT_YELLOW;
+  shadowText(ctx, pitcher, textX, 370);
+
+  // 생년월일 (추후)
+  ctx.font = `500 34px ${FONT_BODY}`;
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  shadowText(ctx, "생년월일 추후", textX, 450);
+
+  // 우투우타
+  ctx.font = `500 36px ${FONT_BODY}`;
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  shadowText(ctx, "우투우타", textX, 510);
+
+  // === 구분선 ===
+  const dividerY = imgY + imgH + 40;
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(40, dividerY); ctx.lineTo(w - 40, dividerY);
+  ctx.stroke();
 
   if (!seasonData) {
     ctx.font = `500 38px ${FONT_BODY}`;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
-    shadowText(ctx, "시즌 데이터 로딩 중...", w/2, 900);
+    ctx.textAlign = "center";
+    shadowText(ctx, "시즌 데이터 로딩 중...", w/2, dividerY + 100);
+    drawOverlay(ctx, w, h, overlayImg);
     return;
   }
 
-  // 구분선
-  ctx.strokeStyle = "rgba(255,255,255,0.3)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(60, 850); ctx.lineTo(w - 60, 850);
-  ctx.stroke();
-
-  // 스탯 라인 (5줄)
-  const statLines = [
-    `ERA ${seasonData.era ?? "—"}  |  ${seasonData.games ?? 0}경기  |  QS ${seasonData.qs ?? 0}`,
-    `${seasonData.wins ?? 0}승 ${seasonData.losses ?? 0}패  |  승률 ${
-      (seasonData.wins + seasonData.losses) > 0
-        ? ((seasonData.wins / (seasonData.wins + seasonData.losses)) * 100).toFixed(1) + "%"
-        : "—"
-    }`,
-    `이닝 ${seasonData.total_ip ?? "—"}  |  WHIP ${seasonData.whip != null && Number.isFinite(Number(seasonData.whip)) ? Number(seasonData.whip).toFixed(2) : "—"}`,
-    `삼진 ${seasonData.so ?? 0}  |  4사구 ${seasonData.bb ?? 0}  |  피안타 ${seasonData.h ?? 0}`,
-    `피홈런 ${seasonData.hr ?? 0}  |  자책 ${seasonData.er ?? 0}`,
+  // === 스탯 표 ===
+  const tableStartY = dividerY + 40;
+  const tableRows = [
+    ["ERA", seasonData.era ?? "—", "경기", String(seasonData.games ?? 0)],
+    ["QS", String(seasonData.qs ?? 0), "WHIP", seasonData.whip != null && Number.isFinite(Number(seasonData.whip)) ? Number(seasonData.whip).toFixed(2) : "—"],
+    ["승", String(seasonData.wins ?? 0), "패", String(seasonData.losses ?? 0)],
+    ["이닝", seasonData.total_ip ?? "—", "삼진", String(seasonData.so ?? 0)],
+    ["4사구", String(seasonData.bb ?? 0), "피안타", String(seasonData.h ?? 0)],
+    ["피홈런", String(seasonData.hr ?? 0), "자책", String(seasonData.er ?? 0)],
   ];
 
-  const lineH = 90;
-  const startY = 900;
-  statLines.forEach((line, i) => {
-    ctx.font = `500 40px ${FONT_BODY}`;
-    ctx.fillStyle = i === 0 ? TEXT_YELLOW : TEXT_MAIN;
-    ctx.textAlign = "center";
-    shadowText(ctx, line, w/2, startY + i * lineH);
+  const colW = (w - 80) / 4;
+  const rowH = 110;
+
+  tableRows.forEach((row, rowIdx) => {
+    const y = tableStartY + rowIdx * rowH;
+    const isEven = rowIdx % 2 === 0;
+
+    // 행 배경
+    ctx.fillStyle = isEven
+      ? "rgba(255,255,255,0.08)"
+      : "rgba(255,255,255,0.04)";
+    ctx.fillRect(40, y, w - 80, rowH - 4);
+
+    // 4열 그리기 (라벨1, 값1, 라벨2, 값2)
+    row.forEach((cell, colIdx) => {
+      const cx = 40 + colIdx * colW + colW / 2;
+      const cy = y + rowH / 2;
+      const isLabel = colIdx % 2 === 0;
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      if (isLabel) {
+        ctx.font = `500 32px ${FONT_BODY}`;
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+      } else {
+        ctx.font = `bold 48px ${FONT_TITLE}`;
+        ctx.fillStyle = rowIdx === 0 ? TEXT_YELLOW : TEXT_MAIN;
+      }
+      shadowText(ctx, cell, cx, cy);
+    });
   });
 
-  // 시즌 순위 배지
+  // === 시즌 순위 배지 ===
   if (seasonData.ranks) {
     const badges = [];
     const r = seasonData.ranks;
-    if (r.win_rank  && r.win_rank  <= 20) badges.push({ label: `승 ${r.win_rank}위`,  color: "#FFD700" });
-    if (r.era_rank  && r.era_rank  <= 20) badges.push({ label: `ERA ${r.era_rank}위`, color: "#4a86e8" });
-    if (r.whip_rank && r.whip_rank <= 20) badges.push({ label: `WHIP ${r.whip_rank}위`,color: "#4a86e8" });
-    if (r.ip_rank   && r.ip_rank   <= 20) badges.push({ label: `이닝 ${r.ip_rank}위`, color: "#27ae60" });
+    if (r.win_rank  && r.win_rank  <= 20) badges.push({ label: `승 ${r.win_rank}위`,   color: "#FFD700" });
+    if (r.era_rank  && r.era_rank  <= 20) badges.push({ label: `ERA ${r.era_rank}위`,  color: "#4a86e8" });
+    if (r.whip_rank && r.whip_rank <= 20) badges.push({ label: `WHIP ${r.whip_rank}위`, color: "#4a86e8" });
+    if (r.ip_rank   && r.ip_rank   <= 20) badges.push({ label: `이닝 ${r.ip_rank}위`,  color: "#27ae60" });
 
     if (badges.length > 0) {
-      const badgeW = 180, badgeH = 54, gap = 16;
+      const badgeW = 170, badgeH = 52, gap = 12;
       const totalW = badges.length * badgeW + (badges.length - 1) * gap;
       let bx = (w - totalW) / 2;
-      const by = startY + statLines.length * lineH + 20;
+      const by = tableStartY + tableRows.length * rowH + 20;
 
       badges.forEach(b => {
         ctx.fillStyle = b.color;
         ctx.beginPath();
-        ctx.roundRect(bx, by, badgeW, badgeH, 27);
+        ctx.roundRect(bx, by, badgeW, badgeH, 26);
         ctx.fill();
-        ctx.font = `bold 30px ${FONT_BODY}`;
+        ctx.font = `bold 28px ${FONT_BODY}`;
         ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -220,6 +264,7 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
       });
     }
   }
+
   drawOverlay(ctx, w, h, overlayImg);
 }
 
