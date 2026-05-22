@@ -567,7 +567,8 @@ export function drawShorts5RecordSlide(
   if (reveal === 2) {
     if (revealCount != null) {
       const count = Math.min(revealCount, maxRows);
-      for (let i = 0; i < maxRows; i++) drawRecordEmptyRowBands(i);
+      // 빈 행 밴드를 count 수만큼만 그리기
+      for (let i = 0; i < count; i++) drawRecordEmptyRowBands(i);
       let prevRankForDelta = weekPrevRank;
       for (let i = 0; i < count; i++) {
         const y = firstRowY + i * rowH;
