@@ -8239,6 +8239,109 @@ ${JSON.stringify(games, null, 2)}`;
           }),
         };
       }
+      case "get_pitcher_season_stats": {
+        const pitcherName = String(payload.pitcher || "").trim();
+        const teamName = String(payload.team || "").trim();
+        if (!pitcherName) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "pitcher required" }),
+          };
+        }
+
+        const db = initFirebase();
+        const seasonYear = 2026;
+
+        const seasonWl = await fetchPitcherSeasonWlWhip(
+          db,
+          seasonYear,
+          pitcherName,
+          undefined,
+          teamName || undefined
+        );
+
+        let era = null;
+        try {
+          era = await fetchLatestSeasonEraByPitcherName(
+            db,
+            seasonYear,
+            pitcherName,
+            undefined,
+            teamName || undefined
+          );
+        } catch (e) {
+          era = null;
+        }
+
+        const naverStats = await fetchNaverPitcherSeasonStats(seasonYear);
+        let ranks = { era_rank: null, win_rank: null, whip_rank: null, ip_rank: null };
+        let imageUrl = null;
+        if (naverStats) {
+          const rankIndex = buildPitcherRankIndex(naverStats);
+          ranks = lookupPitcherRanksByStarterName(rankIndex, pitcherName);
+          imageUrl =
+            findPitcherImageUrlByStarterName(naverStats, pitcherName, teamName || undefined) ||
+            null;
+        }
+
+        let games = 0,
+          qs = 0,
+          so = 0,
+          bb = 0,
+          h = 0,
+          hr = 0,
+          er = 0;
+        try {
+          const snap = await db
+            .collection("pitchers")
+            .where("player", "==", pitcherName)
+            .limit(200)
+            .get();
+          const lines = snap.docs
+            .map((d) => d.data())
+            .filter((r) => Number(r.year || r.season || 0) === seasonYear);
+          games = lines.length;
+          qs = lines.filter((r) => {
+            const outs = typeof r.outs === "number" ? r.outs : 0;
+            const earned = r.earned_runs ?? r.er ?? 99;
+            return outs >= 18 && earned <= 3;
+          }).length;
+          so = lines.reduce((s, r) => s + (r.so ?? r.strikeouts ?? 0), 0);
+          bb = lines.reduce((s, r) => s + (r.bb ?? r.walks ?? 0), 0);
+          h = lines.reduce((s, r) => s + (r.h ?? r.hits ?? 0), 0);
+          hr = lines.reduce((s, r) => s + (r.hr ?? r.home_runs ?? 0), 0);
+          er = lines.reduce((s, r) => s + (r.earned_runs ?? r.er ?? 0), 0);
+        } catch (e) {
+          /* 집계 실패 시 0 유지 */
+        }
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({
+            ok: true,
+            pitcher: pitcherName,
+            team: teamName,
+            season_year: seasonYear,
+            era,
+            wins: seasonWl?.wins ?? 0,
+            losses: seasonWl?.losses ?? 0,
+            whip: seasonWl?.whip ?? null,
+            total_ip: seasonWl?.total_ip ?? null,
+            k9: seasonWl?.k9 ?? null,
+            games,
+            qs,
+            so,
+            bb,
+            h,
+            hr,
+            er,
+            ranks,
+            image_url: imageUrl,
+          }),
+        };
+      }
       case "matchup_preview": {
         const dateStr = safeIsoDate(payload.date || "") || isoSeoulToday();
         const mp = await buildMatchupPreviewPayload(db, dateStr);
