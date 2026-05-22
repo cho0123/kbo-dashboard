@@ -128,18 +128,18 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
   // 팀 로고 (상단 중앙)
   const pkw = teamKeyword(pitcherTeam);
   const logo = logosByTeamKey?.[pkw];
-  if (logo) ctx.drawImage(logo, 40, 60, 110, 110);
+  if (logo) ctx.drawImage(logo, 40, 160, 110, 110);
 
   // 헤더
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `500 44px ${FONT_BODY}`;
   ctx.fillStyle = TEXT_MAIN;
-  shadowText(ctx, "⚾ 투수 프로필", w/2, 115);
+  shadowText(ctx, "⚾ 투수 프로필", w/2, 215);
 
   // === 상단 영역: 사진(왼쪽) + 텍스트(오른쪽) ===
   const imgX = 40;
-  const imgY = 200;
+  const imgY = 300;
   const imgW = 380;
   const imgH = 430;
 
@@ -157,22 +157,22 @@ export function drawPvPitcherSlide(ctx, w, h, pitcher, pitcherTeam, pitcherImg, 
   ctx.textBaseline = "middle";
   ctx.font = `500 38px ${FONT_BODY}`;
   ctx.fillStyle = "rgba(255,255,255,0.8)";
-  shadowText(ctx, pitcherTeam, textX, 280);
+  shadowText(ctx, pitcherTeam, textX, 380);
 
   // 선수명
   ctx.font = `bold 72px ${FONT_TITLE}`;
   ctx.fillStyle = TEXT_YELLOW;
-  shadowText(ctx, pitcher, textX, 370);
+  shadowText(ctx, pitcher, textX, 470);
 
   // 생년월일 (추후)
   ctx.font = `500 34px ${FONT_BODY}`;
   ctx.fillStyle = "rgba(255,255,255,0.5)";
-  shadowText(ctx, "생년월일 추후", textX, 450);
+  shadowText(ctx, "생년월일 추후", textX, 550);
 
   // 우투우타
   ctx.font = `500 36px ${FONT_BODY}`;
   ctx.fillStyle = "rgba(255,255,255,0.8)";
-  shadowText(ctx, "우투우타", textX, 510);
+  shadowText(ctx, "우투우타", textX, 610);
 
   // === 구분선 ===
   const dividerY = imgY + imgH + 40;
