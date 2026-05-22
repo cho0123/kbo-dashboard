@@ -395,8 +395,8 @@ export default function ShortsPvPanel() {
       )}
 
       {/* 미리보기 캔버스 */}
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div ref={captureWrapRef}>
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "auto 1fr", gap: 16, alignItems: "start" }}>
+        <div ref={captureWrapRef} className="shorts-capture-wrap">
           <ShortsCanvas
             renderSlide={renderSlide}
             w={SHORTS_EXPORT_W}
@@ -410,26 +410,25 @@ export default function ShortsPvPanel() {
               type="button"
               className={`primary${slideIdx === i ? " primary-fill" : ""}`}
               onClick={() => setSlideIdx(i)}
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 13, textAlign: "left", padding: "8px 12px" }}
             >
-              {i+1}. {s.label}
+              {i + 1}. {s.label}
+              {capturedSlides[i] ? " ✓" : ""}
             </button>
           ))}
-          {pvStats.data && (
-            <button
-              type="button"
-              className="primary"
-              style={{ marginTop: 8, fontSize: 12 }}
-              onClick={async () => {
-                const canvas = captureWrapRef.current?.querySelector("canvas");
-                if (!canvas) return;
-                const blob = await canvasToBlob(canvas);
-                downloadBlob(blob, `pv_slide_${slideIdx+1}.png`);
-              }}
-            >
-              PNG 다운로드
-            </button>
-          )}
+          <button
+            type="button"
+            className="primary"
+            style={{ marginTop: 8, fontSize: 13 }}
+            onClick={async () => {
+              const canvas = captureWrapRef.current?.querySelector("canvas");
+              if (!canvas) return;
+              const blob = await canvasToBlob(canvas);
+              downloadBlob(blob, `pv_slide_${slideIdx + 1}_${slides[slideIdx]?.key}.png`);
+            }}
+          >
+            📥 현재 슬라이드 PNG
+          </button>
         </div>
       </div>
     </div>
