@@ -3688,6 +3688,17 @@ export default function App() {
               </div>
 
               <div className="side-group">
+                <div className="side-group-title">5. 쇼츠-투수VS타자</div>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setActiveKey("pv")}
+                >
+                  패널 열기
+                </button>
+              </div>
+
+              <div className="side-group">
                 <div className="side-group-title">5. 팀별 주간 트렌드</div>
                 <label>팀</label>
                 <select
@@ -3721,104 +3732,6 @@ export default function App() {
                   }}
                 >
                   트렌드 분석 실행
-                </button>
-              </div>
-
-              <div className="side-group">
-                <div className="side-group-title">6. 투수 vs 타자</div>
-                <div className="grid-2">
-                  <div>
-                    <label>투수팀</label>
-                    <select
-                      value={pitcherTeam}
-                      onChange={(e) => loadPitchers(e.target.value)}
-                    >
-                      <option value="">팀 선택</option>
-                      {KBO_TEAM_NAMES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>투수</label>
-                    <select
-                      value={pvP}
-                      onChange={(e) => setPvP(e.target.value)}
-                      disabled={!pitcherTeam || pvPlayersBusy}
-                    >
-                      <option value="">
-                        {pvPlayersBusy ? "불러오는 중…" : "투수 선택"}
-                      </option>
-                      {pitcherList.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid-2">
-                  <div>
-                    <label>타자팀</label>
-                    <select
-                      value={batterTeam}
-                      onChange={(e) => loadBatters(e.target.value)}
-                    >
-                      <option value="">팀 선택</option>
-                      {KBO_TEAM_NAMES.filter((t) => t !== pitcherTeam).map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>타자</label>
-                    <select
-                      value={pvB}
-                      onChange={(e) => setPvB(e.target.value)}
-                      disabled={!batterTeam || pvPlayersBusy}
-                    >
-                      <option value="">
-                        {pvPlayersBusy ? "불러오는 중…" : "타자 선택"}
-                      </option>
-                      {batterList.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={pvBusy}
-                  onClick={async () => {
-                    setActiveKey("pv");
-                    setPvBusy(true);
-                    setPvAiOut({ text: "", error: null });
-                    setPvGamesOpen(false);
-                    try {
-                      const res = await postKbo({
-                        action: "pv_batter_stats",
-                        pitcher: pvP,
-                        batter: pvB,
-                      });
-                      setPvStats({ data: res, error: null });
-                    } catch (e) {
-                      setPvStats({
-                        data: null,
-                        error: e?.message || String(e),
-                      });
-                    } finally {
-                      setPvBusy(false);
-                    }
-                  }}
-                >
-                  상대전적 통계 보기
                 </button>
               </div>
 
@@ -4541,6 +4454,102 @@ export default function App() {
               </div>
             ) : activeKey === "pv" ? (
               <div className="result-page">
+                <div className="section soft" style={{ marginBottom: 16 }}>
+                  <div className="grid-2">
+                    <div>
+                      <label>투수팀</label>
+                      <select
+                        value={pitcherTeam}
+                        onChange={(e) => loadPitchers(e.target.value)}
+                      >
+                        <option value="">팀 선택</option>
+                        {KBO_TEAM_NAMES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>투수</label>
+                      <select
+                        value={pvP}
+                        onChange={(e) => setPvP(e.target.value)}
+                        disabled={!pitcherTeam || pvPlayersBusy}
+                      >
+                        <option value="">
+                          {pvPlayersBusy ? "불러오는 중…" : "투수 선택"}
+                        </option>
+                        {pitcherList.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div>
+                      <label>타자팀</label>
+                      <select
+                        value={batterTeam}
+                        onChange={(e) => loadBatters(e.target.value)}
+                      >
+                        <option value="">팀 선택</option>
+                        {KBO_TEAM_NAMES.filter((t) => t !== pitcherTeam).map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>타자</label>
+                      <select
+                        value={pvB}
+                        onChange={(e) => setPvB(e.target.value)}
+                        disabled={!batterTeam || pvPlayersBusy}
+                      >
+                        <option value="">
+                          {pvPlayersBusy ? "불러오는 중…" : "타자 선택"}
+                        </option>
+                        {batterList.map((b) => (
+                          <option key={b} value={b}>
+                            {b}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={pvBusy}
+                    onClick={async () => {
+                      setActiveKey("pv");
+                      setPvBusy(true);
+                      setPvAiOut({ text: "", error: null });
+                      setPvGamesOpen(false);
+                      try {
+                        const res = await postKbo({
+                          action: "pv_batter_stats",
+                          pitcher: pvP,
+                          batter: pvB,
+                        });
+                        setPvStats({ data: res, error: null });
+                      } catch (e) {
+                        setPvStats({
+                          data: null,
+                          error: e?.message || String(e),
+                        });
+                      } finally {
+                        setPvBusy(false);
+                      }
+                    }}
+                  >
+                    상대전적 통계 보기
+                  </button>
+                </div>
                 <div className="result-hero-title">
                   {pvP || "투수"} vs {pvB || "타자"}
                 </div>
