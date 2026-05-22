@@ -8304,24 +8304,22 @@ ${JSON.stringify(games, null, 2)}`;
           games = lines.length;
 
           qs = lines.filter((r) => {
-            let outs = typeof r.outs === "number" ? r.outs : 0;
-            if (outs === 0) {
-              const ipVal = r.ip ?? r.IP ?? r.inn ?? r.innings ?? null;
-              if (ipVal != null && Number.isFinite(Number(ipVal))) {
-                const n = Number(ipVal);
-                const full = Math.floor(n + 1e-9);
-                const frac = n - full;
-                let partialOuts = 0;
-                if (frac < 1e-6) partialOuts = 0;
-                else if (Math.abs(frac - 0.1) < 1e-5 || Math.abs(frac - 1 / 3) < 1e-5)
-                  partialOuts = 1;
-                else if (Math.abs(frac - 0.2) < 1e-5 || Math.abs(frac - 2 / 3) < 1e-5)
-                  partialOuts = 2;
-                else partialOuts = Math.round(frac * 3);
-                outs = full * 3 + partialOuts;
-              }
+            let outs = 0;
+            const ipVal = r.ip ?? r.IP ?? r.inn ?? r.innings ?? null;
+            if (ipVal != null && Number.isFinite(Number(ipVal))) {
+              const n = Number(ipVal);
+              const full = Math.floor(n + 1e-9);
+              const frac = n - full;
+              let partialOuts = 0;
+              if (frac < 1e-6) partialOuts = 0;
+              else if (Math.abs(frac - 0.1) < 1e-5 || Math.abs(frac - 1 / 3) < 1e-5)
+                partialOuts = 1;
+              else if (Math.abs(frac - 0.2) < 1e-5 || Math.abs(frac - 2 / 3) < 1e-5)
+                partialOuts = 2;
+              else partialOuts = Math.round(frac * 3);
+              outs = full * 3 + partialOuts;
             }
-            const earned = r.earned_runs ?? r.er ?? 99;
+            const earned = r.earned_runs ?? r.er ?? r.ER ?? r.r ?? r.R ?? 99;
             return outs >= 18 && earned <= 3;
           }).length;
 
@@ -8348,7 +8346,8 @@ ${JSON.stringify(games, null, 2)}`;
           );
 
           er = lines.reduce(
-            (s, r) => s + Number(r.earned_runs ?? r.er ?? r.ER ?? 0),
+            (s, r) =>
+              s + Number(r.earned_runs ?? r.er ?? r.ER ?? r.r ?? r.R ?? 0),
             0
           );
         } catch (e) {
