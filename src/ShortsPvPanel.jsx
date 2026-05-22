@@ -40,7 +40,7 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ renderSlide, w, h }, ref
     const ctx = canvas.getContext("2d");
     renderSlide(ctx, canvas);
   }, [renderSlide]);
-  const PREVIEW_H = 400;
+  const PREVIEW_H = 640;
   const PREVIEW_W = Math.round(PREVIEW_H * (w / h));
   return (
     <div className="shorts-capture-wrap">
