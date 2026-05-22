@@ -552,11 +552,11 @@ export function drawShorts5RecordSlide(
     const rowBoxTop = y - 42;
     const line1Top = rowBoxTop;
     const line2Top = rowBoxTop + line1H;
-    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.beginPath();
     ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
     ctx.fill();
-    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
     ctx.beginPath();
     ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
     ctx.fill();
