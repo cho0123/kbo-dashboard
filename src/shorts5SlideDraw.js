@@ -450,7 +450,8 @@ export function drawShorts5RecordSlide(
   data,
   logoImg,
   logosByTeamKey = null,
-  step = 3
+  step = 3,
+  revealCount = null
 ) {
   const reveal = Math.max(1, Math.min(3, Number(step) || 3));
   const teamName = String(data?.team_name || data?.team_keyword || "팀").trim() || "팀";
@@ -564,6 +565,59 @@ export function drawShorts5RecordSlide(
   };
 
   if (reveal === 2) {
+    if (revealCount != null) {
+      const count = Math.min(revealCount, maxRows);
+      for (let i = 0; i < maxRows; i++) drawRecordEmptyRowBands(i);
+      let prevRankForDelta = weekPrevRank;
+      for (let i = 0; i < count; i++) {
+        const y = firstRowY + i * rowH;
+        const rowBoxTop = y - 42;
+        const line1H_local = 100;
+        const line2H_local = 100;
+        const line1Top = rowBoxTop;
+        const line2Top = rowBoxTop + line1H_local;
+        const line1Cy = line1Top + line1H_local / 2;
+        const line2Cy = line2Top + line2H_local / 2;
+        const rowDateCy = rowBoxTop + (rowH - 6) / 2;
+        const g = games[i];
+        if (!g) continue;
+        const dateStr = String(g.game_date || "").slice(5).replace("-", "/") || "—";
+        const homeMark = g.is_home ? "홈" : "원정";
+        const oppFull = String(g.opponent ?? g.opp_team_name ?? "").trim();
+        const opp = fmtTeamShort(oppFull);
+        const score = `${g.team_score ?? "—"} : ${g.opp_score ?? "—"}`;
+        const oppTk = teamKeyword(oppFull || opp);
+        const oppLogo = oppTk && logosByTeamKey ? logosByTeamKey[oppTk] : null;
+        const rankAfter =
+          g.rank_after != null && Number.isFinite(Number(g.rank_after)) ? Number(g.rank_after) : null;
+        const rankParts = parsePerGameRankParts(prevRankForDelta, rankAfter);
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+        ctx.fillText(dateStr, datePadLeft, rowDateCy);
+        ctx.fillStyle = "rgba(255,255,255,0.88)";
+        ctx.font = `600 ${bodyFontPx}px ${RECORD_FONT}`;
+        ctx.fillText(homeMark, colLeft[1] + cellPad, line1Cy);
+        const oppCellX = colLeft[2] + cellPad;
+        const logoOffset = drawSmallOpponentLogo(ctx, oppCellX, line1Cy, oppLogoSize, oppLogo);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `700 ${oppNameFontPx}px ${RECORD_FONT}`;
+        const oppTextX = oppCellX + logoOffset;
+        const oppMaxW = colLeft[2] + colW[2] - cellPad - oppTextX;
+        ctx.fillText(truncateTextToWidth(ctx, opp, oppMaxW), oppTextX, line1Cy);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `600 ${scoreFontPx}px ${RECORD_FONT}`;
+        ctx.fillText(score, colLeft[3] + cellPad, line1Cy);
+        drawRecordResultBadge(ctx, colLeft[4] + cellPad, line1Cy, g.result);
+        if (rankParts) {
+          drawRecordRankCell(ctx, colLeft[5] + cellPad, line1Cy, rankParts, rankFontPx);
+        }
+        drawRecordRowLine2(ctx, dateColEnd, w - 64, line2Cy, g, bodyFontPx);
+        if (rankAfter != null) prevRankForDelta = rankAfter;
+      }
+      return;
+    }
     for (let i = 0; i < maxRows; i++) drawRecordEmptyRowBands(i);
     return;
   }

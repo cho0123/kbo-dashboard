@@ -73,8 +73,12 @@ const TEAM_BUTTONS = [
 const SLIDES = [
   { type: "intro" },
   { type: "record", step: 1 },
-  { type: "record", step: 2 },
-  { type: "record", step: 3 },
+  { type: "record", step: 2, revealCount: 1 },
+  { type: "record", step: 2, revealCount: 2 },
+  { type: "record", step: 2, revealCount: 3 },
+  { type: "record", step: 2, revealCount: 4 },
+  { type: "record", step: 2, revealCount: 5 },
+  { type: "record", step: 2, revealCount: 6 },
   { type: "batting", step: 1 },
   { type: "batting", step: 2 },
   { type: "batting", step: 3 },
@@ -93,7 +97,10 @@ function slideExportKeyShorts5Capture(slide) {
   if (!slide?.type) return "intro";
   const stepSuffix = slide.step != null ? `_s${slide.step}` : "";
   if (slide.type === "intro") return "intro";
-  if (slide.type === "record") return `record${stepSuffix}`;
+  if (slide.type === "record") {
+    if (slide.revealCount != null) return `record_data${slide.revealCount}`;
+    return `record${stepSuffix}`;
+  }
   if (slide.type === "batting") return `batting${stepSuffix}`;
   if (slide.type === "pitcher") return `pitcher${stepSuffix}`;
   if (slide.type === "games") return `games${stepSuffix}`;
@@ -264,7 +271,8 @@ export default function Shorts5Panel() {
           data,
           logoImg,
           logosByTeamKey,
-          slide.step ?? 3
+          slide.step ?? 3,
+          slide.revealCount ?? null
         );
       else if (slide.type === "batting") {
         const mvp = data?.mvp_batter;
@@ -581,7 +589,7 @@ export default function Shorts5Panel() {
             <div className="muted" style={{ marginTop: 10 }}>
               - 슬라이드1: 인트로 (팀컬러 + 주간결산)
               <br />
-              - 슬라이드2: 주간 팀성적 (승패 + 순위변동)
+              - 슬라이드2: 주간 경기결과 (1~6경기 순차)
               <br />
               - 슬라이드3: 타격 하이라이트
               <br />
