@@ -395,40 +395,66 @@ export default function ShortsPvPanel() {
       )}
 
       {/* 미리보기 캔버스 */}
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "auto 1fr", gap: 16, alignItems: "start" }}>
-        <div ref={captureWrapRef} className="shorts-capture-wrap">
+      <div
+        style={{
+          marginTop: 14,
+          display: "grid",
+          gridTemplateColumns: "minmax(0, auto) 1fr",
+          gap: 14,
+        }}
+      >
+        <div style={{ flexShrink: 0 }} ref={captureWrapRef}>
           <ShortsCanvas
             renderSlide={renderSlide}
             w={SHORTS_EXPORT_W}
             h={SHORTS_EXPORT_H}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {slides.map((s, i) => (
+        <div>
+          <div className="muted" style={{ fontWeight: 900 }}>
+            슬라이드 ({slideIdx + 1}/{slides.length})
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
             <button
-              key={s.key}
               type="button"
-              className={`primary${slideIdx === i ? " primary-fill" : ""}`}
-              onClick={() => setSlideIdx(i)}
-              style={{ fontSize: 13, textAlign: "left", padding: "8px 12px" }}
+              onClick={() => setSlideIdx((x) => Math.max(0, x - 1))}
+              disabled={slideIdx === 0 || captureBusy}
             >
-              {i + 1}. {s.label}
-              {capturedSlides[i] ? " ✓" : ""}
+              이전
             </button>
-          ))}
-          <button
-            type="button"
-            className="primary"
-            style={{ marginTop: 8, fontSize: 13 }}
-            onClick={async () => {
-              const canvas = captureWrapRef.current?.querySelector("canvas");
-              if (!canvas) return;
-              const blob = await canvasToBlob(canvas);
-              downloadBlob(blob, `pv_slide_${slideIdx + 1}_${slides[slideIdx]?.key}.png`);
-            }}
-          >
-            📥 현재 슬라이드 PNG
-          </button>
+            <button
+              type="button"
+              onClick={() => setSlideIdx((x) => Math.min(slides.length - 1, x + 1))}
+              disabled={slideIdx >= slides.length - 1 || captureBusy}
+            >
+              다음
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const canvas = captureWrapRef.current?.querySelector("canvas");
+                if (!canvas) return;
+                const blob = await canvasToBlob(canvas);
+                downloadBlob(blob, `pv_slide_${slideIdx + 1}_${slides[slideIdx]?.key}.png`);
+              }}
+              disabled={captureBusy}
+            >
+              현재 슬라이드 PNG 다운로드
+            </button>
+          </div>
+          <div className="muted" style={{ marginTop: 10 }}>
+            - 슬라이드1: 인트로 (투수 VS 타자)
+            <br />
+            - 슬라이드2: 투수 프로필
+            <br />
+            - 슬라이드3: 타자 프로필
+            <br />
+            - 슬라이드4: 상대전적 통계
+            <br />
+            - 슬라이드5: 경기별 기록
+            <br />
+            - 슬라이드6: KBO 순위
+          </div>
         </div>
       </div>
     </div>
