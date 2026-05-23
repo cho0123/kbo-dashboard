@@ -820,7 +820,7 @@ function drawDefaultPortraitNameOverlay(ctx, cx, boxTop, boxW, boxH, name) {
 const MVP_FACE_BOX = Math.round(Math.round(530 * 0.7) * 1.05 * 0.95);
 const MVP_UPPER_DIVIDER_Y = 157 + 5;
 /** 타이틀~바 상단 블록 전체를 아래로 */
-const MVP_UPPER_BLOCK_SHIFT_Y = 50;
+const MVP_UPPER_BLOCK_SHIFT_Y = 150;
 const MVP_HEADER_GAP_LINE_TO_CENTER = 48;
 const MVP_DIVIDER_TO_FACE_TOP = 56;
 const MVP_HEADER_FONT_PX = 52;
@@ -1288,7 +1288,7 @@ function drawBattingGameTable(
 ) {
   let contentBottom = tableTop;
   const padX = 48;
-  const rowH = 118;
+  const rowH = 95;
   const maxRows = 6;
   const list = (Array.isArray(games) ? games : []).slice(0, maxRows);
   const ratios = [0.14, 0.34, 0.13, 0.13, 0.13, 0.13];
