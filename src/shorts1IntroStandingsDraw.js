@@ -172,10 +172,28 @@ const LOGO_LAYOUT = [
   { key: 9, x: 770, y: 980, size: 175, angle: 14 },
 ];
 
-function drawStandingsSolidBackground(ctx, w, h) {
-  ctx.fillStyle = "#1E88E5";
+const STANDINGS_TEAM_STRONG_COLOR = {
+  삼성: "#0055A4",
+  LG: "#C00C3F",
+  KT: "#2B2B2B",
+  SSG: "#CE0E2D",
+  NC: "#1D467D",
+  두산: "#131230",
+  KIA: "#EA0029",
+  롯데: "#042445",
+  한화: "#FF6600",
+  키움: "#820024",
+};
+
+function getStandingsTeamStrongColor(teamName) {
+  const kw = teamKeyword(teamName);
+  return (kw && STANDINGS_TEAM_STRONG_COLOR[kw]) || "#1E88E5";
+}
+
+function drawStandingsSolidBackground(ctx, w, h, teamName) {
+  const teamColor = teamName ? getStandingsTeamStrongColor(teamName) : "#1E88E5";
+  ctx.fillStyle = teamColor || "#1E88E5";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 }
 
 export function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "프로야구 경기 결과") {
@@ -284,16 +302,16 @@ export function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "�
   ctx.restore();
 }
 
-export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey) {
+export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, teamName = "") {
   ctx.clearRect(0, 0, w, h);
-  drawStandingsSolidBackground(ctx, w, h);
+  drawStandingsSolidBackground(ctx, w, h, teamName);
 
   const TOP_PAD = 120;
   const TITLE_FS = 72;
   const TITLE_BASELINE = TOP_PAD + TITLE_FS;
   const DATE_BASELINE = TITLE_BASELINE + 80;
   const DIVIDER_Y = DATE_BASELINE + 20;
-  const LIST_TOP = DIVIDER_Y + 60;
+  const LIST_TOP = DIVIDER_Y + 20;
 
   const rows = Array.isArray(standings) ? standings : [];
   console.log("standings[0]:", JSON.stringify(rows[0]));

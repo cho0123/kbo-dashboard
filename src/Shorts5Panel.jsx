@@ -351,7 +351,8 @@ export default function Shorts5Panel() {
           h,
           shorts5StandingsDateLabel(data),
           data.standings,
-          logosByTeamKey
+          logosByTeamKey,
+          teamKw
         );
         if (overlayImg) {
           ctx.drawImage(overlayImg, 0, 0, w, h);

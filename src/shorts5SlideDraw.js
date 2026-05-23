@@ -1429,7 +1429,7 @@ export async function drawShorts5BattingSlide(
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
-  if (reveal >= 2) {
+  if (reveal >= 4) {
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
@@ -2002,7 +2002,7 @@ export async function drawShorts5PitcherSlide(
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
-  if (reveal >= 2) {
+  if (reveal >= 4) {
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
