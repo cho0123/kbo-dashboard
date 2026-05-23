@@ -70,6 +70,19 @@ const TEAM_BUTTONS = [
   { keyword: "키움", label: "키움" },
 ];
 
+const TEAM_OVERLAY_MAP = {
+  "삼성": "/overlays/samsung_overlay.png",
+  "LG": "/overlays/lg_overlay.png",
+  "KT": "/overlays/kt_overlay.png",
+  "SSG": "/overlays/ssg_overlay.png",
+  "NC": "/overlays/nc_overlay.png",
+  "두산": "/overlays/doosan_overlay.png",
+  "KIA": "/overlays/kia_overlay.png",
+  "롯데": "/overlays/lotte_overlay.png",
+  "한화": "/overlays/hanwha_overlay.png",
+  "키움": "/overlays/kiwoom_overlay.png",
+};
+
 const SLIDES = [
   { type: "intro" },
   { type: "record", step: 1 },
@@ -198,6 +211,7 @@ export default function Shorts5Panel() {
   const [teamKw, setTeamKw] = useState("삼성");
   const [weekStart, setWeekStart] = useState(() => getLastWeekMondayKst());
   const [data, setData] = useState(null);
+  const [overlayImg, setOverlayImg] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [slideIdx, setSlideIdx] = useState(0);
@@ -262,8 +276,12 @@ export default function Shorts5Panel() {
 
       await loadShortsBaseballDecor();
 
-      if (slide.type === "intro") drawShorts5IntroSlide(ctx, w, h, data, logoImg);
-      else if (slide.type === "record")
+      if (slide.type === "intro") {
+        drawShorts5IntroSlide(ctx, w, h, data, logoImg);
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      } else if (slide.type === "record") {
         drawShorts5RecordSlide(
           ctx,
           w,
@@ -274,7 +292,10 @@ export default function Shorts5Panel() {
           slide.step ?? 3,
           slide.revealCount ?? null
         );
-      else if (slide.type === "batting") {
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      } else if (slide.type === "batting") {
         const mvp = data?.mvp_batter;
         const [battingAssets, portrait] = await Promise.all([
           loadShorts5BattingSlideAssets(data, teamKw),
@@ -289,8 +310,10 @@ export default function Shorts5Panel() {
           teamKw,
           slide.step ?? 4
         );
-      }
-      else if (slide.type === "pitcher") {
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      } else if (slide.type === "pitcher") {
         const mvpPitcher = data?.mvp_starter_pitcher;
         const [pitcherAssets, portrait] = await Promise.all([
           loadShorts5PitcherSlideAssets(data),
@@ -305,8 +328,10 @@ export default function Shorts5Panel() {
           teamKw,
           slide.step ?? 4
         );
-      }
-      else if (slide.type === "games")
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      } else if (slide.type === "games") {
         drawShorts5GamesSlide(
           ctx,
           w,
@@ -316,7 +341,10 @@ export default function Shorts5Panel() {
           logosByTeamKey,
           slide.step ?? 3
         );
-      else
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      } else {
         drawStandingsSlide(
           ctx,
           w,
@@ -325,8 +353,12 @@ export default function Shorts5Panel() {
           data.standings,
           logosByTeamKey
         );
+        if (overlayImg) {
+          ctx.drawImage(overlayImg, 0, 0, w, h);
+        }
+      }
     },
-    [data, slides, teamKw]
+    [data, slides, teamKw, overlayImg]
   );
 
   const renderSlideToCanvas = useCallback(
@@ -378,6 +410,18 @@ export default function Shorts5Panel() {
   useEffect(() => {
     setCapturedSlides([]);
     setSlideIdx(0);
+  }, [teamKw]);
+
+  useEffect(() => {
+    const path = TEAM_OVERLAY_MAP[teamKw];
+    if (!path) {
+      setOverlayImg(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => setOverlayImg(img);
+    img.onerror = () => setOverlayImg(null);
+    img.src = path;
   }, [teamKw]);
 
   const captureAllSlides = async () => {
