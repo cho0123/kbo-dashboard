@@ -822,7 +822,7 @@ const MVP_UPPER_DIVIDER_Y = 157 + 5;
 /** 타이틀~바 상단 블록 전체를 아래로 */
 const MVP_UPPER_BLOCK_SHIFT_Y = 250;
 const MVP_HEADER_GAP_LINE_TO_CENTER = 48;
-const MVP_DIVIDER_TO_FACE_TOP = 56;
+const MVP_DIVIDER_TO_FACE_TOP = 20;
 const MVP_HEADER_FONT_PX = 52;
 const MVP_STAT_FONT_PX = 46;
 const MVP_STAT_LINE_GAP = Math.round(54 * 1.45);
@@ -851,7 +851,7 @@ const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
 /** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
 const PITCHER_SECTION_BG_SHIFT_Y = 170;
-const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = 10;
+const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = -20;
 const PITCHER_SEASON_RANK_TITLE_OFFSET_Y = 40;
 /** drawShorts5BattingSlide: tableTitleY − sectionBgY (= 44−60 − (−70)) */
 const BATTING_LOWER_SECTION_TITLE_GAP_Y = 54;
@@ -971,7 +971,7 @@ function measureBattingTitleLogoWidth(logoImg, maxW, boxH) {
   return dw;
 }
 
-/** 팀 로고 + "주간 타격 MVP" + 선수명 — w/2 기준 가운데 정렬 */
+/** "주간 타격 MVP" + 선수명 — w/2 기준 가운데 정렬 */
 function drawBattingMvpTitleRow(
   ctx,
   w,
@@ -982,31 +982,17 @@ function drawBattingMvpTitleRow(
   titleLabel = MVP_TITLE_LABEL,
   showPlayerName = true
 ) {
-  const maxLogoW = MVP_TITLE_LOGO_MAX_W;
-  const gapLogoText = 16;
   const gapLabelName = 14;
   const name = String(playerName || "").trim() || "—";
   const label = titleLabel;
-  const logoW = measureBattingTitleLogoWidth(logoImg, maxLogoW, MVP_TITLE_LOGO_H);
 
   ctx.save();
   ctx.font = `800 ${MVP_TITLE_FONT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
   const labelW = ctx.measureText(label).width;
   const nameW = showPlayerName ? ctx.measureText(name).width : 0;
   const totalW =
-    logoW + gapLogoText + labelW + (showPlayerName ? gapLabelName + nameW : 0);
-  const left = w / 2 - totalW / 2;
-
-  const drawnLogoW = drawBattingHeaderLogo(
-    ctx,
-    left,
-    centerY,
-    maxLogoW,
-    teamName,
-    logoImg,
-    MVP_TITLE_LOGO_H
-  );
-  const textX = left + drawnLogoW + gapLogoText;
+    labelW + (showPlayerName ? gapLabelName + nameW : 0);
+  const textX = w / 2 - totalW / 2;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -1790,14 +1776,7 @@ function battingSeasonRankBadgeItems(ranks) {
 function drawSeasonRankBadgeSection(ctx, w, topY, badges) {
   if (!badges.length) return topY;
 
-  const titleY = topY + PITCHER_SEASON_RANK_TITLE_OFFSET_Y;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `800 ${PITCHER_SEASON_RANK_TITLE_FONT_PX}px "${FONT_BODY}", sans-serif`;
-  ctx.fillText("시즌 순위", w / 2, titleY);
-
-  const rowCy = titleY + PITCHER_SEASON_RANK_TITLE_TO_BADGE_Y;
+  const rowCy = topY + 30;
   const badgeH = PITCHER_SEASON_RANK_BADGE_H;
   const padX = PITCHER_SEASON_RANK_BADGE_PAD_X;
   const gap = PITCHER_SEASON_RANK_BADGE_GAP;
