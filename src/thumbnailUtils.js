@@ -10,7 +10,7 @@ export const TEAM_COLORS = {
   롯데: { bg: "#042445", accent: "#EB1C24", label: "롯데 자이언츠" },
   한화: { bg: "#FF6600", accent: "#FFFFFF", label: "한화 이글스" },
   NC: { bg: "#1D467D", accent: "#BFA141", label: "NC 다이노스" },
-  키움: { bg: "#570514", accent: "#FFFFFF", label: "키움 히어로즈" },
+  키움: { bg: "#7D0521", accent: "#FFFFFF", label: "키움 히어로즈" },
 };
 
 export const TEAM_LOGO_PATH = {
