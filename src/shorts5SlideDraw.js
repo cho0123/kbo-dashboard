@@ -850,7 +850,7 @@ const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 /** 등판기록 구분 흰선 — 섹션 시작 기준 추가 위로 이동 */
 const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
 /** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
-const PITCHER_SECTION_BG_SHIFT_Y = 170;
+const PITCHER_SECTION_BG_SHIFT_Y = 110;
 const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = -8;
 const PITCHER_SEASON_RANK_TITLE_OFFSET_Y = 40;
 /** drawShorts5BattingSlide: tableTitleY − sectionBgY (= 44−60 − (−70)) */
@@ -864,7 +864,7 @@ const PITCHER_SEASON_RANK_BADGE_GAP = 12;
 const PITCHER_SEASON_RANK_BADGE_RADIUS = 22;
 const PITCHER_RELIEF_TITLE_FONT_PX = 44;
 /** 2줄 레이아웃용 행 높이 (이전 116 × 1.6) */
-const PITCHER_RELIEF_ROW_H = 186;
+const PITCHER_RELIEF_ROW_H = 140;
 const PITCHER_RELIEF_NAME_FONT_PX = 40;
 const PITCHER_RELIEF_DATE_FONT_PX = 34;
 const PITCHER_RELIEF_STATS_FONT_PX = 34;
@@ -1469,10 +1469,6 @@ export async function drawShorts5BattingSlide(
 
   if (reveal >= 4) {
     const tableTitleY = topDividerY + 44 + BATTING_GAME_TABLE_SHIFT_Y;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.font = `800 40px "${FONT_BODY}", sans-serif`;
-    ctx.fillText("경기별 기록", w / 2, tableTitleY);
 
     drawBattingGameTable(
       ctx,
@@ -1878,7 +1874,7 @@ function drawPitcherGameDetailSection(ctx, w, topY, game, seasonRanks, includeSe
     const cx = padX + colW * i + colW / 2;
     ctx.fillText(cols[i].val, cx, valueY);
   }
-  let bottomY = valueY + 36 + PITCHER_SEASON_RANK_SECTION_SHIFT_Y;
+  let bottomY = valueY + 36 + PITCHER_SEASON_RANK_SECTION_SHIFT_Y + 7;
   if (includeSeasonRanks) {
     bottomY = drawPitcherSeasonRankSection(ctx, w, bottomY, seasonRanks);
   }
