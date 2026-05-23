@@ -485,7 +485,7 @@ export function drawShorts5RecordSlide(
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFD700";
   ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
-  ctx.fillText(summaryLine, summaryCenterX, summaryCy);
+  ctx.fillText(summaryLine, w / 2, summaryCy);
 
   if (reveal < 2) return;
 
