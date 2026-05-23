@@ -337,7 +337,7 @@ function fmtRecordWeekSummaryLine(data) {
   const rank = data?.rank_change?.current_rank;
   const rankPart =
     rank != null && Number.isFinite(Number(rank)) ? `(${Number(rank)}위)` : "";
-  const dateLabel = datePart ? `${datePart} 주간` : "주간";
+  const dateLabel = datePart ? `${datePart} 주간결과` : "주간결과";
   return [dateLabel, wlPart, rankPart].filter(Boolean).join("  ");
 }
 
@@ -460,7 +460,6 @@ export function drawShorts5RecordSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName);
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const HEADER_Y_SHIFT = -50 - 120;
   const LOGO_X = 60;
@@ -478,24 +477,7 @@ export function drawShorts5RecordSlide(
   const summaryCenterX = (logoRightX + w) / 2;
   const lineStartX = LOGO_X + LOGO_BOX + 16;
 
-  drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, logoImg);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 ${titleFontPx}px ${RECORD_FONT}`;
-  shadowTextSoft(ctx);
-  ctx.fillText("주간 경기결과", summaryCenterX, titleCy);
-  resetShadow(ctx);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(lineStartX, divY);
-  ctx.lineTo(w * 0.95, divY);
-  ctx.stroke();
-
-  const summaryFontPx = 48;
+  const summaryFontPx = 53;
   const summaryGapBelowLine = 40;
   const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
   const summaryLine = fmtRecordWeekSummaryLine(data);
@@ -1459,7 +1441,6 @@ export async function drawShorts5BattingSlide(
   const [accentBg] = teamGrad(teamName);
   ctx.fillStyle = accentBg || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
@@ -2045,7 +2026,6 @@ export async function drawShorts5PitcherSlide(
   const [accentBg] = teamGrad(teamName);
   ctx.fillStyle = accentBg || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
@@ -2131,7 +2111,6 @@ export function drawShorts5GamesSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName);
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const HEADER_Y_SHIFT = -50 - 120;
   const LOGO_X = 60;
