@@ -3,7 +3,7 @@
 export const TEAM_COLORS = {
   KIA: { bg: "#EA0029", accent: "#FFFFFF", label: "KIA 타이거즈" },
   삼성: { bg: "#074CA1", accent: "#C0C0C0", label: "삼성 라이온즈" },
-  LG: { bg: "#C30452", accent: "#FFFFFF", label: "LG 트윈스" },
+  LG: { bg: "#C00C3F", accent: "#FFFFFF", label: "LG 트윈스" },
   두산: { bg: "#131230", accent: "#FFFFFF", label: "두산 베어스" },
   KT: { bg: "#000000", accent: "#EB1C24", label: "kt wiz" },
   SSG: { bg: "#CE0E2D", accent: "#FFD700", label: "SSG 랜더스" },

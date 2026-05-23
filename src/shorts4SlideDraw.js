@@ -31,7 +31,7 @@ const TEAM_GRAD = {
 /** 쇼츠4 인트로 등 전용 팀 강조 단색 (TEAM_GRAD와 별도) */
 const TEAM_STRONG_COLOR = {
   삼성: "#0055A4",
-  LG: "#C0001C",
+  LG: "#C00C3F",
   KT: "#2B2B2B",
   SSG: "#CE0E2D",
   NC: "#071D49",
