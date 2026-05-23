@@ -851,7 +851,7 @@ const PITCHER_GAME_SECTION_DIVIDER_GAP = 12;
 const PITCHER_GAME_SECTION_DIVIDER_SHIFT_Y = 30;
 /** 투수 슬라이드 하단 어두운 배경 시작 Y 추가 */
 const PITCHER_SECTION_BG_SHIFT_Y = 170;
-const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = -20;
+const PITCHER_SEASON_RANK_SECTION_SHIFT_Y = -15;
 const PITCHER_SEASON_RANK_TITLE_OFFSET_Y = 40;
 /** drawShorts5BattingSlide: tableTitleY − sectionBgY (= 44−60 − (−70)) */
 const BATTING_LOWER_SECTION_TITLE_GAP_Y = 54;
@@ -884,7 +884,7 @@ const BATTING_GAME_TABLE_SHIFT_Y = -30;
 /** 타이틀 행(로고+텍스트)만 위로 (흰 구분선과 겹침 방지) */
 const MVP_TITLE_ROW_SHIFT_Y = -20;
 /** 하단 경기별 기록 섹션 배경 fillRect 시작 Y (위로 이동 시 음수) */
-const BATTING_SECTION_BG_SHIFT_Y = -40;
+const BATTING_SECTION_BG_SHIFT_Y = -20;
 const MVP_BAR_W_FRAC = 0.9;
 const MVP_BAR_H = 120;
 const MVP_BAR_GAP = 18;
