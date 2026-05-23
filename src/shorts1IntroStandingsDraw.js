@@ -360,7 +360,7 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
   const TOP_H = 220;
 
   const GRID_W = 460;
-  const GRID_H = 227;
+  const GRID_H = 223;
   const GRID_COL_GAP = GRID_GAP;
   const GRID_ROW_GAP = GRID_GAP;
 
