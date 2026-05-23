@@ -1438,8 +1438,7 @@ export async function drawShorts5BattingSlide(
   });
 
   ctx.clearRect(0, 0, w, h);
-  const [accentBg] = teamGrad(teamName);
-  ctx.fillStyle = accentBg || "#131922";
+  ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
 
   const topDividerY = Math.round(h * 0.52);
@@ -2023,8 +2022,7 @@ export async function drawShorts5PitcherSlide(
   const logosByTeamKey = assets?.logosByTeamKey || {};
 
   ctx.clearRect(0, 0, w, h);
-  const [accentBg] = teamGrad(teamName);
-  ctx.fillStyle = accentBg || "#131922";
+  ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
 
   const topDividerY = Math.round(h * 0.52);
