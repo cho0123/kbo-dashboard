@@ -28,6 +28,19 @@ const KBO_TEAMS = [
   { keyword: "키움", label: "키움 히어로즈" },
 ];
 
+const TEAM_OVERLAY_MAP = {
+  "삼성 라이온즈": "/overlays/samsung_overlay.png",
+  "LG 트윈스": "/overlays/lg_overlay.png",
+  "KT 위즈": "/overlays/kt_overlay.png",
+  "SSG 랜더스": "/overlays/ssg_overlay.png",
+  "NC 다이노스": "/overlays/nc_overlay.png",
+  "두산 베어스": "/overlays/doosan_overlay.png",
+  "KIA 타이거즈": "/overlays/kia_overlay.png",
+  "롯데 자이언츠": "/overlays/lotte_overlay.png",
+  "한화 이글스": "/overlays/hanwha_overlay.png",
+  "키움 히어로즈": "/overlays/kiwoom_overlay.png",
+};
+
 // 캔버스 서브컴포넌트
 const ShortsCanvas = forwardRef(function ShortsCanvas({ renderSlide, w, h }, ref) {
   const canvasRef = useRef(null);
@@ -112,11 +125,18 @@ export default function ShortsPvPanel() {
   }, []);
 
   useEffect(() => {
+    // 투수기준: 투수팀 / 타자기준: 타자팀
+    const activeTeam = pvMode === "pitcher" ? pitcherTeam : batterTeam;
+    const path = TEAM_OVERLAY_MAP[activeTeam];
+    if (!path) {
+      setOverlayImg(null);
+      return;
+    }
     const img = new Image();
     img.onload = () => setOverlayImg(img);
     img.onerror = () => setOverlayImg(null);
-    img.src = "/overlays/samsung_overlay.png";
-  }, []);
+    img.src = path;
+  }, [pvMode, pitcherTeam, batterTeam]);
 
   // 선수 목록 로드
   const loadPitchers = useCallback(async (team) => {
