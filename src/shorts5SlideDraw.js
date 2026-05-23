@@ -395,15 +395,15 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
   ctx.fillStyle = getTeamStrongColor(team);
   ctx.fillRect(0, 0, w, h);
 
-  const teamNameY = h * 0.08 + 110;
-  const teamFontPx = 160;
+  const teamNameY = h * 0.08 + 210;
+  const teamFontPx = Math.round(160 * 0.6); // 96px
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 ${teamFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(team, w / 2, teamNameY);
 
-  const logoBox = Math.round(840 * 0.8);
+  const logoBox = Math.round(840 * 0.8 * 0.8); // 538px
   const logoTop = h * 0.22;
   drawLogoInBox(ctx, (w - logoBox) / 2, logoTop, logoBox, logoBox, team, logoImg);
   const logoBottomY = logoTop + logoBox;
@@ -431,7 +431,7 @@ export function drawShorts5IntroSlide(ctx, w, h, data, logoImg) {
     ctx.fillText(weekRangeStr, w / 2, weekRangeY);
   }
 
-  const gamePreviewY = h * 0.93 - 50;
+  const gamePreviewY = h * 0.93 - 80;
   ctx.font = `italic 900 62px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   shadowTextSoft(ctx);
