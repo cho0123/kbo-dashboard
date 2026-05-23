@@ -2101,23 +2101,6 @@ export function drawShorts5GamesSlide(
   const summaryCenterX = (logoRightX + w) / 2;
   const lineStartX = LOGO_X + LOGO_BOX + 16;
 
-  drawLogoInBox(ctx, LOGO_X, logoTop, LOGO_BOX, LOGO_BOX, teamName, logoImg);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 ${titleFontPx}px ${RECORD_FONT}`;
-  shadowTextSoft(ctx);
-  ctx.fillText("이번주 경기일정", summaryCenterX, titleCy);
-  resetShadow(ctx);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(lineStartX, divY);
-  ctx.lineTo(w * 0.95, divY);
-  ctx.stroke();
-
   const summaryFontPx = 48;
   const summaryGapBelowLine = 40;
   const summaryCy = divY + summaryGapBelowLine + summaryFontPx / 2;
@@ -2125,11 +2108,12 @@ export function drawShorts5GamesSlide(
     data?.this_week_start ?? data?.schedule_week_start,
     data?.this_week_end ?? data?.schedule_week_end
   );
+  const weekLabel = weekRangeStr ? `${weekRangeStr} 경기일정` : "경기일정";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#FFD700";
-  ctx.font = `700 ${summaryFontPx}px ${RECORD_FONT}`;
-  ctx.fillText(weekRangeStr || "—", summaryCenterX, summaryCy);
+  ctx.font = `700 53px ${RECORD_FONT}`;
+  ctx.fillText(weekLabel, w / 2, summaryCy);
 
   if (reveal < 2) return;
 
@@ -2171,11 +2155,11 @@ export function drawShorts5GamesSlide(
     const rowBoxTop = y - 42;
     const line1Top = rowBoxTop;
     const line2Top = rowBoxTop + line1H;
-    ctx.fillStyle = "rgba(0,0,0,0.12)";
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.beginPath();
     ctx.roundRect(64, line1Top, w - 128, line1H, [12, 12, 0, 0]);
     ctx.fill();
-    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
     ctx.beginPath();
     ctx.roundRect(64, line2Top, w - 128, line2H, [0, 0, 12, 12]);
     ctx.fill();
