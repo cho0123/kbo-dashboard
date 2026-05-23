@@ -36,7 +36,7 @@ const TEAM_STRONG_COLOR = {
   LG: "#C00C3F",
   KT: "#2B2B2B",
   SSG: "#CE0E2D",
-  NC: "#071D49",
+  NC: "#1D467D",
   두산: "#131230",
   KIA: "#EA0029",
   롯데: "#042445",

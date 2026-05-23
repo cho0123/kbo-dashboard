@@ -7,9 +7,9 @@ export const TEAM_COLORS = {
   두산: { bg: "#131230", accent: "#FFFFFF", label: "두산 베어스" },
   KT: { bg: "#000000", accent: "#EB1C24", label: "kt wiz" },
   SSG: { bg: "#CE0E2D", accent: "#FFD700", label: "SSG 랜더스" },
-  롯데: { bg: "#041E42", accent: "#EB1C24", label: "롯데 자이언츠" },
+  롯데: { bg: "#042445", accent: "#EB1C24", label: "롯데 자이언츠" },
   한화: { bg: "#FF6600", accent: "#FFFFFF", label: "한화 이글스" },
-  NC: { bg: "#071D5B", accent: "#BFA141", label: "NC 다이노스" },
+  NC: { bg: "#1D467D", accent: "#BFA141", label: "NC 다이노스" },
   키움: { bg: "#570514", accent: "#FFFFFF", label: "키움 히어로즈" },
 };
 
