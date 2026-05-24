@@ -7122,6 +7122,11 @@ ${JSON.stringify(games, null, 2)}`;
           topTextOpacity,
           topTextFont,
           team,
+          layout: payload.layout ?? "kbo",
+          videoScaleY: payload.videoScaleY ?? 100,
+          videoOffsetY: payload.videoOffsetY ?? 50,
+          topBarColor: payload.topBarColor ?? null,
+          bottomBarColor: payload.bottomBarColor ?? null,
         };
         if (music_s3_key) {
           meta.music_s3_key = music_s3_key;
