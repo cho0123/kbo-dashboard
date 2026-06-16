@@ -1656,6 +1656,9 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const captureWrapRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
   const [capturedSlides, setCapturedSlides] = useState([]);
+  const [youtubeTitle, setYoutubeTitle] = useState("");
+  const [youtubeTitleBusy, setYoutubeTitleBusy] = useState(false);
+  const [youtubeTitleCopied, setYoutubeTitleCopied] = useState(false);
 
   useEffect(() => {
     setDate(defaultDate);
@@ -1808,6 +1811,32 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     }
   };
 
+  const handleGenerateTitle = async () => {
+    if (!data?.games?.length) return;
+    setYoutubeTitleBusy(true);
+    try {
+      const games = data.games.map((g) => ({
+        home_team: g.home_team,
+        away_team: g.away_team,
+        home_score: g.home_score,
+        away_score: g.away_score,
+        winning_pitcher: g.winning_pitcher,
+        losing_pitcher: g.losing_pitcher,
+      }));
+      const res = await postKbo({
+        action: "generate_shorts1_title",
+        date,
+        games,
+      });
+      if (res?.ok === false) throw new Error(res.error || "제목 생성 실패");
+      setYoutubeTitle(res?.title || "");
+    } catch (e) {
+      setYoutubeTitle("제목 생성 실패: " + (e?.message || String(e)));
+    } finally {
+      setYoutubeTitleBusy(false);
+    }
+  };
+
   const downloadPng = async (idx) => {
     const c = document.createElement("canvas");
     await renderSlideToCanvas(idx, c);
@@ -1934,6 +1963,42 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
           전체 ZIP 다운로드
         </button>
       </div>
+
+            {data && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ width: "100%" }}
+                  onClick={handleGenerateTitle}
+                  disabled={youtubeTitleBusy}
+                >
+                  {youtubeTitleBusy ? "제목 생성 중..." : "✨ 유튜브 제목 자동생성"}
+                </button>
+                {youtubeTitle && (
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      value={youtubeTitle}
+                      onChange={(e) => setYoutubeTitle(e.target.value)}
+                      style={{ width: "100%", fontSize: 14, padding: "6px 8px" }}
+                    />
+                    <button
+                      type="button"
+                      className="primary"
+                      style={{ marginTop: 4, width: "100%" }}
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(youtubeTitle);
+                        setYoutubeTitleCopied(true);
+                        setTimeout(() => setYoutubeTitleCopied(false), 2000);
+                      }}
+                    >
+                      {youtubeTitleCopied ? "✅ 복사됨!" : "📋 제목 복사"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
       {error ? <pre className="result-error-light">{error}</pre> : null}
 

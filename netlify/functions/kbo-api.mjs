@@ -6155,6 +6155,53 @@ ${JSON.stringify(games, null, 2)}`;
           }),
         };
       }
+      case "generate_shorts1_title": {
+        const { date, games } = payload;
+        if (!games?.length) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "games required" }),
+          };
+        }
+
+        // 오늘 경기 특이사항 분석
+        const gamesSummary = games
+          .map((g) => {
+            const hs = Number(g.home_score);
+            const as = Number(g.away_score);
+            const diff = Math.abs(hs - as);
+            const isClose = diff <= 1;
+            const isBigWin = diff >= 7;
+            const winner = hs > as ? g.home_team : g.away_team;
+            const loser = hs > as ? g.away_team : g.home_team;
+            return `${g.away_team} vs ${g.home_team}: ${as}-${hs} (${winner} 승, 점수차 ${diff})`;
+          })
+          .join("\n");
+
+        const systemPrompt = `당신은 유튜브 쇼츠 전문 제목 작성가입니다.
+KBO 야구 전체 경기 결과를 기반으로 훅킹되는 유튜브 제목을 작성합니다.
+규칙:
+- 특정 팀을 편애하지 않는 중립적 제목
+- 오늘 경기의 가장 극적인 요소 활용
+- 이모지 1~2개 포함
+- 30자 이내
+- 클릭하고 싶게 만드는 제목
+- 제목만 출력 (다른 설명 없이)`;
+
+        const userPrompt = `오늘(${date}) KBO 경기 결과:
+${gamesSummary}
+
+위 경기들을 보고 전체 야구팬이 클릭할만한 유튜브 쇼츠 제목을 1개만 작성해줘.
+특정 팀 언급 없이 오늘 경기의 가장 흥미로운 포인트를 뽑아서.`;
+
+        const result = await claude(systemPrompt, userPrompt, 200);
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, title: result }),
+        };
+      }
       case "elevenlabs_tts": {
         const jobId = String(payload.jobId || "").trim();
         const segRaw = payload.segIndex;
