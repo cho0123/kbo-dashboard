@@ -6165,8 +6165,27 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
 
+        // 취소/무효 경기 제외 (점수가 없는 경기)
+        const validGames = games.filter(
+          (g) =>
+            g?.home_score != null &&
+            g?.away_score != null &&
+            String(g.home_score).trim() !== "" &&
+            String(g.away_score).trim() !== "" &&
+            !isNaN(Number(g.home_score)) &&
+            !isNaN(Number(g.away_score))
+        );
+
+        if (!validGames.length) {
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, title: "오늘 KBO 경기가 없습니다 ⚾" }),
+          };
+        }
+
         // 오늘 경기 특이사항 분석
-        const gamesSummary = games
+        const gamesSummary = validGames
           .map((g) => {
             const hs = Number(g.home_score);
             const as = Number(g.away_score);
