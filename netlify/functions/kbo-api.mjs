@@ -6184,19 +6184,43 @@ ${JSON.stringify(games, null, 2)}`;
           };
         }
 
-        // 오늘 경기 특이사항 분석
-        const gamesSummary = validGames
-          .map((g) => {
-            const hs = Number(g.home_score);
-            const as = Number(g.away_score);
-            const diff = Math.abs(hs - as);
-            const isClose = diff <= 1;
-            const isBigWin = diff >= 7;
-            const winner = hs > as ? g.home_team : g.away_team;
-            const loser = hs > as ? g.away_team : g.home_team;
-            return `${g.away_team} vs ${g.home_team}: ${as}-${hs} (${winner} 승, 점수차 ${diff})`;
-          })
-          .join("\n");
+        const gamesSummary = validGames.map(g => {
+          const hs = Number(g.home_score);
+          const as = Number(g.away_score);
+          const diff = Math.abs(hs - as);
+          const totalScore = hs + as;
+          const flags = [];
+
+          // 연장전
+          if (g.total_innings && Number(g.total_innings) > 9) {
+            flags.push(`연장 ${g.total_innings}회`);
+          }
+          // 1점차 접전
+          if (diff === 1) flags.push("1점차 접전");
+          // 콜드게임급 대승
+          if (diff >= 7) flags.push(`${diff}점차 대승`);
+          // 대량득점
+          if (totalScore >= 15) flags.push(`양팀 합산 ${totalScore}점 대난타전`);
+          else if (hs >= 10 || as >= 10) flags.push("두 자릿수 득점");
+
+          const winner = hs > as ? g.home_team : g.away_team;
+          const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+          return `${g.away_team} ${as} - ${hs} ${g.home_team} (${winner} 승)${flagStr}`;
+        }).join("\n");
+
+        // 전체 특이사항 요약
+        const allFlags = validGames.flatMap(g => {
+          const hs = Number(g.home_score);
+          const as = Number(g.away_score);
+          const diff = Math.abs(hs - as);
+          const f = [];
+          if (g.total_innings && Number(g.total_innings) > 9) f.push("연장전");
+          if (diff === 1) f.push("1점차접전");
+          if (diff >= 7) f.push("대승");
+          if (hs + as >= 15) f.push("대난타전");
+          return f;
+        });
+        const hasSpecial = allFlags.length > 0;
 
         const systemPrompt = `당신은 유튜브 쇼츠 전문 제목 작성가입니다.
 KBO 야구 전체 경기 결과를 기반으로 훅킹되는 유튜브 제목을 작성합니다.
@@ -6211,8 +6235,11 @@ KBO 야구 전체 경기 결과를 기반으로 훅킹되는 유튜브 제목을
         const userPrompt = `오늘(${date}) KBO 경기 결과:
 ${gamesSummary}
 
-위 경기들을 보고 전체 야구팬이 클릭할만한 유튜브 쇼츠 제목을 1개만 작성해줘.
-특정 팀 언급 없이 오늘 경기의 가장 흥미로운 포인트를 뽑아서.`;
+${hasSpecial
+  ? `오늘 특이사항: ${[...new Set(allFlags)].join(", ")} 경기가 있었습니다. 이걸 활용해서 훅킹 제목을 써줘.`
+  : "오늘 특별히 눈에 띄는 경기는 없었습니다. 무난하지만 클릭하고 싶은 제목을 써줘."
+}
+제목 1개만 출력. 30자 이내. 이모지 1~2개 포함.`;
 
         const result = await claude(systemPrompt, userPrompt, 200);
         return {
