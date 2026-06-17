@@ -1426,7 +1426,6 @@ export async function drawShorts5BattingSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
@@ -1434,6 +1433,7 @@ export async function drawShorts5BattingSlide(
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
+  drawBaseballBackground(ctx);
 
   if (!mvp?.player) {
     if (reveal >= 1) {
@@ -2000,7 +2000,6 @@ export async function drawShorts5PitcherSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
@@ -2008,6 +2007,7 @@ export async function drawShorts5PitcherSlide(
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
+  drawBaseballBackground(ctx);
 
   const padL = 48;
 
