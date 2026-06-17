@@ -1658,6 +1658,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [youtubeTitle, setYoutubeTitle] = useState("");
   const [youtubeTitleBusy, setYoutubeTitleBusy] = useState(false);
   const [youtubeTitleCopied, setYoutubeTitleCopied] = useState(false);
+  const [thumbnailPrompt, setThumbnailPrompt] = useState("");
+  const [thumbnailPromptCopied, setThumbnailPromptCopied] = useState(false);
 
   useEffect(() => {
     setDate(defaultDate);
@@ -1836,6 +1838,68 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     }
   };
 
+  const handleGenerateThumbnailPrompt = () => {
+    if (!data?.games?.length) return;
+
+    const validGames = data.games.filter(g =>
+      g.home_score != null && g.away_score != null &&
+      !isNaN(Number(g.home_score)) && !isNaN(Number(g.away_score))
+    );
+
+    // MVP 선수 수집
+    const mvpNames = [];
+    for (const g of validGames) {
+      const mvps = Array.isArray(g.mvp_batters) ? g.mvp_batters : g.mvp_batter ? [g.mvp_batter] : [];
+      for (const m of mvps.slice(0, 1)) {
+        if (m?.name) mvpNames.push({ name: m.name, team: m.team, hr: m.hr, h: m.h });
+      }
+    }
+
+    // 특이사항 수집
+    const flags = [];
+    for (const g of validGames) {
+      const hs = Number(g.home_score);
+      const as = Number(g.away_score);
+      const diff = Math.abs(hs - as);
+      if (g.total_innings && Number(g.total_innings) > 9) flags.push("연장전");
+      if (diff === 1) flags.push("1점차 혈투");
+      if (diff >= 7) flags.push("대승");
+      if (hs + as >= 15) flags.push("대난타전");
+    }
+
+    // 팀 컬러 (오늘 첫 경기 기준)
+    const firstGame = validGames[0];
+    const teamColors = firstGame
+      ? `${firstGame.home_team} vs ${firstGame.away_team}`
+      : "KBO baseball";
+
+    // MVP 설명
+    const mvpDesc = mvpNames.length > 0
+      ? mvpNames.slice(0, 2).map(m =>
+          `${m.name}(${m.team})${m.hr > 0 ? ` ${m.hr}홈런` : ` ${m.h}안타`}`
+        ).join(", ")
+      : "오늘의 스타 선수";
+
+    // 특이사항
+    const flagDesc = flags.length > 0
+      ? flags.slice(0, 2).join(", ")
+      : "치열한 승부";
+
+    const prompt = `Korean KBO professional baseball game highlight thumbnail.
+Dynamic night baseball stadium atmosphere with dramatic lighting.
+Energetic crowd in the background, bright stadium lights.
+Action-packed sports moment, cinematic wide angle.
+Bold visual impact, no specific player face needed.
+Theme: ${flagDesc} - Today's KBO highlights.
+Featured context: ${mvpDesc}.
+Color mood: vibrant, high-energy sports photography.
+9:16 vertical format for YouTube Shorts thumbnail.
+Korean baseball aesthetic, professional sports photography style.
+No text overlay needed.`;
+
+    setThumbnailPrompt(prompt);
+  };
+
   const downloadPng = async (idx) => {
     const c = document.createElement("canvas");
     await renderSlideToCanvas(idx, c);
@@ -1994,6 +2058,52 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                     >
                       {youtubeTitleCopied ? "✅ 복사됨!" : "📋 제목 복사"}
                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {data && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="primary primary-fill"
+                  style={{ width: "100%" }}
+                  onClick={handleGenerateThumbnailPrompt}
+                >
+                  🖼️ 썸네일 프롬프트 생성 (Higgsfield)
+                </button>
+                {thumbnailPrompt && (
+                  <div style={{ marginTop: 8 }}>
+                    <textarea
+                      readOnly
+                      value={thumbnailPrompt}
+                      rows={6}
+                      style={{
+                        width: "100%",
+                        fontSize: 12,
+                        background: "#1a1a2e",
+                        color: "#ccc",
+                        border: "1px solid #444",
+                        borderRadius: 6,
+                        padding: 8
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="primary"
+                      style={{ marginTop: 4, width: "100%" }}
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(thumbnailPrompt);
+                        setThumbnailPromptCopied(true);
+                        setTimeout(() => setThumbnailPromptCopied(false), 2000);
+                      }}
+                    >
+                      {thumbnailPromptCopied ? "✅ 복사됨!" : "📋 프롬프트 복사"}
+                    </button>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      복사 후 Claude 채팅(Higgsfield 연결)에 붙여넣어 이미지 생성하세요.
+                    </div>
                   </div>
                 )}
               </div>
