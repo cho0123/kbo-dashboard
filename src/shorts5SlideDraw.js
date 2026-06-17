@@ -1433,7 +1433,6 @@ export async function drawShorts5BattingSlide(
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
-  drawBaseballBackground(ctx);
 
   if (!mvp?.player) {
     if (reveal >= 1) {
@@ -1482,6 +1481,7 @@ export async function drawShorts5BattingSlide(
   }
 
   primeShorts5BattingAssets(data, teamKwOverride);
+  drawBaseballBackground(ctx);
 }
 
 const __shorts5PitcherAssetsCache = new Map();
@@ -2007,7 +2007,6 @@ export async function drawShorts5PitcherSlide(
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, sectionBgY, w, h - sectionBgY);
   }
-  drawBaseballBackground(ctx);
 
   const padL = 48;
 
@@ -2062,6 +2061,7 @@ export async function drawShorts5PitcherSlide(
   }
 
   primeShorts5PitcherAssets(data, teamKwOverride);
+  drawBaseballBackground(ctx);
 }
 
 /**
