@@ -6215,7 +6215,7 @@ ${JSON.stringify(games, null, 2)}`;
           const diff = Math.abs(hs - as);
           const f = [];
           if (g.total_innings && Number(g.total_innings) > 9) f.push("연장전");
-          if (diff === 1) f.push("1점차접전");
+          if (diff === 1) f.push("1점차 혈투");
           if (diff >= 7) f.push("대승");
           if (hs + as >= 15) f.push("대난타전");
           return f;
@@ -6234,7 +6234,8 @@ KBO 야구 전체 경기 결과를 기반으로 훅킹되는 유튜브 제목을
 - "역전", "역전승", "역전극" 등 역전 관련 표현 절대 사용 금지
   (이닝별 점수 데이터가 없어서 역전 여부를 알 수 없음)
 - 확인된 데이터(점수차, 연장전, 총득점)만 기반으로 작성
-- 없는 사실을 추측해서 쓰지 말 것`;
+- 없는 사실을 추측해서 쓰지 말 것
+- 1점차 경기는 "혈투", "초접전", "숨막히는 승부" 등으로 표현`;
 
         const userPrompt = `오늘(${date}) KBO 경기 결과:
 ${gamesSummary}
