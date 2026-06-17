@@ -1,7 +1,7 @@
 /**
  * 쇼츠5 — 팀별 주간결산 슬라이드 (쇼츠1~4 미수정)
  */
-import { drawBaseballBackground } from "./shortsBaseballDecor.js";
+import { drawBaseballBackground, drawBaseballBackgroundUpper } from "./shortsBaseballDecor.js";
 import { loadSvgLogo, teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import {
   drawableShorts4Portrait,
@@ -1426,7 +1426,7 @@ export async function drawShorts5BattingSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
+  drawBaseballBackgroundUpper(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
@@ -2000,7 +2000,7 @@ export async function drawShorts5PitcherSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
+  drawBaseballBackgroundUpper(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;

@@ -30,7 +30,19 @@ export function drawBaseballBackground(ctx) {
   ctx.globalAlpha = 0.2;
   const size = 700;
   const centerX = 900;
-  const centerY = 900;
+  const centerY = 1400;
+  ctx.drawImage(baseballImg, centerX - size / 2, centerY - size / 2, size, size);
+  ctx.restore();
+}
+
+export function drawBaseballBackgroundUpper(ctx) {
+  const baseballImg = __baseballDecorImg;
+  if (!baseballImg) return;
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  const size = 700;
+  const centerX = 900;
+  const centerY = 700;
   ctx.drawImage(baseballImg, centerX - size / 2, centerY - size / 2, size, size);
   ctx.restore();
 }
