@@ -715,9 +715,6 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.fillStyle = p;
   ctx.fillRect(0, 0, w, h);
 
-  // Order requirement: background → baseball → diagonal split → contents
-  drawBaseballBackground(ctx);
-
   // secondary: 5:5 비율 기반 사선 분할
   const splitY = h * 0.5;
   const tilt = h * 0.1;
@@ -740,6 +737,8 @@ function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   ctx.moveTo(0, yL);
   ctx.lineTo(w, yR);
   ctx.stroke();
+
+  drawBaseballBackground(ctx);
 }
 
 function hexToRgba(hex, a) {
