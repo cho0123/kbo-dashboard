@@ -1426,6 +1426,7 @@ export async function drawShorts5BattingSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y;
@@ -1481,7 +1482,6 @@ export async function drawShorts5BattingSlide(
   }
 
   primeShorts5BattingAssets(data, teamKwOverride);
-  drawBaseballBackground(ctx);
 }
 
 const __shorts5PitcherAssetsCache = new Map();
@@ -2000,6 +2000,7 @@ export async function drawShorts5PitcherSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = getTeamStrongColor(teamName) || "#131922";
   ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
 
   const topDividerY = Math.round(h * 0.52);
   const sectionBgY = topDividerY + BATTING_SECTION_BG_SHIFT_Y + PITCHER_SECTION_BG_SHIFT_Y;
@@ -2061,7 +2062,6 @@ export async function drawShorts5PitcherSlide(
   }
 
   primeShorts5PitcherAssets(data, teamKwOverride);
-  drawBaseballBackground(ctx);
 }
 
 /**
