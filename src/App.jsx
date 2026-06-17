@@ -1,4 +1,4 @@
-﻿import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+﻿import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
@@ -1660,6 +1660,13 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [youtubeTitleCopied, setYoutubeTitleCopied] = useState(false);
   const [thumbnailPrompt, setThumbnailPrompt] = useState("");
   const [thumbnailPromptCopied, setThumbnailPromptCopied] = useState(false);
+  const [cropImage, setCropImage] = useState(null);
+  const [cropImageEl, setCropImageEl] = useState(null);
+  const [cropOffsetX, setCropOffsetX] = useState(0.5);
+  const [cropOffsetY, setCropOffsetY] = useState(0.3);
+  const [cropScale, setCropScale] = useState(1.0);
+  const cropFileRef = useRef(null);
+  const cropCanvasRef = useRef(null);
 
   useEffect(() => {
     setDate(defaultDate);
@@ -1900,6 +1907,98 @@ No text overlay needed.`;
     setThumbnailPrompt(prompt);
   };
 
+  const handleCropImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      setCropImage(dataUrl);
+      const img = new Image();
+      img.onload = () => setCropImageEl(img);
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const drawCropPreview = useCallback(() => {
+    const canvas = cropCanvasRef.current;
+    if (!canvas || !cropImageEl) return;
+    const ctx = canvas.getContext("2d");
+    const W = 270;
+    const H = 480;
+    canvas.width = W;
+    canvas.height = H;
+
+    const outW = 1080;
+    const outH = 1920;
+    const imgW = cropImageEl.naturalWidth;
+    const imgH = cropImageEl.naturalHeight;
+
+    const scale = cropScale;
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+
+    let srcW, srcH;
+    if (scaledW / scaledH > outW / outH) {
+      srcH = imgH;
+      srcW = imgH * (outW / outH);
+    } else {
+      srcW = imgW;
+      srcH = imgW * (outH / outW);
+    }
+    srcW /= scale;
+    srcH /= scale;
+
+    const maxOffX = Math.max(0, imgW - srcW);
+    const maxOffY = Math.max(0, imgH - srcH);
+    const sx = maxOffX * cropOffsetX;
+    const sy = maxOffY * cropOffsetY;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, W, H);
+  }, [cropImageEl, cropOffsetX, cropOffsetY, cropScale]);
+
+  useEffect(() => {
+    drawCropPreview();
+  }, [drawCropPreview]);
+
+  const handleCropDownload = () => {
+    if (!cropImageEl) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext("2d");
+
+    const outW = 1080;
+    const outH = 1920;
+    const imgW = cropImageEl.naturalWidth;
+    const imgH = cropImageEl.naturalHeight;
+    const scale = cropScale;
+
+    let srcW, srcH;
+    if ((imgW * scale) / (imgH * scale) > outW / outH) {
+      srcH = imgH;
+      srcW = imgH * (outW / outH);
+    } else {
+      srcW = imgW;
+      srcH = imgW * (outH / outW);
+    }
+    srcW /= scale;
+    srcH /= scale;
+
+    const maxOffX = Math.max(0, imgW - srcW);
+    const maxOffY = Math.max(0, imgH - srcH);
+    const sx = maxOffX * cropOffsetX;
+    const sy = maxOffY * cropOffsetY;
+
+    ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, 1080, 1920);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      downloadBlob(blob, `thumbnail_${date}.png`);
+    }, "image/png");
+  };
+
   const downloadPng = async (idx) => {
     const c = document.createElement("canvas");
     await renderSlideToCanvas(idx, c);
@@ -2106,6 +2205,87 @@ No text overlay needed.`;
                     </div>
                   </div>
                 )}
+
+                <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
+                  <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
+                    🖼️ 썸네일 크롭 도구 (9:16)
+                  </div>
+
+                  <input
+                    ref={cropFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleCropImageUpload}
+                  />
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    style={{ width: "100%", marginBottom: 8 }}
+                    onClick={() => cropFileRef.current?.click()}
+                  >
+                    📁 선수 사진 업로드
+                  </button>
+
+                  {cropImageEl && (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                        <canvas
+                          ref={cropCanvasRef}
+                          style={{ border: "2px solid #444", borderRadius: 6 }}
+                        />
+                      </div>
+
+                      <div className="preset-field">
+                        <label>가로 위치</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={cropOffsetX}
+                          onChange={(e) => setCropOffsetX(Number(e.target.value))}
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+
+                      <div className="preset-field">
+                        <label>세로 위치</label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={cropOffsetY}
+                          onChange={(e) => setCropOffsetY(Number(e.target.value))}
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+
+                      <div className="preset-field">
+                        <label>확대/축소 ({cropScale.toFixed(1)}x)</label>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2.0"
+                          step="0.05"
+                          value={cropScale}
+                          onChange={(e) => setCropScale(Number(e.target.value))}
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        className="primary primary-fill"
+                        style={{ width: "100%", marginTop: 8 }}
+                        onClick={handleCropDownload}
+                      >
+                        ⬇️ 썸네일 다운로드 (1080×1920)
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
