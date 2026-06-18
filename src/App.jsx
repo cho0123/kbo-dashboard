@@ -1665,12 +1665,28 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [cropScale, setCropScale] = useState(1.0);
   const cropFileRef = useRef(null);
   const cropCanvasRef = useRef(null);
-  const [overlayText, setOverlayText] = useState("");
+  const TEXT_COLORS = ["#ffffff", "#FFD700", "#FF3333", "#00CFFF", "#000000"];
+  const [textLayers, setTextLayers] = useState([
+    { text: "", size: 80, color: "#ffffff", posY: 50, bg: false },
+    { text: "", size: 60, color: "#FFD700", posY: 65, bg: false },
+  ]);
+  const updateTextLayer = (idx, key, val) => {
+    setTextLayers((prev) => prev.map((l, i) => (i === idx ? { ...l, [key]: val } : l)));
+  };
   const [overlayText3, setOverlayText3] = useState("프로야구 경기결과");
-  const [overlayTextSize, setOverlayTextSize] = useState(80);
-  const [overlayTextColor, setOverlayTextColor] = useState("#ffffff");
-  const [overlayTextPos, setOverlayTextPos] = useState("bottom");
-  const [overlayBg, setOverlayBg] = useState(true);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "black-han-sans-font";
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap";
+      document.head.appendChild(link);
+    }
+    document.fonts?.load?.('900 16px "Black Han Sans"');
+  }, []);
 
   useEffect(() => {
     setDate(defaultDate);
@@ -1900,27 +1916,29 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, W, H);
 
-    if (overlayText) {
+    textLayers.forEach((layer) => {
+      if (!layer.text) return;
       const previewScale = W / 1080;
-      const fontSize = overlayTextSize * previewScale;
-      ctx.font = `bold ${fontSize}px "Noto Sans KR", sans-serif`;
+      const fontSize = layer.size * previewScale;
+      ctx.font = `900 ${fontSize}px "Black Han Sans", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const posY =
-        overlayTextPos === "top"
-          ? H * 0.15
-          : overlayTextPos === "middle"
-            ? H * 0.5
-            : H * 0.82;
-
-      if (overlayBg) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
+      const posY = H * (layer.posY / 100);
+      if (layer.bg) {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
         ctx.fillRect(0, posY - fontSize * 0.8, W, fontSize * 1.6);
       }
-      ctx.fillStyle = overlayTextColor;
-      ctx.fillText(overlayText, W / 2, posY);
-    }
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = 6 * previewScale;
+      ctx.shadowOffsetX = 2 * previewScale;
+      ctx.shadowOffsetY = 2 * previewScale;
+      ctx.fillStyle = layer.color;
+      ctx.fillText(layer.text, W / 2, posY);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    });
 
     if (overlayText3) {
       const previewScale = W / 1080;
@@ -1970,12 +1988,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     cropOffsetY,
     cropScale,
     date,
-    overlayText,
     overlayText3,
-    overlayTextSize,
-    overlayTextColor,
-    overlayTextPos,
-    overlayBg,
+    textLayers,
   ]);
 
   useEffect(() => {
@@ -2013,25 +2027,27 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
     ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, 1080, 1920);
 
-    if (overlayText) {
-      ctx.font = `bold ${overlayTextSize}px "Noto Sans KR", sans-serif`;
+    textLayers.forEach((layer) => {
+      if (!layer.text) return;
+      ctx.font = `900 ${layer.size}px "Black Han Sans", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const posY =
-        overlayTextPos === "top"
-          ? 1920 * 0.15
-          : overlayTextPos === "middle"
-            ? 1920 * 0.5
-            : 1920 * 0.82;
-
-      if (overlayBg) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(0, posY - overlayTextSize * 0.8, 1080, overlayTextSize * 1.6);
+      const posY = 1920 * (layer.posY / 100);
+      if (layer.bg) {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(0, posY - layer.size * 0.8, 1080, layer.size * 1.6);
       }
-      ctx.fillStyle = overlayTextColor;
-      ctx.fillText(overlayText, 540, posY);
-    }
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = layer.color;
+      ctx.fillText(layer.text, 540, posY);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    });
 
     if (overlayText3) {
       let fontSize3dl = 52;
@@ -2336,65 +2352,108 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           <button
                             type="button"
                             className="primary"
-                            style={{ width: "100%", marginBottom: 6, fontSize: 12, padding: "4px 8px" }}
-                            onClick={() => setOverlayText(youtubeTitle)}
+                            style={{ width: "100%", marginBottom: 8, fontSize: 12, padding: "4px 8px" }}
+                            onClick={() => updateTextLayer(0, "text", youtubeTitle)}
                           >
-                            ✨ AI 제목 자동 반영
+                            ✨ AI 제목 → 텍스트1 자동 반영
                           </button>
                         )}
 
-                        <input
-                          type="text"
-                          value={overlayText}
-                          onChange={(e) => setOverlayText(e.target.value)}
-                          placeholder="텍스트 입력"
-                          style={{ width: "100%", marginBottom: 6, padding: "4px 6px", fontSize: 12 }}
-                        />
-
-                        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                          <select
-                            value={overlayTextPos}
-                            onChange={(e) => setOverlayTextPos(e.target.value)}
-                            style={{ flex: 1, fontSize: 12 }}
+                        {textLayers.map((layer, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              marginBottom: 12,
+                              padding: 8,
+                              background: "rgba(255,255,255,0.05)",
+                              borderRadius: 6,
+                            }}
                           >
-                            <option value="top">상단</option>
-                            <option value="middle">중앙</option>
-                            <option value="bottom">하단</option>
-                          </select>
-                          <input
-                            type="color"
-                            value={overlayTextColor}
-                            onChange={(e) => setOverlayTextColor(e.target.value)}
-                            style={{ width: 36, height: 28 }}
-                          />
-                        </div>
+                            <div style={{ fontSize: 12, color: "#aaa", marginBottom: 4 }}>
+                              텍스트 {idx + 1}
+                            </div>
 
-                        <div style={{ marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>
-                            크기 ({overlayTextSize}px)
-                          </label>
-                          <input
-                            type="range"
-                            min="40"
-                            max="160"
-                            step="4"
-                            value={overlayTextSize}
-                            onChange={(e) => setOverlayTextSize(Number(e.target.value))}
-                            style={{ width: "100%" }}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: 10, fontSize: 12, color: "#aaa" }}>
-                          <label>
                             <input
-                              type="checkbox"
-                              checked={overlayBg}
-                              onChange={(e) => setOverlayBg(e.target.checked)}
-                              style={{ marginRight: 4 }}
+                              type="text"
+                              value={layer.text}
+                              onChange={(e) => updateTextLayer(idx, "text", e.target.value)}
+                              placeholder={`텍스트 ${idx + 1} 입력`}
+                              style={{ width: "100%", marginBottom: 6, padding: "4px 6px", fontSize: 12 }}
                             />
-                            텍스트 배경
-                          </label>
-                        </div>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 4,
+                                alignItems: "center",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {TEXT_COLORS.map((c) => (
+                                <div
+                                  key={c}
+                                  onClick={() => updateTextLayer(idx, "color", c)}
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    background: c,
+                                    border:
+                                      layer.color === c ? "2px solid #fff" : "2px solid #555",
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              ))}
+                              <input
+                                type="color"
+                                value={layer.color}
+                                onChange={(e) => updateTextLayer(idx, "color", e.target.value)}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  cursor: "pointer",
+                                  border: "none",
+                                  background: "none",
+                                }}
+                              />
+                            </div>
+
+                            <div style={{ marginBottom: 4 }}>
+                              <label style={{ fontSize: 11, color: "#aaa" }}>
+                                크기 ({layer.size}px)
+                              </label>
+                              <input
+                                type="range"
+                                min="40"
+                                max="200"
+                                step="4"
+                                value={layer.size}
+                                onChange={(e) =>
+                                  updateTextLayer(idx, "size", Number(e.target.value))
+                                }
+                                style={{ width: "100%" }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ fontSize: 11, color: "#aaa" }}>
+                                위치 ({layer.posY}%)
+                              </label>
+                              <input
+                                type="range"
+                                min="5"
+                                max="95"
+                                step="1"
+                                value={layer.posY}
+                                onChange={(e) =>
+                                  updateTextLayer(idx, "posY", Number(e.target.value))
+                                }
+                                style={{ width: "100%" }}
+                              />
+                            </div>
+                          </div>
+                        ))}
 
                         <button
                           type="button"
