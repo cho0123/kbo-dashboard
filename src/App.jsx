@@ -1933,7 +1933,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       ctx.font = `bold ${fontSize3}px "Noto Sans KR", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const posY3 = H * 0.08;
+      const posY3 = H * 0.13;
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(0, posY3 - fontSize3 * 0.8, W, fontSize3 * 1.6);
       ctx.fillStyle = "#ffffff";
@@ -2048,9 +2048,9 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, 1920 * 0.08 - fontSize3dl * 0.8, 1080, fontSize3dl * 1.6);
+      ctx.fillRect(0, 1920 * 0.13 - fontSize3dl * 0.8, 1080, fontSize3dl * 1.6);
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(overlayText3, 540, 1920 * 0.08);
+      ctx.fillText(overlayText3, 540, 1920 * 0.13);
     }
 
     const dateTextDl = date
