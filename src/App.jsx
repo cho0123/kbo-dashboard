@@ -1925,7 +1925,11 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
     if (overlayText3) {
       const previewScale = W / 1080;
-      const fontSize3 = 52 * previewScale;
+      let fontSize3 = 52 * previewScale;
+      ctx.font = `bold ${fontSize3}px "Noto Sans KR", sans-serif`;
+      const targetW = W * 0.7;
+      const measured = ctx.measureText(overlayText3).width;
+      if (measured > 0) fontSize3 = fontSize3 * (targetW / measured);
       ctx.font = `bold ${fontSize3}px "Noto Sans KR", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -2035,11 +2039,16 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     }
 
     if (overlayText3) {
-      ctx.font = `bold 52px "Noto Sans KR", sans-serif`;
+      let fontSize3dl = 52;
+      ctx.font = `bold ${fontSize3dl}px "Noto Sans KR", sans-serif`;
+      const targetW = 1080 * 0.7;
+      const measured = ctx.measureText(overlayText3).width;
+      if (measured > 0) fontSize3dl = fontSize3dl * (targetW / measured);
+      ctx.font = `bold ${fontSize3dl}px "Noto Sans KR", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, 1920 * 0.08 - 42, 1080, 84);
+      ctx.fillRect(0, 1920 * 0.08 - fontSize3dl * 0.8, 1080, fontSize3dl * 1.6);
       ctx.fillStyle = "#ffffff";
       ctx.fillText(overlayText3, 540, 1920 * 0.08);
     }
