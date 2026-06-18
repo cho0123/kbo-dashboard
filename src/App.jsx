@@ -1920,7 +1920,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       if (!layer.text) return;
       const previewScale = W / 1080;
       const fontSize = layer.size * previewScale;
-      ctx.font = `900 ${fontSize}px "Black Han Sans", sans-serif`;
+      ctx.font = `400 ${fontSize}px "Black Han Sans", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const posY = H * (layer.posY / 100);
@@ -1928,16 +1928,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         ctx.fillStyle = "rgba(0,0,0,0.55)";
         ctx.fillRect(0, posY - fontSize * 0.8, W, fontSize * 1.6);
       }
-      ctx.shadowColor = "rgba(0,0,0,0.9)";
-      ctx.shadowBlur = 6 * previewScale;
-      ctx.shadowOffsetX = 2 * previewScale;
-      ctx.shadowOffsetY = 2 * previewScale;
       ctx.fillStyle = layer.color;
       ctx.fillText(layer.text, W / 2, posY);
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
     });
 
     if (overlayText3) {
@@ -2029,7 +2021,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
     textLayers.forEach((layer) => {
       if (!layer.text) return;
-      ctx.font = `900 ${layer.size}px "Black Han Sans", sans-serif`;
+      ctx.font = `400 ${layer.size}px "Black Han Sans", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const posY = 1920 * (layer.posY / 100);
@@ -2037,16 +2029,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         ctx.fillStyle = "rgba(0,0,0,0.55)";
         ctx.fillRect(0, posY - layer.size * 0.8, 1080, layer.size * 1.6);
       }
-      ctx.shadowColor = "rgba(0,0,0,0.9)";
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
       ctx.fillStyle = layer.color;
       ctx.fillText(layer.text, 540, posY);
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
     });
 
     if (overlayText3) {
@@ -2348,17 +2332,6 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           <label style={{ fontSize: 12, color: "#aaa" }}>AI 제목 (가운데)</label>
                         </div>
 
-                        {youtubeTitle && (
-                          <button
-                            type="button"
-                            className="primary"
-                            style={{ width: "100%", marginBottom: 8, fontSize: 12, padding: "4px 8px" }}
-                            onClick={() => updateTextLayer(0, "text", youtubeTitle)}
-                          >
-                            ✨ AI 제목 → 텍스트1 자동 반영
-                          </button>
-                        )}
-
                         {textLayers.map((layer, idx) => (
                           <div
                             key={idx}
@@ -2386,7 +2359,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                 display: "flex",
                                 gap: 4,
                                 alignItems: "center",
-                                marginBottom: 6,
+                                marginBottom: 4,
                               }}
                             >
                               {TEXT_COLORS.map((c) => (
@@ -2405,18 +2378,60 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                   }}
                                 />
                               ))}
-                              <input
-                                type="color"
-                                value={layer.color}
-                                onChange={(e) => updateTextLayer(idx, "color", e.target.value)}
+                            </div>
+
+                            <div style={{ marginBottom: 6 }}>
+                              <div
                                 style={{
-                                  width: 28,
-                                  height: 28,
+                                  width: "100%",
+                                  height: 24,
+                                  borderRadius: 4,
+                                  background: `linear-gradient(to right, #ffffff, ${layer.color}, #000000)`,
                                   cursor: "pointer",
-                                  border: "none",
-                                  background: "none",
+                                  position: "relative",
+                                }}
+                                onClick={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const ratio = (e.clientX - rect.left) / rect.width;
+                                  let r, g, b;
+                                  const base = layer.color;
+                                  const br = parseInt(base.slice(1, 3), 16);
+                                  const bg2 = parseInt(base.slice(3, 5), 16);
+                                  const bb = parseInt(base.slice(5, 7), 16);
+                                  if (ratio <= 0.5) {
+                                    const t = ratio * 2;
+                                    r = Math.round(255 + (br - 255) * t);
+                                    g = Math.round(255 + (bg2 - 255) * t);
+                                    b = Math.round(255 + (bb - 255) * t);
+                                  } else {
+                                    const t = (ratio - 0.5) * 2;
+                                    r = Math.round(br * (1 - t));
+                                    g = Math.round(bg2 * (1 - t));
+                                    b = Math.round(bb * (1 - t));
+                                  }
+                                  const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+                                  updateTextLayer(idx, "color", hex);
                                 }}
                               />
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  marginTop: 4,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: 3,
+                                    background: layer.color,
+                                    border: "1px solid #666",
+                                  }}
+                                />
+                                <span style={{ fontSize: 11, color: "#aaa" }}>{layer.color}</span>
+                              </div>
                             </div>
 
                             <div style={{ marginBottom: 4 }}>
