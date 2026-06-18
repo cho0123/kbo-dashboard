@@ -2273,45 +2273,45 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ marginBottom: 8 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>가로 위치</label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={cropOffsetX}
-                            onChange={(e) => setCropOffsetX(Number(e.target.value))}
-                            style={{ width: "100%" }}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: 8 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>세로 위치</label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={cropOffsetY}
-                            onChange={(e) => setCropOffsetY(Number(e.target.value))}
-                            style={{ width: "100%" }}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: 12 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>
-                            확대 ({cropScale.toFixed(1)}x)
-                          </label>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2.0"
-                            step="0.05"
-                            value={cropScale}
-                            onChange={(e) => setCropScale(Number(e.target.value))}
-                            style={{ width: "100%" }}
-                          />
+                        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: 11, color: "#aaa" }}>가로</label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={cropOffsetX}
+                              onChange={(e) => setCropOffsetX(Number(e.target.value))}
+                              style={{ width: "100%" }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: 11, color: "#aaa" }}>세로</label>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={cropOffsetY}
+                              onChange={(e) => setCropOffsetY(Number(e.target.value))}
+                              style={{ width: "100%" }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: 11, color: "#aaa" }}>
+                              확대({cropScale.toFixed(1)}x)
+                            </label>
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="2.0"
+                              step="0.05"
+                              value={cropScale}
+                              onChange={(e) => setCropScale(Number(e.target.value))}
+                              style={{ width: "100%" }}
+                            />
+                          </div>
                         </div>
 
                         <div style={{ borderTop: "1px solid #333", paddingTop: 8, marginBottom: 8 }}>
@@ -2434,38 +2434,39 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                               </div>
                             </div>
 
-                            <div style={{ marginBottom: 4 }}>
-                              <label style={{ fontSize: 11, color: "#aaa" }}>
-                                크기 ({layer.size}px)
-                              </label>
-                              <input
-                                type="range"
-                                min="40"
-                                max="200"
-                                step="4"
-                                value={layer.size}
-                                onChange={(e) =>
-                                  updateTextLayer(idx, "size", Number(e.target.value))
-                                }
-                                style={{ width: "100%" }}
-                              />
-                            </div>
-
-                            <div>
-                              <label style={{ fontSize: 11, color: "#aaa" }}>
-                                위치 ({layer.posY}%)
-                              </label>
-                              <input
-                                type="range"
-                                min="5"
-                                max="95"
-                                step="1"
-                                value={layer.posY}
-                                onChange={(e) =>
-                                  updateTextLayer(idx, "posY", Number(e.target.value))
-                                }
-                                style={{ width: "100%" }}
-                              />
+                            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                              <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                  크기({layer.size}px)
+                                </label>
+                                <input
+                                  type="range"
+                                  min="40"
+                                  max="200"
+                                  step="4"
+                                  value={layer.size}
+                                  onChange={(e) =>
+                                    updateTextLayer(idx, "size", Number(e.target.value))
+                                  }
+                                  style={{ width: "100%" }}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                  위치({layer.posY}%)
+                                </label>
+                                <input
+                                  type="range"
+                                  min="5"
+                                  max="95"
+                                  step="1"
+                                  value={layer.posY}
+                                  onChange={(e) =>
+                                    updateTextLayer(idx, "posY", Number(e.target.value))
+                                  }
+                                  style={{ width: "100%" }}
+                                />
+                              </div>
                             </div>
                           </div>
                         ))}
