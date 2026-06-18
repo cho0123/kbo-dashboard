@@ -1665,6 +1665,11 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [cropScale, setCropScale] = useState(1.0);
   const cropFileRef = useRef(null);
   const cropCanvasRef = useRef(null);
+  const [overlayText, setOverlayText] = useState("");
+  const [overlayTextSize, setOverlayTextSize] = useState(80);
+  const [overlayTextColor, setOverlayTextColor] = useState("#ffffff");
+  const [overlayTextPos, setOverlayTextPos] = useState("bottom");
+  const [overlayBg, setOverlayBg] = useState(true);
 
   useEffect(() => {
     setDate(defaultDate);
@@ -1893,7 +1898,39 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, W, H);
-  }, [cropImageEl, cropOffsetX, cropOffsetY, cropScale]);
+
+    if (overlayText) {
+      const previewScale = W / 1080;
+      const fontSize = overlayTextSize * previewScale;
+      ctx.font = `bold ${fontSize}px "Noto Sans KR", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const posY =
+        overlayTextPos === "top"
+          ? H * 0.15
+          : overlayTextPos === "middle"
+            ? H * 0.5
+            : H * 0.82;
+
+      if (overlayBg) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, posY - fontSize * 0.8, W, fontSize * 1.6);
+      }
+      ctx.fillStyle = overlayTextColor;
+      ctx.fillText(overlayText, W / 2, posY);
+    }
+  }, [
+    cropImageEl,
+    cropOffsetX,
+    cropOffsetY,
+    cropScale,
+    overlayText,
+    overlayTextSize,
+    overlayTextColor,
+    overlayTextPos,
+    overlayBg,
+  ]);
 
   useEffect(() => {
     drawCropPreview();
@@ -1929,6 +1966,27 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     const sy = maxOffY * cropOffsetY;
 
     ctx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, 1080, 1920);
+
+    if (overlayText) {
+      ctx.font = `bold ${overlayTextSize}px "Noto Sans KR", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const posY =
+        overlayTextPos === "top"
+          ? 1920 * 0.15
+          : overlayTextPos === "middle"
+            ? 1920 * 0.5
+            : 1920 * 0.82;
+
+      if (overlayBg) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, posY - overlayTextSize * 0.8, 1080, overlayTextSize * 1.6);
+      }
+      ctx.fillStyle = overlayTextColor;
+      ctx.fillText(overlayText, 540, posY);
+    }
+
     canvas.toBlob((blob) => {
       if (!blob) return;
       downloadBlob(blob, `thumbnail_${date}.png`);
@@ -2167,6 +2225,78 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           onChange={(e) => setCropScale(Number(e.target.value))}
                           style={{ width: "100%" }}
                         />
+                      </div>
+
+                      <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
+                        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
+                          📝 텍스트 오버레이
+                        </div>
+
+                        {youtubeTitle && (
+                          <button
+                            type="button"
+                            className="primary"
+                            style={{ width: "100%", marginBottom: 6 }}
+                            onClick={() => setOverlayText(youtubeTitle)}
+                          >
+                            ✨ AI 제목 자동 반영
+                          </button>
+                        )}
+
+                        <input
+                          type="text"
+                          value={overlayText}
+                          onChange={(e) => setOverlayText(e.target.value)}
+                          placeholder="썸네일에 넣을 텍스트"
+                          style={{ width: "100%", marginBottom: 6, padding: "4px 8px" }}
+                        />
+
+                        <div className="preset-field">
+                          <label>텍스트 위치</label>
+                          <select
+                            value={overlayTextPos}
+                            onChange={(e) => setOverlayTextPos(e.target.value)}
+                            style={{ width: "100%" }}
+                          >
+                            <option value="top">상단</option>
+                            <option value="middle">중앙</option>
+                            <option value="bottom">하단</option>
+                          </select>
+                        </div>
+
+                        <div className="preset-field">
+                          <label>폰트 크기 ({overlayTextSize}px)</label>
+                          <input
+                            type="range"
+                            min="40"
+                            max="160"
+                            step="4"
+                            value={overlayTextSize}
+                            onChange={(e) => setOverlayTextSize(Number(e.target.value))}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
+
+                        <div className="preset-field">
+                          <label>텍스트 색상</label>
+                          <input
+                            type="color"
+                            value={overlayTextColor}
+                            onChange={(e) => setOverlayTextColor(e.target.value)}
+                          />
+                        </div>
+
+                        <div className="preset-field">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={overlayBg}
+                              onChange={(e) => setOverlayBg(e.target.checked)}
+                              style={{ marginRight: 6 }}
+                            />
+                            텍스트 배경 (반투명)
+                          </label>
+                        </div>
                       </div>
 
                       <button
