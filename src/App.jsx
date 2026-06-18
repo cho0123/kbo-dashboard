@@ -2180,63 +2180,65 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                   </button>
 
                   {cropImageEl && (
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                    <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginTop: 12 }}>
+                      <div style={{ flexShrink: 0 }}>
                         <canvas
                           ref={cropCanvasRef}
-                          style={{ border: "2px solid #444", borderRadius: 6 }}
+                          style={{ border: "2px solid #444", borderRadius: 6, display: "block" }}
                         />
                       </div>
 
-                      <div className="preset-field">
-                        <label>가로 위치</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          value={cropOffsetX}
-                          onChange={(e) => setCropOffsetX(Number(e.target.value))}
-                          style={{ width: "100%" }}
-                        />
-                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ fontSize: 12, color: "#aaa" }}>가로 위치</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={cropOffsetX}
+                            onChange={(e) => setCropOffsetX(Number(e.target.value))}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
 
-                      <div className="preset-field">
-                        <label>세로 위치</label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          value={cropOffsetY}
-                          onChange={(e) => setCropOffsetY(Number(e.target.value))}
-                          style={{ width: "100%" }}
-                        />
-                      </div>
+                        <div style={{ marginBottom: 8 }}>
+                          <label style={{ fontSize: 12, color: "#aaa" }}>세로 위치</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={cropOffsetY}
+                            onChange={(e) => setCropOffsetY(Number(e.target.value))}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
 
-                      <div className="preset-field">
-                        <label>확대/축소 ({cropScale.toFixed(1)}x)</label>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2.0"
-                          step="0.05"
-                          value={cropScale}
-                          onChange={(e) => setCropScale(Number(e.target.value))}
-                          style={{ width: "100%" }}
-                        />
-                      </div>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontSize: 12, color: "#aaa" }}>
+                            확대 ({cropScale.toFixed(1)}x)
+                          </label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.05"
+                            value={cropScale}
+                            onChange={(e) => setCropScale(Number(e.target.value))}
+                            style={{ width: "100%" }}
+                          />
+                        </div>
 
-                      <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
-                        <div className="muted" style={{ fontWeight: 700, marginBottom: 6 }}>
-                          📝 텍스트 오버레이
+                        <div style={{ borderTop: "1px solid #333", paddingTop: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "#aaa" }}>📝 텍스트 오버레이</span>
                         </div>
 
                         {youtubeTitle && (
                           <button
                             type="button"
                             className="primary"
-                            style={{ width: "100%", marginBottom: 6 }}
+                            style={{ width: "100%", marginBottom: 6, fontSize: 12, padding: "4px 8px" }}
                             onClick={() => setOverlayText(youtubeTitle)}
                           >
                             ✨ AI 제목 자동 반영
@@ -2247,25 +2249,32 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           type="text"
                           value={overlayText}
                           onChange={(e) => setOverlayText(e.target.value)}
-                          placeholder="썸네일에 넣을 텍스트"
-                          style={{ width: "100%", marginBottom: 6, padding: "4px 8px" }}
+                          placeholder="텍스트 입력"
+                          style={{ width: "100%", marginBottom: 6, padding: "4px 6px", fontSize: 12 }}
                         />
 
-                        <div className="preset-field">
-                          <label>텍스트 위치</label>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                           <select
                             value={overlayTextPos}
                             onChange={(e) => setOverlayTextPos(e.target.value)}
-                            style={{ width: "100%" }}
+                            style={{ flex: 1, fontSize: 12 }}
                           >
                             <option value="top">상단</option>
                             <option value="middle">중앙</option>
                             <option value="bottom">하단</option>
                           </select>
+                          <input
+                            type="color"
+                            value={overlayTextColor}
+                            onChange={(e) => setOverlayTextColor(e.target.value)}
+                            style={{ width: 36, height: 28 }}
+                          />
                         </div>
 
-                        <div className="preset-field">
-                          <label>폰트 크기 ({overlayTextSize}px)</label>
+                        <div style={{ marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, color: "#aaa" }}>
+                            크기 ({overlayTextSize}px)
+                          </label>
                           <input
                             type="range"
                             min="40"
@@ -2277,36 +2286,27 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           />
                         </div>
 
-                        <div className="preset-field">
-                          <label>텍스트 색상</label>
-                          <input
-                            type="color"
-                            value={overlayTextColor}
-                            onChange={(e) => setOverlayTextColor(e.target.value)}
-                          />
-                        </div>
-
-                        <div className="preset-field">
+                        <div style={{ marginBottom: 10, fontSize: 12, color: "#aaa" }}>
                           <label>
                             <input
                               type="checkbox"
                               checked={overlayBg}
                               onChange={(e) => setOverlayBg(e.target.checked)}
-                              style={{ marginRight: 6 }}
+                              style={{ marginRight: 4 }}
                             />
-                            텍스트 배경 (반투명)
+                            텍스트 배경
                           </label>
                         </div>
-                      </div>
 
-                      <button
-                        type="button"
-                        className="primary primary-fill"
-                        style={{ width: "100%", marginTop: 8 }}
-                        onClick={handleCropDownload}
-                      >
-                        ⬇️ 썸네일 다운로드 (1080×1920)
-                      </button>
+                        <button
+                          type="button"
+                          className="primary primary-fill"
+                          style={{ width: "100%" }}
+                          onClick={handleCropDownload}
+                        >
+                          ⬇️ 다운로드 (1080×1920)
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
