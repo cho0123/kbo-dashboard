@@ -1666,7 +1666,6 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const cropFileRef = useRef(null);
   const cropCanvasRef = useRef(null);
   const [overlayText, setOverlayText] = useState("");
-  const [overlayText2, setOverlayText2] = useState("1분컷");
   const [overlayText3, setOverlayText3] = useState("프로야구 경기결과");
   const [overlayTextSize, setOverlayTextSize] = useState(80);
   const [overlayTextColor, setOverlayTextColor] = useState("#ffffff");
@@ -1940,33 +1939,22 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       ctx.fillText(overlayText3, W / 2, posY3);
     }
 
+    const days = ["일", "월", "화", "수", "목", "금", "토"];
+    const dateObj = date ? new Date(date) : null;
+    const dayStr = dateObj ? days[dateObj.getDay()] : "";
     const dateTextPrev = date
-      ? `${date.slice(0, 4)}년 ${parseInt(date.slice(5, 7))}월 ${parseInt(date.slice(8, 10))}일`
+      ? `${date.slice(2, 4)}.${date.slice(5, 7)}.${date.slice(8, 10)} (${dayStr})`
       : "";
     if (dateTextPrev) {
       const previewScale = W / 1080;
       const fontSize4 = 44 * previewScale;
       ctx.font = `bold ${fontSize4}px "Noto Sans KR", sans-serif`;
-      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const posY4 = H * 0.88;
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, posY4 - fontSize4 * 0.8, W, fontSize4 * 1.6);
-      ctx.fillStyle = "#FFD700";
-      ctx.fillText(dateTextPrev, W / 2, posY4);
-    }
-
-    if (overlayText2) {
-      const previewScale = W / 1080;
-      const fontSize2 = 72 * previewScale;
-      ctx.font = `bold ${fontSize2}px "Noto Sans KR", sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      const posY2 = H * 0.94;
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, posY2 - fontSize2 * 0.8, W, fontSize2 * 1.6);
+      const posY4 = H * 0.95;
+      ctx.textAlign = "right";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(overlayText2, W / 2, posY2);
+      ctx.fillText(dateTextPrev, W * 0.95, posY4);
+      ctx.textAlign = "center";
     }
   }, [
     cropImageEl,
@@ -1975,7 +1963,6 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     cropScale,
     date,
     overlayText,
-    overlayText2,
     overlayText3,
     overlayTextSize,
     overlayTextColor,
@@ -2053,27 +2040,19 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       ctx.fillText(overlayText3, 540, 1920 * 0.13);
     }
 
+    const days = ["일", "월", "화", "수", "목", "금", "토"];
+    const dateObj = date ? new Date(date) : null;
+    const dayStr = dateObj ? days[dateObj.getDay()] : "";
     const dateTextDl = date
-      ? `${date.slice(0, 4)}년 ${parseInt(date.slice(5, 7))}월 ${parseInt(date.slice(8, 10))}일`
+      ? `${date.slice(2, 4)}.${date.slice(5, 7)}.${date.slice(8, 10)} (${dayStr})`
       : "";
     if (dateTextDl) {
       ctx.font = `bold 44px "Noto Sans KR", sans-serif`;
-      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, 1920 * 0.88 - 36, 1080, 72);
-      ctx.fillStyle = "#FFD700";
-      ctx.fillText(dateTextDl, 540, 1920 * 0.88);
-    }
-
-    if (overlayText2) {
-      ctx.font = `bold 72px "Noto Sans KR", sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(0, 1920 * 0.94 - 58, 1080, 116);
+      ctx.textAlign = "right";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(overlayText2, 540, 1920 * 0.94);
+      ctx.fillText(dateTextDl, 1080 * 0.95, 1920 * 0.95);
+      ctx.textAlign = "center";
     }
 
     canvas.toBlob((blob) => {
@@ -2329,16 +2308,6 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             type="text"
                             value={overlayText3}
                             onChange={(e) => setOverlayText3(e.target.value)}
-                            style={{ width: "100%", padding: "4px 6px", fontSize: 12 }}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>하단 텍스트</label>
-                          <input
-                            type="text"
-                            value={overlayText2}
-                            onChange={(e) => setOverlayText2(e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", fontSize: 12 }}
                           />
                         </div>
