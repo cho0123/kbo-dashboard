@@ -1947,13 +1947,21 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       : "";
     if (dateTextPrev) {
       const previewScale = W / 1080;
-      const fontSize4 = 44 * previewScale;
+      const fontSize4 = 54 * previewScale;
       ctx.font = `bold ${fontSize4}px "Noto Sans KR", sans-serif`;
       ctx.textBaseline = "middle";
       const posY4 = H * 0.95;
       ctx.textAlign = "right";
       ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 8 * previewScale;
+      ctx.shadowOffsetX = 2 * previewScale;
+      ctx.shadowOffsetY = 2 * previewScale;
       ctx.fillText(dateTextPrev, W * 0.95, posY4);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
       ctx.textAlign = "center";
     }
   }, [
@@ -2047,11 +2055,19 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       ? `${date.slice(2, 4)}.${date.slice(5, 7)}.${date.slice(8, 10)} (${dayStr})`
       : "";
     if (dateTextDl) {
-      ctx.font = `bold 44px "Noto Sans KR", sans-serif`;
+      ctx.font = `bold 54px "Noto Sans KR", sans-serif`;
       ctx.textBaseline = "middle";
       ctx.textAlign = "right";
       ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "rgba(0,0,0,0.8)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
       ctx.fillText(dateTextDl, 1080 * 0.95, 1920 * 0.95);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
       ctx.textAlign = "center";
     }
 
