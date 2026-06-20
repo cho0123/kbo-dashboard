@@ -1349,6 +1349,18 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const leftPhotoX = 20;
   const rightPhotoX = w / 2 + 10;
 
+  // 사진 영역 상단 타이틀
+  ctx.textAlign = "center";
+  ctx.font = `600 34px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  if (!isDrawGame) {
+    ctx.fillText("승리투수", leftPhotoX + photoW / 2, photoAreaTop + 40);
+    ctx.fillText("오늘의 타자", rightPhotoX + photoW / 2, photoAreaTop + 40);
+  } else {
+    ctx.fillText("홈팀 MVP", leftPhotoX + photoW / 2, photoAreaTop + 40);
+    ctx.fillText("원정팀 MVP", rightPhotoX + photoW / 2, photoAreaTop + 40);
+  }
+
   // 투수 사진 (왼쪽)
   if (pitcherImg) {
     const imgX = leftPhotoX + 10;
@@ -1380,19 +1392,35 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // 투수 스탯 텍스트
   if (!isDrawGame && g?.winning_pitcher) {
     ctx.textAlign = "center";
-    ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
+    // 이름
+    ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "#FFD700";
-    ctx.fillText(cleanName(g.winning_pitcher), leftPhotoX + photoW / 2, photoAreaTop + photoAreaH - 55);
+    ctx.fillText(
+      cleanName(g.winning_pitcher),
+      leftPhotoX + photoW / 2,
+      photoAreaTop + photoAreaH - 90
+    );
+    // 스탯 (몇이닝 몇실점)
     ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     const wpIp =
       g?.home_starter?.name === cleanName(g.winning_pitcher)
         ? g?.home_starter?.ip
         : g?.away_starter?.ip;
+    const wpEr =
+      g?.home_starter?.name === cleanName(g.winning_pitcher)
+        ? g?.home_starter?.er
+        : g?.away_starter?.er;
+    const statLine = [
+      wpIp ? `${wpIp}이닝` : null,
+      wpEr != null ? `${wpEr}실점` : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
     ctx.fillText(
-      `ERA ${fmtEra(g?.winning_pitcher_era)}${wpIp ? ` | ${wpIp}이닝` : ""}`,
+      statLine || `ERA ${fmtEra(g?.winning_pitcher_era)}`,
       leftPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 20
+      photoAreaTop + photoAreaH - 48
     );
   }
 
@@ -1400,15 +1428,27 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   if (mvpRows.length > 0) {
     const mvp = mvpRows[0];
     ctx.textAlign = "center";
-    ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
+    // 이름
+    ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "#FFD700";
-    ctx.fillText(cleanName(mvp?.name ?? "—"), rightPhotoX + photoW / 2, photoAreaTop + photoAreaH - 55);
+    ctx.fillText(
+      cleanName(mvp?.name ?? "—"),
+      rightPhotoX + photoW / 2,
+      photoAreaTop + photoAreaH - 90
+    );
+    // 스탯
     ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
+    const mvpStat = [
+      mvp?.h != null ? `${mvp.h}안타` : null,
+      mvp?.hr ? `${mvp.hr}홈런` : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
     ctx.fillText(
-      `${mvp?.h ?? 0}안타 ${mvp?.hr ?? 0}홈런`,
+      mvpStat || "—",
       rightPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 20
+      photoAreaTop + photoAreaH - 48
     );
   }
 
