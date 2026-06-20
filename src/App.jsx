@@ -1138,6 +1138,13 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(awayPart, sx + wHomeP + wVsP, yStarter);
 
+  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
+  ctx.font = `500 42px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.textAlign = "center";
+  ctx.fillText(venueText, w / 2, SAFE_TOP + 605 + 70);
+  ctx.textAlign = "left";
+
   // 하단 영역
   const leftX = 72;
   const listTop = DIVIDER_Y + 180;
@@ -1233,33 +1240,28 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(pitcherLine, leftX, pitchBaselineY);
 
-  // • 구장명
-  ctx.font = `700 50px "${FONT_BODY}", system-ui, sans-serif`;
-  const venueText = String(g?.venue || "—").slice(0, 24) || "—";
-  ctx.fillText(`• ${venueText}`, leftX, listTop + lineGap * 1);
-
   // • 순위 (standings 기반)
   ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillText(
     `• 순위  ${homeTeamName} ${homeRank ?? "—"}위  |  ${awayTeamName} ${awayRank ?? "—"}위`,
     leftX,
-    listTop + lineGap * 2
+    listTop + lineGap * 1
   );
 
   // • 상대전적 (홈팀기준)
   ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(h2hText, leftX, listTop + lineGap * 3);
+  ctx.fillText(h2hText, leftX, listTop + lineGap * 2);
 
   // • ⭐ / ✨ 타자 MVP (최대 2명, API 미갱신 시 mvp_batter 단일 호환)
-  ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif`;
+  ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif";
   if (mvpRows.length === 0) {
-    ctx.fillText(`• ⭐ —`, leftX, listTop + lineGap * 4);
+    ctx.fillText(`• ⭐ —`, leftX, listTop + lineGap * 3);
   } else {
     mvpRows.forEach((row, i) => {
       const nm = cleanName(row?.name ?? "—");
       const stat = fmtMvpLineStat(row?.h ?? null, row?.hr ?? null);
       const bullet = i === 0 ? "• ⭐ " : "• ✨ ";
-      ctx.fillText(`${bullet}${nm}${stat}`, leftX, listTop + lineGap * (4 + i));
+      ctx.fillText(`${bullet}${nm}${stat}`, leftX, listTop + lineGap * (3 + i));
     });
   }
 
