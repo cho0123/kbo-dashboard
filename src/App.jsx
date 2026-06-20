@@ -1354,19 +1354,19 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.font = `600 34px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
   if (!isDrawGame) {
-    ctx.fillText("승리투수", leftPhotoX + photoW / 2, photoAreaTop + 40);
-    ctx.fillText("오늘의 타자", rightPhotoX + photoW / 2, photoAreaTop + 40);
+    ctx.fillText("승리투수", leftPhotoX + photoW / 2, photoAreaTop + 44);
+    ctx.fillText("오늘의 타자", rightPhotoX + photoW / 2, photoAreaTop + 44);
   } else {
-    ctx.fillText("홈팀 MVP", leftPhotoX + photoW / 2, photoAreaTop + 40);
-    ctx.fillText("원정팀 MVP", rightPhotoX + photoW / 2, photoAreaTop + 40);
+    ctx.fillText("홈팀 MVP", leftPhotoX + photoW / 2, photoAreaTop + 44);
+    ctx.fillText("원정팀 MVP", rightPhotoX + photoW / 2, photoAreaTop + 44);
   }
 
   // 투수 사진 (왼쪽)
   if (pitcherImg) {
     const imgX = leftPhotoX + 10;
-    const imgY = photoAreaTop + 10;
+    const imgY = photoAreaTop + 66;
     const imgW = photoW - 20;
-    const imgH = photoAreaH - 90;
+    const imgH = photoAreaH - 160;
     const scale = Math.min(imgW / pitcherImg.naturalWidth, imgH / pitcherImg.naturalHeight);
     const dw = pitcherImg.naturalWidth * scale;
     const dh = pitcherImg.naturalHeight * scale;
@@ -1378,9 +1378,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // MVP 사진 (오른쪽)
   if (mvpImg) {
     const imgX = rightPhotoX + 10;
-    const imgY = photoAreaTop + 10;
+    const imgY = photoAreaTop + 66;
     const imgW = photoW - 20;
-    const imgH = photoAreaH - 90;
+    const imgH = photoAreaH - 160;
     const scale = Math.min(imgW / mvpImg.naturalWidth, imgH / mvpImg.naturalHeight);
     const dw = mvpImg.naturalWidth * scale;
     const dh = mvpImg.naturalHeight * scale;
@@ -1398,7 +1398,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     ctx.fillText(
       cleanName(g.winning_pitcher),
       leftPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 90
+      photoAreaTop + photoAreaH - 95
     );
     // 스탯 (몇이닝 몇실점)
     ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1420,7 +1420,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     ctx.fillText(
       statLine || `ERA ${fmtEra(g?.winning_pitcher_era)}`,
       leftPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 48
+      photoAreaTop + photoAreaH - 52
     );
   }
 
@@ -1434,21 +1434,22 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     ctx.fillText(
       cleanName(mvp?.name ?? "—"),
       rightPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 90
+      photoAreaTop + photoAreaH - 95
     );
     // 스탯
     ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     const mvpStat = [
+      mvp?.hr != null ? `${mvp.hr}홈런` : null,
       mvp?.h != null ? `${mvp.h}안타` : null,
-      mvp?.hr ? `${mvp.hr}홈런` : null,
+      mvp?.rbi != null ? `${mvp.rbi}타점` : null,
     ]
       .filter(Boolean)
-      .join(" ");
+      .join("  ");
     ctx.fillText(
       mvpStat || "—",
       rightPhotoX + photoW / 2,
-      photoAreaTop + photoAreaH - 48
+      photoAreaTop + photoAreaH - 52
     );
   }
 

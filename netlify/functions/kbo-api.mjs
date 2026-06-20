@@ -7888,6 +7888,7 @@ ${hasSpecial
             enrichedMvpBatters.push({
               ...m,
               player_image_url: imageUrl || null,
+              rbi: m?.rbi ?? m?.RBI ?? null,
             });
           }
           mvpBatters = enrichedMvpBatters;
@@ -8062,6 +8063,7 @@ ${hasSpecial
                   name: pickPitcherName(homeStarter),
                   era: homeStarter?.era ?? null,
                   ip: homeStarter?.ip ?? null,
+                  er: homeStarter?.er ?? homeStarter?.ER ?? homeStarter?.earned_runs ?? null,
                 }
               : null,
             away_starter: awayStarter
@@ -8069,6 +8071,7 @@ ${hasSpecial
                   name: pickPitcherName(awayStarter),
                   era: awayStarter?.era ?? null,
                   ip: awayStarter?.ip ?? null,
+                  er: awayStarter?.er ?? awayStarter?.ER ?? awayStarter?.earned_runs ?? null,
                 }
               : null,
             winning_pitcher_era:
