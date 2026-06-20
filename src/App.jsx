@@ -1515,8 +1515,25 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
 
   // 배경: next_game는 승패팀 색상 교차 (상단=패전팀, 하단=승리팀)
   ctx.clearRect(0, 0, w, h);
-  // 다음경기 예고: 기존 대각선 분할 유지
-  diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
+  const hsNum2 = Number(g?.home_score);
+  const asNum2 = Number(g?.away_score);
+  const isDrawOrCancel2 =
+    (Number.isFinite(hsNum2) && Number.isFinite(asNum2) && hsNum2 === asNum2) ||
+    ((g?.home_score === undefined || g?.home_score === null) &&
+    (g?.away_score === undefined || g?.away_score === null)) ||
+    Number(g?.draws ?? g?.draw ?? g?.DRAW ?? 0) > 0;
+
+  if (isDrawOrCancel2) {
+    // 무승부/취소: 결과와 반대 (원정팀 위 / 홈팀 아래)
+    diagTeamGradient(ctx, w, h, awayTeam, homeTeam);
+  } else {
+    // 승패: 패전팀(위) / 승리팀(아래)
+    const hw = Number.isFinite(hsNum2) && Number.isFinite(asNum2)
+      ? hsNum2 > asNum2 : true;
+    const wt = hw ? homeTeam : awayTeam;
+    const lt = hw ? awayTeam : homeTeam;
+    diagTeamGradient(ctx, w, h, lt, wt);
+  }
 
   // 중앙 타이틀: NEXT GAME — drawTomorrowPreviewGameSlide "GAME PREVIEW"와 동일 스타일, 크기만 기존 대비 80%
   const NEXT_GAME_TITLE_PX = Math.round(Math.round(132 * 0.8) * 0.8);
