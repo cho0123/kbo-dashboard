@@ -7874,14 +7874,23 @@ ${hasSpecial
             }));
           }
 
-          // MVP 사진 URL (S3 기준)
-          mvpBatters = mvpBatters.map((m) => ({
-            ...m,
-            player_image_url:
-              m.team && m.name
-                ? `https://kbo-video-export.s3.ap-northeast-2.amazonaws.com/players/${safeseg(teamKeyword(m.team))}-${safeseg(m.name)}.png`
-                : null,
-          }));
+          // MVP 사진 URL 네이버에서 조회
+          const enrichedMvpBatters = [];
+          for (const m of mvpBatters) {
+            let imageUrl = null;
+            try {
+              const seasonYear = new Date(dateStr).getFullYear();
+              const hit = await findNaverHitterPlayerIdInWideSeasonList(seasonYear, m.name);
+              imageUrl = hit?.playerImageUrl ?? null;
+            } catch (e) {
+              console.warn("MVP 사진 조회 실패:", m.name, e?.message);
+            }
+            enrichedMvpBatters.push({
+              ...m,
+              player_image_url: imageUrl || null,
+            });
+          }
+          mvpBatters = enrichedMvpBatters;
 
           const mvp = mvpBatters[0] ?? null;
 
@@ -8028,6 +8037,22 @@ ${hasSpecial
                 : g.away_team
               : null;
 
+          let winningPitcherImageUrl = null;
+          try {
+            if (winName && winName !== "—") {
+              const statsArr = await fetchNaverPitcherSeasonStats(
+                new Date(dateStr).getFullYear()
+              );
+              winningPitcherImageUrl = findPitcherImageUrlByStarterName(
+                statsArr,
+                cleanName(winName),
+                winTeam
+              );
+            }
+          } catch (e) {
+            console.warn("투수 사진 조회 실패:", winName, e?.message);
+          }
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -8070,10 +8095,7 @@ ${hasSpecial
               prevRankMap[awayTk] != null && rankMap[awayTk] != null
                 ? prevRankMap[awayTk] - rankMap[awayTk]
                 : null,
-            winning_pitcher_image_url:
-              winName && winTeam
-                ? `https://kbo-video-export.s3.ap-northeast-2.amazonaws.com/players/${safeseg(teamKeyword(winTeam))}-${safeseg(cleanName(winName))}.png`
-                : null,
+            winning_pitcher_image_url: winningPitcherImageUrl || null,
             home_next_game: homeNextGameWithH2h ?? null,
             away_next_game: awayNextGameWithH2h ?? null,
             // Backward-compat: keep next_game but align with home team next game
