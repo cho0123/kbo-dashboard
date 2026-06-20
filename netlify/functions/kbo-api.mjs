@@ -7697,6 +7697,52 @@ ${hasSpecial
         const __starterEraCache = new Map();
         const scheduleRows = await fetchScheduleFromDate(db, dateStr);
 
+        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
+
+        const teamKeyword = (teamName) => {
+          const t = String(teamName || "");
+          for (const kw of TEAM_ROTATION) {
+            if (t.includes(kw)) return kw;
+          }
+          return t.split(/\s+/)[0] || "";
+        };
+
+        // 팀별 현재 순위 맵
+        const rankMap = {};
+        if (Array.isArray(standings)) {
+          standings.forEach((r) => {
+            const tk = teamKeyword(r?.team ?? r?.TEAM_NM ?? "");
+            const rank = r?.rank ?? r?.RANK ?? null;
+            if (tk && rank != null) rankMap[tk] = Number(rank);
+          });
+        }
+
+        // 전날 standings_history 조회 (순위변동용)
+        let prevRankMap = {};
+        try {
+          const yesterday = new Date(dateStr);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const prevDate = yesterday.toISOString().slice(0, 10);
+          const prevDoc = await fetchClosestStandingsHistoryDoc(db, prevDate);
+          if (prevDoc) {
+            const prevRows = prevDoc.standings ?? prevDoc.rows ?? [];
+            prevRows.forEach((r) => {
+              const tk = teamKeyword(r?.team ?? r?.TEAM_NM ?? "");
+              const rank = r?.rank ?? r?.RANK ?? null;
+              if (tk && rank != null) prevRankMap[tk] = Number(rank);
+            });
+          }
+        } catch (e) {
+          console.warn("prev standings fetch failed:", e?.message);
+        }
+
+        const safeseg = (s) => String(s || "").replace(/[\s/\\?*:|"<>]/g, "");
+        const cleanName = (s) =>
+          String(s || "")
+            .replace(/\(추정\)/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+
         const games = [];
         for (const g of base) {
           const gid = String(g?.game_id || "").trim();
@@ -7827,6 +7873,16 @@ ${hasSpecial
               ab: pickNum(b, ["ab", "AB", "at_bats", "타수"]),
             }));
           }
+
+          // MVP 사진 URL (S3 기준)
+          mvpBatters = mvpBatters.map((m) => ({
+            ...m,
+            player_image_url:
+              m.team && m.name
+                ? `https://kbo-video-export.s3.ap-northeast-2.amazonaws.com/players/${safeseg(teamKeyword(m.team))}-${safeseg(m.name)}.png`
+                : null,
+          }));
+
           const mvp = mvpBatters[0] ?? null;
 
           const rawGame = (gameDocs || []).find((x) => String(x?.game_id || x?.gameId || "") === gid) || {};
@@ -7963,6 +8019,15 @@ ${hasSpecial
             awayNextGame
           );
 
+          const homeTk = teamKeyword(g.home_team ?? "");
+          const awayTk = teamKeyword(g.away_team ?? "");
+          const winTeam =
+            Number.isFinite(hs) && Number.isFinite(as) && hs !== as
+              ? hs > as
+                ? g.home_team
+                : g.away_team
+              : null;
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -7995,6 +8060,20 @@ ${hasSpecial
             headToHead,
             mvp_batter: mvp,
             mvp_batters: mvpBatters,
+            home_rank: rankMap[homeTk] ?? null,
+            away_rank: rankMap[awayTk] ?? null,
+            home_rank_diff:
+              prevRankMap[homeTk] != null && rankMap[homeTk] != null
+                ? prevRankMap[homeTk] - rankMap[homeTk]
+                : null,
+            away_rank_diff:
+              prevRankMap[awayTk] != null && rankMap[awayTk] != null
+                ? prevRankMap[awayTk] - rankMap[awayTk]
+                : null,
+            winning_pitcher_image_url:
+              winName && winTeam
+                ? `https://kbo-video-export.s3.ap-northeast-2.amazonaws.com/players/${safeseg(teamKeyword(winTeam))}-${safeseg(cleanName(winName))}.png`
+                : null,
             home_next_game: homeNextGameWithH2h ?? null,
             away_next_game: awayNextGameWithH2h ?? null,
             // Backward-compat: keep next_game but align with home team next game
@@ -8004,7 +8083,6 @@ ${hasSpecial
 
         const gamesOrdered = sortGamesForDailyShortsRotation(games, dateStr);
 
-        const { standings, year: standingsYear } = await fetchStandings2026Document(db);
         return {
           statusCode: 200,
           headers: corsHeaders(),
