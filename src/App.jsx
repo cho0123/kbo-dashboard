@@ -764,11 +764,11 @@ function shadeColor(hex, amount) {
 }
 
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
-  // 승패 결정: 승리팀 단일 컬러 (상단 밝게, 하단 어둡게)
+  // 승패 결정: 승리팀 단일 컬러 그라데이션
   const [p] = teamGrad(winTeam);
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, p);
-  grad.addColorStop(1, shadeColor(p, -40));
+  grad.addColorStop(1, shadeColor(p, -50));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
@@ -1020,9 +1020,20 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const homeWin = Number.isFinite(hsNum) && Number.isFinite(asNum) ? hsNum > asNum : true;
   const winTeam = homeWin ? g.home_team : g.away_team;
   const loseTeam = homeWin ? g.away_team : g.home_team;
+  const isDrawOrCancel =
+    (Number.isFinite(hsNum) && Number.isFinite(asNum) && hsNum === asNum) ||
+    (g?.home_score === undefined || g?.home_score === null) &&
+    (g?.away_score === undefined || g?.away_score === null) ||
+    Number(g?.draws ?? g?.draw ?? g?.DRAW ?? 0) > 0;
 
   ctx.clearRect(0, 0, w, h);
-  winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
+  if (isDrawOrCancel) {
+    // 무승부/취소: 기존 대각선 분할 유지
+    diagTeamGradient(ctx, w, h, g.home_team, g.away_team);
+  } else {
+    // 승패 결정: 승리팀 단일 컬러
+    winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam);
+  }
 
   const hk = teamKeyword(g.home_team);
   const ak = teamKeyword(g.away_team);
@@ -1504,7 +1515,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
 
   // 배경: next_game는 승패팀 색상 교차 (상단=패전팀, 하단=승리팀)
   ctx.clearRect(0, 0, w, h);
-  winLoseVerticalGradient(ctx, w, h, loseTeam, winTeam);
+  // 다음경기 예고: 기존 대각선 분할 유지
+  diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
 
   // 중앙 타이틀: NEXT GAME — drawTomorrowPreviewGameSlide "GAME PREVIEW"와 동일 스타일, 크기만 기존 대비 80%
   const NEXT_GAME_TITLE_PX = Math.round(Math.round(132 * 0.8) * 0.8);
