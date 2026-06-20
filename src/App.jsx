@@ -22,6 +22,11 @@ import {
   drawTomorrowPreviewIntroSlide,
   SHORTS2_INTRO_TEAM_KEYS,
 } from "./shorts2TomorrowPreviewDraw.js";
+import {
+  loadPlayerImage,
+  loadPlayerImageFromNaverProxy,
+  loadDefaultPlayerImage,
+} from "./shorts4PlayerImage.js";
 
 /** 라벨은 정식 구단명, value는 Firestore home/away 팀 필드와 부분 일치시키는 키워드 */
 const KBO_TEAMS = [
@@ -1005,7 +1010,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null) {
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1315,6 +1320,34 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   const leftPhotoX = 20;
   const rightPhotoX = w / 2 + 10;
+
+  // 투수 사진 (왼쪽)
+  if (pitcherImg) {
+    const imgX = leftPhotoX + 10;
+    const imgY = photoAreaTop + 10;
+    const imgW = photoW - 20;
+    const imgH = photoAreaH - 90;
+    const scale = Math.min(imgW / pitcherImg.naturalWidth, imgH / pitcherImg.naturalHeight);
+    const dw = pitcherImg.naturalWidth * scale;
+    const dh = pitcherImg.naturalHeight * scale;
+    const dx = imgX + (imgW - dw) / 2;
+    const dy = imgY + (imgH - dh) / 2;
+    ctx.drawImage(pitcherImg, dx, dy, dw, dh);
+  }
+
+  // MVP 사진 (오른쪽)
+  if (mvpImg) {
+    const imgX = rightPhotoX + 10;
+    const imgY = photoAreaTop + 10;
+    const imgW = photoW - 20;
+    const imgH = photoAreaH - 90;
+    const scale = Math.min(imgW / mvpImg.naturalWidth, imgH / mvpImg.naturalHeight);
+    const dw = mvpImg.naturalWidth * scale;
+    const dh = mvpImg.naturalHeight * scale;
+    const dx = imgX + (imgW - dw) / 2;
+    const dy = imgY + (imgH - dh) / 2;
+    ctx.drawImage(mvpImg, dx, dy, dw, dh);
+  }
 
   // 투수 스탯 텍스트
   if (!isDrawGame && g?.winning_pitcher) {
@@ -1880,7 +1913,50 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         games.slice(0, Math.max(1, Math.min(Number(slide.upto) || games.length || 1, games.length || 1))),
         logosByTeamKey
       );
-    else if (slide.type === "game")
+    else if (slide.type === "game") {
+      // 투수/MVP 사진 프리로드
+      let pitcherImg = null;
+      let mvpImg = null;
+      const defImg = await loadDefaultPlayerImage();
+
+      const g0 = slide.game;
+      const cleanName = (s) =>
+        String(s || "—")
+          .replace(/\(추정\)/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 18);
+
+      if (g0) {
+        const winTk = teamKeyword(
+          g0.home_score > g0.away_score ? g0.home_team : g0.away_team
+        );
+        const winPitcherName = cleanName(g0?.winning_pitcher ?? "");
+
+        // 투수 사진
+        if (winPitcherName && winTk) {
+          const pitcherUrl = g0?.winning_pitcher_image_url ?? "";
+          pitcherImg = pitcherUrl
+            ? await loadPlayerImageFromNaverProxy(pitcherUrl).catch(() => null)
+            : await loadPlayerImage(winTk, winPitcherName).catch(() => null);
+          pitcherImg = pitcherImg ?? defImg;
+        }
+
+        // MVP 사진
+        const mvp =
+          Array.isArray(g0?.mvp_batters) && g0.mvp_batters.length > 0
+            ? g0.mvp_batters[0]
+            : g0?.mvp_batter ?? null;
+        if (mvp?.name) {
+          const mvpTk = teamKeyword(mvp?.team ?? "");
+          const mvpUrl = mvp?.player_image_url ?? "";
+          mvpImg = mvpUrl
+            ? await loadPlayerImageFromNaverProxy(mvpUrl).catch(() => null)
+            : await loadPlayerImage(mvpTk, mvp.name).catch(() => null);
+          mvpImg = mvpImg ?? defImg;
+        }
+      }
+
       drawGameSlide(
         ctx,
         w,
@@ -1891,8 +1967,11 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         Math.max(1, games.length),
         logosByTeamKey,
         batters,
-        standings
+        standings,
+        pitcherImg,
+        mvpImg
       );
+    }
     else if (slide.type === "next_game")
       drawNextGameSlide(
         ctx,
