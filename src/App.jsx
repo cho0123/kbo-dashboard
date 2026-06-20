@@ -1674,6 +1674,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
     setTextLayers((prev) => prev.map((l, i) => (i === idx ? { ...l, [key]: val } : l)));
   };
   const [overlayText3, setOverlayText3] = useState("프로야구 경기결과");
+  const [useCropThumbnail, setUseCropThumbnail] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -2142,6 +2143,94 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
           await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
       }
+
+      if (useCropThumbnail && cropCanvasRef.current && cropImageEl) {
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width = 1080;
+        thumbCanvas.height = 1920;
+        const thumbCtx = thumbCanvas.getContext("2d");
+
+        const outW = 1080;
+        const outH = 1920;
+        const imgW = cropImageEl.naturalWidth;
+        const imgH = cropImageEl.naturalHeight;
+        const scale = cropScale;
+        let srcW;
+        let srcH;
+        if ((imgW * scale) / (imgH * scale) > outW / outH) {
+          srcH = imgH;
+          srcW = imgH * (outW / outH);
+        } else {
+          srcW = imgW;
+          srcH = imgW * (outH / outW);
+        }
+        srcW /= scale;
+        srcH /= scale;
+        const maxOffX = Math.max(0, imgW - srcW);
+        const maxOffY = Math.max(0, imgH - srcH);
+        const sx = maxOffX * cropOffsetX;
+        const sy = maxOffY * cropOffsetY;
+        thumbCtx.drawImage(cropImageEl, sx, sy, srcW, srcH, 0, 0, 1080, 1920);
+
+        if (overlayText3) {
+          let fontSize3dl = 52;
+          thumbCtx.font = `bold ${fontSize3dl}px "Noto Sans KR", sans-serif`;
+          const targetW = 1080 * 0.7;
+          const measured = thumbCtx.measureText(overlayText3).width;
+          if (measured > 0) fontSize3dl = fontSize3dl * (targetW / measured);
+          thumbCtx.font = `bold ${fontSize3dl}px "Noto Sans KR", sans-serif`;
+          thumbCtx.textAlign = "center";
+          thumbCtx.textBaseline = "middle";
+          thumbCtx.fillStyle = "rgba(0,0,0,0.5)";
+          thumbCtx.fillRect(0, 1920 * 0.13 - fontSize3dl * 0.8, 1080, fontSize3dl * 1.6);
+          thumbCtx.fillStyle = "#ffffff";
+          thumbCtx.fillText(overlayText3, 540, 1920 * 0.13);
+        }
+
+        const days = ["일", "월", "화", "수", "목", "금", "토"];
+        const dateObj2 = date ? new Date(date) : null;
+        const dayStr2 = dateObj2 ? days[dateObj2.getDay()] : "";
+        const dateTextDl2 = date
+          ? `${date.slice(2, 4)}.${date.slice(5, 7)}.${date.slice(8, 10)} (${dayStr2})`
+          : "";
+        if (dateTextDl2) {
+          thumbCtx.font = `bold 54px "Noto Sans KR", sans-serif`;
+          thumbCtx.textAlign = "right";
+          thumbCtx.textBaseline = "middle";
+          thumbCtx.shadowColor = "rgba(0,0,0,0.8)";
+          thumbCtx.shadowBlur = 8;
+          thumbCtx.shadowOffsetX = 2;
+          thumbCtx.shadowOffsetY = 2;
+          thumbCtx.fillStyle = "#ffffff";
+          thumbCtx.fillText(dateTextDl2, 1080 * 0.95, 1920 * 0.95);
+          thumbCtx.shadowColor = "transparent";
+          thumbCtx.shadowBlur = 0;
+          thumbCtx.shadowOffsetX = 0;
+          thumbCtx.shadowOffsetY = 0;
+        }
+
+        textLayers.forEach((layer) => {
+          if (!layer.text) return;
+          thumbCtx.font = `400 ${layer.size}px "Black Han Sans", sans-serif`;
+          thumbCtx.textAlign = "center";
+          thumbCtx.textBaseline = "middle";
+          const posY = 1920 * (layer.posY / 100);
+          if (layer.bg) {
+            thumbCtx.fillStyle = "rgba(0,0,0,0.55)";
+            thumbCtx.fillRect(0, posY - layer.size * 0.8, 1080, layer.size * 1.6);
+          }
+          thumbCtx.fillStyle = layer.color;
+          thumbCtx.fillText(layer.text, 540, posY);
+        });
+
+        const thumbBlob = await new Promise((resolve) =>
+          thumbCanvas.toBlob((b) => resolve(b), "image/png")
+        );
+        if (thumbBlob && out.length > 0) {
+          out[0] = { ...out[0], blob: thumbBlob };
+        }
+      }
+
       setCapturedSlides(out);
     } catch (e) {
       window.alert(e?.message || String(e));
@@ -2243,6 +2332,27 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             {data && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <button
+                      type="button"
+                      className={!useCropThumbnail ? "primary primary-fill" : "primary"}
+                      style={{ flex: 1, fontSize: 12 }}
+                      onClick={() => setUseCropThumbnail(false)}
+                    >
+                      🎬 기본 썸네일
+                    </button>
+                    <button
+                      type="button"
+                      className={useCropThumbnail ? "primary primary-fill" : "primary"}
+                      style={{ flex: 1, fontSize: 12 }}
+                      onClick={() => setUseCropThumbnail(true)}
+                    >
+                      🖼️ 생성 썸네일
+                    </button>
+                  </div>
+
+                  {useCropThumbnail && (
+                    <>
                   <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
                     🖼️ 썸네일 크롭 도구 (9:16)
                   </div>
@@ -2481,6 +2591,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                         </button>
                       </div>
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               </div>
