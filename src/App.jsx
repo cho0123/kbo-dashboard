@@ -1071,19 +1071,20 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const loseStreak = homeWin ? awayStreak : homeStreak;
 
   // 1) 날짜
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(fmtKoreanLongDate(date), 64, SAFE_TOP + 80);
+  ctx.fillText(fmtKoreanLongDate(date), w / 2, SAFE_TOP + 80);
   resetShadow(ctx);
 
   // 2) 서브텍스트
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText("KBO 경기 결과", 64, SAFE_TOP + 160);
+  ctx.textAlign = "center";
+  ctx.fillText("KBO 경기 결과", w / 2, SAFE_TOP + 160);
   resetShadow(ctx);
 
   // 3) 팀 로고
@@ -1177,7 +1178,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // 하단 영역
   const leftX = 72;
-  const listTop = DIVIDER_Y + 180;
+  const listTop = DIVIDER_Y + 130;
   const lineGap = 107;
 
   const homeTeamName = String(g?.home_team || "—");
@@ -1208,10 +1209,10 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     (g?.home_score === undefined || g?.home_score === null) &&
     (g?.away_score === undefined || g?.away_score === null);
   const pitcherLine = isCancelled
-    ? "• 경기 취소"
+    ? "경기 취소"
     : isDrawGame
-      ? "• 연장전 무승부 종료"
-      : `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
+      ? "연장전 무승부 종료"
+      : `승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
   const mvpRows =
     Array.isArray(g?.mvp_batters) && g.mvp_batters.length > 0
       ? g.mvp_batters.slice(0, 2)
@@ -1219,7 +1220,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
         ? [g.mvp_batter]
         : [];
 
-  ctx.textAlign = "left";
+  ctx.textAlign = "center";
   ctx.fillStyle = "#FFFFFF";
   // 하단 텍스트 그림자(가독성)
   ctx.shadowColor = "rgba(0,0,0,0.6)";
@@ -1240,7 +1241,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const pitchBaselineY = listTop + lineGap * 0;
   const boxW = pm.width + boxPadX * 2;
   const boxH = pAsc + pDesc + boxPadY * 2;
-  const boxLeft = leftX - boxPadX;
+  const boxLeft = (w - boxW) / 2;
   const boxTop = pitchBaselineY - pAsc - boxPadY;
 
   ctx.shadowColor = "transparent";
@@ -1257,7 +1258,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText(pitcherLine, leftX, pitchBaselineY);
+  ctx.fillText(pitcherLine, w / 2, pitchBaselineY);
 
   // 순위 + 순위변동
   const fmtRankDiff = (diff) => {
@@ -1270,15 +1271,36 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const homeRankDiff = fmtRankDiff(g?.home_rank_diff ?? null);
   const awayRankDiff = fmtRankDiff(g?.away_rank_diff ?? null);
 
+  const rankY = listTop + lineGap * 1;
+
   // 홈팀 순위
-  ctx.textAlign = "left";
   ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFFFFF";
   const homeRankStr = `${homeTeamName} ${homeRank ?? "—"}위`;
-  ctx.fillText(homeRankStr, leftX, listTop + lineGap * 1);
-
-  // 순위변동 아이콘 (홈)
   const homeRankStrW = ctx.measureText(homeRankStr).width;
+
+  ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
+  const homeRankDiffW = ctx.measureText(homeRankDiff).width;
+
+  ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const divBarW = ctx.measureText("|").width;
+  const divBarSpW = ctx.measureText("| ").width;
+
+  const awayRankStr = `${awayTeamName} ${awayRank ?? "—"}위`;
+  const awayRankStrW = ctx.measureText(awayRankStr).width;
+
+  ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
+  const awayRankDiffW = ctx.measureText(awayRankDiff).width;
+
+  const rankLineW =
+    homeRankStrW + 8 + homeRankDiffW + 24 + divBarSpW + 8 + awayRankStrW + 8 + awayRankDiffW;
+  const rankStartX = (w - rankLineW) / 2;
+
+  ctx.textAlign = "left";
+  ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(homeRankStr, rankStartX, rankY);
+
   ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle =
     (g?.home_rank_diff ?? 0) > 0
@@ -1286,23 +1308,18 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       : (g?.home_rank_diff ?? 0) < 0
         ? "#FF5555"
         : "rgba(255,255,255,0.5)";
-  ctx.fillText(homeRankDiff, leftX + homeRankStrW + 8, listTop + lineGap * 1);
+  ctx.fillText(homeRankDiff, rankStartX + homeRankStrW + 8, rankY);
 
-  // 구분선
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
-  const divX = leftX + homeRankStrW + ctx.measureText(homeRankDiff).width + 24;
-  ctx.fillText("|", divX, listTop + lineGap * 1);
+  const divX = rankStartX + homeRankStrW + 8 + homeRankDiffW + 24;
+  ctx.fillText("|", divX, rankY);
 
-  // 원정팀 순위
   ctx.fillStyle = "#FFFFFF";
   ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
-  const awayStartX = divX + ctx.measureText("| ").width + 8;
-  const awayRankStr = `${awayTeamName} ${awayRank ?? "—"}위`;
-  ctx.fillText(awayRankStr, awayStartX, listTop + lineGap * 1);
+  const awayStartX = divX + divBarSpW + 8;
+  ctx.fillText(awayRankStr, awayStartX, rankY);
 
-  // 순위변동 아이콘 (원정)
-  const awayRankStrW = ctx.measureText(awayRankStr).width;
   ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle =
     (g?.away_rank_diff ?? 0) > 0
@@ -1310,7 +1327,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       : (g?.away_rank_diff ?? 0) < 0
         ? "#FF5555"
         : "rgba(255,255,255,0.5)";
-  ctx.fillText(awayRankDiff, awayStartX + awayRankStrW + 8, listTop + lineGap * 1);
+  ctx.fillText(awayRankDiff, awayStartX + awayRankStrW + 8, rankY);
   ctx.fillStyle = "#FFFFFF";
 
   // 사진 영역 (Y 1380~1720)
