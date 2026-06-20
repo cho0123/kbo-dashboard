@@ -750,9 +750,23 @@ function hexToRgba(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+function shadeColor(hex, amount) {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 function winLoseVerticalGradient(ctx, w, h, winTeam, loseTeam) {
-  // 유지용 이름이지만, 실제 동작은 "사선 분할" 배경으로 변경합니다.
-  diagTeamGradient(ctx, w, h, winTeam, loseTeam);
+  // 승패 결정: 승리팀 단일 컬러 (상단 밝게, 하단 어둡게)
+  const [p] = teamGrad(winTeam);
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, p);
+  grad.addColorStop(1, shadeColor(p, -40));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
 }
 
 function downloadBlob(blob, filename) {
@@ -1162,17 +1176,8 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const awayRow =
     rows.find((r) => teamKeyword(pickRowTeamRaw(r)) === awayKey) || null;
   const pickRank = (r) => r?.rank ?? r?.RANK ?? r?.순위 ?? null;
-  const homeRank = pickRank(homeRow);
-  const awayRank = pickRank(awayRow);
-  const h2h =
-    g?.headToHead ??
-    g?.head_to_head ??
-    g?.headToHeadRecord ??
-    g?.head_to_head_record ??
-    null;
-  const h2hText = h2h
-    ? `• 상대전적  ${homeTeamName} ${h2h.win ?? 0}승 ${h2h.draw ?? 0}무 ${h2h.lose ?? 0}패`
-    : `• 상대전적 데이터 없음`;
+  const homeRank = g?.home_rank ?? pickRank(homeRow);
+  const awayRank = g?.away_rank ?? pickRank(awayRow);
 
   const drawCount = Number(g?.draws ?? g?.draw ?? g?.DRAW ?? 0) || 0;
   const isDrawGame =
@@ -1191,8 +1196,6 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     : isDrawGame
       ? "• 연장전 무승부 종료"
       : `• 승: ${cleanName(winNameRaw)}(${fmtEra(winEra)})  패: ${cleanName(loseNameRaw)}(${fmtEra(loseEra)})`;
-  const fmtMvpLineStat = (h, hr) =>
-    h == null && hr == null ? "" : ` (${h ?? "—"}H ${hr ?? "—"}HR)`;
   const mvpRows =
     Array.isArray(g?.mvp_batters) && g.mvp_batters.length > 0
       ? g.mvp_batters.slice(0, 2)
@@ -1240,30 +1243,115 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(pitcherLine, leftX, pitchBaselineY);
 
-  // • 순위 (standings 기반)
-  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(
-    `• 순위  ${homeTeamName} ${homeRank ?? "—"}위  |  ${awayTeamName} ${awayRank ?? "—"}위`,
-    leftX,
-    listTop + lineGap * 1
-  );
+  // 순위 + 순위변동
+  const fmtRankDiff = (diff) => {
+    if (diff == null) return " -";
+    if (diff > 0) return ` ▲${diff}`;
+    if (diff < 0) return ` ▼${Math.abs(diff)}`;
+    return " -";
+  };
 
-  // • 상대전적 (홈팀기준)
-  ctx.font = `600 48px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(h2hText, leftX, listTop + lineGap * 2);
+  const homeRankDiff = fmtRankDiff(g?.home_rank_diff ?? null);
+  const awayRankDiff = fmtRankDiff(g?.away_rank_diff ?? null);
 
-  // • ⭐ / ✨ 타자 MVP (최대 2명, API 미갱신 시 mvp_batter 단일 호환)
-  ctx.font = `700 54px "Gmarket Sans", system-ui, sans-serif";
-  if (mvpRows.length === 0) {
-    ctx.fillText(`• ⭐ —`, leftX, listTop + lineGap * 3);
-  } else {
-    mvpRows.forEach((row, i) => {
-      const nm = cleanName(row?.name ?? "—");
-      const stat = fmtMvpLineStat(row?.h ?? null, row?.hr ?? null);
-      const bullet = i === 0 ? "• ⭐ " : "• ✨ ";
-      ctx.fillText(`${bullet}${nm}${stat}`, leftX, listTop + lineGap * (3 + i));
-    });
+  // 홈팀 순위
+  ctx.textAlign = "left";
+  ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  const homeRankStr = `${homeTeamName} ${homeRank ?? "—"}위`;
+  ctx.fillText(homeRankStr, leftX, listTop + lineGap * 1);
+
+  // 순위변동 아이콘 (홈)
+  const homeRankStrW = ctx.measureText(homeRankStr).width;
+  ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle =
+    (g?.home_rank_diff ?? 0) > 0
+      ? "#00DD88"
+      : (g?.home_rank_diff ?? 0) < 0
+        ? "#FF5555"
+        : "rgba(255,255,255,0.5)";
+  ctx.fillText(homeRankDiff, leftX + homeRankStrW + 8, listTop + lineGap * 1);
+
+  // 구분선
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const divX = leftX + homeRankStrW + ctx.measureText(homeRankDiff).width + 24;
+  ctx.fillText("|", divX, listTop + lineGap * 1);
+
+  // 원정팀 순위
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `600 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const awayStartX = divX + ctx.measureText("| ").width + 8;
+  const awayRankStr = `${awayTeamName} ${awayRank ?? "—"}위`;
+  ctx.fillText(awayRankStr, awayStartX, listTop + lineGap * 1);
+
+  // 순위변동 아이콘 (원정)
+  const awayRankStrW = ctx.measureText(awayRankStr).width;
+  ctx.font = `600 38px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.fillStyle =
+    (g?.away_rank_diff ?? 0) > 0
+      ? "#00DD88"
+      : (g?.away_rank_diff ?? 0) < 0
+        ? "#FF5555"
+        : "rgba(255,255,255,0.5)";
+  ctx.fillText(awayRankDiff, awayStartX + awayRankStrW + 8, listTop + lineGap * 1);
+  ctx.fillStyle = "#FFFFFF";
+
+  // 사진 영역 (Y 1380~1720)
+  const photoAreaTop = listTop + lineGap * 2;
+  const photoAreaH = SAFE_BOTTOM - photoAreaTop;
+  const photoW = (w - 60) / 2;
+
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // 반투명 배경
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.roundRect(20, photoAreaTop, w - 40, photoAreaH, 16);
+  ctx.fill();
+
+  const leftPhotoX = 20;
+  const rightPhotoX = w / 2 + 10;
+
+  // 투수 스탯 텍스트
+  if (!isDrawGame && g?.winning_pitcher) {
+    ctx.textAlign = "center";
+    ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(cleanName(g.winning_pitcher), leftPhotoX + photoW / 2, photoAreaTop + photoAreaH - 55);
+    ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    const wpIp =
+      g?.home_starter?.name === cleanName(g.winning_pitcher)
+        ? g?.home_starter?.ip
+        : g?.away_starter?.ip;
+    ctx.fillText(
+      `ERA ${fmtEra(g?.winning_pitcher_era)}${wpIp ? ` | ${wpIp}이닝` : ""}`,
+      leftPhotoX + photoW / 2,
+      photoAreaTop + photoAreaH - 20
+    );
   }
+
+  // MVP 스탯 텍스트
+  if (mvpRows.length > 0) {
+    const mvp = mvpRows[0];
+    ctx.textAlign = "center";
+    ctx.font = `700 36px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(cleanName(mvp?.name ?? "—"), rightPhotoX + photoW / 2, photoAreaTop + photoAreaH - 55);
+    ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(
+      `${mvp?.h ?? 0}안타 ${mvp?.hr ?? 0}홈런`,
+      rightPhotoX + photoW / 2,
+      photoAreaTop + photoAreaH - 20
+    );
+  }
+
+  ctx.textAlign = "left";
 
   // 하단 텍스트 그림자 초기화
   ctx.shadowColor = "transparent";
