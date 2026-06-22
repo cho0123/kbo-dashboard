@@ -1898,6 +1898,12 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   };
   const [overlayText3, setOverlayText3] = useState("프로야구 경기결과");
   const [useCropThumbnail, setUseCropThumbnail] = useState(false);
+  const playerPhotoFileRef = useRef(null);
+  const [playerPhotoTeam, setPlayerPhotoTeam] = useState("");
+  const [playerPhotoName, setPlayerPhotoName] = useState("");
+  const [playerPhotoUploading, setPlayerPhotoUploading] = useState(false);
+  const [playerPhotoMsg, setPlayerPhotoMsg] = useState("");
+  const [playerPhotoOk, setPlayerPhotoOk] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -2135,6 +2141,53 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       setYoutubeTitle("제목 생성 실패: " + (e?.message || String(e)));
     } finally {
       setYoutubeTitleBusy(false);
+    }
+  };
+
+  const uploadPlayerPhoto = async () => {
+    setPlayerPhotoMsg("");
+    setPlayerPhotoOk(false);
+    const team = String(playerPhotoTeam || "").trim();
+    const playerName = String(playerPhotoName || "").trim();
+    if (!team || !playerName) {
+      setPlayerPhotoMsg("팀명과 선수명을 입력하세요.");
+      return;
+    }
+    const file = playerPhotoFileRef.current?.files?.[0];
+    if (!file) {
+      setPlayerPhotoMsg("PNG 파일을 선택하세요.");
+      return;
+    }
+    setPlayerPhotoUploading(true);
+    try {
+      const imageBase64 = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => {
+          const dataUrl = String(fr.result || "");
+          const m = /^data:image\/png;base64,(.+)$/i.exec(dataUrl);
+          if (m) resolve(m[1].replace(/\s/g, ""));
+          else reject(new Error("PNG 파일만 업로드할 수 있습니다."));
+        };
+        fr.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+        fr.readAsDataURL(file);
+      });
+      const res = await postKbo({
+        action: "upload_player_image",
+        team,
+        playerName,
+        imageBase64,
+      });
+      if (!res || res.ok === false) {
+        throw new Error(String(res?.error || res?.message || "업로드 실패"));
+      }
+      setPlayerPhotoOk(true);
+      setPlayerPhotoMsg("✅ 업로드 완료");
+      if (playerPhotoFileRef.current) playerPhotoFileRef.current.value = "";
+    } catch (e) {
+      setPlayerPhotoOk(false);
+      setPlayerPhotoMsg(e?.message || String(e));
+    } finally {
+      setPlayerPhotoUploading(false);
     }
   };
 
@@ -2905,51 +2958,66 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
               - 슬라이드2~N: 경기별 상세(구장/승패투수/타자 MVP 최대 2명)<br />
               - 마지막: KBO 순위(`standings`)
             </div>
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                width: "100%",
-              }}
-            >
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--naver"
-                onClick={() =>
-                  window.open(
-                    `https://m.sports.naver.com/kbaseball/schedule/index?date=${String(date).replace(/-/g, "")}`,
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                🔍 네이버 야구에서 검증
-              </button>
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--naver"
-                onClick={() =>
-                  window.open(
-                    "https://m.sports.naver.com/kbaseball/record/kbo?seasonCode=2026&tab=teamRank",
-                    "_blank",
-                    "noopener,noreferrer"
-                  )
-                }
-              >
-                📊 네이버 팀순위
-              </button>
-              <button
-                type="button"
-                className="shorts-verify-link shorts-verify-link--kbo"
-                onClick={() =>
-                  window.open("https://www.koreabaseball.com", "_blank", "noopener,noreferrer")
-                }
-              >
-                ⚾ KBO 공식 홈페이지
-              </button>
-            </div>
+            <details style={{ marginTop: 8, width: "100%" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                📷 선수 사진 관리
+              </summary>
+              <div style={{ marginTop: 8, display: "grid", gap: 8, padding: "8px 0", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <label className="muted" style={{ fontSize: 13 }}>
+                  팀명 (예: 삼성)
+                  <input
+                    type="text"
+                    value={playerPhotoTeam}
+                    onChange={(e) => { setPlayerPhotoTeam(e.target.value); setPlayerPhotoOk(false); }}
+                    placeholder="삼성"
+                    disabled={playerPhotoUploading}
+                    style={{ width: "100%", boxSizing: "border-box", marginTop: 4 }}
+                  />
+                </label>
+                <label className="muted" style={{ fontSize: 13 }}>
+                  선수명
+                  <input
+                    type="text"
+                    value={playerPhotoName}
+                    onChange={(e) => { setPlayerPhotoName(e.target.value); setPlayerPhotoOk(false); }}
+                    placeholder="홍길동"
+                    disabled={playerPhotoUploading}
+                    style={{ width: "100%", boxSizing: "border-box", marginTop: 4 }}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    ref={playerPhotoFileRef}
+                    type="file"
+                    accept="image/png"
+                    disabled={playerPhotoUploading}
+                    style={{ display: "none" }}
+                    onChange={() => { setPlayerPhotoOk(false); }}
+                  />
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={playerPhotoUploading}
+                    onClick={() => playerPhotoFileRef.current?.click()}
+                  >
+                    파일 선택 (PNG)
+                  </button>
+                  <button
+                    type="button"
+                    className="primary primary-fill"
+                    disabled={playerPhotoUploading}
+                    onClick={() => void uploadPlayerPhoto()}
+                  >
+                    {playerPhotoUploading ? "업로드 중…" : "S3 업로드"}
+                  </button>
+                </div>
+                {playerPhotoMsg && (
+                  <div className={playerPhotoOk ? "muted" : "result-error-light"} style={{ fontSize: 13 }}>
+                    {playerPhotoMsg}
+                  </div>
+                )}
+              </div>
+            </details>
           </div>
         </div>
       ) : null}
