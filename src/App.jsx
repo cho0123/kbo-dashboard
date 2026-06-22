@@ -1940,7 +1940,6 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       s.push({ type: "summary", upto });
     }
     for (const g of games) {
-      s.push({ type: "game", step: 1, game: g });
       s.push({ type: "game", step: 2, game: g });
       if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame) {
         s.push({ type: "next_game", step: 1, game: g });
