@@ -1010,7 +1010,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2) {
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1187,6 +1187,9 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.textAlign = "center";
   ctx.fillText(venueText, w / 2, SAFE_TOP + 605 + 70);
   ctx.textAlign = "left";
+
+  // step 1: 상단만 (스코어 + 선발투수 + 구장명)
+  if (step === 1) return;
 
   // 하단 영역
   const leftX = 72;
@@ -1477,7 +1480,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // 하단 인덱스 텍스트 제거
 }
 
-function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, standings) {
+function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, standings, step = 2) {
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1627,6 +1630,8 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
   ctx.fillText(fmtNextGameSlideDateTime(dateIso, timeText), w / 2, DIVIDER_Y + 60);
   resetShadow(ctx);
+
+  if (step === 1) return;
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
   const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
@@ -1852,8 +1857,8 @@ function slideExportKeyShorts1(slide, index, allSlides = []) {
     }
     return ord <= 4 ? "summary" : "summary_last";
   }
-  if (slide.type === "game") return "game_detail";
-  if (slide.type === "next_game") return "game_detail";
+  if (slide.type === "game") return slide.step === 1 ? "game_top" : "game_detail";
+  if (slide.type === "next_game") return slide.step === 1 ? "next_game_top" : "game_detail";
   if (slide.type === "standings") return "standings";
   return "intro";
 }
@@ -1935,9 +1940,12 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       s.push({ type: "summary", upto });
     }
     for (const g of games) {
-      s.push({ type: "game", game: g });
-      if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame)
-        s.push({ type: "next_game", game: g });
+      s.push({ type: "game", step: 1, game: g });
+      s.push({ type: "game", step: 2, game: g });
+      if (g?.home_next_game || g?.away_next_game || g?.next_game || g?.nextGame) {
+        s.push({ type: "next_game", step: 1, game: g });
+        s.push({ type: "next_game", step: 2, game: g });
+      }
     }
     s.push({ type: "standings" });
     return s;
@@ -2075,7 +2083,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         batters,
         standings,
         pitcherImg,
-        mvpImg
+        mvpImg,
+        slide.step ?? 2
       );
     }
     else if (slide.type === "next_game")
@@ -2088,7 +2097,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         idx,
         Math.max(1, games.length),
         logosByTeamKey,
-        standings
+        standings,
+        slide.step ?? 2
       );
     else {
       const sdiff = Array.isArray(data?.standings_diff) ? data.standings_diff : [];
