@@ -8137,6 +8137,16 @@ ${hasSpecial
 
         const gamesOrdered = sortGamesForDailyShortsRotation(games, dateStr);
 
+        // standings_diff 계산 (prevRankMap은 이미 위에서 계산됨)
+        const standings_diff = Object.keys(rankMap).length > 0
+          ? Object.entries(rankMap).map(([tk, curRank]) => ({
+              team: tk,
+              current_rank: curRank,
+              prev_rank: prevRankMap[tk] ?? curRank,
+              diff: (prevRankMap[tk] ?? curRank) - curRank,
+            }))
+          : [];
+
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -8147,6 +8157,7 @@ ${hasSpecial
             games: gamesOrdered,
             standings,
             standingsYear,
+            standings_diff,
           }),
         };
       }
