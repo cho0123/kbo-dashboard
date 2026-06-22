@@ -4,7 +4,9 @@ export const SLIDE_KEYS_SHORTS1 = [
   "intro",
   "summary",
   "summary_last",
+  "game_top",
   "game_detail",
+  "next_game_top",
   "standings",
 ];
 export const SLIDE_KEYS_SHORTS5 = [
@@ -45,7 +47,9 @@ export const DEFAULT_DURATION_SHORTS1 = {
   intro: 3.0,
   summary: 2.5,
   summary_last: 3.0,
+  game_top: 2.0,
   game_detail: 2.0,
+  next_game_top: 1.5,
   standings: 3.5,
 };
 
