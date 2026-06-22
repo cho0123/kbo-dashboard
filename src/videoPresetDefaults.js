@@ -193,7 +193,9 @@ export function slideFieldDefs(shortsType) {
       { key: "intro", label: "인트로" },
       { key: "summary", label: "경기결과 1~4장" },
       { key: "summary_last", label: "경기결과 마지막(5번째)장" },
+      { key: "game_top", label: "경기 상단(스코어+선발)" },
       { key: "game_detail", label: "경기 상세" },
+      { key: "next_game_top", label: "다음경기 예고 상단" },
       { key: "standings", label: "순위" },
     ];
   }
