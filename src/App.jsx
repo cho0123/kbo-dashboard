@@ -1858,7 +1858,7 @@ function slideExportKeyShorts1(slide, index, allSlides = []) {
     return ord <= 4 ? "summary" : "summary_last";
   }
   if (slide.type === "game") return slide.step === 1 ? "game_top" : "game_detail";
-  if (slide.type === "next_game") return slide.step === 1 ? "next_game_top" : "game_detail";
+  if (slide.type === "next_game") return slide.step === 1 ? "next_game_top" : "next_game_detail";
   if (slide.type === "standings") return "standings";
   return "intro";
 }

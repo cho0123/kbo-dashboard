@@ -7,6 +7,7 @@ export const SLIDE_KEYS_SHORTS1 = [
   "game_top",
   "game_detail",
   "next_game_top",
+  "next_game_detail",
   "standings",
 ];
 export const SLIDE_KEYS_SHORTS5 = [
@@ -50,6 +51,7 @@ export const DEFAULT_DURATION_SHORTS1 = {
   game_top: 2.0,
   game_detail: 2.0,
   next_game_top: 1.5,
+  next_game_detail: 2.0,
   standings: 3.5,
 };
 
@@ -196,6 +198,7 @@ export function slideFieldDefs(shortsType) {
       { key: "game_top", label: "경기 상단(스코어+선발)" },
       { key: "game_detail", label: "경기 상세" },
       { key: "next_game_top", label: "다음경기 예고 상단" },
+      { key: "next_game_detail", label: "다음경기 예고 전체" },
       { key: "standings", label: "순위" },
     ];
   }
