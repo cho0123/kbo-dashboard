@@ -302,7 +302,7 @@ export function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "�
   ctx.restore();
 }
 
-export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, teamName = "") {
+export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, teamName = "", standingsDiff = []) {
   ctx.clearRect(0, 0, w, h);
   drawStandingsSolidBackground(ctx, w, h, teamName);
 
@@ -520,6 +520,24 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
     ctx.fillStyle = "#FFF5E0";
     ctx.fillText(String(d.rank), x + 24, y + 24);
+
+    // 순위변동 표시
+    const diffRow = standingsDiff.find((r) => {
+      const tk = r?.team ?? r?.TEAM_NM ?? "";
+      return teamKeyword(tk) === teamKeyword(d.teamRaw ?? d.team ?? "");
+    });
+    if (diffRow?.diff != null && diffRow.diff !== 0) {
+      const diffVal = Number(diffRow.diff);
+      ctx.font = `700 28px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = diffVal > 0 ? "#00DD88" : "#FF5555";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        diffVal > 0 ? `▲${diffVal}` : `▼${Math.abs(diffVal)}`,
+        x + 24,
+        y + 82
+      );
+    }
 
     const logoSize = GRID_H * 0.6;
     const lx = x + (GRID_W - logoSize) / 2;

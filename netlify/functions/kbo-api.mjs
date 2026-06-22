@@ -8120,6 +8120,19 @@ ${hasSpecial
 
         const gamesOrdered = sortGamesForDailyShortsRotation(games, dateStr);
 
+        // 전날 순위변동 계산
+        let standings_diff = [];
+        try {
+          if (Object.keys(prevRankMap).length > 0) {
+            standings_diff = Object.entries(rankMap).map(([tk, curRank]) => ({
+              team: tk,
+              current_rank: curRank,
+              prev_rank: prevRankMap[tk] ?? curRank,
+              diff: (prevRankMap[tk] ?? curRank) - curRank,
+            }));
+          }
+        } catch (e) {}
+
         return {
           statusCode: 200,
           headers: corsHeaders(),
@@ -8130,6 +8143,7 @@ ${hasSpecial
             games: gamesOrdered,
             standings,
             standingsYear,
+            standings_diff,
           }),
         };
       }
