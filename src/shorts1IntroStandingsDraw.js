@@ -302,7 +302,7 @@ export function drawIntroSlide(ctx, w, h, date, logosByTeamKey, introTitle = "�
   ctx.restore();
 }
 
-export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, teamName = "") {
+export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, teamName = "", standingsDiff = []) {
   ctx.clearRect(0, 0, w, h);
   drawStandingsSolidBackground(ctx, w, h, teamName);
 
@@ -377,6 +377,11 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     console.log("logo check:", tk, !!logosByTeamKey?.[tk], logosByTeamKey?.[tk]);
     const winsN = Number(ws);
     const lossesN = Number(ls);
+    const diffRow = standingsDiff.find((sd) => {
+      const sdk = teamKeyword(sd?.team ?? "");
+      return sdk && sdk === teamKeyword(teamRaw);
+    });
+    const diff = diffRow?.diff ?? null;
     return {
       rank,
       team,
@@ -388,6 +393,7 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
       logo,
       winsN: Number.isFinite(winsN) ? winsN : null,
       lossesN: Number.isFinite(lossesN) ? lossesN : null,
+      diff,
     };
   };
 
@@ -447,6 +453,15 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     const leftText = `${d.team}`;
     ctx.fillText(leftText, tx, lineY);
     const leftW = ctx.measureText(leftText).width;
+    if (d.diff != null && d.diff !== 0) {
+      ctx.font = `600 40px "${FONT_BODY}", sans-serif`;
+      ctx.fillStyle = d.diff > 0 ? "#00DD88" : "#FF5555";
+      ctx.fillText(
+        d.diff > 0 ? `▲${d.diff}` : `▼${Math.abs(d.diff)}`,
+        tx + leftW + 20,
+        lineY - 20
+      );
+    }
     ctx.letterSpacing = "0px";
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -487,6 +502,15 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     const leftText = `${d.team}`;
     ctx.fillText(leftText, tx, lineY);
     const leftW = ctx.measureText(leftText).width;
+    if (d.diff != null && d.diff !== 0) {
+      ctx.font = `600 40px "${FONT_BODY}", sans-serif`;
+      ctx.fillStyle = d.diff > 0 ? "#00DD88" : "#FF5555";
+      ctx.fillText(
+        d.diff > 0 ? `▲${d.diff}` : `▼${Math.abs(d.diff)}`,
+        tx + leftW + 20,
+        lineY - 20
+      );
+    }
     ctx.letterSpacing = "0px";
     ctx.save();
     ctx.globalAlpha = 0.85;
@@ -520,6 +544,17 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     ctx.font = `900 60px "${FONT_TITLE}", system-ui, sans-serif`;
     ctx.fillStyle = "#FFF5E0";
     ctx.fillText(String(d.rank), x + 24, y + 24);
+    if (d.diff != null && d.diff !== 0) {
+      ctx.font = `700 26px "${FONT_BODY}", sans-serif`;
+      ctx.fillStyle = d.diff > 0 ? "#00DD88" : "#FF5555";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        d.diff > 0 ? `▲${d.diff}` : `▼${Math.abs(d.diff)}`,
+        x + 24,
+        y + 86
+      );
+    }
 
     const logoSize = GRID_H * 0.6;
     const lx = x + (GRID_W - logoSize) / 2;

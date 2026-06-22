@@ -2084,7 +2084,10 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         logosByTeamKey,
         standings
       );
-    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
+    else {
+      const sdiff = Array.isArray(data?.standings_diff) ? data.standings_diff : [];
+      drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, "", sdiff);
+    }
   };
 
   const onGenerate = async (nextDate) => {
@@ -3031,7 +3034,10 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         logosByTeamKey,
         Number(slide.page) || 1
       );
-    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
+    else {
+      const sdiff = Array.isArray(data?.standings_diff) ? data.standings_diff : [];
+      drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, "", sdiff);
+    }
   };
 
   const onLoad = async () => {
