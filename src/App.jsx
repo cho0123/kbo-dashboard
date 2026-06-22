@@ -1190,7 +1190,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // 하단 영역
   const leftX = 72;
-  const listTop = DIVIDER_Y + 130;
+  const listTop = DIVIDER_Y + 105;
   const lineGap = 107;
 
   const homeTeamName = String(g?.home_team || "—");
@@ -1356,13 +1356,13 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   // 투수 박스 (왼쪽)
   ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.beginPath();
-  ctx.roundRect(20, photoAreaTop, w / 2 - 30, photoAreaH, 16);
+  ctx.roundRect(20, photoAreaTop - 15, w / 2 - 30, photoAreaH + 30, 16);
   ctx.fill();
 
   // 타자 박스 (오른쪽)
   ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.beginPath();
-  ctx.roundRect(w / 2 + 10, photoAreaTop, w / 2 - 30, photoAreaH, 16);
+  ctx.roundRect(w / 2 + 10, photoAreaTop - 15, w / 2 - 30, photoAreaH + 30, 16);
   ctx.fill();
 
   const leftPhotoX = 20;
@@ -1370,7 +1370,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // 사진 영역 상단 타이틀
   ctx.textAlign = "center";
-  ctx.font = `600 34px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `600 37px "${FONT_BODY}", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.7)";
   if (!isDrawGame) {
     ctx.fillText("승리투수", leftPhotoX + photoW / 2, photoAreaTop + 36);
@@ -1420,7 +1420,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       photoAreaTop + 410
     );
     // 스탯 (몇이닝 몇실점)
-    ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `500 32px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     const wpIp = g?.winning_pitcher_ip ?? null;
     const wpEr = g?.winning_pitcher_er ?? null;
@@ -1450,7 +1450,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       photoAreaTop + 410
     );
     // 스탯
-    ctx.font = `500 30px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `500 32px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     const mvpStat = [
       mvp?.hr != null ? `${mvp.hr}홈런` : null,
