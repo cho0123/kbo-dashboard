@@ -498,7 +498,13 @@ async function fetchGamesByDate(db, dateStr) {
 
   // Last resort: bounded scan + filter (handles Timestamp/dirty strings)
   try {
-    const snap3 = await db.collection("games").limit(2500).get();
+    const year = dateStr.slice(0, 4);
+    const snap3 = await db
+      .collection("games")
+      .where("game_date", ">=", `${year}-01-01`)
+      .where("game_date", "<=", `${year}-12-31`)
+      .limit(400)
+      .get();
     snap3.forEach((d) => {
       const doc = { id: d.id, ...docSnap(d) };
       const gd = safeIsoDate(doc.game_date || doc.gameDate || "");
@@ -550,7 +556,13 @@ async function fetchScheduleFromDate(db, startDateIso) {
   }
   // fallback scan
   try {
-    const snap2 = await db.collection("schedule").limit(3000).get();
+    const snapYear = String(startDateIso || "").slice(0, 4) || "2026";
+    const snap2 = await db
+      .collection("schedule")
+      .where("game_date", ">=", `${snapYear}-01-01`)
+      .where("game_date", "<=", `${snapYear}-12-31`)
+      .limit(400)
+      .get();
     snap2.forEach((d) => {
       const doc = { id: d.id, ...docSnap(d) };
       const gd = safeIsoDate(doc.game_date || "");
@@ -1835,9 +1847,15 @@ async function fetchLatestSeasonEraByPitcherName(
   const key = teamNorm ? `${seasonYear}:${name}:${teamNorm}` : `${seasonYear}:${name}`;
   if (cacheMap?.has(key)) return cacheMap.get(key);
 
+  const y = Number(seasonYear) || 2026;
   let rows = [];
   try {
-    const snap = await db.collection("pitchers").where("player", "==", name).limit(220).get();
+    const snap = await db
+      .collection("pitchers")
+      .where("player", "==", name)
+      .where("year", "==", y)
+      .limit(50)
+      .get();
     snap.forEach((d) => rows.push({ id: d.id, ...docSnap(d) }));
   } catch (e) {
     console.warn("[fetchLatestSeasonEraByPitcherName] query failed:", e?.message || e);
@@ -1854,7 +1872,6 @@ async function fetchLatestSeasonEraByPitcherName(
   rows.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
 
   // pick first non-null era — 해당 시즌(year) 문서만 사용 (이전 시즌 폴백 없음)
-  const y = Number(seasonYear) || 2026;
   const pickFrom = (arr) => {
     for (const r of arr) {
       const era = safeEraNumber(r?.era ?? r?.ERA ?? null);
