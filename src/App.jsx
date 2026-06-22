@@ -1614,7 +1614,7 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   ctx.textAlign = "start";
   ctx.textBaseline = "alphabetic";
   ctx.font = `italic 1000 ${NEXT_GAME_TITLE_PX}px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("NEXT GAME", 60, DIVIDER_Y - 30);
+  ctx.fillText("NEXT GAME", 60, DIVIDER_Y + 30);
   ctx.restore();
 
   // NEXT GAME 아래 날짜/시간
@@ -1625,7 +1625,7 @@ function drawNextGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, sta
   shadowTextSoft(ctx);
   const dateIso = top.dateIso && top.dateIso !== "—" ? top.dateIso : bot.dateIso;
   const timeText = top.time && top.time !== "—" ? top.time : bot.time;
-  ctx.fillText(fmtNextGameSlideDateTime(dateIso, timeText), w / 2, DIVIDER_Y + 60);
+  ctx.fillText(fmtNextGameSlideDateTime(dateIso, timeText), w / 2, DIVIDER_Y + 120);
   resetShadow(ctx);
 
   // 2) 팀 로고 (drawGameSlide와 동일 위치/크기)
@@ -2084,10 +2084,10 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         logosByTeamKey,
         standings
       );
-    else {
-      const sdiff = Array.isArray(data?.standings_diff) ? data.standings_diff : [];
-      drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, "", sdiff);
-    }
+    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
+  };
+
+  const onGenerate = async (nextDate) => {
     setBusy(true);
     setError(null);
     try {
@@ -3031,10 +3031,7 @@ function CardTomorrowPreviewShorts({ previewDateIso }) {
         logosByTeamKey,
         Number(slide.page) || 1
       );
-    else {
-      const sdiff = Array.isArray(data?.standings_diff) ? data.standings_diff : [];
-      drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, "", sdiff);
-    }
+    else drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey);
   };
 
   const onLoad = async () => {
