@@ -7837,6 +7837,7 @@ ${hasSpecial
               h: top.h,
               hr: top.hr,
               ab: pickNum(top.b, ["ab", "AB", "at_bats", "타수"]),
+              rbi: pickNum(top.b, ["rbi", "RBI", "bi", "타점"]),
             };
           };
 
@@ -7871,6 +7872,7 @@ ${hasSpecial
               h,
               hr,
               ab: pickNum(b, ["ab", "AB", "at_bats", "타수"]),
+              rbi: pickNum(b, ["rbi", "RBI", "bi", "타점"]),
             }));
           }
 
@@ -7888,7 +7890,7 @@ ${hasSpecial
             enrichedMvpBatters.push({
               ...m,
               player_image_url: imageUrl || null,
-              rbi: m?.rbi ?? m?.RBI ?? null,
+              rbi: m?.rbi ?? null,
             });
           }
           mvpBatters = enrichedMvpBatters;
@@ -8054,6 +8056,14 @@ ${hasSpecial
             console.warn("투수 사진 조회 실패:", winName, e?.message);
           }
 
+          const winPitcherRow = pitchers.find(
+            (p) => pickPitcherName(p) === winName.replace(" (추정)", "")
+          );
+          const winning_pitcher_ip =
+            winPitcherRow?.ip ?? winPitcherRow?.IP ?? winPitcherRow?.inn ?? null;
+          const winning_pitcher_er =
+            winPitcherRow?.er ?? winPitcherRow?.ER ?? winPitcherRow?.earned_runs ?? null;
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -8079,6 +8089,8 @@ ${hasSpecial
                 (p) =>
                   pickPitcherName(p) === winName.replace(" (추정)", "")
               )?.era ?? null,
+            winning_pitcher_ip,
+            winning_pitcher_er,
             losing_pitcher_era:
               pitchers.find(
                 (p) =>
