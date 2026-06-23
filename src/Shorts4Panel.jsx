@@ -154,10 +154,11 @@ export default function Shorts4Panel() {
   const [playerPhotoMsg, setPlayerPhotoMsg] = useState("");
   const [playerPhotoOk, setPlayerPhotoOk] = useState(false);
 
-  const fetchMatchupPreview = useCallback(async (dateStr, team) => {
+  const fetchMatchupPreview = useCallback(async (dateStr, team, tabOnly = false) => {
     const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
     const body = { action: "matchup_preview", date: d };
     if (team) body.team = team;
+    if (tabOnly) body.tabOnly = true;
     const res = await postKbo(body);
     if (res && res.ok === false) {
       throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
@@ -176,7 +177,7 @@ export default function Shorts4Panel() {
     setSlideIdx(0);
     (async () => {
       try {
-        const { games } = await fetchMatchupPreview(date, "삼성");
+        const { games } = await fetchMatchupPreview(date, null, true);
         if (cancelled) return;
         setTabGames(games);
         setShowAllGames(false);

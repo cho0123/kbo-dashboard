@@ -5360,7 +5360,7 @@ function computeSamePairSeriesInfo(seasonGames, game_date, game_id, home_team, a
   return finish(series_length, series_game_number);
 }
 
-async function buildMatchupPreviewPayload(db, dateStr) {
+async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
   const { standings, year: standingsYear } = await fetchStandings2026Document(db);
   const findRankRow = (teamName) => {
     const key = normalizeTeamKey(teamName || "");
@@ -5395,6 +5395,17 @@ async function buildMatchupPreviewPayload(db, dateStr) {
   const rows = [...byId.values()].sort((a, b) =>
     String(a?.game_id || "").localeCompare(String(b?.game_id || ""))
   );
+
+  if (tabOnly) {
+    const games = rows.map((r) => ({
+      game_id: String(r?.game_id ?? r?.gameId ?? "").trim() || null,
+      game_date: String(safeIsoDate(r?.game_date || "") || dateStr).slice(0, 10),
+      home_team: pickStr(r, ["home_team", "homeTeam", "HOME_NM", "home_nm", "home"]) || null,
+      away_team: pickStr(r, ["away_team", "awayTeam", "AWAY_NM", "away_nm", "away"]) || null,
+      game_time: pickStr(r, ["game_time", "gameTime", "time", "G_TM"]) || null,
+    }));
+    return { ok: true, date: dateStr, games, standings: [] };
+  }
 
   const seasonYear = Number(standingsYear) || 2026;
   const seasonFrom = `${seasonYear}-01-01`;
@@ -8655,7 +8666,8 @@ ${hasSpecial
       case "matchup_preview": {
         const dateStr = safeIsoDate(payload.date || "") || isoSeoulToday();
         const teamFilter = payload.team ? String(payload.team).trim() : null;
-        const mp = await buildMatchupPreviewPayload(db, dateStr);
+        const tabOnly = payload.tabOnly === true;
+        const mp = await buildMatchupPreviewPayload(db, dateStr, tabOnly);
         if (teamFilter && Array.isArray(mp.games)) {
           mp.games = mp.games.filter(
             (g) => g?.home_team?.includes(teamFilter) || g?.away_team?.includes(teamFilter)
