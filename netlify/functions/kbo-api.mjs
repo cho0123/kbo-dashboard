@@ -231,7 +231,20 @@ async function fetchScheduleRowsForDate(db, dateStr) {
   }
   if (rows.length) return rows;
   try {
-    const snap = await db.collection("schedule").limit(3000).get();
+    const year = String(dateStr).slice(0, 4);
+    let snap = null;
+    for (const field of ["game_date", "gameDate"]) {
+      try {
+        snap = await db.collection("schedule")
+          .where(field, ">=", `${year}-01-01`)
+          .where(field, "<=", `${year}-12-31`)
+          .get();
+        if (snap.docs.length) break;
+      } catch (e) {}
+    }
+    if (!snap || !snap.docs.length) {
+      snap = await db.collection("schedule").limit(3000).get();
+    }
     for (const d of snap.docs) {
       const r = docSnap(d);
       const gd = String(r?.game_date ?? r?.gameDate ?? "").slice(0, 10);
@@ -276,7 +289,20 @@ async function fetchScheduleRowsDateRange(db, fromStr, toStr) {
   if (rows.length) return rows;
 
   try {
-    const snap = await db.collection("schedule").limit(3000).get();
+    const year = String(fromStr).slice(0, 4);
+    let snap = null;
+    for (const field of ["game_date", "gameDate"]) {
+      try {
+        snap = await db.collection("schedule")
+          .where(field, ">=", `${year}-01-01`)
+          .where(field, "<=", `${year}-12-31`)
+          .get();
+        if (snap.docs.length) break;
+      } catch (e) {}
+    }
+    if (!snap || !snap.docs.length) {
+      snap = await db.collection("schedule").limit(3000).get();
+    }
     for (const d of snap.docs) {
       const r = docSnap(d);
       const gd = safeIsoDate(r?.game_date ?? r?.gameDate ?? "");
