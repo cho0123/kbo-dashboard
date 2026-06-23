@@ -4677,7 +4677,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">3. 쇼츠-경기별-전력비교</div>
+                <div className="side-group-title">4. 쇼츠-경기별-전력비교</div>
                 <button
                   type="button"
                   className="primary primary-fill"
@@ -4691,7 +4691,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">4. 쇼츠-주간결산(월)</div>
+                <div className="side-group-title">5. 쇼츠-주간결산(월)</div>
                 <button
                   type="button"
                   className="primary primary-fill"
@@ -4705,7 +4705,7 @@ export default function App() {
               </div>
 
               <div className="side-group">
-                <div className="side-group-title">5. 쇼츠-투수VS타자</div>
+                <div className="side-group-title">6. 쇼츠-투수VS타자</div>
                 <button
                   type="button"
                   className="primary"

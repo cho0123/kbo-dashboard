@@ -277,7 +277,7 @@ export default function ShortsPvPanel() {
 
   return (
     <div className="section soft shorts4-root">
-      <div className="section-title">5. 쇼츠-투수VS타자</div>
+      <div className="section-title">6. 쇼츠-투수VS타자</div>
       <div className="muted">세로 9:16 (1080×1920) PNG / ZIP 다운로드</div>
 
       {/* 슬라이드 캡처 */}
