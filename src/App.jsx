@@ -4530,7 +4530,7 @@ export default function App() {
               type="button"
               className="shorts-verify-link shorts-verify-link--naver"
               style={{ marginTop: 4, width: "100%", boxSizing: "border-box" }}
-              onClick={() => window.open("https://www.koreabaseball.com/", "_blank")}
+              onClick={() => window.open("https://www.koreabaseball.com/MediaNews/News/KboPhoto/List.aspx", "_blank")}
             >
               ⚾ KBO 공홈
             </button>
