@@ -141,6 +141,7 @@ export default function Shorts4Panel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [showAllGames, setShowAllGames] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -176,6 +177,7 @@ export default function Shorts4Panel() {
         const { games } = await fetchMatchupPreview(date);
         if (cancelled) return;
         setTabGames(games);
+        setShowAllGames(false);
       } catch (e) {
         if (!cancelled) {
           setTabGames([]);
@@ -667,7 +669,10 @@ export default function Shorts4Panel() {
 
       {tabGames.length > 0 ? (
         <div className="shorts4-tabs" style={{ marginTop: 10 }} role="tablist" aria-label="경기 선택">
-          {tabGames.map((g, i) => {
+          {(() => {
+            const isSamsungGame = (g) =>
+              g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성");
+            return tabGames.map((g, i) => {
             const label = `${g?.home_team || "홈"} vs ${g?.away_team || "원정"}`;
             return (
               <button
@@ -681,14 +686,25 @@ export default function Shorts4Panel() {
                   setCapturedSlides([]);
                   setSlideIdx(0);
                 }}
-                disabled={rowBusy}
+                disabled={rowBusy || (!showAllGames && !isSamsungGame(g))}
+                style={!showAllGames && !isSamsungGame(g) ? { opacity: 0.4 } : {}}
               >
                 {label}
               </button>
             );
-          })}
+          });
+          })()}
         </div>
       ) : null}
+      {!showAllGames && (
+        <button
+          type="button"
+          style={{ marginTop: 8, fontSize: 12, color: "#aaa", background: "none", border: "1px solid #aaa", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}
+          onClick={() => setShowAllGames(true)}
+        >
+          전체 경기 활성화
+        </button>
+      )}
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
         <button
