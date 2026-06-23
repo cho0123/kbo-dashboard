@@ -408,7 +408,7 @@ export default function Shorts4Panel() {
     setBusy(true);
     setError(null);
     try {
-      const { res, games } = await fetchMatchupPreview(date);
+      const { res, games } = await fetchMatchupPreview(date, showAllGames ? undefined : "삼성");
       setData(res);
       setTabGames(games);
       setSelectedIdx((idx) => (games.length && idx >= games.length ? 0 : idx));
