@@ -134,7 +134,7 @@ const ShortsCanvas = forwardRef(function ShortsCanvas({ slideIdx, renderSlide },
 });
 
 export default function Shorts4Panel() {
-  const [date, setDate] = useState(() => addCalendarDayKst(seoulToday(), 1));
+  const [date, setDate] = useState(() => seoulToday());
   const [tabGames, setTabGames] = useState([]);
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [data, setData] = useState(null);
@@ -154,9 +154,11 @@ export default function Shorts4Panel() {
   const [playerPhotoMsg, setPlayerPhotoMsg] = useState("");
   const [playerPhotoOk, setPlayerPhotoOk] = useState(false);
 
-  const fetchMatchupPreview = useCallback(async (dateStr) => {
+  const fetchMatchupPreview = useCallback(async (dateStr, team) => {
     const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
-    const res = await postKbo({ action: "matchup_preview", date: d });
+    const body = { action: "matchup_preview", date: d };
+    if (team) body.team = team;
+    const res = await postKbo(body);
     if (res && res.ok === false) {
       throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
     }
@@ -174,10 +176,14 @@ export default function Shorts4Panel() {
     setSlideIdx(0);
     (async () => {
       try {
-        const { games } = await fetchMatchupPreview(date);
+        const { games } = await fetchMatchupPreview(date, "삼성");
         if (cancelled) return;
         setTabGames(games);
         setShowAllGames(false);
+        const samsungIdx = games.findIndex(
+          (g) => g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성")
+        );
+        setSelectedIdx(samsungIdx >= 0 ? samsungIdx : 0);
       } catch (e) {
         if (!cancelled) {
           setTabGames([]);
@@ -700,7 +706,18 @@ export default function Shorts4Panel() {
         <button
           type="button"
           style={{ marginTop: 8, fontSize: 12, color: "#aaa", background: "none", border: "1px solid #aaa", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}
-          onClick={() => setShowAllGames(true)}
+          onClick={async () => {
+            setScheduleBusy(true);
+            try {
+              const { games } = await fetchMatchupPreview(date);
+              setTabGames(games);
+              setShowAllGames(true);
+            } catch (e) {
+              // 실패 시 기존 탭 유지
+            } finally {
+              setScheduleBusy(false);
+            }
+          }}
         >
           전체 경기 활성화
         </button>

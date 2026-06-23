@@ -8654,7 +8654,13 @@ ${hasSpecial
       }
       case "matchup_preview": {
         const dateStr = safeIsoDate(payload.date || "") || isoSeoulToday();
+        const teamFilter = payload.team ? String(payload.team).trim() : null;
         const mp = await buildMatchupPreviewPayload(db, dateStr);
+        if (teamFilter && Array.isArray(mp.games)) {
+          mp.games = mp.games.filter(
+            (g) => g?.home_team?.includes(teamFilter) || g?.away_team?.includes(teamFilter)
+          );
+        }
         return {
           statusCode: 200,
           headers: corsHeaders(),
