@@ -154,6 +154,20 @@ export default function Shorts4Panel() {
   const [playerPhotoMsg, setPlayerPhotoMsg] = useState("");
   const [playerPhotoOk, setPlayerPhotoOk] = useState(false);
 
+  // 썸네일 크롭
+  const [thumbHomePic, setThumbHomePic] = useState(null);
+  const [thumbAwayPic, setThumbAwayPic] = useState(null);
+  const [thumbHomeOffsetX, setThumbHomeOffsetX] = useState(0);
+  const [thumbHomeOffsetY, setThumbHomeOffsetY] = useState(0);
+  const [thumbHomeScale, setThumbHomeScale] = useState(1);
+  const [thumbAwayOffsetX, setThumbAwayOffsetX] = useState(0);
+  const [thumbAwayOffsetY, setThumbAwayOffsetY] = useState(0);
+  const [thumbAwayScale, setThumbAwayScale] = useState(1);
+  const thumbCanvasRef = useRef(null);
+  const thumbHomeFileRef = useRef(null);
+  const thumbAwayFileRef = useRef(null);
+  const [useCropThumbnail, setUseCropThumbnail] = useState(false);
+
   const fetchMatchupPreview = useCallback(async (dateStr, team, tabOnly = false) => {
     const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
     const body = { action: "matchup_preview", date: d };
@@ -452,6 +466,12 @@ export default function Shorts4Panel() {
           await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
       }
+      if (useCropThumbnail && thumbCanvasRef.current) {
+        const thumbBlob = await new Promise((resolve) =>
+          thumbCanvasRef.current.toBlob(resolve, "image/png")
+        );
+        if (thumbBlob && out.length > 0) out[0] = { ...out[0], blob: thumbBlob };
+      }
       setCapturedSlides(out);
     } catch (e) {
       window.alert(e?.message || String(e));
@@ -483,6 +503,126 @@ export default function Shorts4Panel() {
   };
 
   const rowBusy = busy || scheduleBusy;
+
+  const handleThumbImageUpload = useCallback((side, e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    const img = new window.Image();
+    img.onload = () => {
+      if (side === "home") setThumbHomePic(img);
+      else setThumbAwayPic(img);
+    };
+    img.src = URL.createObjectURL(file);
+  }, []);
+
+  const drawThumbPreview = useCallback(() => {
+    const canvas = thumbCanvasRef.current;
+    if (!canvas) return;
+    const W = 1080, H = 1920;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+
+    // 홈(삼성) 사진 — 좌상 (/ 대각선 위쪽)
+    if (thumbHomePic) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(W, 0);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.clip();
+      const s = thumbHomeScale;
+      const iw = thumbHomePic.naturalWidth * s;
+      const ih = thumbHomePic.naturalHeight * s;
+      ctx.drawImage(thumbHomePic, W / 2 - iw / 2 + thumbHomeOffsetX, H / 2 - ih / 2 + thumbHomeOffsetY, iw, ih);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.fillStyle = "#1a1a2e";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 어웨이(상대) 사진 — 우하 (/ 대각선 아래쪽)
+    if (thumbAwayPic) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(W, 0);
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.clip();
+      const s = thumbAwayScale;
+      const iw = thumbAwayPic.naturalWidth * s;
+      const ih = thumbAwayPic.naturalHeight * s;
+      ctx.drawImage(thumbAwayPic, W / 2 - iw / 2 + thumbAwayOffsetX, H / 2 - ih / 2 + thumbAwayOffsetY, iw, ih);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.fillStyle = "#2d1b00";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 대각선 구분선
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(W, 0);
+    ctx.lineTo(0, H);
+    ctx.stroke();
+    ctx.restore();
+
+    // 텍스트 오버레이
+    const homeTeam = detailGame?.home_team || "";
+    const awayTeam = detailGame?.away_team || "";
+    const homeStarter = detailGame?.home_starter || "";
+    const awayStarter = detailGame?.away_starter || "";
+    const gameDate = date || "";
+
+    ctx.save();
+    ctx.font = "bold 64px 'BlackHanSans', sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = "rgba(0,0,0,0.8)";
+    ctx.shadowBlur = 12;
+    ctx.textAlign = "left";
+    ctx.fillText(homeTeam, 60, 120);
+    ctx.font = "bold 44px 'BlackHanSans', sans-serif";
+    ctx.fillText(homeStarter, 60, 190);
+    ctx.textAlign = "right";
+    ctx.font = "bold 64px 'BlackHanSans', sans-serif";
+    ctx.fillText(awayTeam, W - 60, H - 100);
+    ctx.font = "bold 44px 'BlackHanSans', sans-serif";
+    ctx.fillText(awayStarter, W - 60, H - 40);
+    ctx.textAlign = "center";
+    ctx.font = "bold 36px 'BlackHanSans', sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText(gameDate, W / 2, H / 2);
+    ctx.restore();
+  }, [thumbHomePic, thumbAwayPic, thumbHomeOffsetX, thumbHomeOffsetY, thumbHomeScale,
+      thumbAwayOffsetX, thumbAwayOffsetY, thumbAwayScale, detailGame, date]);
+
+  const handleThumbDownload = useCallback(() => {
+    const canvas = thumbCanvasRef.current;
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `shorts4_thumbnail_${date || "nodate"}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, [date]);
+
+  useEffect(() => {
+    drawThumbPreview();
+  }, [drawThumbPreview]);
 
   const uploadPlayerPhoto = useCallback(async () => {
     setPlayerPhotoMsg("");
@@ -612,6 +752,68 @@ export default function Shorts4Panel() {
               {playerPhotoMsg}
             </div>
           ) : null}
+        </div>
+      </details>
+
+      <details className="shorts4-player-photo-mgmt" style={{ marginTop: 10 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 700 }}>🖼️ 썸네일 크롭 도구 (9:16)</summary>
+        <div style={{ marginTop: 10, display: "grid", gap: 10, padding: "10px 0", borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+
+          {/* 캔버스 미리보기 */}
+          <canvas
+            ref={thumbCanvasRef}
+            style={{ width: "100%", maxWidth: 270, aspectRatio: "9/16", border: "1px solid #ccc", borderRadius: 6, background: "#111" }}
+          />
+
+          {/* 홈(삼성) 투수 */}
+          <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
+            ▲ 홈(삼성) 투수 — {detailGame?.home_starter || "미정"}
+          </div>
+          <input ref={thumbHomeFileRef} type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => handleThumbImageUpload("home", e)} />
+          <button type="button" className="primary"
+            onClick={() => thumbHomeFileRef.current?.click()}>
+            홈 투수 사진 선택
+          </button>
+          <div style={{ display: "grid", gap: 4 }}>
+            <label style={{ fontSize: 12 }}>X: <input type="range" min={-600} max={600} value={thumbHomeOffsetX}
+              onChange={(e) => setThumbHomeOffsetX(Number(e.target.value))} /></label>
+            <label style={{ fontSize: 12 }}>Y: <input type="range" min={-960} max={960} value={thumbHomeOffsetY}
+              onChange={(e) => setThumbHomeOffsetY(Number(e.target.value))} /></label>
+            <label style={{ fontSize: 12 }}>크기: <input type="range" min={0.3} max={3} step={0.01} value={thumbHomeScale}
+              onChange={(e) => setThumbHomeScale(Number(e.target.value))} /></label>
+          </div>
+
+          {/* 어웨이(상대) 투수 */}
+          <div style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
+            ▼ 어웨이(상대) 투수 — {detailGame?.away_starter || "미정"}
+          </div>
+          <input ref={thumbAwayFileRef} type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => handleThumbImageUpload("away", e)} />
+          <button type="button" className="primary"
+            onClick={() => thumbAwayFileRef.current?.click()}>
+            어웨이 투수 사진 선택
+          </button>
+          <div style={{ display: "grid", gap: 4 }}>
+            <label style={{ fontSize: 12 }}>X: <input type="range" min={-600} max={600} value={thumbAwayOffsetX}
+              onChange={(e) => setThumbAwayOffsetX(Number(e.target.value))} /></label>
+            <label style={{ fontSize: 12 }}>Y: <input type="range" min={-960} max={960} value={thumbAwayOffsetY}
+              onChange={(e) => setThumbAwayOffsetY(Number(e.target.value))} /></label>
+            <label style={{ fontSize: 12 }}>크기: <input type="range" min={0.3} max={3} step={0.01} value={thumbAwayScale}
+              onChange={(e) => setThumbAwayScale(Number(e.target.value))} /></label>
+          </div>
+
+          {/* 다운로드 + 첫 슬라이드 교체 */}
+          <button type="button" className="primary primary-fill" style={{ marginTop: 6 }}
+            onClick={handleThumbDownload}>
+            썸네일 PNG 다운로드
+          </button>
+          <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="checkbox" checked={useCropThumbnail}
+              onChange={(e) => setUseCropThumbnail(e.target.checked)} />
+            슬라이드 캡처 시 첫 슬라이드를 이 썸네일로 교체
+          </label>
+
         </div>
       </details>
 
