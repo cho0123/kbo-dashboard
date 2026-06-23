@@ -421,7 +421,7 @@ export default function Shorts4Panel() {
     } finally {
       setBusy(false);
     }
-  }, [date, fetchMatchupPreview]);
+  }, [date, fetchMatchupPreview, showAllGames]);
 
   const captureAllSlides = async () => {
     if (!data || !slides.length) return;
@@ -710,9 +710,13 @@ export default function Shorts4Panel() {
           onClick={async () => {
             setScheduleBusy(true);
             try {
-              const { games } = await fetchMatchupPreview(date);
+              const { res, games } = await fetchMatchupPreview(date);
               setTabGames(games);
+              setData(res);
               setShowAllGames(true);
+              setCapturedSlides([]);
+              setSlideIdx(0);
+              setSelectedIdx((idx) => (games.length && idx >= games.length ? 0 : idx));
             } catch (e) {
               // 실패 시 기존 탭 유지
             } finally {
