@@ -2908,7 +2908,7 @@ export default function Shorts3Panel({
       height: 10,
     });
     setSelectedTeam("삼성");
-    setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#074CA1");
+    setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#0055A4");
     setSelectedSegIndex(0);
     setThumbnailSelected(false);
     setMessage("임시저장을 초기화했습니다.");

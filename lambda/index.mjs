@@ -1008,7 +1008,7 @@ function buildHighlightSegmentVf(opts) {
   if (coverBox?.enabled && teamColorForCover) {
     const hex = String(teamColorForCover).trim();
     const m = hex.match(/^#?([0-9A-Fa-f]{6})$/i);
-    const colorCore = m ? `#${m[1]}` : "#074CA1";
+    const colorCore = m ? `#${m[1]}` : "#0055A4";
     const c = `${colorCore}@1`;
     const xR = coverBox.x / 100;
     const yR = coverBox.y / 100;
@@ -1447,7 +1447,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   const muteOriginal = coerceMuteOriginal(meta);
 
   const TEAM_COLORS = {
-    삼성: { primary: "#074CA1", secondary: "#C0C0C0" },
+    삼성: { primary: "#0055A4", secondary: "#C0C0C0" },
     KIA: { primary: "#EA0029", secondary: "#05141F" },
     LG: { primary: "#C30452", secondary: "#000000" },
     두산: { primary: "#131230", secondary: "#D00F31" },
