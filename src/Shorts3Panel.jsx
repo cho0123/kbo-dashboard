@@ -187,7 +187,7 @@ const TEAM_LIST = [
 
 const TEAM_CONFIGS = {
   KIA: { bg: "#EA0029", accent: "#FFFFFF", label: "KIA 타이거즈" },
-  삼성: { bg: "#074CA1", accent: "#C0C0C0", label: "삼성 라이온즈" },
+  삼성: { bg: "#0055A4", accent: "#C0C0C0", label: "삼성 라이온즈" },
   LG: { bg: "#C30452", accent: "#FFFFFF", label: "LG 트윈스" },
   두산: { bg: "#131230", accent: "#FFFFFF", label: "두산 베어스" },
   KT: { bg: "#000000", accent: "#EB1C24", label: "kt wiz" },
@@ -956,7 +956,7 @@ export default function Shorts3Panel({
   const [bottomBarColor, setBottomBarColor] = useState(DEFAULT_BOTTOM_BAR_COLOR);
   const [selectedTeam, setSelectedTeam] = useState("삼성");
   const [teamColor, setTeamColor] = useState(
-    TEAM_CONFIGS["삼성"]?.bg || "#074CA1"
+    TEAM_CONFIGS["삼성"]?.bg || "#0055A4"
   );
   /** 미리보기 하단 자막용 재생 시각(원본 영상 currentTime) */
   const [previewPlayheadSec, setPreviewPlayheadSec] = useState(0);
@@ -1322,7 +1322,7 @@ export default function Shorts3Panel({
     }
 
     const tc = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-    const bg = tc?.bg || teamColor || "#074CA1";
+    const bg = tc?.bg || teamColor || "#0055A4";
     const accent = tc?.accent || "#ffffff";
 
     const TOP_BAR = Math.round(H * (280 / 1920));
