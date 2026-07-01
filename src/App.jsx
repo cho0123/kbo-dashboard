@@ -1398,7 +1398,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   const isDraw =
     Number(g?.home_score) === Number(g?.away_score) &&
     Number.isFinite(Number(g?.home_score));
-  const leftImg = isDraw ? mvpImg2 : pitcherImg;
+  const leftImg = isDraw ? mvpImg : pitcherImg;
   if (leftImg) {
     const imgX = leftPhotoX + 10;
     const imgY = photoAreaTop + 70;
@@ -1413,17 +1413,18 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   }
 
   // MVP 사진 (오른쪽)
-  if (mvpImg) {
+  const rightImg = isDraw ? mvpImg2 : mvpImg;
+  if (rightImg) {
     const imgX = rightPhotoX + 10;
     const imgY = photoAreaTop + 70;
     const imgW = photoW - 20;
     const imgH = 300;
-    const scale = Math.min(imgW / mvpImg.naturalWidth, imgH / mvpImg.naturalHeight);
-    const dw = mvpImg.naturalWidth * scale;
-    const dh = mvpImg.naturalHeight * scale;
+    const scale = Math.min(imgW / rightImg.naturalWidth, imgH / rightImg.naturalHeight);
+    const dw = rightImg.naturalWidth * scale;
+    const dh = rightImg.naturalHeight * scale;
     const dx = imgX + (imgW - dw) / 2;
     const dy = imgY + (imgH - dh) / 2;
-    ctx.drawImage(mvpImg, dx, dy, dw, dh);
+    ctx.drawImage(rightImg, dx, dy, dw, dh);
   }
 
   // 투수 스탯 텍스트
@@ -1457,7 +1458,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // MVP 스탯 텍스트
   if (mvpRows.length > 0) {
-    const mvp = mvpRows[0];
+    const mvp = isDraw && mvpRows.length > 1 ? mvpRows[1] : mvpRows[0];
     ctx.textAlign = "center";
     // 이름
     ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1482,6 +1483,20 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       rightPhotoX + photoW / 2,
       photoAreaTop + 450
     );
+  }
+
+  if (isDraw && mvpRows.length > 0) {
+    const leftMvp = mvpRows[0];
+    const leftMvpStat = `${leftMvp?.hr ?? 0}홈런 ${leftMvp?.h ?? 0}안타 ${leftMvp?.rbi ?? 0}타점`;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 42px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(cleanName(leftMvp?.name ?? "—"), leftPhotoX + photoW / 2, photoAreaTop + 410);
+    ctx.font = `500 36px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(leftMvpStat, leftPhotoX + photoW / 2, photoAreaTop + 450);
+    ctx.restore();
   }
 
   ctx.textAlign = "left";
@@ -2073,7 +2088,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
           pitcherImg = pitcherImg ?? defImg;
         }
 
-        // MVP 사진
+        // MVP 사진: mvpImg=홈 MVP(mvp_batters[0]), mvpImg2=원정 MVP(mvp_batters[1], 무승부 시)
         const mvp =
           Array.isArray(g0?.mvp_batters) && g0.mvp_batters.length > 0
             ? g0.mvp_batters[0]
