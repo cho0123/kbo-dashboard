@@ -410,7 +410,7 @@ export default function Shorts4Panel() {
         console.error('[paintSlideAt] error:', slide?.type, e);
       }
     },
-    [slides, standingsRows, date, detailGame]
+    [slides, standingsRows, date, detailGame, useCustomThumb, thumbPic, thumbOffsetX, thumbOffsetY, thumbScale]
   );
 
   const renderSlideToCanvas = useCallback(
