@@ -9501,16 +9501,21 @@ ${hasSpecial
           away_starter: g.away_starter,
           mvp_batters: g.mvp_batters,
           headToHead: g.headToHead,
+          home_rank: g.home_rank,
+          away_rank: g.away_rank,
+          home_rank_diff: g.home_rank_diff,
+          away_rank_diff: g.away_rank_diff,
         }));
         const userPrompt = `아래는 오늘 KBO 경기 결과입니다. 각 경기에서 주목할 만한 특징이나 이변을 한 줄로 요약하고, 핵심 키워드 태그도 하나 뽑아줘.
 태그는 점수만 봐서는 알 수 없는 특별한 상황만 표시해줘.
-사용 가능한 태그 (이 중에서만 선택):
+사용 가능한 태그 (이 중에서만 선택, 해당 없으면 null):
 - ⚡ 역전승: 뒤지다가 역전한 경우
-- 📌 연장전: 연장전까지 간 경우
+- 📌 연장전: 연장전까지 간 경우 (total_innings > 9)
 - 🔒 투수전: 양 팀 합산 3점 이하 저득점 접전
 - 🔥 대난타전: 양 팀 합산 15점 이상 고득점
-- 😱 이변: 하위권 팀이 상위권 팀을 이긴 경우
-위 태그에 해당하지 않으면 tag는 null로 해줘.
+- ⚾ 홈런폭발: mvp_batters 중 홈런(hr) 합산 3개 이상
+- 📈 순위상승: 승리팀의 rank_diff가 양수 (순위가 올라간 경우)
+위 태그에 해당하지 않으면 tag는 null로 해줘. 복수 해당 시 가장 극적인 것 하나만 선택.
 반드시 아래 JSON 배열 형식으로만 응답해줘. 다른 텍스트나 마크다운 없이 JSON만:
 [{"game_id":"...","summary":"한 줄 요약","tag":"⚡ 역전승"}]
 경기 데이터:
