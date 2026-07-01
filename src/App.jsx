@@ -1879,6 +1879,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState([]);
+  const [aiAnalysisBusy, setAiAnalysisBusy] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const [captureBusy, setCaptureBusy] = useState(false);
@@ -2625,6 +2627,28 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         <button type="button" className="primary primary-fill" onClick={downloadZip} disabled={!data || busy}>
           전체 ZIP 다운로드
         </button>
+        <button
+          type="button"
+          className="primary"
+          disabled={!data || aiAnalysisBusy || busy}
+          onClick={async () => {
+            setAiAnalysisBusy(true);
+            setAiAnalysis([]);
+            try {
+              const res = await postKbo({
+                action: "analyze_daily_games",
+                games: data?.games || [],
+              });
+              setAiAnalysis(Array.isArray(res?.analyses) ? res.analyses : []);
+            } catch (e) {
+              setAiAnalysis([]);
+            } finally {
+              setAiAnalysisBusy(false);
+            }
+          }}
+        >
+          {aiAnalysisBusy ? "분석 중…" : "🤖 경기 분석"}
+        </button>
       </div>
 
             {data && (
@@ -2967,6 +2991,27 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
               - 슬라이드2~N: 경기별 상세(구장/승패투수/타자 MVP 최대 2명)<br />
               - 마지막: KBO 순위(`standings`)
             </div>
+            {aiAnalysis.length > 0 && (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#aaa" }}>🤖 AI 경기 분석</div>
+                {aiAnalysis.map((a) => {
+                  const g = (data?.games || []).find((g) => g.game_id === a.game_id);
+                  const label = g ? `${g.home_team} vs ${g.away_team}` : a.game_id;
+                  return (
+                    <div
+                      key={a.game_id}
+                      style={{ fontSize: 13, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", lineHeight: 1.5 }}
+                      title="클릭하면 복사"
+                      onClick={() => navigator.clipboard.writeText(a.summary)}
+                    >
+                      <span style={{ color: "#4ade80", fontWeight: 700 }}>{label}</span>
+                      <br />
+                      {a.summary}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <details style={{ marginTop: 8, width: "100%" }}>
               <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
                 📷 선수 사진 관리

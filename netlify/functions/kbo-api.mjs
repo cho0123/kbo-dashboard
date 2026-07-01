@@ -9481,6 +9481,49 @@ ${hasSpecial
           `아래 고득점 경기들을 참고해 '역대급(또는 극단적인) 매칭업/한판' 쇼츠용 자극적이지만 사실 기반인 훅 멘트와 짧은 스토리를 한국어로 만들어줘. 과장은 쇼츠 톤으로 허용하되 출처가 빈약하면 그 한계도 말해줘.`;
         break;
       }
+      case "analyze_daily_games": {
+        const games = Array.isArray(payload.games) ? payload.games : [];
+        if (!games.length) {
+          return { statusCode: 200, headers: corsHeaders(), body: JSON.stringify({ ok: true, analyses: [] }) };
+        }
+        const gameList = games.map((g) => ({
+          game_id: g.game_id,
+          home_team: g.home_team,
+          away_team: g.away_team,
+          home_score: g.home_score,
+          away_score: g.away_score,
+          total_innings: g.total_innings,
+          winning_pitcher: g.winning_pitcher,
+          losing_pitcher: g.losing_pitcher,
+          winning_pitcher_era: g.winning_pitcher_era,
+          losing_pitcher_era: g.losing_pitcher_era,
+          home_starter: g.home_starter,
+          away_starter: g.away_starter,
+          mvp_batters: g.mvp_batters,
+          headToHead: g.headToHead,
+        }));
+        const userPrompt = `아래는 오늘 KBO 경기 결과입니다. 각 경기에서 주목할 만한 특징이나 이변을 한 줄로 요약해줘.
+점수차, 역전, 대량득점, 특정 선수 맹활약, 연장전, 완투/완봉, 예상 외 결과 등을 고려해서 흥미로운 포인트를 잡아줘.
+반드시 아래 JSON 배열 형식으로만 응답해줘. 다른 텍스트나 마크다운 없이 JSON만:
+[{"game_id":"...","summary":"한 줄 요약"}]
+
+경기 데이터:
+${JSON.stringify(gameList, null, 2)}`;
+        const raw = await claudeRawUserPrompt(userPrompt, { maxTokens: 1000 });
+        const text = raw || "[]";
+        let analyses = [];
+        try {
+          const clean = text.replace(/```json|```/g, "").trim();
+          analyses = JSON.parse(clean);
+        } catch (e) {
+          analyses = [];
+        }
+        return {
+          statusCode: 200,
+          headers: corsHeaders(),
+          body: JSON.stringify({ ok: true, analyses }),
+        };
+      }
       default:
         return {
           statusCode: 400,
