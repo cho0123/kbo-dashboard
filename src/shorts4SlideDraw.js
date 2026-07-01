@@ -337,11 +337,11 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
 
   const logoBox = 370;
   const logoHalf = 185;
-  const homeCx = w * 0.78;
+  const homeCx = w * 0.22;
   const homeCy = h * 0.55;
   const homeLogoX = homeCx - logoHalf;
   const homeLogoY = homeCy - logoHalf;
-  const awayCx = w * 0.22;
+  const awayCx = w * 0.78;
   const awayCy = h * 0.55;
   const awayLogoX = awayCx - logoHalf;
   const awayLogoY = awayCy - logoHalf;
