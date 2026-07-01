@@ -160,7 +160,6 @@ export default function Shorts4Panel() {
   const [thumbOffsetX, setThumbOffsetX] = useState(0);
   const [thumbOffsetY, setThumbOffsetY] = useState(0);
   const [thumbScale, setThumbScale] = useState(1);
-  const thumbCanvasRef = useRef(null);
   const thumbFileRef = useRef(null);
   const [useCropThumbnail, setUseCropThumbnail] = useState(false);
 
@@ -411,8 +410,25 @@ export default function Shorts4Panel() {
   const renderSlideToCanvas = useCallback(
     async (canvas) => {
       await paintSlideAt(slideIdx, canvas);
+      if (useCustomThumb && slideIdx === 0 && thumbPic) {
+        const W = 1080, H = 1920;
+        const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const baseScale = H / thumbPic.naturalHeight;
+        const s = baseScale * thumbScale;
+        const iw = thumbPic.naturalWidth * s;
+        const ih = thumbPic.naturalHeight * s;
+        ctx.drawImage(
+          thumbPic,
+          W / 2 - iw / 2 + thumbOffsetX,
+          H / 2 - ih / 2 + thumbOffsetY,
+          iw,
+          ih
+        );
+      }
     },
-    [slideIdx, paintSlideAt]
+    [slideIdx, paintSlideAt, useCustomThumb, thumbPic, thumbScale, thumbOffsetX, thumbOffsetY]
   );
 
   const onGenerate = useCallback(async () => {
@@ -462,11 +478,12 @@ export default function Shorts4Panel() {
           await delayMs(CAPTURE_INTER_SLIDE_DELAY_MS);
         }
       }
-      if (useCropThumbnail && thumbCanvasRef.current) {
-        const thumbBlob = await new Promise((resolve) =>
-          thumbCanvasRef.current.toBlob(resolve, "image/png")
-        );
-        if (thumbBlob && out.length > 0) out[0] = { ...out[0], blob: thumbBlob };
+      if (useCropThumbnail && useCustomThumb) {
+        const el = captureWrapRef.current?.querySelector(".slide-card");
+        if (el && out.length > 0) {
+          // 메인 캔버스에 이미 합성되어 있으므로 첫 슬라이드 캡처 결과 그대로 사용
+          // out[0]은 이미 captureAllSlides 루프에서 slideIdx=0으로 캡처됨
+        }
       }
       setCapturedSlides(out);
     } catch (e) {
@@ -508,28 +525,6 @@ export default function Shorts4Panel() {
     img.src = URL.createObjectURL(file);
   }, []);
 
-  const drawThumbPreview = useCallback(() => {
-    const canvas = thumbCanvasRef.current;
-    if (!canvas) return;
-    const W = 1080, H = 1920;
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, W, H);
-
-    // 배경: 삼성 컬러
-    ctx.fillStyle = "#0055A4";
-    ctx.fillRect(0, 0, W, H);
-
-    // 선수 사진
-    if (thumbPic) {
-      const s = thumbScale;
-      const iw = thumbPic.naturalWidth * s;
-      const ih = thumbPic.naturalHeight * s;
-      ctx.drawImage(thumbPic, W / 2 - iw / 2 + thumbOffsetX, H / 2 - ih / 2 + thumbOffsetY, iw, ih);
-    }
-  }, [thumbPic, thumbOffsetX, thumbOffsetY, thumbScale]);
-
   const handleThumbDownload = useCallback(() => {
     const canvas = thumbCanvasRef.current;
     if (!canvas) return;
@@ -538,10 +533,6 @@ export default function Shorts4Panel() {
     link.href = canvas.toDataURL("image/png");
     link.click();
   }, [date]);
-
-  useEffect(() => {
-    drawThumbPreview();
-  }, [drawThumbPreview]);
 
   const uploadPlayerPhoto = useCallback(async () => {
     setPlayerPhotoMsg("");
@@ -878,12 +869,6 @@ export default function Shorts4Panel() {
               {/* 생성 썸네일 설정 */}
               {useCustomThumb && (
                 <div style={{ display: "grid", gap: 8 }}>
-                  {/* 캔버스 미리보기 */}
-                  <canvas
-                    ref={thumbCanvasRef}
-                    style={{ width: "100%", maxWidth: 180, aspectRatio: "9/16", border: "1px solid #ccc", borderRadius: 6, background: "#0055A4" }}
-                  />
-
                   {/* 사진 업로드 */}
                   <input
                     ref={thumbFileRef}
