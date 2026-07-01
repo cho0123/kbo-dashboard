@@ -9511,7 +9511,7 @@ ${hasSpecial
 사용 가능한 태그 (해당 없으면 null):
 - 📌 연장전: total_innings > 9
 - 🔒 투수전: home_score + away_score <= 3
-- 🔥 대난타전: home_score + away_score >= 15
+- 🔥 타선폭발: home_score와 away_score를 더한 값이 13 이상
 - ⚾ 홈런폭발: mvp_batters의 hr 합산 3개 이상
 - 📈 순위상승: 승리팀(점수 높은 팀)의 rank_diff > 0
 복수 해당 시 가장 극적인 것 하나만. 해당 없으면 tag는 null.
