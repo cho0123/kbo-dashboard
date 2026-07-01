@@ -397,7 +397,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     shadowTextSoft(ctx);
     // 홈팀
     ctx.strokeStyle = getTeamStrongColor(homeTeam);
-    ctx.lineWidth = 12;
+    ctx.lineWidth = 24;
     ctx.lineJoin = "round";
     ctx.strokeText(homeText, startX, matchupY);
     ctx.fillStyle = "#ffffff";
