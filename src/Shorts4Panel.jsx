@@ -526,7 +526,7 @@ export default function Shorts4Panel() {
   }, []);
 
   const handleThumbDownload = useCallback(() => {
-    const canvas = thumbCanvasRef.current;
+    const canvas = captureWrapRef.current?.querySelector("canvas");
     if (!canvas) return;
     const link = document.createElement("a");
     link.download = `shorts4_thumbnail_${date || "nodate"}.png`;
