@@ -1010,7 +1010,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2, tag = null) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2, tag = null, mvpImg2 = null) {
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1395,17 +1395,21 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   }
 
   // 투수 사진 (왼쪽)
-  if (pitcherImg) {
+  const isDraw =
+    Number(g?.home_score) === Number(g?.away_score) &&
+    Number.isFinite(Number(g?.home_score));
+  const leftImg = isDraw ? mvpImg2 : pitcherImg;
+  if (leftImg) {
     const imgX = leftPhotoX + 10;
     const imgY = photoAreaTop + 70;
     const imgW = photoW - 20;
     const imgH = 300;
-    const scale = Math.min(imgW / pitcherImg.naturalWidth, imgH / pitcherImg.naturalHeight);
-    const dw = pitcherImg.naturalWidth * scale;
-    const dh = pitcherImg.naturalHeight * scale;
+    const scale = Math.min(imgW / leftImg.naturalWidth, imgH / leftImg.naturalHeight);
+    const dw = leftImg.naturalWidth * scale;
+    const dh = leftImg.naturalHeight * scale;
     const dx = imgX + (imgW - dw) / 2;
     const dy = imgY + (imgH - dh) / 2;
-    ctx.drawImage(pitcherImg, dx, dy, dw, dh);
+    ctx.drawImage(leftImg, dx, dy, dw, dh);
   }
 
   // MVP 사진 (오른쪽)
@@ -2043,6 +2047,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
       // 투수/MVP 사진 프리로드
       let pitcherImg = null;
       let mvpImg = null;
+      let mvpImg2 = null;
       const defImg = await loadDefaultPlayerImage();
 
       const g0 = slide.game;
@@ -2081,6 +2086,22 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             : await loadPlayerImage(mvpTk, mvp.name).catch(() => null);
           mvpImg = mvpImg ?? defImg;
         }
+
+        // 무승부 시 원정팀 MVP 사진 (mvp_batters[1])
+        const isDraw0 = Number(g0?.home_score) === Number(g0?.away_score) &&
+          Number.isFinite(Number(g0?.home_score));
+        if (isDraw0) {
+          const mvp2 = Array.isArray(g0?.mvp_batters) && g0.mvp_batters.length > 1
+            ? g0.mvp_batters[1] : null;
+          if (mvp2?.name) {
+            const mvp2Tk = teamKeyword(mvp2?.team ?? "");
+            const mvp2Url = mvp2?.player_image_url ?? "";
+            mvpImg2 = mvp2Url
+              ? await loadPlayerImageFromNaverProxy(mvp2Url).catch(() => null)
+              : await loadPlayerImage(mvp2Tk, mvp2.name).catch(() => null);
+            mvpImg2 = mvpImg2 ?? defImg;
+          }
+        }
       }
 
       const gameTag = Array.isArray(aiAnalysis)
@@ -2100,7 +2121,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         pitcherImg,
         mvpImg,
         slide.step ?? 2,
-        gameTag
+        gameTag,
+        mvpImg2
       );
     }
     else if (slide.type === "next_game")
