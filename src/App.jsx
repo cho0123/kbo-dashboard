@@ -1487,16 +1487,28 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   if (isDraw && mvpRows.length > 0) {
     const leftMvp = mvpRows[0];
-    const leftMvpStat = `${leftMvp?.hr ?? 0}홈런 ${leftMvp?.h ?? 0}안타 ${leftMvp?.rbi ?? 0}타점`;
-    ctx.save();
     ctx.textAlign = "center";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `700 42px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(cleanName(leftMvp?.name ?? "—"), leftPhotoX + photoW / 2, photoAreaTop + 410);
-    ctx.font = `500 36px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(
+      cleanName(leftMvp?.name ?? "—"),
+      leftPhotoX + photoW / 2,
+      photoAreaTop + 410
+    );
+    ctx.font = `500 32px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(leftMvpStat, leftPhotoX + photoW / 2, photoAreaTop + 450);
-    ctx.restore();
+    const leftMvpStat = [
+      leftMvp?.hr != null ? `${leftMvp.hr}홈런` : null,
+      leftMvp?.h != null ? `${leftMvp.h}안타` : null,
+      leftMvp?.rbi != null ? `${leftMvp.rbi}타점` : null,
+    ]
+      .filter(Boolean)
+      .join("  ");
+    ctx.fillText(
+      leftMvpStat || "—",
+      leftPhotoX + photoW / 2,
+      photoAreaTop + 450
+    );
   }
 
   ctx.textAlign = "left";
