@@ -385,7 +385,6 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     ctx.font = `700 ${mFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   }
   if (useCustomThumb) {
-    // 각 파트 너비 계산
     const homeText = homeTeam;
     const sepText = " : ";
     const awayText = awayTeam;
@@ -394,14 +393,26 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     const awayW = ctx.measureText(awayText).width;
     const totalW = homeW + sepW + awayW;
     const startX = w / 2 - totalW / 2;
-    shadowTextSoft(ctx);
     ctx.textAlign = "left";
-    ctx.fillStyle = getTeamStrongColor(homeTeam);
+    shadowTextSoft(ctx);
+    // 홈팀
+    ctx.strokeStyle = getTeamStrongColor(homeTeam);
+    ctx.lineWidth = 12;
+    ctx.lineJoin = "round";
+    ctx.strokeText(homeText, startX, matchupY);
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(homeText, startX, matchupY);
+    // 구분자
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.strokeText(sepText, startX + homeW, matchupY);
     ctx.fillStyle = "#ffffff";
     ctx.fillText(sepText, startX + homeW, matchupY);
-    ctx.fillStyle = getTeamStrongColor(awayTeam);
+    // 원정팀
+    ctx.strokeStyle = getTeamStrongColor(awayTeam);
+    ctx.strokeText(awayText, startX + homeW + sepW, matchupY);
+    ctx.fillStyle = "#ffffff";
     ctx.fillText(awayText, startX + homeW + sepW, matchupY);
+    resetShadow(ctx);
     ctx.textAlign = "center";
   } else {
     ctx.fillStyle = "#ffffff";
