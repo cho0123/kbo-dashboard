@@ -302,7 +302,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, venue?: string, stadium?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
  */
-export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame, playerImg = null, playerOffsetX = 0, playerOffsetY = 0, playerScale = 1) {
+export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame, playerImg = null, playerOffsetX = 0, playerOffsetY = 0, playerScale = 1, useCustomThumb = false) {
   const homeTeam = String(firstGame?.home_team || "홈").trim() || "홈";
   const awayTeam = String(firstGame?.away_team || "원정").trim() || "원정";
   const hk = teamKeyword(homeTeam);
@@ -384,9 +384,30 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     mFontPx += 2;
     ctx.font = `700 ${mFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
   }
-  ctx.fillStyle = "#ffffff";
-  shadowTextSoft(ctx);
-  ctx.fillText(matchupStr, w / 2, matchupY);
+  if (useCustomThumb) {
+    // 각 파트 너비 계산
+    const homeText = homeTeam;
+    const sepText = " : ";
+    const awayText = awayTeam;
+    const homeW = ctx.measureText(homeText).width;
+    const sepW = ctx.measureText(sepText).width;
+    const awayW = ctx.measureText(awayText).width;
+    const totalW = homeW + sepW + awayW;
+    const startX = w / 2 - totalW / 2;
+    shadowTextSoft(ctx);
+    ctx.textAlign = "left";
+    ctx.fillStyle = getTeamStrongColor(homeTeam);
+    ctx.fillText(homeText, startX, matchupY);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(sepText, startX + homeW, matchupY);
+    ctx.fillStyle = getTeamStrongColor(awayTeam);
+    ctx.fillText(awayText, startX + homeW + sepW, matchupY);
+    ctx.textAlign = "center";
+  } else {
+    ctx.fillStyle = "#ffffff";
+    shadowTextSoft(ctx);
+    ctx.fillText(matchupStr, w / 2, matchupY);
+  }
   resetShadow(ctx);
   ctx.restore();
 
@@ -416,7 +437,7 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     }
     seriesFontPx = Math.max(12, Math.round(seriesFontPx * 0.6));
     ctx.font = `700 ${seriesFontPx}px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#FFF8DC";
     shadowTextSoft(ctx);
     ctx.fillText(seriesBadge, w / 2, seriesLineY);
     resetShadow(ctx);
