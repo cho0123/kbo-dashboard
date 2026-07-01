@@ -314,7 +314,8 @@ export default function Shorts4Panel() {
             useCustomThumb ? thumbPic : null,
             useCustomThumb ? thumbOffsetX : 0,
             useCustomThumb ? thumbOffsetY : 0,
-            useCustomThumb ? thumbScale : 1
+            useCustomThumb ? thumbScale : 1,
+            useCustomThumb
           );
           return;
         }
