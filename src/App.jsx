@@ -1010,7 +1010,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
   // "오늘 N경기" 텍스트 제거
 }
 
-function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2) {
+function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2, tag = null) {
   const SAFE_TOP = 200;
   const SAFE_BOTTOM = 1720;
   const DIVIDER_Y = 960;
@@ -1086,18 +1086,29 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = `900 80px "${FONT_BODY}", system-ui, sans-serif`;
+  ctx.font = `900 56px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(fmtKoreanLongDate(date), w / 2, SAFE_TOP + 80);
+  ctx.fillText(fmtKoreanLongDate(date), w / 2, SAFE_TOP + 60);
   resetShadow(ctx);
-
-  // 2) 서브텍스트
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = `500 50px "${FONT_BODY}", system-ui, sans-serif`;
-  shadowTextSoft(ctx);
-  ctx.textAlign = "center";
-  ctx.fillText("KBO 경기 결과", w / 2, SAFE_TOP + 160);
-  resetShadow(ctx);
+  // 2) AI 분석 태그 (타이틀 대신)
+  if (tag) {
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const tagPad = { x: 40, y: 18 };
+    ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
+    const tagW = ctx.measureText(tag).width + tagPad.x * 2;
+    const tagH = 44 + tagPad.y * 2;
+    const tagX = w / 2 - tagW / 2;
+    const tagY = SAFE_TOP + 90;
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
+    ctx.beginPath();
+    ctx.roundRect(tagX, tagY, tagW, tagH, 12);
+    ctx.fill();
+    ctx.fillStyle = "#FFD700";
+    ctx.fillText(tag, w / 2, tagY + tagH - tagPad.y - 2);
+    ctx.restore();
+  }
 
   // 3) 팀 로고
   const drawLogoInBox = (x, y, boxW, boxH, teamName, img) => {
@@ -2072,6 +2083,9 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         }
       }
 
+      const gameTag = Array.isArray(aiAnalysis)
+        ? (aiAnalysis.find((a) => a.game_id === slide.game?.game_id)?.tag ?? null)
+        : null;
       drawGameSlide(
         ctx,
         w,
@@ -2085,7 +2099,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
         standings,
         pitcherImg,
         mvpImg,
-        slide.step ?? 2
+        slide.step ?? 2,
+        gameTag
       );
     }
     else if (slide.type === "next_game")

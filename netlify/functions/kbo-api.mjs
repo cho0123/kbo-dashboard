@@ -9502,11 +9502,11 @@ ${hasSpecial
           mvp_batters: g.mvp_batters,
           headToHead: g.headToHead,
         }));
-        const userPrompt = `아래는 오늘 KBO 경기 결과입니다. 각 경기에서 주목할 만한 특징이나 이변을 한 줄로 요약해줘.
+        const userPrompt = `아래는 오늘 KBO 경기 결과입니다. 각 경기에서 주목할 만한 특징이나 이변을 한 줄로 요약하고, 핵심 키워드 태그도 하나 뽑아줘.
 점수차, 역전, 대량득점, 특정 선수 맹활약, 연장전, 완투/완봉, 예상 외 결과 등을 고려해서 흥미로운 포인트를 잡아줘.
+태그는 이모지 포함 10자 이내로 (예: ⚡ 역전승, 🔥 완파, 📌 연장혈투, 💪 맹활약, ⚾ 무승부, 🏆 대승, 🔒 투수전).
 반드시 아래 JSON 배열 형식으로만 응답해줘. 다른 텍스트나 마크다운 없이 JSON만:
-[{"game_id":"...","summary":"한 줄 요약"}]
-
+[{"game_id":"...","summary":"한 줄 요약","tag":"⚡ 역전승"}]
 경기 데이터:
 ${JSON.stringify(gameList, null, 2)}`;
         const raw = await claudeRawUserPrompt(userPrompt, { maxTokens: 1000 });
