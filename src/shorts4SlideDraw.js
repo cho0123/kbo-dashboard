@@ -302,7 +302,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, venue?: string, stadium?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
  */
-export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame) {
+export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame, playerImg = null, playerOffsetX = 0, playerOffsetY = 0, playerScale = 1) {
   const homeTeam = String(firstGame?.home_team || "홈").trim() || "홈";
   const awayTeam = String(firstGame?.away_team || "원정").trim() || "원정";
   const hk = teamKeyword(homeTeam);
@@ -323,6 +323,17 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   grad.addColorStop(1, getTeamStrongColor(gradBottomTeam));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
+  // 선수 사진 (배경 위, 로고/텍스트 아래)
+  if (playerImg) {
+    const baseScale = h / playerImg.naturalHeight;
+    const s = baseScale * playerScale;
+    const iw = playerImg.naturalWidth * s;
+    const ih = playerImg.naturalHeight * s;
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(playerImg, w / 2 - iw / 2 + playerOffsetX, h / 2 - ih / 2 + playerOffsetY, iw, ih);
+    ctx.restore();
+  }
 
   const logoBox = 370;
   const logoHalf = 185;

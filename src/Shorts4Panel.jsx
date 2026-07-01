@@ -309,7 +309,13 @@ export default function Shorts4Panel() {
         await loadShortsBaseballDecor();
 
         if (slide.type === "intro") {
-          drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, detailGame);
+          drawShorts4IntroSlide(
+            ctx, w, h, date, logosByTeamKey, detailGame,
+            useCustomThumb ? thumbPic : null,
+            useCustomThumb ? thumbOffsetX : 0,
+            useCustomThumb ? thumbOffsetY : 0,
+            useCustomThumb ? thumbScale : 1
+          );
           return;
         }
 
@@ -410,25 +416,8 @@ export default function Shorts4Panel() {
   const renderSlideToCanvas = useCallback(
     async (canvas) => {
       await paintSlideAt(slideIdx, canvas);
-      if (useCustomThumb && slideIdx === 0 && thumbPic) {
-        const W = 1080, H = 1920;
-        const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-        const ctx = canvas.getContext("2d");
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const baseScale = H / thumbPic.naturalHeight;
-        const s = baseScale * thumbScale;
-        const iw = thumbPic.naturalWidth * s;
-        const ih = thumbPic.naturalHeight * s;
-        ctx.drawImage(
-          thumbPic,
-          W / 2 - iw / 2 + thumbOffsetX,
-          H / 2 - ih / 2 + thumbOffsetY,
-          iw,
-          ih
-        );
-      }
     },
-    [slideIdx, paintSlideAt, useCustomThumb, thumbPic, thumbScale, thumbOffsetX, thumbOffsetY]
+    [slideIdx, paintSlideAt]
   );
 
   const onGenerate = useCallback(async () => {
