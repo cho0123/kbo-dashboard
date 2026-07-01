@@ -7877,11 +7877,13 @@ ${hasSpecial
             const scored = teamBatters.map((b) => {
               const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
               const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-              return { b, hr, h };
+              const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+              return { b, hr, h, rbi };
             });
             scored.sort((a, b) => {
               if (b.hr !== a.hr) return b.hr - a.hr;
-              return b.h - a.h;
+              if (b.h !== a.h) return b.h - a.h;
+              return (b.rbi ?? 0) - (a.rbi ?? 0);
             });
             const top = scored[0];
             if (!top) return null;
@@ -7913,11 +7915,13 @@ ${hasSpecial
             const scoredBatters = winBatters.map((b) => {
               const hr = pickNum(b, ["hr", "HR", "home_run", "홈런"]);
               const h = pickNum(b, ["h", "H", "hits", "hit", "안타"]);
-              return { b, hr, h };
+              const rbi = pickNum(b, ["rbi", "RBI", "bi", "타점"]);
+              return { b, hr, h, rbi };
             });
             scoredBatters.sort((a, b) => {
               if (b.hr !== a.hr) return b.hr - a.hr;
-              return b.h - a.h;
+              if (b.h !== a.h) return b.h - a.h;
+              return (b.rbi ?? 0) - (a.rbi ?? 0);
             });
             const topBatters = scoredBatters.slice(0, 2);
             mvpBatters = topBatters.map(({ b, hr, h }) => ({
