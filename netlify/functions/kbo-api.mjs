@@ -4443,6 +4443,28 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
       ? { win: Number(vsResult.aw) || 0, draw: Number(vsResult.ad) || 0, lose: Number(vsResult.al) || 0 }
       : null;
 
+    const mapSeasonStats = (starter) => {
+      const s = starter?.currentSeasonStats;
+      if (!s || typeof s !== "object") return null;
+      const ipDecimal = parsePitcherInningString(s?.inn ?? s?.inning ?? null);
+      const totalOuts = Number.isFinite(ipDecimal) ? Math.round(ipDecimal * 3) : 0;
+      const total_ip = totalOuts > 0 ? outsToBaseballIpString(totalOuts) : null;
+      const kk = Number(s?.kk ?? s?.so);
+      const k9 = totalOuts > 0 && Number.isFinite(kk)
+        ? Math.round(((kk * 9) / (totalOuts / 3)) * 100) / 100
+        : null;
+      const era = Number(s?.era);
+      const wins = Number(s?.w ?? s?.win);
+      const losses = Number(s?.l ?? s?.lose ?? s?.loss);
+      return {
+        era: Number.isFinite(era) ? era : null,
+        total_ip,
+        k9,
+        wins: Number.isFinite(wins) ? wins : 0,
+        losses: Number.isFinite(losses) ? losses : 0,
+        has_result: Number.isFinite(wins) && Number.isFinite(losses),
+      };
+    };
     return {
       home: mapSide(pd.homeStarter),
       away: mapSide(pd.awayStarter),
@@ -4450,6 +4472,8 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
       awayLast5,
       headToHead,      // 홈팀 관점
       awayHeadToHead,  // 원정팀 관점
+      homeSeasonStats: mapSeasonStats(pd.homeStarter),
+      awaySeasonStats: mapSeasonStats(pd.awayStarter),
     };
   } catch (e) {
     console.warn("[fetchNaverPitchKindStats]", naverGameId, e?.message || e);
@@ -5439,9 +5463,6 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
   const seasonHitterStats = await fetchNaverHitterSeasonStats(seasonYear);
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
-  console.log("[DEBUG naverPitcher total]", (seasonPitcherStats || []).length);
-  const kimTaekyung = (seasonPitcherStats || []).filter(r => String(r?.playerName || "").includes("김태"));
-  console.log("[DEBUG naverPitcher 김태*]", JSON.stringify(kimTaekyung.map(r=>({name:r?.playerName, era:r?.pitcherEra, ip:r?.pitcherInning}))));
   const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
   const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
   const teamBattingAvgByNorm = buildTeamBattingAvgByNormKey(seasonTeamHitterStats || []);
@@ -5575,11 +5596,18 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     const away_starter =
       ass == null || String(ass).trim() === "" ? null : String(ass).replace(/\s+/g, " ").trim();
 
+    const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
+    const naverPitchKinds =
+      game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
+
     // 네이버 시즌 스탯에서 선발투수 정보 우선 사용
     const homeNaverStats = findNaverPitcherStatsByName(seasonPitcherStats, home_starter);
     const awayNaverStats = findNaverPitcherStatsByName(seasonPitcherStats, away_starter);
-    const homeNaverStarter = naverPitcherToStarterStats(homeNaverStats);
-    const awayNaverStarter = naverPitcherToStarterStats(awayNaverStats);
+    // 순위 300명 밖이면 preview currentSeasonStats로 폴백
+    const homeNaverStarter = naverPitcherToStarterStats(homeNaverStats)
+      ?? naverPitchKinds?.homeSeasonStats ?? null;
+    const awayNaverStarter = naverPitcherToStarterStats(awayNaverStats)
+      ?? naverPitchKinds?.awaySeasonStats ?? null;
 
     // ERA (네이버 우선, 없으면 Firestore 폴백)
     const home_starter_era = homeNaverStarter?.era ??
@@ -5705,10 +5733,6 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
         seasonYear
       ),
     ]);
-
-    const naverPitchYear = extractScheduleYearFromGameId(game_id) || String(seasonYear);
-    const naverPitchKinds =
-      game_id && naverPitchYear ? await fetchNaverPitchKindStats(game_id, naverPitchYear) : null;
 
     const seriesRaw = computeSamePairSeriesInfo(allGames, game_date, game_id, home_team, away_team);
     const seriesLen = Number(seriesRaw?.series_length);

@@ -380,7 +380,7 @@ export function drawTomorrowPreviewGameSlide(
   const h2hText =
     homeWins == null || awayWins == null || draws == null
       ? "시즌 상대전적 : —"
-      : `시즌 상대전적 : ${homeTeam || "홈팀"}(홈팀) ${homeWins}승 ${draws}무 ${awayWins}패`;
+      : `시즌 상대전적 : ${homeTeam || "홈팀"}(홈팀기준) ${homeWins}승 ${draws}무 ${awayWins}패`;
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
