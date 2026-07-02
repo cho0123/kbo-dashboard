@@ -4428,9 +4428,28 @@ async function fetchNaverPitchKindStats(gameId, gameYear) {
       return out;
     };
 
+    // 팀 최근 5경기 (result 필드: "승"/"패"/"무")
+    const mapLast5 = (arr) =>
+      Array.isArray(arr) ? arr.map((g) => g?.result).filter(Boolean) : [];
+    const homeLast5 = mapLast5(pd?.homeTeamPreviousGames);
+    const awayLast5 = mapLast5(pd?.awayTeamPreviousGames);
+
+    // 시즌 상대전적
+    const vsResult = pd?.seasonVsResult ?? null;
+    const headToHead = vsResult
+      ? { win: Number(vsResult.hw) || 0, draw: Number(vsResult.hd) || 0, lose: Number(vsResult.hl) || 0 }
+      : null;
+    const awayHeadToHead = vsResult
+      ? { win: Number(vsResult.aw) || 0, draw: Number(vsResult.ad) || 0, lose: Number(vsResult.al) || 0 }
+      : null;
+
     return {
       home: mapSide(pd.homeStarter),
       away: mapSide(pd.awayStarter),
+      homeLast5,
+      awayLast5,
+      headToHead,      // 홈팀 관점
+      awayHeadToHead,  // 원정팀 관점
     };
   } catch (e) {
     console.warn("[fetchNaverPitchKindStats]", naverGameId, e?.message || e);
@@ -5735,15 +5754,27 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
       away_avg,
       home_record,
       away_record,
-      home_last5,
-      away_last5,
-      head_to_head,
       home_lineup,
       away_lineup,
       home_hot_player,
       away_hot_player,
       home_pitch_kinds: naverPitchKinds?.home ?? null,
       away_pitch_kinds: naverPitchKinds?.away ?? null,
+      home_last5:
+        naverPitchKinds?.homeLast5?.length > 0
+          ? naverPitchKinds.homeLast5
+          : (last5ByTeam.get(homeKey) ?? []),
+      away_last5:
+        naverPitchKinds?.awayLast5?.length > 0
+          ? naverPitchKinds.awayLast5
+          : (last5ByTeam.get(awayKey) ?? []),
+      head_to_head: naverPitchKinds?.headToHead
+        ? {
+            home_wins: naverPitchKinds.headToHead.win,
+            away_wins: naverPitchKinds.awayHeadToHead?.win ?? 0,
+            draws: naverPitchKinds.headToHead.draw,
+          }
+        : head_to_head,
       series_length,
       series_game_number,
     });
