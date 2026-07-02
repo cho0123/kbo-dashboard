@@ -163,11 +163,10 @@ export default function Shorts4Panel() {
   const thumbFileRef = useRef(null);
   const [useCropThumbnail, setUseCropThumbnail] = useState(false);
 
-  const fetchMatchupPreview = useCallback(async (dateStr, team, tabOnly = false) => {
+  const fetchMatchupPreview = useCallback(async (dateStr, focusTeam = null) => {
     const d = String(dateStr || "").trim().slice(0, 10) || seoulToday();
     const body = { action: "matchup_preview", date: d };
-    if (team) body.team = team;
-    if (tabOnly) body.tabOnly = true;
+    if (focusTeam) body.focusTeam = focusTeam;
     const res = await postKbo(body);
     if (res && res.ok === false) {
       throw new Error(String(res.error || res.message || "API가 데이터를 반환하지 않았습니다."));
@@ -186,7 +185,7 @@ export default function Shorts4Panel() {
     setSlideIdx(0);
     (async () => {
       try {
-        const { games } = await fetchMatchupPreview(date, null, true);
+        const { games } = await fetchMatchupPreview(date, "삼성");
         if (cancelled) return;
         setTabGames(games);
         setShowAllGames(false);
@@ -425,7 +424,7 @@ export default function Shorts4Panel() {
     setBusy(true);
     setError(null);
     try {
-      const { res, games } = await fetchMatchupPreview(date, showAllGames ? undefined : "삼성");
+      const { res, games } = await fetchMatchupPreview(date, "삼성");
       setData(res);
       setTabGames(games);
       setSelectedIdx((idx) => (games.length && idx >= games.length ? 0 : idx));
@@ -750,7 +749,7 @@ export default function Shorts4Panel() {
           onClick={async () => {
             setScheduleBusy(true);
             try {
-              const { res, games } = await fetchMatchupPreview(date);
+              const { res, games } = await fetchMatchupPreview(date, "삼성");
               setTabGames(games);
               setData(res);
               setShowAllGames(true);
