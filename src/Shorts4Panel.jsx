@@ -142,6 +142,7 @@ export default function Shorts4Panel() {
   const [error, setError] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showAllGames, setShowAllGames] = useState(false);
+  const [focusTeam, setFocusTeam] = useState(null);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -193,6 +194,11 @@ export default function Shorts4Panel() {
           (g) => g?.home_team?.includes("삼성") || g?.away_team?.includes("삼성")
         );
         setSelectedIdx(samsungIdx >= 0 ? samsungIdx : 0);
+        setFocusTeam(
+          games[samsungIdx >= 0 ? samsungIdx : 0]?.home_team?.includes("삼성")
+            ? games[samsungIdx >= 0 ? samsungIdx : 0]?.home_team
+            : games[samsungIdx >= 0 ? samsungIdx : 0]?.away_team ?? null
+        );
       } catch (e) {
         if (!cancelled) {
           setTabGames([]);
@@ -731,6 +737,9 @@ export default function Shorts4Panel() {
                   setSelectedIdx(i);
                   setCapturedSlides([]);
                   setSlideIdx(0);
+                  const g0 = tabGames[i];
+                  const isSamsung = g0?.home_team?.includes("삼성");
+                  setFocusTeam(isSamsung ? g0?.home_team : g0?.away_team ?? null);
                 }}
                 disabled={rowBusy || (!showAllGames && !isSamsungGame(g))}
                 style={!showAllGames && !isSamsungGame(g) ? { opacity: 0.4 } : {}}
@@ -765,6 +774,23 @@ export default function Shorts4Panel() {
         >
           전체 경기 활성화
         </button>
+      )}
+
+      {detailGame && (
+        <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "#aaa" }}>기준팀:</span>
+          {[detailGame.home_team, detailGame.away_team].filter(Boolean).map((team) => (
+            <button
+              key={team}
+              type="button"
+              className={`shorts4-tab${focusTeam === team ? " active" : ""}`}
+              style={{ fontSize: 12, padding: "3px 12px" }}
+              onClick={() => setFocusTeam(team)}
+            >
+              {team}
+            </button>
+          ))}
+        </div>
       )}
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
