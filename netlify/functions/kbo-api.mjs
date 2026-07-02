@@ -5514,6 +5514,35 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     last5ByTeam.set(team, out);
   }
 
+  const findNaverPitcherStatsByName = (stats, name) => {
+    if (!Array.isArray(stats) || !name) return null;
+    const norm = (s) => String(s || "").replace(/\s+/g, "").trim();
+    const target = norm(name);
+    return stats.find((r) => norm(r?.playerName) === target) ?? null;
+  };
+
+  const naverPitcherToStarterStats = (row) => {
+    if (!row) return null;
+    const ipDecimal = parsePitcherInningString(row?.pitcherInning);
+    const totalOuts = Number.isFinite(ipDecimal) ? Math.round(ipDecimal * 3) : 0;
+    const total_ip = totalOuts > 0 ? outsToBaseballIpString(totalOuts) : null;
+    const kk = Number(row?.pitcherKk);
+    const k9 = totalOuts > 0 && Number.isFinite(kk)
+      ? Math.round(((kk * 9) / (totalOuts / 3)) * 100) / 100
+      : null;
+    const era = Number(row?.pitcherEra);
+    const wins = Number(row?.pitcherWin);
+    const losses = Number(row?.pitcherLose);
+    return {
+      era: Number.isFinite(era) ? era : null,
+      total_ip,
+      k9,
+      wins: Number.isFinite(wins) ? wins : 0,
+      losses: Number.isFinite(losses) ? losses : 0,
+      has_result: Number.isFinite(wins) && Number.isFinite(losses),
+    };
+  };
+
   const __starterEraCache = new Map();
   const __starterIpSoCache = new Map();
   const __starterWlWhipCache = new Map();
@@ -5541,47 +5570,37 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     const away_starter =
       ass == null || String(ass).trim() === "" ? null : String(ass).replace(/\s+/g, " ").trim();
 
-    const home_starter_era =
-      home_starter == null
-        ? null
-        : await fetchLatestSeasonEraByPitcherName(
-            db,
-            seasonYear,
-            home_starter,
-            __starterEraCache,
-            home_team
-          );
-    const away_starter_era =
-      away_starter == null
-        ? null
-        : await fetchLatestSeasonEraByPitcherName(
-            db,
-            seasonYear,
-            away_starter,
-            __starterEraCache,
-            away_team
-          );
+    // 네이버 시즌 스탯에서 선발투수 정보 우선 사용
+    const homeNaverStats = findNaverPitcherStatsByName(seasonPitcherStats, home_starter);
+    const awayNaverStats = findNaverPitcherStatsByName(seasonPitcherStats, away_starter);
+    const homeNaverStarter = naverPitcherToStarterStats(homeNaverStats);
+    const awayNaverStarter = naverPitcherToStarterStats(awayNaverStats);
 
-    const homeWlWhip =
-      home_starter == null
-        ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : (await fetchPitcherSeasonWlWhip(
-            db,
-            seasonYear,
-            home_starter,
-            __starterWlWhipCache,
-            home_team
-          )) ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
-    const awayWlWhip =
-      away_starter == null
-        ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
-        : (await fetchPitcherSeasonWlWhip(
-            db,
-            seasonYear,
-            away_starter,
-            __starterWlWhipCache,
-            away_team
-          )) ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null };
+    // ERA (네이버 우선, 없으면 Firestore 폴백)
+    const home_starter_era = homeNaverStarter?.era ??
+      (home_starter == null ? null :
+        await fetchLatestSeasonEraByPitcherName(db, seasonYear, home_starter, __starterEraCache, home_team));
+    const away_starter_era = awayNaverStarter?.era ??
+      (away_starter == null ? null :
+        await fetchLatestSeasonEraByPitcherName(db, seasonYear, away_starter, __starterEraCache, away_team));
+
+    // 승패·이닝·K9 (네이버 우선, 없으면 Firestore 폴백)
+    const homeWlWhip = homeNaverStarter
+      ? { wins: homeNaverStarter.wins, losses: homeNaverStarter.losses,
+          has_result: homeNaverStarter.has_result, whip: null,
+          total_ip: homeNaverStarter.total_ip, k9: homeNaverStarter.k9 }
+      : (home_starter == null
+          ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
+          : (await fetchPitcherSeasonWlWhip(db, seasonYear, home_starter, __starterWlWhipCache, home_team))
+            ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null });
+    const awayWlWhip = awayNaverStarter
+      ? { wins: awayNaverStarter.wins, losses: awayNaverStarter.losses,
+          has_result: awayNaverStarter.has_result, whip: null,
+          total_ip: awayNaverStarter.total_ip, k9: awayNaverStarter.k9 }
+      : (away_starter == null
+          ? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null }
+          : (await fetchPitcherSeasonWlWhip(db, seasonYear, away_starter, __starterWlWhipCache, away_team))
+            ?? { wins: 0, losses: 0, has_result: false, whip: null, total_ip: null, k9: null });
 
     const hsPitch = home_starter
       ? (await fetchLatestStarterIpSoBeforeDate(
