@@ -8757,57 +8757,6 @@ ${hasSpecial
             (g) => g?.home_team?.includes(teamFilter) || g?.away_team?.includes(teamFilter)
           );
         }
-        // focusTeam이 원정팀인 경우 home/away swap
-        if (focusTeam && Array.isArray(mp.games)) {
-          mp.games = mp.games.map((g) => {
-            const isAway = g?.away_team?.includes(focusTeam);
-            const isHome = g?.home_team?.includes(focusTeam);
-            if (!isAway || isHome) return g; // 이미 홈이거나 해당 없으면 그대로
-            // away → home swap
-            const swapped = { ...g };
-            const swapPairs = [
-              ["home_team", "away_team"],
-              ["home_starter", "away_starter"],
-              ["home_starter_image_url", "away_starter_image_url"],
-              ["home_starter_era", "away_starter_era"],
-              ["home_starter_season_wins", "away_starter_season_wins"],
-              ["home_starter_season_losses", "away_starter_season_losses"],
-              ["home_starter_season_has_result", "away_starter_season_has_result"],
-              ["home_starter_whip", "away_starter_whip"],
-              ["home_starter_total_ip", "away_starter_total_ip"],
-              ["home_starter_k9", "away_starter_k9"],
-              ["home_starter_ip", "away_starter_ip"],
-              ["home_starter_so", "away_starter_so"],
-              ["home_starter_era_rank", "away_starter_era_rank"],
-              ["home_starter_win_rank", "away_starter_win_rank"],
-              ["home_starter_whip_rank", "away_starter_whip_rank"],
-              ["home_starter_ip_rank", "away_starter_ip_rank"],
-              ["home_rank", "away_rank"],
-              ["home_win_rate", "away_win_rate"],
-              ["home_avg", "away_avg"],
-              ["home_record", "away_record"],
-              ["home_last5", "away_last5"],
-              ["home_lineup", "away_lineup"],
-              ["home_hot_player", "away_hot_player"],
-              ["home_pitch_kinds", "away_pitch_kinds"],
-            ];
-            for (const [hk, ak] of swapPairs) {
-              const tmp = swapped[hk];
-              swapped[hk] = swapped[ak];
-              swapped[ak] = tmp;
-            }
-            // 상대전적도 home/away swap
-            if (swapped.head_to_head) {
-              const h2h = swapped.head_to_head;
-              swapped.head_to_head = {
-                home_wins: h2h.away_wins,
-                away_wins: h2h.home_wins,
-                draws: h2h.draws,
-              };
-            }
-            return swapped;
-          });
-        }
         return {
           statusCode: 200,
           headers: corsHeaders(),
