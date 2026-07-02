@@ -5440,8 +5440,8 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
   const hitterRankIndex = buildHitterRankIndex(seasonHitterStats || []);
   const seasonPitcherStats = await fetchNaverPitcherSeasonStats(seasonYear);
   console.log("[DEBUG naverPitcher total]", (seasonPitcherStats || []).length);
-  console.log("[DEBUG naverPitcher 김태경]", JSON.stringify((seasonPitcherStats || []).find(r => r?.playerName === "김태경") ? "FOUND" : "NOT FOUND"));
-  console.log("[DEBUG naverPitcher last3]", JSON.stringify((seasonPitcherStats || []).slice(-3).map(r=>({name:r?.playerName}))));
+  const kimTaekyung = (seasonPitcherStats || []).filter(r => String(r?.playerName || "").includes("김태"));
+  console.log("[DEBUG naverPitcher 김태*]", JSON.stringify(kimTaekyung.map(r=>({name:r?.playerName, era:r?.pitcherEra, ip:r?.pitcherInning}))));
   const pitcherRankIndex = buildPitcherRankIndex(seasonPitcherStats || []);
   const seasonTeamHitterStats = await fetchNaverTeamSeasonHitterStats(seasonYear);
   const teamBattingAvgByNorm = buildTeamBattingAvgByNormKey(seasonTeamHitterStats || []);
