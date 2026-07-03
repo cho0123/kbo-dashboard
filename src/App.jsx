@@ -1012,7 +1012,7 @@ function drawSummarySlide(ctx, w, h, date, games, logosByTeamKey, titleMode = "r
 
 function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters, standings, pitcherImg = null, mvpImg = null, step = 2, tag = null, mvpImg2 = null) {
   const SAFE_TOP = 200;
-  const SAFE_BOTTOM = 1720;
+  const SAFE_BOTTOM = 1670;
   const DIVIDER_Y = 960;
 
   const hsNum = Number(g?.home_score);
