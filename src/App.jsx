@@ -1204,7 +1204,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
 
   // 하단 영역
   const leftX = 72;
-  const listTop = DIVIDER_Y + 105;
+  const listTop = DIVIDER_Y + 55;
   const lineGap = 107;
 
   const homeTeamName = String(g?.home_team || "—");
