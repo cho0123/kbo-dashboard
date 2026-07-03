@@ -3058,19 +3058,47 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             {aiAnalysis.length > 0 && (
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "#aaa" }}>🤖 AI 경기 분석</div>
-                {aiAnalysis.map((a) => {
+                {aiAnalysis.map((a, idx) => {
                   const g = (data?.games || []).find((g) => g.game_id === a.game_id);
                   const label = g ? `${g.home_team} vs ${g.away_team}` : a.game_id;
                   return (
                     <div
                       key={a.game_id}
-                      style={{ fontSize: 13, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", lineHeight: 1.5 }}
-                      title="클릭하면 복사"
-                      onClick={() => navigator.clipboard.writeText(a.summary)}
+                      style={{ fontSize: 13, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "6px 10px", lineHeight: 1.5 }}
                     >
                       <span style={{ color: "#4ade80", fontWeight: 700 }}>{label}</span>
-                      <br />
-                      {a.summary}
+                      <div
+                        style={{ marginTop: 4, cursor: "pointer", color: "rgba(255,255,255,0.8)" }}
+                        title="클릭하면 복사"
+                        onClick={() => navigator.clipboard.writeText(a.summary)}
+                      >
+                        {a.summary}
+                      </div>
+                      <div style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>태그:</span>
+                        <input
+                          type="text"
+                          value={a.tag ?? ""}
+                          placeholder="태그 없음"
+                          onChange={(e) => {
+                            const newTag = e.target.value;
+                            setAiAnalysis((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, tag: newTag || null } : item
+                              )
+                            );
+                          }}
+                          style={{
+                            flex: 1,
+                            fontSize: 12,
+                            padding: "2px 8px",
+                            borderRadius: 6,
+                            border: "1px solid rgba(255,255,255,0.2)",
+                            background: "rgba(255,255,255,0.08)",
+                            color: "#FFD700",
+                          }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
