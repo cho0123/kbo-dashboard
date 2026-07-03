@@ -3068,7 +3068,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                     >
                       <span style={{ color: "#4ade80", fontWeight: 700 }}>{label}</span>
                       <div
-                        style={{ marginTop: 4, cursor: "pointer", color: "#ffffff" }}
+                        style={{ marginTop: 4, cursor: "pointer", color: "#333333" }}
                         title="클릭하면 복사"
                         onClick={() => navigator.clipboard.writeText(a.summary)}
                       >
