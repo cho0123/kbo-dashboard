@@ -1131,6 +1131,40 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
   drawLogoInBox(64, logoY, logoBoxW, logoBoxH, g.home_team, homeImg);
   drawLogoInBox(w - 64 - logoBoxW, logoY, logoBoxW, logoBoxH, g.away_team, awayImg);
 
+  // 연전 승수 표시 (로고 아래)
+  if (g?.series_length && g?.series_game_number) {
+    const seriesLabel = `${g.series_length}연전 ${g.series_game_number}차전`;
+    const homeWins = Number(g?.home_series_wins) || 0;
+    const awayWins = Number(g?.away_series_wins) || 0;
+    const homeDraws = Number(g?.home_series_draws) || 0;
+    const seriesY = logoY + logoBoxH + 48;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // 홈팀 승수 (왼쪽)
+    const homeWinsText = homeDraws > 0
+      ? `${homeWins}승 ${homeDraws}무`
+      : `${homeWins}승`;
+    ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = homeWins > awayWins ? "#FFD700" : "rgba(255,255,255,0.85)";
+    ctx.fillText(homeWinsText, w * 0.22, seriesY);
+
+    // 연전 정보 (가운데)
+    ctx.font = `500 36px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText(seriesLabel, w / 2, seriesY);
+
+    // 원정팀 승수 (오른쪽)
+    const awayWinsText = `${awayWins}승`;
+    ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = awayWins > homeWins ? "#FFD700" : "rgba(255,255,255,0.85)";
+    ctx.fillText(awayWinsText, w * 0.78, seriesY);
+
+    ctx.restore();
+  }
+
   // 4) 스코어 (홈 - 원정)
   const hsText = String(g?.home_score ?? "—");
   const asText = String(g?.away_score ?? "—");

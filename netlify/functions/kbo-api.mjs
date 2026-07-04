@@ -7876,6 +7876,13 @@ ${hasSpecial
             .replace(/\s+/g, " ")
             .trim();
 
+        const seriesSeasonYear = Number(standingsYear) || new Date().getFullYear();
+        const seriesSeasonGames = await fetchGamesDateRange(
+          db,
+          `${seriesSeasonYear}-01-01`,
+          `${seriesSeasonYear}-12-31`
+        );
+
         const games = [];
         for (const g of base) {
           const gid = String(g?.game_id || "").trim();
@@ -8201,6 +8208,56 @@ ${hasSpecial
           const winning_pitcher_er =
             winPitcherRow?.er ?? winPitcherRow?.ER ?? winPitcherRow?.earned_runs ?? null;
 
+          // 연전 정보 계산
+          const seriesRaw = computeSamePairSeriesInfo(
+            seriesSeasonGames, g?.game_date, gid, g?.home_team, g?.away_team
+          );
+          const seriesLen = Number(seriesRaw?.series_length);
+          const seriesNum = Number(seriesRaw?.series_game_number);
+          const series_length =
+            Number.isFinite(seriesLen) && seriesLen > 1 ? Math.round(seriesLen) : null;
+          const series_game_number =
+            series_length != null && Number.isFinite(seriesNum) && seriesNum > 0
+              ? Math.round(seriesNum) : null;
+
+          // 연전 승수 집계 (현재 경기 이전 구간만)
+          let home_series_wins = 0;
+          let away_series_wins = 0;
+          let home_series_draws = 0;
+          if (series_length != null && series_game_number != null && series_game_number > 1) {
+            const hKey = normalizeTeamKey(g?.home_team || "");
+            const aKey = normalizeTeamKey(g?.away_team || "");
+            const pairKeySorted = [hKey, aKey].sort().join("|");
+            const pairGames = (seriesSeasonGames || [])
+              .filter((sg) => {
+                const sh = normalizeTeamKey(sg?.home_team || sg?.homeTeam || "");
+                const sa = normalizeTeamKey(sg?.away_team || sg?.awayTeam || "");
+                return [sh, sa].sort().join("|") === pairKeySorted;
+              })
+              .sort((a, b) => String(a?.game_date || "").localeCompare(String(b?.game_date || "")));
+            const currentIdx = pairGames.findIndex((sg) =>
+              String(sg?.game_id ?? sg?.gameId ?? "").trim() === gid
+            );
+            const seriesStart = currentIdx - (series_game_number - 1);
+            for (let si = seriesStart; si < currentIdx; si++) {
+              if (si < 0) continue;
+              const sg = pairGames[si];
+              const hs = Number(sg?.home_score ?? sg?.homeScore);
+              const as = Number(sg?.away_score ?? sg?.awayScore);
+              if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+              const sgHKey = normalizeTeamKey(sg?.home_team || sg?.homeTeam || "");
+              if (hs === as) {
+                home_series_draws++;
+              } else if (hs > as) {
+                if (sgHKey === hKey) home_series_wins++;
+                else away_series_wins++;
+              } else {
+                if (sgHKey === hKey) away_series_wins++;
+                else home_series_wins++;
+              }
+            }
+          }
+
           games.push({
             ...g,
             winning_pitcher: winName,
@@ -8252,6 +8309,11 @@ ${hasSpecial
             away_next_game: awayNextGameWithH2h ?? null,
             // Backward-compat: keep next_game but align with home team next game
             next_game: homeNextGameWithH2h ?? null,
+            series_length,
+            series_game_number,
+            home_series_wins,
+            away_series_wins,
+            home_series_draws,
           });
         }
 
