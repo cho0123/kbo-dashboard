@@ -8239,7 +8239,7 @@ ${hasSpecial
               String(sg?.game_id ?? sg?.gameId ?? "").trim() === gid
             );
             const seriesStart = currentIdx - (series_game_number - 1);
-            for (let si = seriesStart; si < currentIdx; si++) {
+            for (let si = seriesStart; si <= currentIdx; si++) {
               if (si < 0) continue;
               const sg = pairGames[si];
               const hs = Number(sg?.home_score ?? sg?.homeScore);

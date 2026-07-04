@@ -1137,7 +1137,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     const homeWins = Number(g?.home_series_wins) || 0;
     const awayWins = Number(g?.away_series_wins) || 0;
     const homeDraws = Number(g?.home_series_draws) || 0;
-    const seriesY = logoY + logoBoxH + 48;
+    const seriesY = logoY + logoBoxH / 2;
 
     ctx.save();
     ctx.textAlign = "center";
