@@ -1149,7 +1149,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
       : `${homeWins}승`;
     ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = homeWins > awayWins ? "#FFD700" : "rgba(255,255,255,0.85)";
-    ctx.fillText(homeWinsText, w * 0.35, seriesY);
+    ctx.fillText(homeWinsText, w * 0.42, seriesY);
 
     // 연전 정보 (가운데)
     ctx.font = `500 36px "${FONT_BODY}", system-ui, sans-serif`;
@@ -1160,7 +1160,7 @@ function drawGameSlide(ctx, w, h, date, g, index, total, logosByTeamKey, batters
     const awayWinsText = `${awayWins}승`;
     ctx.font = `700 44px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = awayWins > homeWins ? "#FFD700" : "rgba(255,255,255,0.85)";
-    ctx.fillText(awayWinsText, w * 0.65, seriesY);
+    ctx.fillText(awayWinsText, w * 0.58, seriesY);
 
     ctx.restore();
   }
