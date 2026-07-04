@@ -8224,7 +8224,7 @@ ${hasSpecial
           let home_series_wins = 0;
           let away_series_wins = 0;
           let home_series_draws = 0;
-          if (series_length != null && series_game_number != null && series_game_number > 1) {
+          if (series_length != null && series_game_number != null) {
             const hKey = normalizeTeamKey(g?.home_team || "");
             const aKey = normalizeTeamKey(g?.away_team || "");
             const pairKeySorted = [hKey, aKey].sort().join("|");
