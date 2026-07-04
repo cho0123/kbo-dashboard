@@ -280,9 +280,18 @@ export function drawTomorrowPreviewGameSlide(
 ) {
   const homeTeam = String(g?.home_team || "").trim();
   const awayTeam = String(g?.away_team || "").trim();
+  const focusTeam = String(drawOpts?.focusTeam || "").trim();
+  const isFocusAway = focusTeam && awayTeam.includes(focusTeam);
+  // 기준팀 기준 좌우/상하 배치
+  const leftTeam = isFocusAway ? awayTeam : homeTeam;
+  const rightTeam = isFocusAway ? homeTeam : awayTeam;
+  const leftImg = isFocusAway ? logosByTeamKey?.[teamKeyword(awayTeam)] : logosByTeamKey?.[teamKeyword(homeTeam)];
+  const rightImg = isFocusAway ? logosByTeamKey?.[teamKeyword(homeTeam)] : logosByTeamKey?.[teamKeyword(awayTeam)];
+  const leftRank = isFocusAway ? g?.away_rank : g?.home_rank;
+  const rightRank = isFocusAway ? g?.home_rank : g?.away_rank;
 
   ctx.clearRect(0, 0, w, h);
-  diagTeamGradient(ctx, w, h, homeTeam, awayTeam);
+  diagTeamGradient(ctx, w, h, leftTeam, rightTeam);
   drawBaseballBackground(ctx);
 
   ctx.save();
@@ -322,8 +331,8 @@ export function drawTomorrowPreviewGameSlide(
     else drawTeamBadge(ctx, x, y, logoSize / 2, teamName);
   };
 
-  drawLogo(awayImg, awayX, logoY, awayTeam);
-  drawLogo(homeImg, homeX, logoY, homeTeam);
+  drawLogo(leftImg, awayX, logoY, leftTeam);
+  drawLogo(rightImg, homeX, logoY, rightTeam);
 
   ctx.font = `1000 90px "${FONT_TITLE}", system-ui, sans-serif`;
   ctx.fillStyle = "#FFD700";
@@ -333,8 +342,8 @@ export function drawTomorrowPreviewGameSlide(
 
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(awayTeam || "—", awayX, 610);
-  ctx.fillText(homeTeam || "—", homeX, 610);
+  ctx.fillText(leftTeam || "—", awayX, 610);
+  ctx.fillText(rightTeam || "—", homeX, 610);
 
   const fmtRank = (r) => {
     if (!r || typeof r !== "object") return "—";
@@ -351,15 +360,37 @@ export function drawTomorrowPreviewGameSlide(
   };
   ctx.fillStyle = "#FFD700";
   ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtRank(g?.away_rank), awayX, 670);
-  ctx.fillText(fmtRank(g?.home_rank), homeX, 670);
+  ctx.fillText(fmtRank(leftRank), awayX, 670);
+  ctx.fillText(fmtRank(rightRank), homeX, 670);
+
+  const seriesLen = Number(g?.series_length);
+  const seriesNum = Number(g?.series_game_number);
+  if (Number.isFinite(seriesLen) && seriesLen > 1 && Number.isFinite(seriesNum) && seriesNum > 0) {
+    const leftWins = isFocusAway ? (g?.away_series_wins ?? 0) : (g?.home_series_wins ?? 0);
+    const rightWins = isFocusAway ? (g?.home_series_wins ?? 0) : (g?.away_series_wins ?? 0);
+    const seriesDraws = g?.home_series_draws ?? 0;
+    const seriesLabel = `${seriesLen}연전 ${seriesNum}차전`;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `700 42px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillStyle = leftWins > rightWins ? "#FFD700" : "rgba(255,255,255,0.85)";
+    ctx.fillText(`${leftWins}승`, awayX, 720);
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(seriesLabel, w / 2, 720);
+    ctx.fillStyle = rightWins > leftWins ? "#FFD700" : "rgba(255,255,255,0.85)";
+    ctx.font = `700 42px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(`${rightWins}승`, homeX, 720);
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.9)";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(70, 750);
-  ctx.lineTo(w - 70, 750);
+  ctx.moveTo(70, 800);
+  ctx.lineTo(w - 70, 800);
   ctx.stroke();
   ctx.restore();
 
@@ -369,7 +400,7 @@ export function drawTomorrowPreviewGameSlide(
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 40px "${FONT_BODY}", system-ui, sans-serif`;
   shadowTextSoft(ctx);
-  ctx.fillText(venueText || "—", w - 80, 750 + 50);
+  ctx.fillText(venueText || "—", w - 80, 800 + 50);
   resetShadow(ctx);
   ctx.restore();
 

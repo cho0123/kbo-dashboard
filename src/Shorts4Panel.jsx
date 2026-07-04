@@ -330,6 +330,7 @@ export default function Shorts4Panel() {
             starterBoxBg: "rgba(0,0,0,0.5)",
             short4ExtraStats: true,
             hideHomeAwayRecordLines: true,
+            focusTeam,
           });
           return;
         }
