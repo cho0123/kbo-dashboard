@@ -5742,6 +5742,44 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     const series_game_number =
       series_length != null && Number.isFinite(seriesNum) && seriesNum > 0 ? Math.round(seriesNum) : null;
 
+    // 연전 승수 집계
+    let home_series_wins = 0;
+    let away_series_wins = 0;
+    let home_series_draws = 0;
+    if (series_length != null && series_game_number != null) {
+      const hKey = normalizeTeamKey(home_team || "");
+      const aKey = normalizeTeamKey(away_team || "");
+      const pairKeySorted = [hKey, aKey].sort().join("|");
+      const pairGames = (allGames || [])
+        .filter((sg) => {
+          const sh = normalizeTeamKey(sg?.home_team || sg?.homeTeam || "");
+          const sa = normalizeTeamKey(sg?.away_team || sg?.awayTeam || "");
+          return [sh, sa].sort().join("|") === pairKeySorted;
+        })
+        .sort((a, b) => String(a?.game_date || a?.gameDate || "").localeCompare(String(b?.game_date || b?.gameDate || "")));
+      const currentIdx = pairGames.findIndex((sg) =>
+        String(sg?.game_id ?? sg?.gameId ?? "").trim() === String(game_id ?? "").trim()
+      );
+      const seriesStart = currentIdx - (series_game_number - 1);
+      for (let si = seriesStart; si <= currentIdx; si++) {
+        if (si < 0) continue;
+        const sg = pairGames[si];
+        const hs = Number(sg?.home_score ?? sg?.homeScore);
+        const as = Number(sg?.away_score ?? sg?.awayScore);
+        if (!Number.isFinite(hs) || !Number.isFinite(as)) continue;
+        const sgHKey = normalizeTeamKey(sg?.home_team || sg?.homeTeam || "");
+        if (hs === as) {
+          home_series_draws++;
+        } else if (hs > as) {
+          if (sgHKey === hKey) home_series_wins++;
+          else away_series_wins++;
+        } else {
+          if (sgHKey === hKey) away_series_wins++;
+          else home_series_wins++;
+        }
+      }
+    }
+
     const home_starter_image_url = findPitcherImageUrlByStarterName(
       seasonPitcherStats,
       home_starter,
@@ -5825,6 +5863,9 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
         : head_to_head,
       series_length,
       series_game_number,
+      home_series_wins,
+      away_series_wins,
+      home_series_draws,
     });
   }
   return { ok: true, date: dateStr, games, standings };
