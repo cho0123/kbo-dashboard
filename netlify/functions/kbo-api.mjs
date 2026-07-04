@@ -7882,6 +7882,9 @@ ${hasSpecial
           `${seriesSeasonYear}-01-01`,
           `${seriesSeasonYear}-12-31`
         );
+        const seriesDatePlus30 = isoDatePlusDays(dateStr, 30);
+        const seriesScheduleRows = await fetchScheduleRowsDateRange(db, dateStr, seriesDatePlus30);
+        const seriesAllGames = mergeScheduleIntoSeasonGames(seriesSeasonGames, seriesScheduleRows);
 
         const games = [];
         for (const g of base) {
@@ -8210,7 +8213,7 @@ ${hasSpecial
 
           // 연전 정보 계산
           const seriesRaw = computeSamePairSeriesInfo(
-            seriesSeasonGames, g?.game_date, gid, g?.home_team, g?.away_team
+            seriesAllGames, g?.game_date, gid, g?.home_team, g?.away_team
           );
           const seriesLen = Number(seriesRaw?.series_length);
           const seriesNum = Number(seriesRaw?.series_game_number);
