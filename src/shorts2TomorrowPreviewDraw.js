@@ -342,8 +342,8 @@ export function drawTomorrowPreviewGameSlide(
 
   ctx.fillStyle = "#ffffff";
   ctx.font = `700 54px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(leftTeam || "—", awayX, 610);
-  ctx.fillText(rightTeam || "—", homeX, 610);
+  ctx.fillText(leftTeam || "—", awayX, 602);
+  ctx.fillText(rightTeam || "—", homeX, 602);
 
   const fmtRank = (r) => {
     if (!r || typeof r !== "object") return "—";
@@ -360,8 +360,8 @@ export function drawTomorrowPreviewGameSlide(
   };
   ctx.fillStyle = "#FFD700";
   ctx.font = `800 45px "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText(fmtRank(leftRank), awayX, 670);
-  ctx.fillText(fmtRank(rightRank), homeX, 670);
+  ctx.fillText(fmtRank(leftRank), awayX, 662);
+  ctx.fillText(fmtRank(rightRank), homeX, 662);
 
   const seriesLen = Number(g?.series_length);
   const seriesNum = Number(g?.series_game_number);
