@@ -320,7 +320,8 @@ export default function Shorts4Panel() {
             useCustomThumb ? thumbOffsetX : 0,
             useCustomThumb ? thumbOffsetY : 0,
             useCustomThumb ? thumbScale : 1,
-            useCustomThumb
+            useCustomThumb,
+            focusTeam
           );
           return;
         }

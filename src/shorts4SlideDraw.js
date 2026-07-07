@@ -303,7 +303,7 @@ export function drawShorts4MatchupSlide(ctx, w, h, dateIso, g, logosByTeamKey) {
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {{ home_team?: string, away_team?: string, game_date?: string, venue?: string, stadium?: string, series_game_number?: number, series_length?: number } | null | undefined} firstGame
  */
-export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame, playerImg = null, playerOffsetX = 0, playerOffsetY = 0, playerScale = 1, useCustomThumb = false) {
+export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame, playerImg = null, playerOffsetX = 0, playerOffsetY = 0, playerScale = 1, useCustomThumb = false, focusTeam = null) {
   const homeTeam = String(firstGame?.home_team || "홈").trim() || "홈";
   const awayTeam = String(firstGame?.away_team || "원정").trim() || "원정";
   const hk = teamKeyword(homeTeam);
@@ -314,7 +314,9 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
   const seriesNum = Number(firstGame?.series_game_number);
   const isEvenSeriesGame =
     Number.isFinite(seriesNum) && seriesNum > 0 && seriesNum % 2 === 0;
-  const isFocusAway = isEvenSeriesGame;
+  const isFocusAway = focusTeam
+    ? String(firstGame?.away_team || "").includes(focusTeam)
+    : isEvenSeriesGame;
   const gradTopTeam = isFocusAway ? awayTeam : homeTeam;
   const focusTeamName = isFocusAway ? awayTeam : homeTeam;
   const focusTeamKey = teamKeyword(focusTeamName);

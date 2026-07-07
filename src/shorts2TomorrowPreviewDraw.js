@@ -421,7 +421,11 @@ export function drawTomorrowPreviewGameSlide(
   const hEra = Number.isFinite(hEraNum) ? hEraNum.toFixed(2) : null;
   const aspText = aEra ? `${asp}(${aEra})` : asp;
   const hspText = hEra ? `${hsp}(${hEra})` : hsp;
-  const spText = `예상선발 : ${aspText} vs ${hspText}`;
+  const focusTeamOpt = String(drawOpts?.focusTeam || "").trim();
+  const isFocusAwayTeam = focusTeamOpt && String(g?.away_team || "").includes(focusTeamOpt);
+  const focusSpText = isFocusAwayTeam ? aspText : hspText;
+  const oppSpText = isFocusAwayTeam ? hspText : aspText;
+  const spText = `예상선발 : ${focusSpText} vs ${oppSpText}`;
 
   const fmtWdl = (rec) => {
     const wv = Number.isFinite(Number(rec?.win)) ? Number(rec.win) : 0;
