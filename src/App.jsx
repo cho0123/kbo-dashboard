@@ -3132,6 +3132,33 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             color: "#FFD700",
                           }}
                         />
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                          {["⚡ 역전승", "📌 연장전", "🔒 투수전", "🔥 타선폭발", "⚾ 홈런폭발", "📈 순위상승", "💪 맹활약", "🏆 완봉", "😱 이변", "🎯 끝내기"].map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => {
+                                setAiAnalysis((prev) =>
+                                  prev.map((item, i) =>
+                                    i === idx ? { ...item, tag: emoji } : item
+                                  )
+                                );
+                              }}
+                              style={{
+                                fontSize: 11,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                border: "1px solid rgba(0,0,0,0.15)",
+                                background: a.tag === emoji ? "#4ade80" : "rgba(0,0,0,0.06)",
+                                color: a.tag === emoji ? "#fff" : "#333",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );
