@@ -296,7 +296,6 @@ export function drawTomorrowPreviewGameSlide(
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
   // 하단 강조색 라운드 박스
   const boxMargin = 40;
    const boxTop = 1060;
@@ -316,7 +315,7 @@ export function drawTomorrowPreviewGameSlide(
   ctx.textAlign = "start";
   ctx.textBaseline = "alphabetic";
   ctx.font = `italic 1000 78px "${FONT_TITLE}", "${FONT_BODY}", system-ui, sans-serif`;
-  ctx.fillText("GAME PREVIEW", 60, 1040);
+  ctx.fillText("GAME PREVIEW", 60, 1010);
   ctx.restore();
 
   const dateText = fmtKoreanLongDate(date);
