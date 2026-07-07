@@ -291,9 +291,24 @@ export function drawTomorrowPreviewGameSlide(
   const leftRank = isFocusAway ? g?.away_rank : g?.home_rank;
   const rightRank = isFocusAway ? g?.home_rank : g?.away_rank;
 
+  const [bgColor] = teamGrad(leftTeam);
+  const strongColor = getTeamStrongColor(leftTeam) || bgColor;
   ctx.clearRect(0, 0, w, h);
-  diagTeamGradient(ctx, w, h, leftTeam, rightTeam);
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, w, h);
   drawBaseballBackground(ctx);
+  // 하단 강조색 라운드 박스
+  const boxMargin = 40;
+  const boxTop = 1080;
+  const boxBottom = 1660;
+  const boxRadius = 40;
+  ctx.save();
+  ctx.fillStyle = strongColor;
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  ctx.roundRect(boxMargin, boxTop, w - boxMargin * 2, boxBottom - boxTop, boxRadius);
+  ctx.fill();
+  ctx.restore();
 
   ctx.save();
   ctx.globalAlpha = 0.18;
