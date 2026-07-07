@@ -300,7 +300,7 @@ export function drawTomorrowPreviewGameSlide(
   // 하단 강조색 라운드 박스
   const boxMargin = 40;
    const boxTop = 1060;
-   const boxBottom = 1700;
+   const boxBottom = 1740;
   const boxRadius = 40;
   ctx.save();
   ctx.fillStyle = strongColor;
@@ -523,13 +523,15 @@ export function drawTomorrowPreviewGameSlide(
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
-    ctx.beginPath();
-    ctx.roundRect(boxX, boxY, boxW, boxH, r);
-    ctx.fillStyle = starterBoxBg;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.6)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    if (starterBoxBg !== "none") {
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, r);
+      ctx.fillStyle = starterBoxBg;
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
     ctx.restore();
 
     ctx.shadowColor = "rgba(0,0,0,0.6)";

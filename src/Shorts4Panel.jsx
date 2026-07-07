@@ -328,7 +328,7 @@ export default function Shorts4Panel() {
 
         if (slide.type === "preview_game" && slide.game) {
           drawTomorrowPreviewGameSlide(ctx, w, h, date, slide.game, logosByTeamKey, Number(slide.page) || 1, {
-            starterBoxBg: "rgba(0,0,0,0.5)",
+            starterBoxBg: "none",
             short4ExtraStats: true,
             hideHomeAwayRecordLines: true,
             focusTeam,
