@@ -3108,56 +3108,34 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       >
                         {a.summary}
                       </div>
-                      <div style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>태그:</span>
-                        <input
-                          type="text"
-                          value={a.tag ?? ""}
-                          placeholder="태그 없음"
-                          onChange={(e) => {
-                            const newTag = e.target.value;
-                            setAiAnalysis((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, tag: newTag || null } : item
-                              )
-                            );
-                          }}
-                          style={{
-                            flex: 1,
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 6,
-                            border: "1px solid rgba(255,255,255,0.2)",
-                            background: "rgba(255,255,255,0.08)",
-                            color: "#FFD700",
-                          }}
-                        />
-                        <input
-                          type="text"
-                          value={a.tag ?? ""}
-                          placeholder="태그 없음"
-                          onChange={(e) => {
-                            const newTag = e.target.value;
-                            setAiAnalysis((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, tag: newTag || null } : item
-                              )
-                            );
-                          }}
-                          style={{
-                            flex: 1,
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 6,
-                            border: "1px solid rgba(255,255,255,0.2)",
-                            background: "rgba(255,255,255,0.08)",
-                            color: "#FFD700",
-                            marginTop: 4,
-                            width: "100%",
-                          }}
-                        />
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                          {["⚡ 역전승", "📌 연장전", "🔒 투수전", "🔥 타선폭발", "⚾ 홈런폭발", "📈 순위상승", "💪 맹활약", "🏆 완봉", "😱 이변", "🎯 끝내기"].map((emoji) => (
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>태그:</span>
+                          <input
+                            type="text"
+                            value={a.tag ?? ""}
+                            placeholder="태그 없음"
+                            onChange={(e) => {
+                              const newTag = e.target.value;
+                              setAiAnalysis((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx ? { ...item, tag: newTag || null } : item
+                                )
+                              );
+                            }}
+                            style={{
+                              flex: 1,
+                              fontSize: 12,
+                              padding: "2px 8px",
+                              borderRadius: 6,
+                              border: "1px solid rgba(255,255,255,0.2)",
+                              background: "rgba(255,255,255,0.08)",
+                              color: "#FFD700",
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {["⚡ 역전승", "📌 연장전", "🔒 투수전", "🔥 타선폭발", "⚾ 홈런폭발", "📈 순위상승", "💪 맹활약", "🏆 완봉", "😱 이변", "🎯 끝내기", "⭐ 퀄스"].map((emoji) => (
                             <button
                               key={emoji}
                               type="button"
