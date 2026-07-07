@@ -409,10 +409,15 @@ export function drawTomorrowPreviewGameSlide(
   const homeWins = Number.isFinite(Number(head?.home_wins)) ? Number(head.home_wins) : null;
   const awayWins = Number.isFinite(Number(head?.away_wins)) ? Number(head.away_wins) : null;
   const draws = Number.isFinite(Number(head?.draws)) ? Number(head.draws) : null;
+  const focusTeamOpt = String(drawOpts?.focusTeam || "").trim();
+  const isFocusAwayH2h = focusTeamOpt && String(g?.away_team || "").includes(focusTeamOpt);
+  const focusTeamLabel = focusTeamOpt || (homeTeam || "홈팀");
+  const focusWins = isFocusAwayH2h ? awayWins : homeWins;
+  const oppWins = isFocusAwayH2h ? homeWins : awayWins;
   const h2hText =
-    homeWins == null || awayWins == null || draws == null
+    focusWins == null || oppWins == null || draws == null
       ? "시즌 상대전적 : —"
-      : `시즌 상대전적 : ${homeTeam || "홈팀"}(홈팀기준) ${homeWins}승 ${draws}무 ${awayWins}패`;
+      : `시즌 상대전적 : ${focusTeamLabel} ${focusWins}승 ${draws}무 ${oppWins}패`;
 
   const asp = String(g?.away_starter || "").trim() || "미정";
   const hsp = String(g?.home_starter || "").trim() || "미정";
@@ -422,7 +427,6 @@ export function drawTomorrowPreviewGameSlide(
   const hEra = Number.isFinite(hEraNum) ? hEraNum.toFixed(2) : null;
   const aspText = aEra ? `${asp}(${aEra})` : asp;
   const hspText = hEra ? `${hsp}(${hEra})` : hsp;
-  const focusTeamOpt = String(drawOpts?.focusTeam || "").trim();
   const isFocusAwayTeam = focusTeamOpt && String(g?.away_team || "").includes(focusTeamOpt);
   const focusSpText = isFocusAwayTeam ? aspText : hspText;
   const oppSpText = isFocusAwayTeam ? hspText : aspText;
