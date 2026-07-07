@@ -459,7 +459,7 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
       ctx.fillText(
         d.diff > 0 ? `▲${d.diff}` : `▼${Math.abs(d.diff)}`,
         tx + leftW + 20,
-        lineY - 20
+        lineY - 48
       );
     }
     ctx.letterSpacing = "0px";
@@ -508,7 +508,7 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
       ctx.fillText(
         d.diff > 0 ? `▲${d.diff}` : `▼${Math.abs(d.diff)}`,
         tx + leftW + 20,
-        lineY - 20
+        lineY - 48
       );
     }
     ctx.letterSpacing = "0px";
@@ -545,7 +545,7 @@ export function drawStandingsSlide(ctx, w, h, date, standings, logosByTeamKey, t
     ctx.fillStyle = "#FFF5E0";
     ctx.fillText(String(d.rank), x + 24, y + 24);
     if (d.diff != null && d.diff !== 0) {
-      ctx.font = `700 26px "${FONT_BODY}", sans-serif`;
+      ctx.font = `700 39px "${FONT_BODY}", sans-serif`;
       ctx.fillStyle = d.diff > 0 ? "#00DD88" : "#FF5555";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
