@@ -4704,27 +4704,15 @@ function dedupeNaverHitterSeasonStatsByPlayer(rows) {
 async function fetchNaverPitcherSeasonStats(seasonYear) {
   const y = String(Number(seasonYear) || "").trim();
   if (!y) return null;
-  const pageSize = 100;
-  const pages = [1, 2, 3];
-  const fetchPage = async (page) => {
-    const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=${page}&pageSize=${pageSize}`;
-    try {
-      const res = await fetch(url, {
-        headers: { Referer: "https://m.sports.naver.com" },
-      });
-      if (!res.ok) return [];
-      const json = await res.json();
-      const arr = json?.result?.seasonPlayerStats;
-      return Array.isArray(arr) ? arr : [];
-    } catch (e) {
-      return [];
-    }
-  };
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=100`;
   try {
-    const chunks = await Promise.all(pages.map((p) => fetchPage(p)));
-    const merged = chunks.flat();
-    if (merged.length === 0) return null;
-    return merged;
+    const res = await fetch(url, {
+      headers: { Referer: "https://m.sports.naver.com" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = json?.result?.seasonPlayerStats;
+    return Array.isArray(arr) ? arr : null;
   } catch (e) {
     console.warn("[fetchNaverPitcherSeasonStats]", y, e?.message || e);
     return null;
