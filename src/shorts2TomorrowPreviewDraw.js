@@ -3,6 +3,7 @@
  */
 import { drawBaseballBackground } from "./shortsBaseballDecor.js";
 import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
+import { getTeamStrongColor } from "./shorts4SlideDraw.js";
 
 const FONT_TITLE = "Black Han Sans";
 const FONT_BODY = "Noto Sans KR";
@@ -107,7 +108,7 @@ function drawImageContain(ctx, img, x, y, boxW, boxH) {
 
 function diagTeamGradient(ctx, w, h, primaryTeam, secondaryTeam) {
   const [p] = teamGrad(primaryTeam);
-  const [s] = teamGrad(secondaryTeam);
+  const s = getTeamStrongColor(primaryTeam) || teamGrad(secondaryTeam)[0];
 
   ctx.fillStyle = p;
   ctx.fillRect(0, 0, w, h);

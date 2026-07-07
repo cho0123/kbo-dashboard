@@ -5,7 +5,6 @@
 import { drawBaseballBackground } from "./shortsBaseballDecor.js";
 import { teamKeyword } from "./shorts1IntroStandingsDraw.js";
 import { drawableShorts4Portrait } from "./shorts4PlayerImage.js";
-import { TEAM_COLORS } from "./thumbnailUtils.js";
 
 function fmtTeamShort(team) {
   const t = String(team || "").trim();
@@ -43,7 +42,7 @@ const TEAM_STRONG_COLOR = {
   키움: "#820024",
 };
 
-function getTeamStrongColor(teamName) {
+export function getTeamStrongColor(teamName) {
   const kw = teamKeyword(teamName);
   const strong = kw ? TEAM_STRONG_COLOR[kw] : undefined;
   if (strong) return strong;
@@ -318,16 +317,13 @@ export function drawShorts4IntroSlide(ctx, w, h, date, logosByTeamKey, firstGame
     ? String(firstGame?.away_team || "").includes(focusTeam)
     : isEvenSeriesGame;
   const gradTopTeam = isFocusAway ? awayTeam : homeTeam;
-  const focusTeamName = isFocusAway ? awayTeam : homeTeam;
-  const focusTeamKey = teamKeyword(focusTeamName);
-  const focusAccent = TEAM_COLORS[focusTeamKey]?.accent ?? TEAM_COLORS[focusTeamName]?.accent ?? "#C0C0C0";
-  const gradBottomColor = focusAccent;
+  const gradBottomTeam = isFocusAway ? homeTeam : awayTeam;
   const previewAccentTeam = isEvenSeriesGame ? awayTeam : homeTeam;
 
   ctx.clearRect(0, 0, w, h);
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, getTeamStrongColor(gradTopTeam));
-  grad.addColorStop(1, gradBottomColor);
+  grad.addColorStop(1, getTeamStrongColor(gradBottomTeam));
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
   // 선수 사진 (배경 위, 로고/텍스트 아래)
