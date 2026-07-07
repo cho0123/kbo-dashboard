@@ -444,9 +444,10 @@ export function drawTomorrowPreviewGameSlide(
   const awayLast5Disp = [...awayLast5].reverse();
   const homeRecText = `${homeTeam || "홈팀"}(홈경기) : ${fmtWdl(g?.home_record)}`;
   const awayRecText = `${awayTeam || "원정팀"}(원정경기) : ${fmtWdl(g?.away_record)}`;
-  const homeLast5Text = `${homeTeam || "홈팀"} : ${homeLast5Disp.length ? homeLast5Disp.join("") : "—"}`;
-  const awayLast5Text = `${awayTeam || "원정팀"} : ${awayLast5Disp.length ? awayLast5Disp.join("") : "—"}`;
-  const last5Line = `${homeLast5Text}  |  ${awayLast5Text}`;
+  const rawAwayLast5 = (g?.away_last5 || []).join("") || "—";
+  const rawHomeLast5 = (g?.home_last5 || []).join("") || "—";
+  const awayLast5Str = isFocusAwayH2h ? rawAwayLast5 : rawHomeLast5;
+  const homeLast5Str = isFocusAwayH2h ? rawHomeLast5 : rawAwayLast5;
 
   const avgRgbFromHex = (hex) => {
     const h = String(hex || "").trim().replace("#", "");
@@ -548,9 +549,7 @@ export function drawTomorrowPreviewGameSlide(
       y0 += lineGap;
       ctx.font = baseFont;
       ctx.fillText(
-        `- 승률 : ${homeLabel}(${fmtStat3(g?.home_win_rate)}) | ${awayLabel}(${fmtStat3(
-          g?.away_win_rate
-        )})`,
+        `- 승률 : ${isFocusAwayH2h ? awayTeam : homeTeam}(${fmtStat3(isFocusAwayH2h ? g?.away_win_rate : g?.home_win_rate)}) | ${isFocusAwayH2h ? homeTeam : awayTeam}(${fmtStat3(isFocusAwayH2h ? g?.home_win_rate : g?.away_win_rate)})`,
         x0,
         y0
       );
@@ -566,7 +565,7 @@ export function drawTomorrowPreviewGameSlide(
       y0 += lineGap;
       ctx.font = baseFont;
       ctx.fillText(
-        `- 타율 : ${homeLabel}(${fmtStat3(g?.home_avg)}) | ${awayLabel}(${fmtStat3(g?.away_avg)})`,
+        `- 타율 : ${isFocusAwayH2h ? awayTeam : homeTeam}(${fmtStat3(isFocusAwayH2h ? g?.away_avg : g?.home_avg)}) | ${isFocusAwayH2h ? homeTeam : awayTeam}(${fmtStat3(isFocusAwayH2h ? g?.home_avg : g?.away_avg)})`,
         x0,
         y0
       );
@@ -575,10 +574,11 @@ export function drawTomorrowPreviewGameSlide(
   if (pageIndex >= 5) {
     y0 += lineGap;
     ctx.font = baseFont;
-    ctx.fillText(`- 최근 5경기 결과`, x0, y0);
-    y0 += lineGap;
-    ctx.font = baseFont;
-    ctx.fillText(`  ${last5Line}`, x0, y0);
+    ctx.fillText(
+      `- 최근 5경기 : ${isFocusAwayH2h ? awayTeam : homeTeam}(${awayLast5Str}) | ${isFocusAwayH2h ? homeTeam : awayTeam}(${homeLast5Str})`,
+      x0,
+      y0
+    );
   }
 
   resetShadow(ctx);
