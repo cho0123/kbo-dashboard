@@ -328,9 +328,11 @@ app.post("/download", (req, res) => {
 
   const args = [
     "-f",
-    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+    "bestvideo[vcodec^=avc]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
     "--merge-output-format",
     "mp4",
+    "--postprocessor-args",
+    "ffmpeg:-vcodec libx264 -acodec aac",
     "--ffmpeg-location",
     ".",
     "-o",
