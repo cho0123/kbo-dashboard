@@ -411,18 +411,60 @@ app.post("/download", (req, res) => {
       );
     }
 
-    const result = {
-      ok: true,
-      fileName,
-      outputDir: safeSub,
-      localPath: filePath,
-    };
-    console.log("[download] yt-dlp result:", result);
-    console.log("[download] localPath:", filePath);
+    const ffmpegExe = join(__dirname, "ffmpeg.exe");
+    if (!existsSync(ffmpegExe)) {
+      return sendOnce(() =>
+        res.status(500).json({
+          ok: false,
+          error: "ffmpeg.exe가 프로젝트 폴더에 없습니다.",
+        })
+      );
+    }
 
-    sendOnce(() =>
-      res.json(result)
-    );
+    const extMatch = fileName.match(/(\.[^.]+)$/);
+    const ext = extMatch ? extMatch[1] : ".mp4";
+    const baseName = fileName.slice(0, fileName.length - ext.length);
+    const rawFileName = `${baseName}_raw${ext}`;
+    const rawPath = join(targetDir, rawFileName);
+
+    (async () => {
+      try {
+        const { renameSync } = await import("fs");
+        renameSync(filePath, rawPath);
+        await runSpawn(ffmpegExe, [
+          "-y",
+          "-i",
+          rawPath,
+          "-c:v",
+          "libx264",
+          "-c:a",
+          "aac",
+          "-preset",
+          "fast",
+          filePath,
+        ]);
+        unlinkSync(rawPath);
+
+        const result = {
+          ok: true,
+          fileName,
+          outputDir: safeSub,
+          localPath: filePath,
+        };
+        console.log("[download] yt-dlp+ffmpeg result:", result);
+        console.log("[download] localPath:", filePath);
+
+        sendOnce(() => res.json(result));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        sendOnce(() =>
+          res.status(500).json({
+            ok: false,
+            error: msg || "ffmpeg H.264 변환에 실패했습니다.",
+          })
+        );
+      }
+    })();
   });
 });
 
