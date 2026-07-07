@@ -4704,7 +4704,7 @@ function dedupeNaverHitterSeasonStatsByPlayer(rows) {
 async function fetchNaverPitcherSeasonStats(seasonYear) {
   const y = String(Number(seasonYear) || "").trim();
   if (!y) return null;
-  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=100`;
+  const url = `${NAVER_HITTER_SEASON_BASE}/${y}/players?playerType=PITCHER&page=1&pageSize=300`;
   try {
     const res = await fetch(url, {
       headers: { Referer: "https://m.sports.naver.com" },
