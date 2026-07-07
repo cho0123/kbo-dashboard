@@ -496,7 +496,7 @@ export function drawTomorrowPreviewGameSlide(
 
   const baseFont = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
 
-  if (pageIndex >= 1) {
+  if (pageIndex >= 2) {
     const spLine = `- ${spText}`;
 
     const padX = 36;
@@ -542,7 +542,7 @@ export function drawTomorrowPreviewGameSlide(
     ctx.fillStyle = "#ffffff";
   }
 
-  if (pageIndex >= 2) {
+  if (pageIndex >= 3) {
     y0 += lineGap;
     ctx.font = baseFont;
     ctx.fillText(`- ${h2hText}`, x0, y0);
@@ -555,7 +555,7 @@ export function drawTomorrowPreviewGameSlide(
   const homeLabel = homeTeam || "홈";
   const awayLabel = awayTeam || "원정";
 
-  if (pageIndex >= 3) {
+  if (pageIndex >= 4) {
     if (!hideRecLines) {
       y0 += lineGap;
       ctx.font = baseFont;
@@ -571,7 +571,7 @@ export function drawTomorrowPreviewGameSlide(
       );
     }
   }
-  if (pageIndex >= 4) {
+  if (pageIndex >= 5) {
     if (!hideRecLines) {
       y0 += lineGap;
       ctx.font = baseFont;
@@ -587,7 +587,7 @@ export function drawTomorrowPreviewGameSlide(
       );
     }
   }
-  if (pageIndex >= 5) {
+  if (pageIndex >= 6) {
     y0 += lineGap;
     ctx.font = baseFont;
     ctx.fillText(

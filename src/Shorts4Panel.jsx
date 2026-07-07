@@ -29,7 +29,7 @@ function slideExportKeyShorts4Capture(slide) {
   if (slide.type === "intro") return "intro";
   if (slide.type === "preview_game") {
     const p = Math.min(5, Math.max(1, Number(slide.page) || 1));
-    return p <= 4 ? "game_preview" : "game_preview_last";
+    return p <= 5 ? "game_preview" : "game_preview_last";
   }
   if (slide.type === "starter") {
     const st = Math.min(3, Math.max(1, Number(slide.step) || 1));
@@ -237,7 +237,7 @@ export default function Shorts4Panel() {
     if (!data || !detailGame) return [];
     const g = detailGame;
     const s = [{ type: "intro" }];
-    for (let page = 1; page <= 5; page++) {
+    for (let page = 1; page <= 6; page++) {
       s.push({ type: "preview_game", game: g, page });
     }
     for (let step = 1; step <= 3; step += 1) {
