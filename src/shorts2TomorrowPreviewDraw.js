@@ -294,8 +294,12 @@ export function drawTomorrowPreviewGameSlide(
   const [bgColor] = teamGrad(leftTeam);
   const strongColor = getTeamStrongColor(leftTeam) || bgColor;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = bgColor;
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, bgColor);
+  grad.addColorStop(1, strongColor);
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
+  drawBaseballBackground(ctx);
   // 하단 강조색 라운드 박스
   const boxMargin = 40;
    const boxTop = 1060;
