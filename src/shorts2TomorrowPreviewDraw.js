@@ -299,7 +299,6 @@ export function drawTomorrowPreviewGameSlide(
   grad.addColorStop(1, strongColor);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
-  drawBaseballBackground(ctx);
   // 하단 강조색 라운드 박스
   const boxMargin = 40;
    const boxTop = 1060;
@@ -498,7 +497,7 @@ export function drawTomorrowPreviewGameSlide(
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 1;
 
-  const baseFont = `800 46px "${FONT_BODY}", system-ui, sans-serif`;
+  const baseFont = `800 44px "${FONT_BODY}", system-ui, sans-serif`;
 
   if (pageIndex >= 2) {
     const spLine = `- ${spText}`;
