@@ -1154,15 +1154,66 @@ export function drawShorts4StarterSlide(
   g,
   portraits = null,
   logosByTeamKey = null,
-  step = 3
+  step = 3,
+  focusTeam = null
 ) {
   const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
   console.log("[draw] type:", "drawShorts4StarterSlide", "step:", stepN, "portraits:", portraits);
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
+  const isFocusAway = focusTeam
+    ? String(awayTeam || "").includes(focusTeam)
+    : false;
+  const focusT = isFocusAway ? awayTeam : homeTeam;
+  const oppT = isFocusAway ? homeTeam : awayTeam;
+  const [focusBgColor] = teamGrad(focusT);
+  const [oppBgColor] = teamGrad(oppT);
+  const focusStrongColor = getTeamStrongColor(focusT);
+  const oppStrongColor = getTeamStrongColor(oppT);
+
   ctx.clearRect(0, 0, w, h);
-  diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
-  drawBaseballBackground(ctx);
+
+  if (stepN === 1) {
+    // 기준팀 투수: 기준팀 그라데이션 배경
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, focusBgColor);
+    grad.addColorStop(1, focusStrongColor);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // 상대팀 강조색 라운드박스
+    const boxMargin = 40;
+    const boxTop = 1060;
+    const boxBottom = 1740;
+    ctx.save();
+    ctx.fillStyle = oppStrongColor;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.roundRect(boxMargin, boxTop, w - boxMargin * 2, boxBottom - boxTop, 40);
+    ctx.fill();
+    ctx.restore();
+  } else if (stepN === 3) {
+    // 상대팀 투수: 상대팀 그라데이션 배경
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, oppBgColor);
+    grad.addColorStop(1, oppStrongColor);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // 기준팀 강조색 라운드박스
+    const boxMargin = 40;
+    const boxTop = 1060;
+    const boxBottom = 1740;
+    ctx.save();
+    ctx.fillStyle = focusStrongColor;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.roundRect(boxMargin, boxTop, w - boxMargin * 2, boxBottom - boxTop, 40);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    // step2 (VS): 기존 방식 유지
+    diagTeamColorsOnly(ctx, w, h, awayTeam, homeTeam);
+    drawBaseballBackground(ctx);
+  }
 
   const faceBox = STARTER_SLIDE_FACE_BOX;
   const rPhoto = faceBox / 2;

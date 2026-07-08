@@ -363,7 +363,8 @@ export default function Shorts4Panel() {
             g0,
             { away: awayFinal, home: homeFinal },
             logosByTeamKey,
-            starterStep
+            starterStep,
+            focusTeam
           );
           return;
         }
