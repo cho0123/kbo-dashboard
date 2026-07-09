@@ -371,6 +371,8 @@ app.post("/download", (req, res) => {
     );
   });
 
+  console.log("[debug] yt-dlp combined output:", combined.slice(-2000));
+
   proc.on("close", (code) => {
     if (responded) return;
     if (code !== 0) {
