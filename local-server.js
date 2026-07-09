@@ -403,6 +403,8 @@ app.post("/download", (req, res) => {
       );
     }
 
+    console.log("[debug] fileName:", fileName, "filePath:", filePath);
+
     const ffmpegExe = join(__dirname, "ffmpeg.exe");
     if (!existsSync(ffmpegExe)) {
       return sendOnce(() =>
