@@ -428,6 +428,7 @@ app.post("/download", (req, res) => {
         const { renameSync } = await import("fs");
         renameSync(filePath, rawPath);
         console.log("[debug] rename 완료");
+        console.log("[debug] runSpawn 시작");
         await runSpawn(ffmpegExe, [
           "-y",
           "-i",
@@ -440,6 +441,7 @@ app.post("/download", (req, res) => {
           "fast",
           filePath,
         ]);
+        console.log("[debug] runSpawn 완료");
         unlinkSync(rawPath);
 
         const result = {
