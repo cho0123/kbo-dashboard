@@ -404,6 +404,7 @@ app.post("/download", (req, res) => {
     }
 
     const filePath = fileName ? join(targetDir, fileName) : null;
+    console.log("[debug] filePath:", filePath, "exists:", filePath ? existsSync(filePath) : false);
     if (!filePath || !existsSync(filePath)) {
       return sendOnce(() =>
         res.status(500).json({
