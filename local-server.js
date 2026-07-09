@@ -384,15 +384,7 @@ app.post("/download", (req, res) => {
     }
 
     let fileName = null;
-    const dest =
-      combined.match(/\[download\]\s+Destination:\s*(.+)/i) ||
-      combined.match(/\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|opus))/i) ||
-      combined.match(/\[Merger\]\s+Merging formats into\s+"(.+)"/i);
-    if (dest) {
-      fileName = basename(dest[1].trim());
-    }
-
-    if (!fileName && existsSync(targetDir)) {
+    if (existsSync(targetDir)) {
       const entries = readdirSync(targetDir).map((name) => ({
         name,
         t: statSync(join(targetDir, name)).mtimeMs,
