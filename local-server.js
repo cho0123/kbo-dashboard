@@ -424,8 +424,10 @@ app.post("/download", (req, res) => {
 
     (async () => {
       try {
+        console.log("[debug] ffmpeg 변환 시작, rawPath:", rawPath);
         const { renameSync } = await import("fs");
         renameSync(filePath, rawPath);
+        console.log("[debug] rename 완료");
         await runSpawn(ffmpegExe, [
           "-y",
           "-i",
