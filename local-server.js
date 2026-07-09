@@ -392,6 +392,7 @@ app.post("/download", (req, res) => {
     if (dest) {
       fileName = basename(dest[1].trim());
     }
+    console.log("[debug] parsed fileName:", fileName);
 
     if (!fileName && existsSync(targetDir)) {
       const entries = readdirSync(targetDir).map((name) => ({
