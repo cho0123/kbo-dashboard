@@ -213,7 +213,7 @@ function streamVideoMimeType(filePath) {
 }
 
 app.get("/stream", (req, res) => {
-  const raw = typeof req.query.path === "string" ? decodeURIComponent(req.query.path.trim()) : "";
+  const raw = typeof req.query.path === "string" ? req.query.path.trim() : "";
   if (!raw) {
     return res.status(400).json({ ok: false, error: "path가 필요합니다." });
   }
