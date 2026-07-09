@@ -414,7 +414,6 @@ app.post("/download", (req, res) => {
     console.log("[debug] fileName:", fileName, "filePath:", filePath);
 
     const ffmpegExe = join(__dirname, "ffmpeg.exe");
-    console.log("[debug] __dirname:", __dirname, "ffmpegExe:", ffmpegExe, "exists:", existsSync(ffmpegExe));
     if (!existsSync(ffmpegExe)) {
       return sendOnce(() =>
         res.status(500).json({
