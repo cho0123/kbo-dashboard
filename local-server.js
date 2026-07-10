@@ -330,24 +330,17 @@ app.post("/download", (req, res) => {
   const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
   const outFileName = isTiktok ? `tiktok_${timestamp}.mp4` : null;
   const outFilePath = outFileName ? join(targetDir, outFileName) : null;
-  const args = isTiktok
-    ? [
-        url,
-        "-o", outFilePath,
-        "-f",
-        "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--merge-output-format", "mp4",
-        "--no-playlist",
-        "--no-update",
-      ]
-    : [
-        url,
-        "-f",
-        "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-        "--merge-output-format", "mp4",
-        "--no-playlist",
-        "--no-update",
-      ];
+  const args = [
+    "-f",
+    "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "--merge-output-format", "mp4",
+    "--recode-video", "mp4",
+    "--ffmpeg-location", ".",
+    "-o", isTiktok ? outFilePath : join(targetDir, "%(title).20s_%(upload_date)s.%(ext)s"),
+    "--no-playlist",
+    "--newline",
+    url,
+  ];
 
   const proc = spawn(ytDlp, args, {
     cwd: __dirname,
@@ -395,10 +388,20 @@ app.post("/download", (req, res) => {
     if (!isTiktok) {
       const dest =
         combined.match(/\[download\]\s+Destination:\s*(.+)/i) ||
+        combined.match(/\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|opus))/i) ||
         combined.match(/\[Merger\]\s+Merging formats into\s+"(.+)"/i);
       if (dest) {
         fileName = basename(dest[1].trim());
         filePath = join(targetDir, fileName);
+      }
+      if (!fileName && existsSync(targetDir)) {
+        const entries = readdirSync(targetDir).map((name) => ({
+          name,
+          t: statSync(join(targetDir, name)).mtimeMs,
+        }));
+        entries.sort((a, b) => b.t - a.t);
+        fileName = entries[0]?.name ?? null;
+        filePath = fileName ? join(targetDir, fileName) : null;
       }
     }
     if (!filePath || !existsSync(filePath)) {
