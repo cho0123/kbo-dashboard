@@ -326,23 +326,28 @@ app.post("/download", (req, res) => {
     });
   }
 
+  const isTiktok = url.includes("tiktok.com");
   const timestamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
-  const outFileName = `tiktok_${timestamp}.mp4`;
-  const outFilePath = join(targetDir, outFileName);
-  const args = [
-    url,
-    "-o", outFilePath,
-    "-f",
-    "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "--merge-output-format",
-    "mp4",
-    "--recode-video",
-    "mp4",
-    "--ffmpeg-location",
-    ".",
-    "--no-playlist",
-    "--newline",
-  ];
+  const outFileName = isTiktok ? `tiktok_${timestamp}.mp4` : null;
+  const outFilePath = outFileName ? join(targetDir, outFileName) : null;
+  const args = isTiktok
+    ? [
+        url,
+        "-o", outFilePath,
+        "-f",
+        "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "--merge-output-format", "mp4",
+        "--no-playlist",
+        "--no-update",
+      ]
+    : [
+        url,
+        "-f",
+        "bestvideo[vcodec^=avc][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "--merge-output-format", "mp4",
+        "--no-playlist",
+        "--no-update",
+      ];
 
   const proc = spawn(ytDlp, args, {
     cwd: __dirname,
@@ -385,9 +390,18 @@ app.post("/download", (req, res) => {
       );
     }
 
-    const fileName = outFileName;
-    const filePath = outFilePath;
-    if (!existsSync(filePath)) {
+    let fileName = outFileName;
+    let filePath = outFilePath;
+    if (!isTiktok) {
+      const dest =
+        combined.match(/\[download\]\s+Destination:\s*(.+)/i) ||
+        combined.match(/\[Merger\]\s+Merging formats into\s+"(.+)"/i);
+      if (dest) {
+        fileName = basename(dest[1].trim());
+        filePath = join(targetDir, fileName);
+      }
+    }
+    if (!filePath || !existsSync(filePath)) {
       return sendOnce(() =>
         res.status(500).json({
           ok: false,
