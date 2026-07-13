@@ -1026,7 +1026,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
 /**
  * 원정팀(상단 절반): 헤더(로고+한줄)·구분선, 사진 중심 x=w*0.25, 스탯은 사진 오른쪽 좌측 정렬
  */
-function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey) {
+function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logosByTeamKey, side = "away") {
   const faceBox = STARTER_SLIDE_FACE_BOX;
   const rPhoto = faceBox / 2;
   const awayPhotoCx = w * 0.25;
@@ -1059,10 +1059,10 @@ function drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUse
   }
 
   const statX = awayPhotoCx + rPhoto + 28;
-  drawStarterSlideRightStatBlock(ctx, statX, awayCy, g, "away");
-  const awayKinds = pickStarterPitchKinds(g, "away");
-  const pitchBottom = drawStarterPitchKindsBlock(ctx, w, h, awayKinds, awayTeam, "away", awayCy);
-  drawStarterSideRankBadges(ctx, w, pitchBottom, g, "away");
+  drawStarterSlideRightStatBlock(ctx, statX, awayCy, g, side);
+  const awayKinds = pickStarterPitchKinds(g, side);
+  const pitchBottom = drawStarterPitchKindsBlock(ctx, w, h, awayKinds, awayTeam, side, awayCy);
+  drawStarterSideRankBadges(ctx, w, pitchBottom, g, side);
 }
 
 function drawPortraitContain(ctx, img, cx, boxTop, boxW, boxH) {
@@ -1232,7 +1232,7 @@ export function drawShorts4StarterSlide(
     if (isFocusAway) {
       drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
     } else {
-      drawAwayStarterUpperLayout(ctx, w, h, g, homeTeam, hs, homeImg, homeUsePhoto, logosByTeamKey);
+      drawAwayStarterUpperLayout(ctx, w, h, g, homeTeam, hs, homeImg, homeUsePhoto, logosByTeamKey, "home");
     }
   }
   if (stepN === 3) {
