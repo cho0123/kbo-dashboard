@@ -240,9 +240,8 @@ export default function Shorts4Panel() {
     for (let page = 1; page <= 6; page++) {
       s.push({ type: "preview_game", game: g, page });
     }
-    for (let step = 1; step <= 3; step += 1) {
-      s.push({ type: "starter", game: g, step });
-    }
+    s.push({ type: "starter", game: g, step: 1 });
+    s.push({ type: "starter", game: g, step: 3 });
     for (let step = 1; step <= 3; step += 1) {
       s.push({ type: "hot_player", game: g, step });
     }

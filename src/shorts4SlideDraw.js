@@ -1226,9 +1226,49 @@ export function drawShorts4StarterSlide(
   const homeUsePhoto = Boolean(homeImg) && hs !== "미정";
   const logos = logosByTeamKey || {};
 
-  drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
-
-  if (stepN >= 3) {
+  // 기준팀이 홈이면 step1=홈(하단레이아웃), step3=원정(상단레이아웃)
+  // 기준팀이 원정이면 step1=원정(상단레이아웃), step3=홈(하단레이아웃)
+  if (stepN === 1) {
+    if (isFocusAway) {
+      drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
+    } else {
+      const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
+      const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
+      const homeFaceTop = homeCy - rPhoto;
+      if (homeUsePhoto) {
+        drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
+        if (isDefaultPlayerPortrait(homeImg)) {
+          drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
+        }
+      }
+      drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
+      const homeKinds = pickStarterPitchKinds(g, "home");
+      if (homeKinds) {
+        drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
+      }
+    }
+  }
+  if (stepN === 3) {
+    if (isFocusAway) {
+      const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
+      const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
+      const homeFaceTop = homeCy - rPhoto;
+      if (homeUsePhoto) {
+        drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
+        if (isDefaultPlayerPortrait(homeImg)) {
+          drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
+        }
+      }
+      drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
+      const homeKinds = pickStarterPitchKinds(g, "home");
+      if (homeKinds) {
+        drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
+      }
+    } else {
+      drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
+    }
+  }
+  if (false) {
     const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
     const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
     const homeFaceTop = homeCy - rPhoto;
