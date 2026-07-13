@@ -1164,7 +1164,8 @@ export function drawShorts4StarterSlide(
   portraits = null,
   logosByTeamKey = null,
   step = 3,
-  focusTeam = null
+  focusTeam = null,
+  vsStats = null
 ) {
   const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
   console.log("[draw] type:", "drawShorts4StarterSlide", "step:", stepN, "portraits:", portraits);
@@ -1200,6 +1201,43 @@ export function drawShorts4StarterSlide(
     ctx.roundRect(boxMargin, boxTop, w - boxMargin * 2, boxBottom - boxTop, 40);
     ctx.fill();
     ctx.restore();
+    // VS 스탯 텍스트 (라운드박스 안)
+    if (vsStats?.enabled) {
+      const bx = 40 + 30;
+      let vy = 1060 + 60;
+      ctx.save();
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillText("VS 상대팀 스탯", bx, vy);
+      vy += 55;
+      ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      const rows = [
+        ["ERA", vsStats.era], ["승/패", `${vsStats.win}승 ${vsStats.lose}패`],
+        ["이닝", vsStats.ip], ["투구수", vsStats.pitches],
+        ["탈삼진", vsStats.k], ["피안타", vsStats.hits],
+        ["피홈런", vsStats.hr], ["실점", vsStats.runs],
+      ];
+      const col1 = rows.slice(0, 4);
+      const col2 = rows.slice(4);
+      col1.forEach(([label, val], i) => {
+        if (!val && val !== 0) return;
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(label, bx, vy + i * 50);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(String(val), bx + 100, vy + i * 50);
+      });
+      col2.forEach(([label, val], i) => {
+        if (!val && val !== 0) return;
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillText(label, w / 2 + 20, vy + i * 50);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(String(val), w / 2 + 120, vy + i * 50);
+      });
+      ctx.restore();
+    }
   } else if (stepN === 3) {
     // 상대팀 투수: 상대팀 그라데이션 배경
     const grad = ctx.createLinearGradient(0, 0, 0, h);

@@ -143,6 +143,10 @@ export default function Shorts4Panel() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showAllGames, setShowAllGames] = useState(false);
   const [focusTeam, setFocusTeam] = useState(null);
+  const [vsStats, setVsStats] = useState({
+    era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "",
+    enabled: false,
+  });
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -363,7 +367,8 @@ export default function Shorts4Panel() {
             { away: awayFinal, home: homeFinal },
             logosByTeamKey,
             starterStep,
-            focusTeam
+            focusTeam,
+            vsStats
           );
           return;
         }
@@ -859,6 +864,51 @@ export default function Shorts4Panel() {
               <br />
               - 슬라이드16~18: 원정 예상 라인업 (1→2→3단계)
               <br />- 슬라이드19: KBO 순위
+            </div>
+
+            {/* VS 투수 스탯 입력 */}
+            <div style={{ marginTop: 16, borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>⚔️ VS 상대팀 투수 스탯</span>
+                <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={vsStats.enabled}
+                    onChange={(e) => setVsStats((p) => ({ ...p, enabled: e.target.checked }))}
+                  />
+                  슬라이드에 표시
+                </label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                {[
+                  { key: "era", label: "ERA" },
+                  { key: "win", label: "승" },
+                  { key: "lose", label: "패" },
+                  { key: "ip", label: "이닝" },
+                  { key: "pitches", label: "투구수" },
+                  { key: "k", label: "탈삼진" },
+                  { key: "hits", label: "피안타" },
+                  { key: "hr", label: "피홈런" },
+                  { key: "runs", label: "실점" },
+                ].map(({ key, label }) => (
+                  <label key={key} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ width: 48, color: "#aaa" }}>{label}</span>
+                    <input
+                      type="text"
+                      value={vsStats[key]}
+                      onChange={(e) => setVsStats((p) => ({ ...p, [key]: e.target.value }))}
+                      style={{
+                        flex: 1,
+                        fontSize: 12,
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        border: "1px solid rgba(0,0,0,0.15)",
+                        background: "rgba(255,255,255,0.08)",
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* 썸네일 */}
