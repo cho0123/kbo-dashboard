@@ -4863,6 +4863,8 @@ const PITCHER_RANK_FIELD_DEFS = [
   { key: "whip_rank", get: (r) => Number(r?.pitcherWhip), asc: true, qualifiedOnly: true },
   { key: "win_rank", get: (r) => Number(r?.pitcherWin), asc: false, qualifiedOnly: false },
   { key: "ip_rank", get: (r) => parsePitcherInningString(r?.pitcherInning), asc: false, qualifiedOnly: false },
+  { key: "war_rank", get: (r) => Number(r?.pitcherWar), asc: false, qualifiedOnly: false },
+  { key: "kk_rank", get: (r) => Number(r?.pitcherKk), asc: false, qualifiedOnly: false },
 ];
 
 /**
@@ -5820,10 +5822,14 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
       home_starter_win_rank: homeStarterRanks.win_rank ?? null,
       home_starter_whip_rank: homeStarterRanks.whip_rank ?? null,
       home_starter_ip_rank: homeStarterRanks.ip_rank ?? null,
+      home_starter_war_rank: homeStarterRanks.war_rank ?? null,
+      home_starter_kk_rank: homeStarterRanks.kk_rank ?? null,
       away_starter_era_rank: awayStarterRanks.era_rank ?? null,
       away_starter_win_rank: awayStarterRanks.win_rank ?? null,
       away_starter_whip_rank: awayStarterRanks.whip_rank ?? null,
       away_starter_ip_rank: awayStarterRanks.ip_rank ?? null,
+      away_starter_war_rank: awayStarterRanks.war_rank ?? null,
+      away_starter_kk_rank: awayStarterRanks.kk_rank ?? null,
       home_rank,
       away_rank,
       home_win_rate,

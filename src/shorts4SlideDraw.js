@@ -824,10 +824,14 @@ function shorts4StarterRankBadgeItems(g, side) {
   const era = n(g?.[`${pref}_starter_era_rank`]);
   const whip = n(g?.[`${pref}_starter_whip_rank`]);
   const ip = n(g?.[`${pref}_starter_ip_rank`]);
+  const war = n(g?.[`${pref}_starter_war_rank`]);
+  const kk = n(g?.[`${pref}_starter_kk_rank`]);
   if (win != null) items.push({ text: `승 ${win}위`, bg: SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN });
   if (era != null) items.push({ text: `ERA ${era}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
   if (whip != null) items.push({ text: `WHIP ${whip}위`, bg: SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE });
   if (ip != null) items.push({ text: `이닝 ${ip}위`, bg: "rgba(22, 163, 74, 0.72)" });
+  if (war != null) items.push({ text: `WAR ${war}위`, bg: "rgba(147, 51, 234, 0.72)" });
+  if (kk != null) items.push({ text: `삼진 ${kk}위`, bg: "rgba(220, 38, 38, 0.72)" });
   return items;
 }
 
