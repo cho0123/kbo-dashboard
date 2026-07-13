@@ -143,10 +143,10 @@ export default function Shorts4Panel() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showAllGames, setShowAllGames] = useState(false);
   const [focusTeam, setFocusTeam] = useState(null);
-  const [vsStats, setVsStats] = useState({
-    era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "",
-    enabled: false,
-  });
+  const defaultVsStats = () => ({ era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "" });
+  const [focusVsStats, setFocusVsStats] = useState(defaultVsStats());
+  const [oppVsStats, setOppVsStats] = useState(defaultVsStats());
+  const [vsStatsEnabled, setVsStatsEnabled] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -368,7 +368,9 @@ export default function Shorts4Panel() {
             logosByTeamKey,
             starterStep,
             focusTeam,
-            vsStats
+            starterStep === 1
+              ? { ...focusVsStats, enabled: vsStatsEnabled }
+              : { ...oppVsStats, enabled: vsStatsEnabled }
           );
           return;
         }
@@ -873,42 +875,50 @@ export default function Shorts4Panel() {
                 <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
                   <input
                     type="checkbox"
-                    checked={vsStats.enabled}
-                    onChange={(e) => setVsStats((p) => ({ ...p, enabled: e.target.checked }))}
+                    checked={vsStatsEnabled}
+                    onChange={(e) => setVsStatsEnabled(e.target.checked)}
                   />
                   슬라이드에 표시
                 </label>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                {[
-                  { key: "era", label: "ERA" },
-                  { key: "win", label: "승" },
-                  { key: "lose", label: "패" },
-                  { key: "ip", label: "이닝" },
-                  { key: "pitches", label: "투구수" },
-                  { key: "k", label: "탈삼진" },
-                  { key: "hits", label: "피안타" },
-                  { key: "hr", label: "피홈런" },
-                  { key: "runs", label: "실점" },
-                ].map(({ key, label }) => (
-                  <label key={key} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ width: 48, color: "#aaa" }}>{label}</span>
-                    <input
-                      type="text"
-                      value={vsStats[key]}
-                      onChange={(e) => setVsStats((p) => ({ ...p, [key]: e.target.value }))}
-                      style={{
-                        flex: 1,
-                        fontSize: 12,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        border: "1px solid rgba(0,0,0,0.15)",
-                        background: "rgba(255,255,255,0.08)",
-                      }}
-                    />
-                  </label>
-                ))}
-              </div>
+              {[
+                { label: "기준팀", stats: focusVsStats, setStats: setFocusVsStats },
+                { label: "상대팀", stats: oppVsStats, setStats: setOppVsStats },
+              ].map(({ label, stats, setStats }) => (
+                <div key={label} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "#aaa", marginBottom: 4 }}>{label}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                    {[
+                      { key: "era", label: "ERA" },
+                      { key: "win", label: "승" },
+                      { key: "lose", label: "패" },
+                      { key: "ip", label: "이닝" },
+                      { key: "pitches", label: "투구수" },
+                      { key: "k", label: "탈삼진" },
+                      { key: "hits", label: "피안타" },
+                      { key: "hr", label: "피홈런" },
+                      { key: "runs", label: "실점" },
+                    ].map(({ key, label: fieldLabel }) => (
+                      <label key={key} style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ color: "#aaa" }}>{fieldLabel}</span>
+                        <input
+                          type="text"
+                          value={stats[key]}
+                          onChange={(e) => setStats((p) => ({ ...p, [key]: e.target.value }))}
+                          style={{
+                            fontSize: 11,
+                            padding: "2px 4px",
+                            borderRadius: 4,
+                            border: "1px solid rgba(0,0,0,0.15)",
+                            background: "rgba(255,255,255,0.08)",
+                            width: "100%",
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* 썸네일 */}
