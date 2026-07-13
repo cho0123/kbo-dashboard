@@ -5547,10 +5547,12 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     const era = Number(row?.pitcherEra);
     const wins = Number(row?.pitcherWin);
     const losses = Number(row?.pitcherLose);
+    const war = Number(row?.pitcherWar);
     return {
       era: Number.isFinite(era) ? era : null,
       total_ip,
       k9,
+      war: Number.isFinite(war) ? Math.round(war * 100) / 100 : null,
       wins: Number.isFinite(wins) ? wins : 0,
       losses: Number.isFinite(losses) ? losses : 0,
       has_result: Number.isFinite(wins) && Number.isFinite(losses),
@@ -5808,6 +5810,8 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
       away_starter_total_ip: awayWlWhip.total_ip ?? null,
       home_starter_k9: homeWlWhip.k9 ?? null,
       away_starter_k9: awayWlWhip.k9 ?? null,
+      home_starter_war: homeNaverStarter?.war ?? null,
+      away_starter_war: awayNaverStarter?.war ?? null,
       home_starter_ip: hsPitch?.ip ?? null,
       away_starter_ip: awPitch?.ip ?? null,
       home_starter_so: hsPitch?.so ?? null,

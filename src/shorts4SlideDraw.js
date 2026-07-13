@@ -690,7 +690,12 @@ function starterSlideStatLinesFour(g, side) {
     k9 != null && Number.isFinite(Number(k9))
       ? `- 9이닝당 삼진 : ${Number(k9).toFixed(2)}`
       : `- 9이닝당 삼진 : -`;
-  return [l1, l2, l3, l4];
+  const war = g?.[`${pref}_starter_war`];
+  const l5 =
+    war != null && Number.isFinite(Number(war))
+      ? `- WAR : ${Number(war).toFixed(2)}`
+      : `- WAR : -`;
+  return [l1, l2, l3, l4, l5];
 }
 
 /** 선수 얼굴 세로 중심 cy 기준 오른쪽 스탯 4줄 */
