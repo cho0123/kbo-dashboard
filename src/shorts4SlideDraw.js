@@ -1232,20 +1232,7 @@ export function drawShorts4StarterSlide(
     if (isFocusAway) {
       drawAwayStarterUpperLayout(ctx, w, h, g, awayTeam, as, awayImg, awayUsePhoto, logos);
     } else {
-      const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
-      const homeCy = homeDividerY + rPhoto + STARTER_DIVIDER_TO_FACE_TOP;
-      const homeFaceTop = homeCy - rPhoto;
-      if (homeUsePhoto) {
-        drawPortraitContain(ctx, homeImg, homeFaceCx, homeFaceTop, faceBox, faceBox);
-        if (isDefaultPlayerPortrait(homeImg)) {
-          drawDefaultPortraitNameOverlay(ctx, homeFaceCx, homeFaceTop, faceBox, faceBox, hs);
-        }
-      }
-      drawStarterSlideRightStatBlock(ctx, homeFaceCx + rPhoto + 28, homeCy, g, "home");
-      const homeKinds = pickStarterPitchKinds(g, "home");
-      if (homeKinds) {
-        drawStarterPitchKindsBlock(ctx, w, h, homeKinds, homeTeam, "home", homeCy);
-      }
+      drawAwayStarterUpperLayout(ctx, w, h, g, homeTeam, hs, homeImg, homeUsePhoto, logosByTeamKey);
     }
   }
   if (stepN === 3) {
