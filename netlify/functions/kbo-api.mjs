@@ -256,20 +256,6 @@ async function fetchScheduleRowsForDate(db, dateStr) {
   return rows;
 }
 
-async function fetchScheduleRowsForDateFromGames(db, dateStr) {
-  const rows = [];
-  try {
-    const snap = await db
-      .collection("games")
-      .where("game_date", "==", dateStr)
-      .get();
-    snap.docs.forEach((d) => rows.push(docSnap(d)));
-  } catch (e) {
-    console.warn("[fetchScheduleRowsForDateFromGames]", e?.message || e);
-  }
-  return rows;
-}
-
 function isoDatePlusDays(isoStr, days) {
   const s = safeIsoDate(isoStr || "");
   if (!s) return "";
@@ -5435,11 +5421,7 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     };
   };
 
-  let rawRows = await fetchScheduleRowsForDate(db, dateStr);
-  if (!rawRows || rawRows.length === 0) {
-    console.log("[matchup_preview] schedule 없음, games 컬렉션에서 폴백:", dateStr);
-    rawRows = await fetchScheduleRowsForDateFromGames(db, dateStr);
-  }
+  const rawRows = await fetchScheduleRowsForDate(db, dateStr);
   const byId = new Map();
   for (const r of rawRows || []) {
     const gid0 = String(r?.game_id ?? r?.gameId ?? "").trim();
