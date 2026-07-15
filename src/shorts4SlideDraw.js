@@ -1268,15 +1268,22 @@ export function drawShorts4StarterSlide(
   // VS 스탯 텍스트 (라운드박스 안)
   if (vsStats?.enabled) {
     const bx = 40 + 30;
-    let vy = 1060 + 60;
+    const boxTop = 1060;
+    // 타이틀: 박스 밖 위쪽 · 가운데 정렬 · 폰트 1.5배(57px) · 미색
+    const vsPitcherName = stepN === 1 ? (isFocusAway ? as : hs) : (isFocusAway ? hs : as);
+    const vsOppName = stepN === 1 ? oppT : focusT;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#f5efdc";
+    ctx.font = `700 57px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(`${vsPitcherName} VS ${vsOppName} 이번시즌 상대전적`, w / 2, boxTop - 26);
+    ctx.restore();
+    // 스탯: 박스 안
+    let vy = boxTop + 70;
     ctx.save();
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#ffffff";
-    const vsOppName = stepN === 1 ? oppT : focusT;
-    ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(`VS ${vsOppName} 이번시즌 상대전적`, bx, vy);
-    vy += 55;
     ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     const rows = [

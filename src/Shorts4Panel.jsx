@@ -872,11 +872,12 @@ export default function Shorts4Panel() {
             <div style={{ marginTop: 16, borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>⚔️ VS 상대팀 투수 스탯</span>
-                <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", flexShrink: 0 }}>
                   <input
                     type="checkbox"
                     checked={vsStatsEnabled}
                     onChange={(e) => setVsStatsEnabled(e.target.checked)}
+                    style={{ flexShrink: 0 }}
                   />
                   표시
                 </label>
