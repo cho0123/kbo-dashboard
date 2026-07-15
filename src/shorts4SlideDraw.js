@@ -1269,20 +1269,9 @@ export function drawShorts4StarterSlide(
   if (vsStats?.enabled) {
     const bx = 40 + 30;
     const boxTop = 1060;
-    // 타이틀: 박스 밖 위쪽 · 가운데 정렬 · 2줄
     const vsPitcherName = stepN === 1 ? (isFocusAway ? as : hs) : (isFocusAway ? hs : as);
     const vsOppName = stepN === 1 ? oppT : focusT;
-    // 1줄: "{투수} VS {상대팀}" — 단독 VS 스타일(FONT_TITLE · 금색 · 그림자)
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.font = `1000 57px "${FONT_TITLE}", system-ui, sans-serif`;
-    ctx.fillStyle = "#FFD700";
-    shadowTextSoft(ctx);
-    ctx.fillText(`${vsPitcherName} VS ${vsOppName}`, w / 2, boxTop - 92);
-    resetShadow(ctx);
-    ctx.restore();
-    // 2줄: "이번시즌 상대전적" — 미색
+    // 박스 밖 위: "이번시즌 상대전적" — 미색
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
@@ -1290,8 +1279,32 @@ export function drawShorts4StarterSlide(
     ctx.fillStyle = "#f5efdc";
     ctx.fillText("이번시즌 상대전적", w / 2, boxTop - 26);
     ctx.restore();
-    // 스탯: 박스 안
-    let vy = boxTop + 70;
+    // 박스 안: "{투수} VS {상대팀}" — 투수/상대팀 미색, VS만 금색, 크게(72px)
+    const matchupY = boxTop + 120;
+    const matchNameFont = `700 72px "${FONT_BODY}", system-ui, sans-serif`;
+    const matchVsFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
+    const matchSegs = [
+      { text: vsPitcherName, font: matchNameFont, color: "#f5efdc", shadow: false },
+      { text: " VS ", font: matchVsFont, color: "#FFD700", shadow: true },
+      { text: vsOppName, font: matchNameFont, color: "#f5efdc", shadow: false },
+    ];
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    let matchTotalW = 0;
+    matchSegs.forEach((s) => { ctx.font = s.font; matchTotalW += ctx.measureText(s.text).width; });
+    let matchX = w / 2 - matchTotalW / 2;
+    matchSegs.forEach((s) => {
+      ctx.font = s.font;
+      if (s.shadow) shadowTextSoft(ctx); else resetShadow(ctx);
+      ctx.fillStyle = s.color;
+      ctx.fillText(s.text, matchX, matchupY);
+      matchX += ctx.measureText(s.text).width;
+    });
+    resetShadow(ctx);
+    ctx.restore();
+    // 스탯: 박스 안 (매칭업 아래)
+    let vy = boxTop + 250;
     ctx.save();
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
