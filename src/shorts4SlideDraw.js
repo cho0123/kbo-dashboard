@@ -1269,15 +1269,26 @@ export function drawShorts4StarterSlide(
   if (vsStats?.enabled) {
     const bx = 40 + 30;
     const boxTop = 1060;
-    // 타이틀: 박스 밖 위쪽 · 가운데 정렬 · 폰트 1.5배(57px) · 미색
+    // 타이틀: 박스 밖 위쪽 · 가운데 정렬 · 2줄
     const vsPitcherName = stepN === 1 ? (isFocusAway ? as : hs) : (isFocusAway ? hs : as);
     const vsOppName = stepN === 1 ? oppT : focusT;
+    // 1줄: "{투수} VS {상대팀}" — 단독 VS 스타일(FONT_TITLE · 금색 · 그림자)
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#f5efdc";
+    ctx.font = `1000 57px "${FONT_TITLE}", system-ui, sans-serif`;
+    ctx.fillStyle = "#FFD700";
+    shadowTextSoft(ctx);
+    ctx.fillText(`${vsPitcherName} VS ${vsOppName}`, w / 2, boxTop - 92);
+    resetShadow(ctx);
+    ctx.restore();
+    // 2줄: "이번시즌 상대전적" — 미색
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
     ctx.font = `700 57px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText(`${vsPitcherName} VS ${vsOppName} 이번시즌 상대전적`, w / 2, boxTop - 26);
+    ctx.fillStyle = "#f5efdc";
+    ctx.fillText("이번시즌 상대전적", w / 2, boxTop - 26);
     ctx.restore();
     // 스탯: 박스 안
     let vy = boxTop + 70;
@@ -1326,9 +1337,6 @@ export function drawShorts4StarterSlide(
     drawStarterSideRankBadges(ctx, w, pitchBottom, g, "home");
   }
 
-  if (stepN >= 2) {
-    drawStarterSlideVs(ctx, w, h);
-  }
 }
 
 /** 핫플레이어 슬라이드 (슬라이드7과 동일 레이아웃, 상/하 팀 컬러 반전) */
