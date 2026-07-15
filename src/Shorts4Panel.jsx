@@ -146,7 +146,7 @@ export default function Shorts4Panel() {
   const defaultVsStats = () => ({ era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "" });
   const [focusVsStats, setFocusVsStats] = useState(defaultVsStats());
   const [oppVsStats, setOppVsStats] = useState(defaultVsStats());
-  const [vsStatsEnabled, setVsStatsEnabled] = useState(false);
+  const [vsStatsEnabled, setVsStatsEnabled] = useState(true);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -878,7 +878,7 @@ export default function Shorts4Panel() {
                     checked={vsStatsEnabled}
                     onChange={(e) => setVsStatsEnabled(e.target.checked)}
                   />
-                  슬라이드에 표시
+                  표시
                 </label>
               </div>
               {[

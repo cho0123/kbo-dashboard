@@ -1273,8 +1273,9 @@ export function drawShorts4StarterSlide(
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#ffffff";
+    const vsOppName = stepN === 1 ? oppT : focusT;
     ctx.font = `700 38px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillText("VS 상대팀 스탯", bx, vy);
+    ctx.fillText(`VS ${vsOppName} 이번시즌 상대전적`, bx, vy);
     vy += 55;
     ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.9)";
