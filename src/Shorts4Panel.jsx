@@ -930,10 +930,12 @@ export default function Shorts4Panel() {
                   title="입력한 VS 스탯을 모두 지웁니다 (저장값 포함)"
                   style={{
                     fontSize: 11,
-                    padding: "2px 8px",
+                    fontWeight: 600,
+                    padding: "3px 10px",
                     borderRadius: 4,
-                    border: "1px solid rgba(0,0,0,0.15)",
-                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid #1f2937",
+                    background: "#374151",
+                    color: "#ffffff",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
                     flexShrink: 0,

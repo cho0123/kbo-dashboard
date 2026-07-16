@@ -1348,10 +1348,11 @@ export function drawShorts4StarterSlide(
     const buildMatchSegs = (fontPx) => {
       const nameFont = `700 ${fontPx}px "${FONT_BODY}", system-ui, sans-serif`;
       const vsFont = `1000 ${fontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
+      // 투수명 [로고] VS [로고] 상대팀 — 로고 양옆 간격은 로고 세그먼트가 담당
       return [
-        { logo: vsPitcherLogo, fontPx },
         { text: vsPitcherName, font: nameFont, color: "#f5efdc", shadow: false },
-        { text: " VS ", font: vsFont, color: "#FFD700", shadow: true },
+        { logo: vsPitcherLogo, fontPx },
+        { text: "VS", font: vsFont, color: "#FFD700", shadow: true },
         { logo: vsOppLogo, fontPx },
         { text: vsOppFull, font: nameFont, color: "#f5efdc", shadow: false },
       ];
@@ -1361,7 +1362,7 @@ export function drawShorts4StarterSlide(
       for (const s of segs) {
         if (s.logo !== undefined) {
           const { w: lw } = vsMatchLogoSize(s.logo, s.fontPx);
-          total += lw > 0 ? lw + VS_MATCH_LOGO_GAP : 0;
+          total += lw > 0 ? lw + VS_MATCH_LOGO_GAP * 2 : 0;
         } else {
           ctx.font = s.font;
           total += ctx.measureText(s.text).width;
@@ -1388,8 +1389,8 @@ export function drawShorts4StarterSlide(
         const { w: lw, h: lh } = vsMatchLogoSize(s.logo, s.fontPx);
         if (lw > 0) {
           resetShadow(ctx);
-          ctx.drawImage(s.logo, matchX, matchupY - lh / 2, lw, lh);
-          matchX += lw + VS_MATCH_LOGO_GAP;
+          ctx.drawImage(s.logo, matchX + VS_MATCH_LOGO_GAP, matchupY - lh / 2, lw, lh);
+          matchX += lw + VS_MATCH_LOGO_GAP * 2;
         }
         continue;
       }
