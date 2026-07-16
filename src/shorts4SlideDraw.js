@@ -516,8 +516,8 @@ const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
 const STARTER_PITCH_BLOCK_SHIFT_Y = 50;
 const STARTER_PITCH_NAME_SPEED_PX = 31;
 const STARTER_PITCH_PCT_INSIDE_PX = 23;
-/** 구종바(슬라이드8·9) 안쪽 % 텍스트 전용. 타율·OPS·WAR 바는 STARTER_PITCH_PCT_INSIDE_PX(23) 유지 */
-const STARTER_PITCH_KINDS_PCT_PX = 35;
+/** 구종바(슬라이드8·9) 안쪽 % 텍스트 전용 — 구종명(31)과 동일 크기. 타율·OPS·WAR 바는 STARTER_PITCH_PCT_INSIDE_PX(23) 유지 */
+const STARTER_PITCH_KINDS_PCT_PX = 31;
 const STARTER_PITCH_MIN_SEG_W_FOR_TEXT = 80;
 const STARTER_PITCH_SUMMARY_GAP = 10;
 /** 구종 바 아래 한 줄 요약(세그 너비 부족 시 대체 표시). 기존 22px → +4 */
@@ -533,6 +533,20 @@ const SHORTS4_SEASON_RANK_BADGE_PAD_X = 18;
 const SHORTS4_SEASON_RANK_BADGE_GAP = 12;
 const SHORTS4_SEASON_RANK_BADGE_RADIUS = 22;
 const SHORTS4_SEASON_RANK_BADGE_SECTION_GAP = 16;
+/** 슬라이드8·9 VS 상대전적 표 (라운드박스 안). 값 있는 항목만 2열로 채우고 세로 중앙 정렬 */
+const VS_TABLE_BOX_MARGIN_X = 40;
+const VS_TABLE_PAD_X = 40;
+const VS_TABLE_TOP_OFFSET = 190;
+const VS_TABLE_BOX_BOTTOM = 1740;
+const VS_TABLE_BOTTOM_PAD = 40;
+const VS_TABLE_COL_GAP = 24;
+const VS_TABLE_ROW_GAP = 16;
+const VS_TABLE_CELL_H = 100;
+const VS_TABLE_CELL_RADIUS = 20;
+const VS_TABLE_CELL_PAD_X = 26;
+const VS_TABLE_CELL_BG = "rgba(0,0,0,0.22)";
+const VS_TABLE_LABEL_PX = 30;
+const VS_TABLE_VALUE_PX = 50;
 const SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE = "rgba(37, 99, 235, 0.72)";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_RED = "rgba(220, 38, 38, 0.72)";
@@ -1273,7 +1287,6 @@ export function drawShorts4StarterSlide(
   }
   // VS 스탯 텍스트 (라운드박스 안)
   if (vsStats?.enabled) {
-    const bx = 40 + 30;
     const boxTop = 1060;
     const vsPitcherName = stepN === 1 ? (isFocusAway ? as : hs) : (isFocusAway ? hs : as);
     const vsOppName = stepN === 1 ? oppT : focusT;
@@ -1309,36 +1322,58 @@ export function drawShorts4StarterSlide(
     });
     resetShadow(ctx);
     ctx.restore();
-    // 스탯: 박스 안 (매칭업 아래)
-    let vy = boxTop + 250;
-    ctx.save();
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    ctx.font = `500 34px "${FONT_BODY}", system-ui, sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    const rows = [
-      ["ERA", vsStats.era], ["승/패", `${vsStats.win}승 ${vsStats.lose}패`],
+    // 스탯 표: 박스 안 (매칭업 아래) — 값이 있는 항목만 2열로
+    const hasVal = (v) => v === 0 || (v != null && String(v).trim() !== "");
+    const winLose = hasVal(vsStats.win) || hasVal(vsStats.lose)
+      ? `${String(vsStats.win ?? "").trim() || 0}승 ${String(vsStats.lose ?? "").trim() || 0}패`
+      : "";
+    const shown = [
+      ["ERA", vsStats.era], ["승/패", winLose],
       ["이닝", vsStats.ip], ["투구수", vsStats.pitches],
       ["탈삼진", vsStats.k], ["피안타", vsStats.hits],
       ["피홈런", vsStats.hr], ["실점", vsStats.runs],
-    ];
-    const col1 = rows.slice(0, 4);
-    const col2 = rows.slice(4);
-    col1.forEach(([label, val], i) => {
-      if (!val && val !== 0) return;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText(label, bx, vy + i * 50);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(String(val), bx + 100, vy + i * 50);
-    });
-    col2.forEach(([label, val], i) => {
-      if (!val && val !== 0) return;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText(label, w / 2 + 20, vy + i * 50);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(String(val), w / 2 + 120, vy + i * 50);
-    });
-    ctx.restore();
+    ].filter(([, val]) => hasVal(val));
+
+    if (shown.length) {
+      const nRows = Math.ceil(shown.length / 2);
+      const twoCol = shown.length > 1;
+      const tableLeft = VS_TABLE_BOX_MARGIN_X + VS_TABLE_PAD_X;
+      const tableW = w - tableLeft * 2;
+      const colW = twoCol ? (tableW - VS_TABLE_COL_GAP) / 2 : tableW;
+      const bandTop = boxTop + VS_TABLE_TOP_OFFSET;
+      const bandH = VS_TABLE_BOX_BOTTOM - VS_TABLE_BOTTOM_PAD - bandTop;
+      const blockH = nRows * VS_TABLE_CELL_H + (nRows - 1) * VS_TABLE_ROW_GAP;
+      const startY = bandTop + Math.max(0, (bandH - blockH) / 2);
+
+      ctx.save();
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < shown.length; i++) {
+        const [label, val] = shown[i];
+        const colIdx = i < nRows ? 0 : 1;
+        const rowIdx = i < nRows ? i : i - nRows;
+        const cellX = tableLeft + colIdx * (colW + VS_TABLE_COL_GAP);
+        const cellY = startY + rowIdx * (VS_TABLE_CELL_H + VS_TABLE_ROW_GAP);
+
+        ctx.fillStyle = VS_TABLE_CELL_BG;
+        ctx.beginPath();
+        ctx.roundRect(cellX, cellY, colW, VS_TABLE_CELL_H, VS_TABLE_CELL_RADIUS);
+        ctx.fill();
+
+        const cellCy = cellY + VS_TABLE_CELL_H / 2;
+        ctx.textAlign = "left";
+        ctx.font = `500 ${VS_TABLE_LABEL_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+        ctx.fillStyle = "rgba(255,255,255,0.62)";
+        ctx.fillText(label, cellX + VS_TABLE_CELL_PAD_X, cellCy);
+
+        ctx.textAlign = "right";
+        ctx.font = `800 ${VS_TABLE_VALUE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        shadowTextSoft(ctx);
+        ctx.fillText(String(val), cellX + colW - VS_TABLE_CELL_PAD_X, cellCy);
+        resetShadow(ctx);
+      }
+      ctx.restore();
+    }
   }
   if (false) {
     const homeDividerY = drawHomeStarterLowerHeader(ctx, w, h, g, homeTeam, hs, logos);
