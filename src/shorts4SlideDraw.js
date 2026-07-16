@@ -513,9 +513,11 @@ const STARTER_PITCH_BAR_W_FRAC = 0.9;
 const STARTER_PITCH_SEGMENTED_BAR_H = 120;
 const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
 /** 슬라이드8·9 구종바+요약+순위배지 블록을 통째로 내리는 양. 사진 하단과 상대전적 박스(y=1060) 사이 여백 균형용 */
-const STARTER_PITCH_BLOCK_SHIFT_Y = 100;
+const STARTER_PITCH_BLOCK_SHIFT_Y = 50;
 const STARTER_PITCH_NAME_SPEED_PX = 31;
 const STARTER_PITCH_PCT_INSIDE_PX = 23;
+/** 구종바(슬라이드8·9) 안쪽 % 텍스트 전용. 타율·OPS·WAR 바는 STARTER_PITCH_PCT_INSIDE_PX(23) 유지 */
+const STARTER_PITCH_KINDS_PCT_PX = 35;
 const STARTER_PITCH_MIN_SEG_W_FOR_TEXT = 80;
 const STARTER_PITCH_SUMMARY_GAP = 10;
 /** 구종 바 아래 한 줄 요약(세그 너비 부족 시 대체 표시). 기존 22px → +4 */
@@ -1014,7 +1016,7 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
     shadowTextSoft(ctx);
     ctx.fillText(nameSpeedLine, cx, barTop + barH * 0.32);
     resetShadow(ctx);
-    ctx.font = `700 ${STARTER_PITCH_PCT_INSIDE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `700 ${STARTER_PITCH_KINDS_PCT_PX}px "${FONT_BODY}", system-ui, sans-serif`;
     shadowTextSoft(ctx);
     ctx.fillText(pctStr, cx, barTop + barH * 0.78);
     resetShadow(ctx);
