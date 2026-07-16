@@ -1513,9 +1513,19 @@ const HOT_BOX_PAD_L = 48;
 const HOT_BOX_HEADER_CY = HOT_BOX_TOP + 74;
 const HOT_BOX_DIVIDER_Y = HOT_BOX_TOP + 120;
 const HOT_BOX_PHOTO_CX_FRAC = 0.25;
-/** 상단 이번시즌 베스트 자리 — 데이터 붙일 때 사용 */
-const HOT_SEASON_ZONE_TOP = 150;
-const HOT_SEASON_ZONE_BOTTOM = HOT_BOX_TOP - 40;
+/**
+ * 상단(VS 팀 · 자세히) / 중간(VS 예상투수 · 간략히) 구역.
+ * 선수 데이터는 별도 액션 구현 후 채운다 — 현재는 타이틀만(뼈대).
+ * 상단·중간이 같은 선수로 뽑히는 경우가 잦은데, 의도된 동작이다(같은 선수의 다른 각도).
+ */
+const HOT_TOP_TITLE_Y = 150;
+const HOT_TOP_TITLE_PX = 50;
+const HOT_TOP_FACE_CY = 440;
+const HOT_TOP_ZONE_BOTTOM = 660;
+const HOT_MID_TITLE_Y = 730;
+const HOT_MID_TITLE_PX = 40;
+const HOT_MID_LINE_CY = 850;
+const HOT_ZONE_TITLE_COLOR = "#f5efdc";
 
 function fmtIntOrDash(v) {
   const n = Number(v);
@@ -1853,7 +1863,12 @@ export function drawShorts4HotPlayerSlide(
   ctx.fill();
   ctx.restore();
 
-  // 상단(이번시즌 베스트)은 데이터 미구현 — 현재 비워둠
+  // 상단 / 중간 구역 — 타이틀만(선수 데이터는 별도 액션 구현 후)
+  const oppTeam = side === "home" ? awayTeam : homeTeam;
+  const oppStarter = String(
+    (side === "home" ? g?.away_starter : g?.home_starter) || ""
+  ).trim();
+  drawHotPlayerZoneTitles(ctx, w, oppTeam, oppStarter);
 
   // 하단 박스 안: 직전경기 베스트 선수
   const hp = side === "home" ? (g?.home_hot_player ?? null) : (g?.away_hot_player ?? null);
@@ -1865,6 +1880,28 @@ export function drawShorts4HotPlayerSlide(
     drawableShorts4Portrait(side === "home" ? portraits?.home : portraits?.away),
     logosByTeamKey || {}
   );
+}
+
+/**
+ * 상단 "VS {상대팀} 상대전적" / 중간 "VS {상대 선발}" 타이틀.
+ * 선수 블록이 들어갈 자리는 HOT_TOP_FACE_CY / HOT_MID_LINE_CY 기준으로 채운다.
+ */
+function drawHotPlayerZoneTitles(ctx, w, oppTeam, oppStarter) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = HOT_ZONE_TITLE_COLOR;
+
+  ctx.font = `800 ${HOT_TOP_TITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+  shadowTextSoft(ctx);
+  ctx.fillText(`VS ${teamFullName(oppTeam)} 상대전적`, w / 2, HOT_TOP_TITLE_Y);
+
+  if (oppStarter && oppStarter !== "미정") {
+    ctx.font = `700 ${HOT_MID_TITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.fillText(`VS ${oppStarter}`, w / 2, HOT_MID_TITLE_Y);
+  }
+  resetShadow(ctx);
+  ctx.restore();
 }
 
 /** 화이트 투명 박스 안 직전경기 베스트 선수: 헤더(로고+이름) + 구분선 + 사진 + 스탯 */
