@@ -70,8 +70,20 @@ npm run build          # push 전 필수 — 로컬에서 가능한 유일한 �
 npm run local-server   # 로컬 다운로드 서버 (포트 3838) — 서버시작.bat
 ```
 
+### 배포 사이트 ↔ 로컬 서버 구조 (코드만 봐선 모름)
+
+영상 다운로드는 **배포된 사이트가 내 PC의 로컬 서버를 직접 호출**해서 동작한다.
+`local-server.js`의 CORS가 `https://kbo-dashboard.netlify.app`을 허용하고 있다.
+
+```
+브라우저에서 kbo-dashboard.netlify.app 열기  →  다운로드 버튼  →  localhost:3838  →  내 PC에 저장
+```
+
+그래서 로컬 dev 서버를 띄울 필요가 없고, 다운로드에 `.env`도 필요 없다.
+`process.env`는 `videoEncodeAwsClients()`(S3 인코딩)에서만 쓴다 — 다운로드 경로와 무관하다.
+`ffmpeg.exe`/`yt-dlp.exe`를 쓰는 **로컬 전용** 기능이라 클라우드로 옮길 수 없다.
+
 `.env`는 gitignore라 git으로 오가지 않는다. PC마다 따로 둔다(`.env.example` 참조).
-영상 다운로드는 `ffmpeg.exe`/`yt-dlp.exe`를 쓰는 **로컬 전용** 기능이라 클라우드로 옮길 수 없다.
 `.gitignore`의 `kbo-dashboard-repo/`, `kbo-project/`는 의도적으로 둔 로컬 클론이다. 건드리지 말 것.
 
 ## 데이터 구조 — 코드만 봐선 모르는 것
