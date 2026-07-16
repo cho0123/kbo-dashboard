@@ -276,9 +276,9 @@ export default function Shorts4Panel() {
   }, [data]);
 
   /**
-   * 최종 19장:
-   * 1 intro · 2~6 preview · 7~9 starter · 10~12 hot_player ·
-   * 13~15 home_lineup · 16~18 away_lineup · 19 standings
+   * 최종 18장:
+   * 1 intro · 2~7 preview · 8~9 starter(기준팀·상대팀) · 10~11 hot_player(기준팀·상대팀) ·
+   * 12~14 home_lineup · 15~17 away_lineup · 18 standings
    */
   const slides = useMemo(() => {
     if (!data || !detailGame) return [];
@@ -289,9 +289,9 @@ export default function Shorts4Panel() {
     }
     s.push({ type: "starter", game: g, step: 1 });
     s.push({ type: "starter", game: g, step: 3 });
-    for (let step = 1; step <= 3; step += 1) {
-      s.push({ type: "hot_player", game: g, step });
-    }
+    // 10=기준팀, 11=상대팀
+    s.push({ type: "hot_player", game: g, step: 1 });
+    s.push({ type: "hot_player", game: g, step: 2 });
     for (let step = 1; step <= 3; step += 1) {
       s.push({ type: "home_lineup", game: g, step });
     }
@@ -435,7 +435,7 @@ export default function Shorts4Panel() {
           ]);
           const homeFinal = homePortrait ?? defImg;
           const awayFinal = awayPortrait ?? defImg;
-          const hotStep = Math.min(3, Math.max(1, Number(slide.step) || 3));
+          const hotStep = Math.min(2, Math.max(1, Number(slide.step) || 1));
           drawShorts4HotPlayerSlide(
             ctx,
             w,
@@ -443,7 +443,8 @@ export default function Shorts4Panel() {
             g0,
             { home: homeFinal, away: awayFinal },
             logosByTeamKey,
-            hotStep
+            hotStep,
+            focusTeam
           );
           return;
         }

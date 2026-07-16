@@ -1348,11 +1348,10 @@ export function drawShorts4StarterSlide(
     const buildMatchSegs = (fontPx) => {
       const nameFont = `700 ${fontPx}px "${FONT_BODY}", system-ui, sans-serif`;
       const vsFont = `1000 ${fontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
-      // 투수명 [로고] VS [로고] 상대팀 — 로고 양옆 간격은 로고 세그먼트가 담당
       return [
-        { text: vsPitcherName, font: nameFont, color: "#f5efdc", shadow: false },
         { logo: vsPitcherLogo, fontPx },
-        { text: "VS", font: vsFont, color: "#FFD700", shadow: true },
+        { text: vsPitcherName, font: nameFont, color: "#f5efdc", shadow: false },
+        { text: " VS ", font: vsFont, color: "#FFD700", shadow: true },
         { logo: vsOppLogo, fontPx },
         { text: vsOppFull, font: nameFont, color: "#f5efdc", shadow: false },
       ];
@@ -1362,7 +1361,7 @@ export function drawShorts4StarterSlide(
       for (const s of segs) {
         if (s.logo !== undefined) {
           const { w: lw } = vsMatchLogoSize(s.logo, s.fontPx);
-          total += lw > 0 ? lw + VS_MATCH_LOGO_GAP * 2 : 0;
+          total += lw > 0 ? lw + VS_MATCH_LOGO_GAP : 0;
         } else {
           ctx.font = s.font;
           total += ctx.measureText(s.text).width;
@@ -1389,8 +1388,8 @@ export function drawShorts4StarterSlide(
         const { w: lw, h: lh } = vsMatchLogoSize(s.logo, s.fontPx);
         if (lw > 0) {
           resetShadow(ctx);
-          ctx.drawImage(s.logo, matchX + VS_MATCH_LOGO_GAP, matchupY - lh / 2, lw, lh);
-          matchX += lw + VS_MATCH_LOGO_GAP * 2;
+          ctx.drawImage(s.logo, matchX, matchupY - lh / 2, lw, lh);
+          matchX += lw + VS_MATCH_LOGO_GAP;
         }
         continue;
       }
@@ -1499,6 +1498,24 @@ const HOT_TRIPLE_BASE_OPS = 1.2;
 const HOT_TRIPLE_BASE_WAR = 6.0;
 const HOT_TRIPLE_BAR_COLORS = ["#E53935", "#1E88E5", "#43A047"];
 const HOT_TRIPLE_BAR_LABELS = ["타율", "OPS", "WAR"];
+/**
+ * 슬라이드10·11 새 레이아웃 — 한 슬라이드 = 한 팀, 선수 2명.
+ * 상단: 이번시즌 베스트(데이터 미구현, 현재 빈 영역) / 하단: 직전경기 베스트(화이트 투명 박스 안)
+ * 슬라이드8·9와 동일한 박스 지오메트리(40~1040 × 1060~1740)
+ */
+const HOT_BOX_MARGIN_X = 40;
+const HOT_BOX_TOP = 1060;
+const HOT_BOX_BOTTOM = 1740;
+const HOT_BOX_RADIUS = 40;
+const HOT_BOX_FILL = "#ffffff";
+const HOT_BOX_ALPHA = 0.15;
+const HOT_BOX_PAD_L = 48;
+const HOT_BOX_HEADER_CY = HOT_BOX_TOP + 74;
+const HOT_BOX_DIVIDER_Y = HOT_BOX_TOP + 120;
+const HOT_BOX_PHOTO_CX_FRAC = 0.25;
+/** 상단 이번시즌 베스트 자리 — 데이터 붙일 때 사용 */
+const HOT_SEASON_ZONE_TOP = 150;
+const HOT_SEASON_ZONE_BOTTOM = HOT_BOX_TOP - 40;
 
 function fmtIntOrDash(v) {
   const n = Number(v);
@@ -1783,6 +1800,11 @@ function drawHotPlayerAwayLowerBlock(
  * @param {Record<string, HTMLImageElement | null | undefined> | null | undefined} logosByTeamKey
  * @param {1 | 2 | 3} [step] 1=LAST GAME HERO만 · 2=상단(홈)+HERO · 3=전체(기존)
  */
+/**
+ * 슬라이드10·11 — 한 슬라이드 = 한 팀.
+ * @param {1 | 2} [step] 1=기준팀 · 2=상대팀
+ * @param {string | null} [focusTeam] 기준팀 (미지정 시 홈팀 기준)
+ */
 export function drawShorts4HotPlayerSlide(
   ctx,
   w,
@@ -1790,58 +1812,79 @@ export function drawShorts4HotPlayerSlide(
   g,
   portraits = null,
   logosByTeamKey = null,
-  step = 3
+  step = 1,
+  focusTeam = null
 ) {
-  const stepN = Math.min(3, Math.max(1, Math.floor(Number(step) || 3)));
-  console.log("[draw] type:", "drawShorts4HotPlayerSlide", "step:", stepN, "portraits:", portraits);
+  const stepN = Math.min(2, Math.max(1, Math.floor(Number(step) || 1)));
   const homeTeam = String(g?.home_team || "홈");
   const awayTeam = String(g?.away_team || "원정");
+  const isFocusAway = focusTeam ? String(awayTeam || "").includes(focusTeam) : false;
+
+  // step1 = 기준팀, step2 = 상대팀
+  const focusSide = isFocusAway ? "away" : "home";
+  const oppSide = isFocusAway ? "home" : "away";
+  const side = stepN === 1 ? focusSide : oppSide;
+  const team = side === "home" ? homeTeam : awayTeam;
+
+  const [bgColor] = teamGrad(team);
+  const strongColor = getTeamStrongColor(team);
 
   ctx.clearRect(0, 0, w, h);
-  diagTeamColorsOnly(ctx, w, h, homeTeam, awayTeam);
-  drawBaseballBackground(ctx);
 
-  const homeHp = g?.home_hot_player ?? null;
-  const awayHp = g?.away_hot_player ?? null;
-  const homeName = String(homeHp?.player || "").trim();
-  const awayName = String(awayHp?.player || "").trim();
-  const homeImg = drawableShorts4Portrait(portraits?.home);
-  const awayImg = drawableShorts4Portrait(portraits?.away);
-  const homeUsePhoto = Boolean(homeImg) && homeName !== "";
-  const awayUsePhoto = Boolean(awayImg) && awayName !== "";
-  const logos = logosByTeamKey || {};
+  // 배경: 해당 팀 그라데이션 (슬라이드8·9와 동일 방식)
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, bgColor);
+  grad.addColorStop(1, strongColor);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
 
-  if (stepN >= 2) {
-    drawHotPlayerHomeUpperBlock(
-      ctx,
-      w,
-      h,
-      homeTeam,
-      homeHp,
-      homeName,
-      homeImg,
-      homeUsePhoto,
-      logos
-    );
+  // 하단: 화이트 투명 라운드박스
+  ctx.save();
+  ctx.fillStyle = HOT_BOX_FILL;
+  ctx.globalAlpha = HOT_BOX_ALPHA;
+  ctx.beginPath();
+  ctx.roundRect(
+    HOT_BOX_MARGIN_X,
+    HOT_BOX_TOP,
+    w - HOT_BOX_MARGIN_X * 2,
+    HOT_BOX_BOTTOM - HOT_BOX_TOP,
+    HOT_BOX_RADIUS
+  );
+  ctx.fill();
+  ctx.restore();
+
+  // 상단(이번시즌 베스트)은 데이터 미구현 — 현재 비워둠
+
+  // 하단 박스 안: 직전경기 베스트 선수
+  const hp = side === "home" ? (g?.home_hot_player ?? null) : (g?.away_hot_player ?? null);
+  drawHotPlayerPrevGameBlock(
+    ctx,
+    w,
+    team,
+    hp,
+    drawableShorts4Portrait(side === "home" ? portraits?.home : portraits?.away),
+    logosByTeamKey || {}
+  );
+}
+
+/** 화이트 투명 박스 안 직전경기 베스트 선수: 헤더(로고+이름) + 구분선 + 사진 + 스탯 */
+function drawHotPlayerPrevGameBlock(ctx, w, team, hp, img, logosByTeamKey) {
+  const name = String(hp?.player || "").trim();
+  const logoImg = logosByTeamKey?.[teamKeyword(team)] ?? null;
+  drawHotPlayerHeaderRow(ctx, w, HOT_BOX_HEADER_CY, HOT_BOX_PAD_L, team, name, logoImg);
+  drawShorts4StarterHeaderDivider(ctx, w, HOT_BOX_PAD_L, HOT_BOX_DIVIDER_Y);
+
+  const faceBox = HOT_FACE_BOX;
+  const rPhoto = faceBox / 2;
+  const photoCx = w * HOT_BOX_PHOTO_CX_FRAC;
+  const cy = HOT_BOX_DIVIDER_Y + rPhoto + HOT_DIVIDER_TO_FACE_TOP;
+  if (img && name !== "") {
+    drawPortraitContain(ctx, img, photoCx, cy - rPhoto, faceBox, faceBox);
+    if (isDefaultPlayerPortrait(img)) {
+      drawDefaultPortraitNameOverlay(ctx, photoCx, cy - rPhoto, faceBox, faceBox, name);
+    }
   }
-
-  if (stepN >= 3) {
-    drawHotPlayerAwayLowerBlock(
-      ctx,
-      w,
-      h,
-      awayTeam,
-      awayHp,
-      awayName,
-      awayImg,
-      awayUsePhoto,
-      logos
-    );
-  }
-
-  if (stepN >= 1) {
-    drawHotPlayerLastGameHeroTitle(ctx, w, h);
-  }
+  drawHotPlayerStatBlock(ctx, photoCx + rPhoto + 28, cy + HOT_STAT_BLOCK_SHIFT_Y, hp);
 }
 
 function sortLineupRows(rows) {
