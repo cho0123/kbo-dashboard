@@ -205,19 +205,6 @@ export default function Shorts4Panel() {
     }
   }, []);
 
-  /**
-   * 선발투수 vs 상대팀 시즌 상대전적 자동 입력 (네이버 playerend-record).
-   * 맞대결 기록이 없으면 API가 null을 주므로 기존 입력값을 덮지 않는다 — 그 경우만 수동 입력.
-   */
-  useEffect(() => {
-    const g = detailGame;
-    if (!g) return;
-    const isFocusAway = focusTeam ? String(g.away_team || "").includes(focusTeam) : false;
-    const focusVs = vsStatsFromApi(isFocusAway ? g.away_starter_vs_team : g.home_starter_vs_team);
-    const oppVs = vsStatsFromApi(isFocusAway ? g.home_starter_vs_team : g.away_starter_vs_team);
-    if (focusVs) setFocusVsStats(focusVs);
-    if (oppVs) setOppVsStats(oppVs);
-  }, [detailGame, focusTeam]);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -293,6 +280,21 @@ export default function Shorts4Panel() {
     const g = Array.isArray(data.games) ? data.games : [];
     return g[selectedIdx] ?? g[0] ?? null;
   }, [data, selectedIdx]);
+
+  /**
+   * 선발투수 vs 상대팀 시즌 상대전적 자동 입력 (네이버 playerend-record).
+   * 맞대결 기록이 없으면 API가 null을 주므로 기존 입력값을 덮지 않는다 — 그 경우만 수동 입력.
+   * detailGame 선언 뒤에 있어야 한다 (의존성 배열이 렌더 중 평가되므로 TDZ 주의).
+   */
+  useEffect(() => {
+    const g = detailGame;
+    if (!g) return;
+    const isFocusAway = focusTeam ? String(g.away_team || "").includes(focusTeam) : false;
+    const focusVs = vsStatsFromApi(isFocusAway ? g.away_starter_vs_team : g.home_starter_vs_team);
+    const oppVs = vsStatsFromApi(isFocusAway ? g.home_starter_vs_team : g.away_starter_vs_team);
+    if (focusVs) setFocusVsStats(focusVs);
+    if (oppVs) setOppVsStats(oppVs);
+  }, [detailGame, focusTeam]);
 
   const standingsRows = useMemo(() => {
     if (!data) return [];
