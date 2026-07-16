@@ -98,6 +98,42 @@ npm run local-server   # 로컬 다운로드 서버 (포트 3838) — 서버시�
 `matchup_preview`는 `schedule`만 본다 → **오래된 날짜는 조회되지 않는다(의도된 동작).**
 games 폴백이 있었으나 필요 없어져서 되돌렸다(`abdd96d`). 되살리지 말 것.
 
+## 네이버 선수 API (2026-07-17 확인)
+
+경로는 `/players/kbo/{playerId}/...` 계열이다. 기존 코드가 쓰는
+`/statistics/players/{id}/seasons`와 **다른 계열**이며, 후자 경로에 없는 리소스를 붙이면 403이 난다.
+403을 IP 차단으로 오해하지 말 것 — 집 PC에서도 정상 호출된다.
+
+```
+GET https://api-gw.sports.naver.com/players/kbo/{playerId}/playerend-record
+    헤더: Referer: https://m.sports.naver.com  (+ User-Agent) — NAVER_M_SPORTS_FETCH_HEADERS 사용
+
+  result.playerType   "hitter" | "pitcher"
+  result.basicRecord  시즌 성적 + 순위        ← JSON 문자열, 두 번 파싱해야 함
+  result.record       최근 10경기 (딱 10개)   ← JSON 문자열
+  result.vsTeam       상대팀별 시즌 성적       ← JSON 문자열
+
+GET .../players/kbo/{playerId}/vs-player-stats?vsPlayerId={상대선수ID}&playerType=hitter
+GET .../players/kbo/{playerId}/vs-player-contents?playerType=hitter   ← 상대 선수 목록(드롭다운용)
+```
+
+`vsTeam.vsteam[]` 필드 — **투수 쪽이 슬라이드8·9 VS 스탯 수동 입력 9칸과 1:1로 대응한다.**
+
+| 수동 입력칸 | API | | 타자 vsTeam |
+|---|---|---|---|
+| ERA / 승 / 패 | `era` / `w` / `l` | | `ab`, `hit`, `hr` |
+| 이닝 / 투구수 | `inn` / `pit` | | `hra`, `obp`, `slg`, `ops` |
+| 탈삼진 / 피안타 / 피홈런 / 실점 | `kk` / `hit` / `hr` / `r` | | `rbi`, `pa`, `run` |
+| (덤) | `whip`, `er`, `bbhp` | | |
+
+주의:
+- `inn`은 `"11 1/3"` 같은 **문자열**이다. 표시엔 그대로 쓰고 계산 시에만 파싱.
+- `vsTeam` 표본이 작다 — 팀당 10~29타수. 타자를 상대팀 타율로 줄 세우면
+  8타수 3안타가 1위로 튄다. 최소 타수 필터 없이 쓰지 말 것.
+- `vs-player-stats`(투수 vs 타자)는 표본이 7타석 수준이라 자동 선정 기준으로는 부적합.
+- playerId는 이름으로 찾아야 한다 — `api-gw.sports.naver.com/search/players?query=` (kbo-api.mjs에 기존 코드 있음).
+  선수당 검색 1회 + 기록 1회이므로 라인업 전체(18명)에 돌리면 호출이 급증한다. 캐싱 필요.
+
 ## 저장소 함정
 
 `kbo-dashboard`가 상위 `kbo_project`에 gitlink로 등록돼 있으나 `.gitmodules`가 없다.
