@@ -549,6 +549,42 @@ const VS_TABLE_LABEL_PX = 30;
 const VS_TABLE_VALUE_PX = 50;
 /** 박스 위 "이번시즌 상대전적". 상단 타이틀(STARTER_HEADER_FONT_PX=55)보다 작아야 함 */
 const VS_TABLE_TITLE_PX = 50;
+/** 박스 안 매칭업 "[로고]{투수} VS [로고]{상대팀 풀네임}" */
+const VS_MATCH_FONT_PX = 56;
+const VS_MATCH_MIN_FONT_PX = 38;
+const VS_MATCH_LOGO_MAX_W = 84;
+const VS_MATCH_LOGO_GAP = 12;
+const VS_MATCH_MAX_W = 920;
+/** teamKeyword() 반환 키 → 팀 풀네임 */
+const TEAM_FULL_NAME = {
+  KIA: "KIA 타이거즈",
+  삼성: "삼성 라이온즈",
+  LG: "LG 트윈스",
+  두산: "두산 베어스",
+  KT: "KT 위즈",
+  SSG: "SSG 랜더스",
+  롯데: "롯데 자이언츠",
+  한화: "한화 이글스",
+  NC: "NC 다이노스",
+  키움: "키움 히어로즈",
+};
+function teamFullName(teamName) {
+  return TEAM_FULL_NAME[teamKeyword(teamName)] || String(teamName || "").trim();
+}
+/** 매칭업 로고 실제 그릴 크기 (높이=fontPx 기준, 최대폭 클램프) */
+function vsMatchLogoSize(img, fontPx) {
+  if (!img) return { w: 0, h: 0 };
+  const iw = Number(img.naturalWidth || img.width) || 0;
+  const ih = Number(img.naturalHeight || img.height) || 0;
+  if (!(iw > 0) || !(ih > 0)) return { w: 0, h: 0 };
+  let h = fontPx;
+  let wpx = iw * (h / ih);
+  if (wpx > VS_MATCH_LOGO_MAX_W) {
+    wpx = VS_MATCH_LOGO_MAX_W;
+    h = ih * (wpx / iw);
+  }
+  return { w: wpx, h };
+}
 const SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE = "rgba(37, 99, 235, 0.72)";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_RED = "rgba(220, 38, 38, 0.72)";
@@ -1301,28 +1337,68 @@ export function drawShorts4StarterSlide(
     ctx.fillStyle = "#f5efdc";
     ctx.fillText("이번시즌 상대전적", w / 2, boxTop - 26);
     ctx.restore();
-    // 박스 안: "{투수} VS {상대팀}" — 투수/상대팀 미색, VS만 금색, 크게(72px)
+    // 박스 안: "[로고]{투수} VS [로고]{상대팀 풀네임}" — 투수/팀명 미색, VS만 금색
+    // 폭이 VS_MATCH_MAX_W를 넘으면 폰트·로고를 함께 줄여 맞춤(긴 이름 대비)
     const matchupY = boxTop + 120;
-    const matchNameFont = `700 72px "${FONT_BODY}", system-ui, sans-serif`;
-    const matchVsFont = `1000 72px "${FONT_TITLE}", system-ui, sans-serif`;
-    const matchSegs = [
-      { text: vsPitcherName, font: matchNameFont, color: "#f5efdc", shadow: false },
-      { text: " VS ", font: matchVsFont, color: "#FFD700", shadow: true },
-      { text: vsOppName, font: matchNameFont, color: "#f5efdc", shadow: false },
-    ];
+    const vsPitcherTeam = stepN === 1 ? focusT : oppT;
+    const vsOppFull = teamFullName(vsOppName);
+    const vsPitcherLogo = logos[teamKeyword(vsPitcherTeam)] ?? null;
+    const vsOppLogo = logos[teamKeyword(vsOppName)] ?? null;
+
+    const buildMatchSegs = (fontPx) => {
+      const nameFont = `700 ${fontPx}px "${FONT_BODY}", system-ui, sans-serif`;
+      const vsFont = `1000 ${fontPx}px "${FONT_TITLE}", system-ui, sans-serif`;
+      return [
+        { logo: vsPitcherLogo, fontPx },
+        { text: vsPitcherName, font: nameFont, color: "#f5efdc", shadow: false },
+        { text: " VS ", font: vsFont, color: "#FFD700", shadow: true },
+        { logo: vsOppLogo, fontPx },
+        { text: vsOppFull, font: nameFont, color: "#f5efdc", shadow: false },
+      ];
+    };
+    const measureMatchSegs = (segs) => {
+      let total = 0;
+      for (const s of segs) {
+        if (s.logo !== undefined) {
+          const { w: lw } = vsMatchLogoSize(s.logo, s.fontPx);
+          total += lw > 0 ? lw + VS_MATCH_LOGO_GAP : 0;
+        } else {
+          ctx.font = s.font;
+          total += ctx.measureText(s.text).width;
+        }
+      }
+      return total;
+    };
+
     ctx.save();
     ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    let matchTotalW = 0;
-    matchSegs.forEach((s) => { ctx.font = s.font; matchTotalW += ctx.measureText(s.text).width; });
+    ctx.textBaseline = "middle";
+    let matchFontPx = VS_MATCH_FONT_PX;
+    let matchSegs = buildMatchSegs(matchFontPx);
+    let matchTotalW = measureMatchSegs(matchSegs);
+    while (matchTotalW > VS_MATCH_MAX_W && matchFontPx > VS_MATCH_MIN_FONT_PX) {
+      matchFontPx -= 2;
+      matchSegs = buildMatchSegs(matchFontPx);
+      matchTotalW = measureMatchSegs(matchSegs);
+    }
+
     let matchX = w / 2 - matchTotalW / 2;
-    matchSegs.forEach((s) => {
+    for (const s of matchSegs) {
+      if (s.logo !== undefined) {
+        const { w: lw, h: lh } = vsMatchLogoSize(s.logo, s.fontPx);
+        if (lw > 0) {
+          resetShadow(ctx);
+          ctx.drawImage(s.logo, matchX, matchupY - lh / 2, lw, lh);
+          matchX += lw + VS_MATCH_LOGO_GAP;
+        }
+        continue;
+      }
       ctx.font = s.font;
       if (s.shadow) shadowTextSoft(ctx); else resetShadow(ctx);
       ctx.fillStyle = s.color;
       ctx.fillText(s.text, matchX, matchupY);
       matchX += ctx.measureText(s.text).width;
-    });
+    }
     resetShadow(ctx);
     ctx.restore();
     // 스탯 표: 박스 안 (매칭업 아래) — 값이 있는 항목만 2열로

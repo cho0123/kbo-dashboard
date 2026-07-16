@@ -23,6 +23,27 @@ const SHORTS_EXPORT_W = 1080;
 const SHORTS_EXPORT_H = 1920;
 const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
 
+/** VS 상대팀 투수 스탯 — 같은 브라우저에서 새로고침해도 입력값 유지 (Shorts3Panel `kbo_draft_*`와 동일 방식) */
+const VS_STATS_STORAGE_KEY = "kbo_shorts4_vs_stats";
+const emptyVsStats = () => ({ era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "" });
+function loadVsStatsFromStorage() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(VS_STATS_STORAGE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || typeof p !== "object") return null;
+    return {
+      focus: { ...emptyVsStats(), ...(p.focus || {}) },
+      opp: { ...emptyVsStats(), ...(p.opp || {}) },
+      enabled: p.enabled !== false,
+    };
+  } catch (e) {
+    console.warn("[kbo vs stats load]", e);
+    return null;
+  }
+}
+
 /** 쇼츠2 `slideExportKeyShorts2`와 동일 — 영상 프리셋 duration·쇼츠2와 동일 키 체계 */
 function slideExportKeyShorts4Capture(slide) {
   if (!slide?.type) return "intro";
@@ -143,10 +164,32 @@ export default function Shorts4Panel() {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showAllGames, setShowAllGames] = useState(false);
   const [focusTeam, setFocusTeam] = useState(null);
-  const defaultVsStats = () => ({ era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "" });
-  const [focusVsStats, setFocusVsStats] = useState(defaultVsStats());
-  const [oppVsStats, setOppVsStats] = useState(defaultVsStats());
-  const [vsStatsEnabled, setVsStatsEnabled] = useState(true);
+  const savedVsStats = useMemo(() => loadVsStatsFromStorage(), []);
+  const [focusVsStats, setFocusVsStats] = useState(() => savedVsStats?.focus ?? emptyVsStats());
+  const [oppVsStats, setOppVsStats] = useState(() => savedVsStats?.opp ?? emptyVsStats());
+  const [vsStatsEnabled, setVsStatsEnabled] = useState(() => savedVsStats?.enabled ?? true);
+
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(
+        VS_STATS_STORAGE_KEY,
+        JSON.stringify({ focus: focusVsStats, opp: oppVsStats, enabled: vsStatsEnabled })
+      );
+    } catch (e) {
+      console.warn("[kbo vs stats save]", e);
+    }
+  }, [focusVsStats, oppVsStats, vsStatsEnabled]);
+
+  const resetVsStats = useCallback(() => {
+    setFocusVsStats(emptyVsStats());
+    setOppVsStats(emptyVsStats());
+    try {
+      localStorage.removeItem(VS_STATS_STORAGE_KEY);
+    } catch (e) {
+      console.warn("[kbo vs stats reset]", e);
+    }
+  }, []);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -881,6 +924,24 @@ export default function Shorts4Panel() {
                   />
                   표시
                 </label>
+                <button
+                  type="button"
+                  onClick={resetVsStats}
+                  title="입력한 VS 스탯을 모두 지웁니다 (저장값 포함)"
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(0,0,0,0.15)",
+                    background: "rgba(255,255,255,0.08)",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                    marginLeft: "auto",
+                  }}
+                >
+                  초기화
+                </button>
               </div>
               {[
                 { label: "기준팀", stats: focusVsStats, setStats: setFocusVsStats },
