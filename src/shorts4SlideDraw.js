@@ -547,6 +547,8 @@ const VS_TABLE_CELL_PAD_X = 26;
 const VS_TABLE_CELL_BG = "rgba(0,0,0,0.22)";
 const VS_TABLE_LABEL_PX = 30;
 const VS_TABLE_VALUE_PX = 50;
+/** 박스 위 "이번시즌 상대전적". 상단 타이틀(STARTER_HEADER_FONT_PX=55)보다 작아야 함 */
+const VS_TABLE_TITLE_PX = 50;
 const SHORTS4_PITCHER_SEASON_RANK_BADGE_WIN = "#FFD700";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_BLUE = "rgba(37, 99, 235, 0.72)";
 const SHORTS4_BATTING_SEASON_RANK_BADGE_RED = "rgba(220, 38, 38, 0.72)";
@@ -612,7 +614,8 @@ const STARTER_PITCH_CODE_TO_KO = {
 };
 const STARTER_STAT_LINE_COUNT = 4;
 /** 선발 슬라이드 헤더(구분선 위): 상세 대비 +6px (기존 +3에 한 번 더 +3) */
-const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
+/** 슬라이드8·9 상단 타이틀("{팀} {투수} · {연도} 시즌"). 박스 위 VS_TABLE_TITLE_PX(54)보다 커야 함 */
+const STARTER_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 9;
 /** 헤더 로고: 세로 100px, 가로는 비율 유지(최대 폭 제한) */
 const LOGO_HEADER_H = 100;
 const LOGO_HEADER_MAX_W = 280;
@@ -1294,7 +1297,7 @@ export function drawShorts4StarterSlide(
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.font = `700 57px "${FONT_BODY}", system-ui, sans-serif`;
+    ctx.font = `700 ${VS_TABLE_TITLE_PX}px "${FONT_BODY}", system-ui, sans-serif`;
     ctx.fillStyle = "#f5efdc";
     ctx.fillText("이번시즌 상대전적", w / 2, boxTop - 26);
     ctx.restore();
@@ -1399,7 +1402,8 @@ const HOT_STAT_FONT_PX = STARTER_SLIDE_STAT_FONT_PX;
 const HOT_STAT_LINE_GAP = STARTER_SLIDE_STAT_LINE_GAP;
 const HOT_DIVIDER_TO_FACE_TOP = STARTER_DIVIDER_TO_FACE_TOP;
 const HOT_HEADER_GAP_LINE_TO_CENTER = STARTER_HEADER_GAP_LINE_TO_CENTER;
-const HOT_HEADER_FONT_PX = STARTER_HEADER_FONT_PX;
+/** 핫플레이어 헤더 — 기존 크기(46+6=52) 유지. 슬라이드8·9만 키웠으므로 STARTER_HEADER_FONT_PX와 분리 */
+const HOT_HEADER_FONT_PX = STARTER_DETAIL_FONT_PX + 6;
 /** 상단(홈) 구역: 슬라이드7 원정과 동일 dividerY (헤더·사진·스탯 y) */
 const HOT_UPPER_DIVIDER_Y = STARTER_AWAY_DIVIDER_Y + STARTER_AWAY_BLOCK_SHIFT_Y;
 /** 세로 중앙 경계선 근처 — 슬라이드7 VS와 동계열(1000 + FONT_TITLE + 골드), VS 90px 대비 짧은 문구 폭 고려 */
