@@ -26,6 +26,20 @@ const CAPTURE_INTER_SLIDE_DELAY_MS = 100;
 /** VS 상대팀 투수 스탯 — 같은 브라우저에서 새로고침해도 입력값 유지 (Shorts3Panel `kbo_draft_*`와 동일 방식) */
 const VS_STATS_STORAGE_KEY = "kbo_shorts4_vs_stats";
 const emptyVsStats = () => ({ era: "", win: "", lose: "", ip: "", pitches: "", k: "", hits: "", hr: "", runs: "" });
+/** API의 vs_team 응답(whip·er 등 여분 포함) → 입력칸 9개만 추출. 값 없으면 null */
+function vsStatsFromApi(v) {
+  if (!v || typeof v !== "object") return null;
+  const out = emptyVsStats();
+  let hasAny = false;
+  for (const k of Object.keys(out)) {
+    const s = v[k] == null ? "" : String(v[k]).trim();
+    if (s !== "") {
+      out[k] = s;
+      hasAny = true;
+    }
+  }
+  return hasAny ? out : null;
+}
 function loadVsStatsFromStorage() {
   if (typeof localStorage === "undefined") return null;
   try {
@@ -190,6 +204,20 @@ export default function Shorts4Panel() {
       console.warn("[kbo vs stats reset]", e);
     }
   }, []);
+
+  /**
+   * 선발투수 vs 상대팀 시즌 상대전적 자동 입력 (네이버 playerend-record).
+   * 맞대결 기록이 없으면 API가 null을 주므로 기존 입력값을 덮지 않는다 — 그 경우만 수동 입력.
+   */
+  useEffect(() => {
+    const g = detailGame;
+    if (!g) return;
+    const isFocusAway = focusTeam ? String(g.away_team || "").includes(focusTeam) : false;
+    const focusVs = vsStatsFromApi(isFocusAway ? g.away_starter_vs_team : g.home_starter_vs_team);
+    const oppVs = vsStatsFromApi(isFocusAway ? g.home_starter_vs_team : g.away_starter_vs_team);
+    if (focusVs) setFocusVsStats(focusVs);
+    if (oppVs) setOppVsStats(oppVs);
+  }, [detailGame, focusTeam]);
   const [slideIdx, setSlideIdx] = useState(0);
   const captureWrapRef = useRef(null);
   const presetPickerRef = useRef(null);
@@ -916,6 +944,9 @@ export default function Shorts4Panel() {
             <div style={{ marginTop: 16, borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>⚔️ VS 상대팀 투수 스탯</span>
+                <span style={{ fontSize: 10, color: "#888", whiteSpace: "nowrap" }}>
+                  네이버 자동 · 수정 가능
+                </span>
                 <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", flexShrink: 0 }}>
                   <input
                     type="checkbox"

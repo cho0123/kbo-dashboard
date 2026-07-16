@@ -4746,6 +4746,96 @@ function findPitcherImageUrlByStarterName(statsArr, starterName, teamName) {
   return u || null;
 }
 
+/**
+ * seasonPitcherStats에서 선발 투수명/팀 → playerId.
+ * findPitcherImageUrlByStarterName과 동일한 매칭 규칙.
+ */
+function findPitcherIdByStarterName(statsArr, starterName, teamName) {
+  if (!Array.isArray(statsArr) || statsArr.length === 0) return null;
+  const name = String(starterName || "").replace(/\s+/g, " ").trim();
+  if (!name) return null;
+  const nameMatches = statsArr.filter(
+    (r) => String(r?.playerName || "").replace(/\s+/g, " ").trim() === name
+  );
+  if (!nameMatches.length) return null;
+  let row = nameMatches[0];
+  const teamTrim = String(teamName || "").trim();
+  if (teamTrim && nameMatches.some(naverPitcherRowHasTeamField)) {
+    const teamRow = nameMatches.find((r) => naverPitcherRowMatchesTeamName(r, teamTrim));
+    if (teamRow) row = teamRow;
+  }
+  const id = row?.playerId;
+  const s = id != null ? String(id).trim() : "";
+  return s || null;
+}
+
+/** 네이버 선수 기록 탭 원본. result.vsTeam/basicRecord/record는 JSON "문자열"이라 별도 파싱 필요 */
+async function fetchNaverPlayerEndRecord(playerId, cacheMap) {
+  const id = String(playerId || "").trim();
+  if (!id) return null;
+  if (cacheMap?.has(id)) return cacheMap.get(id);
+  const url = `https://api-gw.sports.naver.com/players/kbo/${encodeURIComponent(id)}/playerend-record`;
+  let out = null;
+  try {
+    const res = await fetch(url, { headers: NAVER_M_SPORTS_FETCH_HEADERS });
+    if (res.ok) {
+      const json = await res.json();
+      out = json?.result ?? null;
+    }
+  } catch (e) {
+    console.warn("[fetchNaverPlayerEndRecord]", id, e?.message || e);
+  }
+  cacheMap?.set(id, out);
+  return out;
+}
+
+function parseNaverEmbeddedJson(v) {
+  if (v == null) return null;
+  if (typeof v === "object") return v;
+  try {
+    return JSON.parse(String(v));
+  } catch {
+    return null;
+  }
+}
+
+/** 네이버 vsTeam 값: 맞대결이 없으면 "-" — 빈 문자열로 정규화 */
+function naverVsCell(v) {
+  const s = v == null ? "" : String(v).trim();
+  if (!s || s === "-") return "";
+  return s;
+}
+
+/**
+ * 선발투수의 상대팀 시즌 상대전적 → 슬라이드8·9 VS 스탯 9칸.
+ * 맞대결 기록이 없으면(전 항목 "-") null.
+ * @returns {{era,win,lose,ip,pitches,k,hits,hr,runs,whip,er}|null}
+ */
+function pickPitcherVsTeamStats(playerEndRecord, oppTeamName) {
+  const vsTeam = parseNaverEmbeddedJson(playerEndRecord?.vsTeam);
+  const rows = vsTeam?.vsteam;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const oppKey = normalizeTeamKey(oppTeamName);
+  if (!oppKey) return null;
+  const row = rows.find((r) => normalizeTeamKey(r?.name) === oppKey);
+  if (!row) return null;
+  const out = {
+    era: naverVsCell(row.era),
+    win: naverVsCell(row.w),
+    lose: naverVsCell(row.l),
+    ip: naverVsCell(row.inn),
+    pitches: naverVsCell(row.pit),
+    k: naverVsCell(row.kk),
+    hits: naverVsCell(row.hit),
+    hr: naverVsCell(row.hr),
+    runs: naverVsCell(row.r),
+    whip: naverVsCell(row.whip),
+    er: naverVsCell(row.er),
+  };
+  const hasAny = Object.values(out).some((v) => v !== "");
+  return hasAny ? out : null;
+}
+
 /** 각 부문 → (Naver 응답 필드 / 클라이언트 노출 키) 매핑 */
 const HITTER_RANK_TOP = 50;
 
@@ -5564,6 +5654,8 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
   const __starterEraCache = new Map();
   const __starterIpSoCache = new Map();
   const __starterWlWhipCache = new Map();
+  /** playerId → playerend-record. 같은 날 여러 경기에 같은 투수가 없더라도 재조회 방지용 */
+  const __playerEndRecordCache = new Map();
 
   const games = [];
   for (const r of rows) {
@@ -5786,6 +5878,18 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
     const homeStarterRanks = lookupPitcherRanksByStarterName(pitcherRankIndex, home_starter);
     const awayStarterRanks = lookupPitcherRanksByStarterName(pitcherRankIndex, away_starter);
 
+    // 선발투수 vs 상대팀 시즌 상대전적 (슬라이드8·9 VS 스탯 자동 입력).
+    // playerId는 이미 로드된 seasonPitcherStats에서 찾으므로 추가 호출은 선발 2명분뿐.
+    const homeStarterPid = findPitcherIdByStarterName(seasonPitcherStats, home_starter, home_team);
+    const awayStarterPid = findPitcherIdByStarterName(seasonPitcherStats, away_starter, away_team);
+    const [homeStarterRec, awayStarterRec] = await Promise.all([
+      homeStarterPid ? fetchNaverPlayerEndRecord(homeStarterPid, __playerEndRecordCache) : null,
+      awayStarterPid ? fetchNaverPlayerEndRecord(awayStarterPid, __playerEndRecordCache) : null,
+    ]);
+    // 홈 선발의 상대는 원정팀, 원정 선발의 상대는 홈팀
+    const home_starter_vs_team = pickPitcherVsTeamStats(homeStarterRec, away_team);
+    const away_starter_vs_team = pickPitcherVsTeamStats(awayStarterRec, home_team);
+
     games.push({
       game_id,
       game_date,
@@ -5842,6 +5946,8 @@ async function buildMatchupPreviewPayload(db, dateStr, tabOnly = false) {
       away_lineup,
       home_hot_player,
       away_hot_player,
+      home_starter_vs_team,
+      away_starter_vs_team,
       home_pitch_kinds: naverPitchKinds?.home ?? null,
       away_pitch_kinds: naverPitchKinds?.away ?? null,
       home_last5:
