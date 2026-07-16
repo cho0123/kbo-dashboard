@@ -512,6 +512,8 @@ const STARTER_SLIDE_STAT_LINE_GAP = Math.round(STARTER_DETAIL_LINE_GAP * 1.45);
 const STARTER_PITCH_BAR_W_FRAC = 0.9;
 const STARTER_PITCH_SEGMENTED_BAR_H = 120;
 const STARTER_PITCH_GAP_CONTENT_TO_BAR = 18;
+/** 슬라이드8·9 구종바+요약+순위배지 블록을 통째로 내리는 양. 사진 하단과 상대전적 박스(y=1060) 사이 여백 균형용 */
+const STARTER_PITCH_BLOCK_SHIFT_Y = 100;
 const STARTER_PITCH_NAME_SPEED_PX = 31;
 const STARTER_PITCH_PCT_INSIDE_PX = 23;
 const STARTER_PITCH_MIN_SEG_W_FOR_TEXT = 80;
@@ -960,6 +962,8 @@ function drawStarterPitchKindsBlock(ctx, wCanvas, hCanvas, pitchKinds, _teamName
       barTop -= barTop + barH + summaryBlockH - limBottom;
     }
   }
+
+  barTop += STARTER_PITCH_BLOCK_SHIFT_Y;
 
   const segLayouts = [];
   let x = barLeft;
