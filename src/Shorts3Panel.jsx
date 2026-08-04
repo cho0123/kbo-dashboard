@@ -849,6 +849,8 @@ export default function Shorts3Panel({
   });
   const togglePanel = (key) =>
     setPanelOpen((v) => ({ ...v, [key]: !v[key] }));
+  // 1~4단계(소스 준비) 아코디언을 오버레이 드로어로 분리 — 편집기 하단 공간 확보. 기본 닫힘.
+  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
   const [whisperData, setWhisperData] = useState(null);
   const [selectedTimestamps, setSelectedTimestamps] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -3676,8 +3678,99 @@ export default function Shorts3Panel({
           gap: 0,
           width: "100%",
           overflow: "visible",
+          // 편집기를 뷰포트에 가두어 좌/우 컬럼의 내부 스크롤이 동작하게 함.
+          // offset은 컨테이너 위 고정 크롬(topbar·shell 패딩·타이틀·인트로) 근사치 — 편집기/드로어 내용과 무관.
+          height: "calc(100vh - 300px)",
         }}
       >
+        {/* 소스 준비 툴바 — 1~4단계는 아래 오버레이 드로어로 이동 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 8,
+            marginBottom: 4,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setSourceDrawerOpen((o) => !o)}
+            aria-expanded={sourceDrawerOpen}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "#374151",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            📁 소스 준비 (다운로드·업로드·불러오기·음성분석)
+            <span aria-hidden style={{ opacity: 0.7 }}>
+              {sourceDrawerOpen ? "▲" : "▼"}
+            </span>
+          </button>
+        </div>
+        {/* 오버레이 드로어: 닫혀도 언마운트하지 않음(display:none) — VideoPrep/업로드 상태 보존 */}
+        <div
+          onClick={() => setSourceDrawerOpen(false)}
+          style={{
+            display: sourceDrawerOpen ? "block" : "none",
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: "min(460px, 92vw)",
+              background: "#12121c",
+              borderRight: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "2px 0 16px rgba(0,0,0,0.4)",
+              overflowY: "auto",
+              padding: "16px 18px 24px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ fontWeight: 800, fontSize: 15, color: "#f5efdc" }}>
+                소스 준비
+              </span>
+              <button
+                type="button"
+                onClick={() => setSourceDrawerOpen(false)}
+                aria-label="닫기"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#f5efdc",
+                  fontSize: 18,
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
         <div style={{ width: "100%", marginTop: 16 }}>
           <button
             type="button"
@@ -4228,6 +4321,9 @@ export default function Shorts3Panel({
             </div>
           ) : null}
         </div>
+          </div>
+        </div>
+        {/* /오버레이 드로어 끝 */}
 
         <div
           style={{
@@ -4870,8 +4966,10 @@ export default function Shorts3Panel({
           display: "flex",
           gap: 16,
           alignItems: "flex-start",
-          height: "calc(100vh - 680px)",
-          minHeight: 400,
+          // 매직넘버(calc(100vh-680px)) 제거 → 컨테이너의 남는 공간을 채우고,
+          // min-height:0으로 내용보다 작아질 수 있게 해 좌/우 컬럼의 overflowY 스크롤이 동작.
+          flex: "1 1 0",
+          minHeight: 0,
         }}
       >
         {/* 왼쪽 컬럼 */}
