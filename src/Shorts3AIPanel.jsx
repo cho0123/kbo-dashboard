@@ -313,9 +313,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
           onClick={() => setDateMode("today")}
           disabled={loadingGames || aiBusy}
           style={{
-            background: dateMode === "today" ? "#4ade80" : "#1e1e1e",
-            color: dateMode === "today" ? "#000" : "#aaa",
-            border: "1px solid #444",
+            background: dateMode === "today" ? "var(--ve-panel)" : "var(--ve-panel)",
+            color: dateMode === "today" ? "#000" : "var(--ve-text-sub)",
+            border: "1px solid var(--ve-border)",
             padding: "4px 12px",
             borderRadius: 6,
             cursor: "pointer",
@@ -329,9 +329,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
           onClick={() => setDateMode("yesterday")}
           disabled={loadingGames || aiBusy}
           style={{
-            background: dateMode === "yesterday" ? "#4ade80" : "#1e1e1e",
-            color: dateMode === "yesterday" ? "#000" : "#aaa",
-            border: "1px solid #444",
+            background: dateMode === "yesterday" ? "var(--ve-panel)" : "var(--ve-panel)",
+            color: dateMode === "yesterday" ? "#000" : "var(--ve-text-sub)",
+            border: "1px solid var(--ve-border)",
             padding: "4px 12px",
             borderRadius: 6,
             cursor: "pointer",
@@ -358,8 +358,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
           type="button"
           onClick={() => setShowAll(!showAll)}
           style={{
-            background: showAll ? "#ef4444" : "#374151",
-            color: "#fff",
+            background: showAll ? "var(--ve-danger)" : "var(--ve-card)",
+            color: "var(--ve-text)",
             border: "none",
             padding: "4px 12px",
             borderRadius: 6,
@@ -408,8 +408,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
               <div
                 key={`${c.game}_${idx}`}
                 style={{
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid var(--ve-border)",
+                  background: "var(--ve-panel)",
                   borderRadius: 10,
                   padding: "12px 14px",
                 }}
@@ -417,11 +417,11 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                 {c.title ? (
                   <div
                     style={{
-                      color: "#4ade80",
+                      color: "var(--ve-success)",
                       fontSize: 13,
                       fontWeight: "bold",
                       marginBottom: 8,
-                      background: "#1a3a2a",
+                      background: "var(--ve-card)",
                       padding: "4px 10px",
                       borderRadius: 6,
                     }}
@@ -502,8 +502,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       }
                       style={{
                         padding: "3px 10px",
-                        background: "#b91c1c",
-                        color: "#fff",
+                        background: "var(--ve-danger)",
+                        color: "var(--ve-text)",
                         border: "none",
                         borderRadius: 4,
                         fontSize: 11,
@@ -549,7 +549,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                             padding: 8,
                             background: "rgba(0,0,0,0.2)",
                             borderRadius: 8,
-                            border: "1px solid rgba(255,255,255,0.08)",
+                            border: "1px solid var(--ve-panel)",
                           }}
                         >
                           {item.thumbnail ? (
@@ -577,7 +577,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                               style={{
                                 width: 120,
                                 height: 68,
-                                background: "#333",
+                                background: "var(--ve-card)",
                                 borderRadius: 4,
                                 flexShrink: 0,
                               }}
@@ -596,7 +596,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
-                                  color: "#60a5fa",
+                                  color: "var(--ve-accent)",
                                   textDecoration: "none",
                                   fontSize: 13,
                                 }}
@@ -631,8 +631,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                 style={{
                                   padding: "2px 8px",
                                   fontSize: 11,
-                                  background: "#1d4ed8",
-                                  color: "#fff",
+                                  background: "var(--ve-accent)",
+                                  color: "var(--ve-text)",
                                   border: "none",
                                   borderRadius: 4,
                                   cursor: "pointer",
@@ -660,8 +660,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                     style={{
                       display: "inline-block",
                       padding: "4px 10px",
-                      background: "#03C75A",
-                      color: "#fff",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-text)",
                       borderRadius: 6,
                       fontSize: 12,
                       textDecoration: "none",
@@ -688,9 +688,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                         flex: 1,
                         padding: "4px 8px",
                         fontSize: 12,
-                        background: "#1e1e1e",
-                        color: "#fff",
-                        border: "1px solid #444",
+                        background: "var(--ve-panel)",
+                        color: "var(--ve-text)",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                       }}
                     />
@@ -713,8 +713,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       }}
                       style={{
                         padding: "4px 10px",
-                        background: "#2563eb",
-                        color: "#fff",
+                        background: "var(--ve-accent)",
+                        color: "var(--ve-text)",
                         border: "none",
                         borderRadius: 4,
                         fontSize: 12,
@@ -770,9 +770,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       onClick={() => fileInputRefs[idx]?.current?.click()}
                       style={{
                         padding: "4px 10px",
-                        background: "#111827",
-                        color: "#fff",
-                        border: "1px solid rgba(255,255,255,0.15)",
+                        background: "var(--ve-panel)",
+                        color: "var(--ve-text)",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                         fontSize: 12,
                         cursor: "pointer",
@@ -783,7 +783,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                     >
                       ☁️ S3 업로드
                     </button>
-                    <span style={{ color: "#aaa", fontSize: 11 }}>
+                    <span style={{ color: "var(--ve-text-sub)", fontSize: 11 }}>
                       다운로드된 파일을 선택해서 S3에 업로드
                     </span>
                   </div>
@@ -798,8 +798,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                   <button
                     type="button"
                     style={{
-                      background: "#2563eb",
-                      color: "#fff",
+                      background: "var(--ve-accent)",
+                      color: "var(--ve-text)",
                       border: "none",
                       padding: "6px 14px",
                       borderRadius: 6,
@@ -861,7 +861,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                         marginTop: 8,
                         fontSize: 12,
                         whiteSpace: "pre-wrap",
-                        color: "#ef4444",
+                        color: "var(--ve-danger)",
                       }}
                     >
                       {whisperByCard[idx].error}
@@ -888,9 +888,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                             type="button"
                             style={{
                               marginBottom: 8,
-                              background: "#0f172a",
-                              color: "#fff",
-                              border: "1px solid rgba(255,255,255,0.15)",
+                              background: "var(--ve-panel)",
+                              color: "var(--ve-text)",
+                              border: "1px solid var(--ve-border)",
                               padding: "6px 12px",
                               borderRadius: 6,
                               cursor: "pointer",
@@ -912,7 +912,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                           maxHeight: 300,
                           overflowY: "auto",
                           marginTop: 8,
-                          background: "#111",
+                          background: "var(--ve-panel)",
                           padding: 8,
                           borderRadius: 6,
                         }}
@@ -930,7 +930,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                   alignItems: "flex-start",
                                   gap: 8,
                                   padding: "6px 8px",
-                                  background: "#1e1e1e",
+                                  background: "var(--ve-panel)",
                                   borderRadius: 4,
                                   cursor: "pointer",
                                   marginBottom: 4,
@@ -957,7 +957,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                                 />
                                 <span
                                   style={{
-                                    color: "#e2e8f0",
+                                    color: "var(--ve-text)",
                                     fontSize: 12,
                                     flex: 1,
                                     wordBreak: "break-word",
@@ -993,7 +993,7 @@ export default function Shorts3AIPanel({ onAddSegments }) {
               marginTop: 8,
               whiteSpace: "pre-wrap",
               background: "rgba(0,0,0,0.35)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              border: "1px solid var(--ve-border)",
               borderRadius: 10,
               padding: 12,
             }}

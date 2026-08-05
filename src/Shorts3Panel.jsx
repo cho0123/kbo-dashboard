@@ -5263,7 +5263,7 @@ export default function Shorts3Panel({
                 padding: "8px",
                 borderRadius: 8,
                 border: thumbnailSelected
-                  ? "2px solid rgba(96,165,250,1)"
+                  ? "2px solid var(--ve-accent)"
                   : "1px solid var(--ve-border)",
                 background: "var(--ve-panel)",
                 cursor: "pointer",
