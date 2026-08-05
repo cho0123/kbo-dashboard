@@ -67,8 +67,8 @@ function BarColorPicker({ label, value, onChange, fallback }) {
               borderRadius: 6,
               border:
                 normalized.toUpperCase() === c.toUpperCase()
-                  ? "2px solid #4ade80"
-                  : "2px solid rgba(255,255,255,0.25)",
+                  ? "2px solid var(--ve-accent)"
+                  : "2px solid var(--ve-border)",
               background: c,
               cursor: "pointer",
             }}
@@ -271,13 +271,14 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
                     borderRadius: 6,
                     border:
                       layout === opt.id
-                        ? "2px solid #4ade80"
-                        : "2px solid #555",
-                    background: layout === opt.id ? "#1a2e1a" : "#1e1e1e",
-                    color: layout === opt.id ? "#4ade80" : "#ddd",
-                    fontWeight: "bold",
+                        ? "2px solid var(--ve-accent)"
+                        : "2px solid var(--ve-border)",
+                    background: layout === opt.id ? "var(--ve-accent)" : "var(--ve-panel)",
+                    color: layout === opt.id ? "var(--ve-accent-on)" : "var(--ve-text)",
+                    fontWeight: 500,
                     fontSize: 13,
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {opt.label}
@@ -349,9 +350,9 @@ export default function Shorts3ThumbnailPanel({ jobId }) {
             style={{
               padding: "12px 18px",
               borderRadius: 8,
-              background: uploading ? "#444" : "#4ade80",
-              color: "#000",
-              fontWeight: "bold",
+              background: uploading ? "var(--ve-panel)" : "var(--ve-accent)",
+              color: uploading ? "var(--ve-text)" : "var(--ve-accent-on)",
+              fontWeight: 500,
               fontSize: 15,
               cursor: uploading ? "not-allowed" : "pointer",
               border: "none",

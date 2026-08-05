@@ -358,9 +358,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
           type="button"
           onClick={() => setShowAll(!showAll)}
           style={{
-            background: showAll ? "var(--ve-danger)" : "var(--ve-card)",
-            color: "var(--ve-text)",
-            border: "none",
+            background: showAll ? "var(--ve-accent)" : "var(--ve-card)",
+            color: showAll ? "var(--ve-accent-on)" : "var(--ve-text)",
+            border: "1px solid var(--ve-border)",
             padding: "4px 12px",
             borderRadius: 6,
             fontSize: 12,
@@ -502,9 +502,9 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       }
                       style={{
                         padding: "3px 10px",
-                        background: "var(--ve-danger)",
+                        background: "var(--ve-panel)",
                         color: "var(--ve-text)",
-                        border: "none",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                         fontSize: 11,
                         cursor: String(c.title || "").trim()
