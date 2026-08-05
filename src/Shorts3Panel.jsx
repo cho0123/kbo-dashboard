@@ -3952,8 +3952,10 @@ export default function Shorts3Panel({
               left: 0,
               bottom: 0,
               width: "min(460px, 92vw)",
-              background: "#12121c",
-              borderRight: "1px solid rgba(255,255,255,0.1)",
+              // 본문은 원래 아코디언이 놓였던 .section soft 배경(#f0f0f0)과 동일하게 —
+              // color 미지정: 원래 상속색(#1a1a2e)이 그대로 나오도록.
+              background: "#f0f0f0",
+              borderRight: "1px solid rgba(0,0,0,0.12)",
               boxShadow: "2px 0 16px rgba(0,0,0,0.4)",
               overflowY: "auto",
               padding: "16px 18px 24px",
@@ -3965,7 +3967,10 @@ export default function Shorts3Panel({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 8,
+                marginBottom: 12,
+                background: "#374151",
+                padding: "8px 12px",
+                borderRadius: 8,
               }}
             >
               <span style={{ fontWeight: 800, fontSize: 15, color: "#f5efdc" }}>
