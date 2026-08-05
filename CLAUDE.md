@@ -76,8 +76,12 @@ API로 데이터를 가져오는 구조라 **로컬에서는 데이터를 못 �
 
 | | |
 |---|---|
-| 집 PC | `E:\짱구코딩작업\유튜브_컨텐츠관련\kbo_project\kbo-dashboard` |
+| 집 PC | `E:\kbo-dev\kbo-dashboard` |
 | 회사 PC | `C:\Users\USER\kbo-dashboard\kbo-dashboard` |
+
+집 PC는 원래 한글 경로(`E:\짱구코딩작업\...`)에 있었으나, 한글 경로가 vite 프로덕션
+빌드를 죽이는 문제(아래 참조) 때문에 ASCII 경로로 이동했다. **프로젝트를 한글이 포함된
+경로에 두지 말 것.**
 
 집/회사를 오가며 작업한다. **시작할 때 `git pull`, 끝낼 때 `git push`.**
 마지막 작업 PC가 어디였든 반대편은 뒤처져 있는 게 정상이다. pull부터 한다.
@@ -87,11 +91,12 @@ npm run build          # push 전 필수 — 로컬에서 가능한 유일한 �
 npm run local-server   # 로컬 다운로드 서버 (포트 3838) — 서버시작.bat
 ```
 
-**집 PC에서 `npm run build`가 크래시한다** (미해결). Node v24.11.1 + vite 6.4.2,
-`310 modules transformed` 직후 exit `0xC0000409`(스택 버퍼 오버런). 코드 문제가 아니다 —
-아무 수정 없이 원본으로도 동일하게 죽는다. `ROLLUP_SKIP_NODEJS_NATIVE=1`도 무효.
-`node_modules/@rollup`에 win32-x64-gnu와 msvc 바이너리가 **둘 다** 깔려 있는 게 유력한 용의자.
-Netlify 빌드는 정상이다. 회사 PC에서도 그런지는 미확인.
+**빌드 크래시 — 해결됨 (2026-07-18).** 원인은 **한글 프로젝트 경로**였다. vite의
+build-html 플러그인이 `index.html`을 emit할 때 한글이 섞인 절대경로를 넘기고 rollup
+네이티브가 거기서 죽는다(exit `0xC0000409`, `310 modules transformed` 직후). 힙 부족이
+아니라 `--max-old-space-size`도 무효였다. `@rollup` 바이너리 두 개(gnu·msvc) 공존은
+원인이 아니었다 — 같은 node_modules로 ASCII 경로에선 정상 빌드됐다. **집 PC를
+`E:\kbo-dev\kbo-dashboard`(ASCII)로 이동해 해결.** dev·Netlify 빌드는 원래도 정상이었다.
 
 ### 배포 사이트 ↔ 로컬 서버 구조 (코드만 봐선 모름)
 
@@ -207,8 +212,10 @@ GET .../players/kbo/{playerId}/vs-player-contents?playerType=hitter   ← 상대
 
 ## 저장소 함정
 
-`kbo-dashboard`가 상위 `kbo_project`에 gitlink로 등록돼 있으나 `.gitmodules`가 없다.
-서브모듈로 동작하지 않으므로 두 저장소를 각각 pull 한다.
+집 PC에서 `kbo-dashboard`는 원래 `kbo_project` 안에 gitlink로 얹혀 있었으나, 한글 경로
+문제로 `E:\kbo-dev\kbo-dashboard`로 빼냈다. 그 결과 남은 `kbo_project`의 gitlink는 끊긴
+채로 남아 있다(그 저장소는 안 쓰므로 방치). `kbo-dashboard`는 자체 remote
+(`cho0123/kbo-dashboard`)를 가진 독립 저장소이니 그것만 pull/push 하면 된다.
 
 ---
 완료 작업 목록은 여기 적지 않는다 — `git log`가 정확하고 문서는 낡는다.
