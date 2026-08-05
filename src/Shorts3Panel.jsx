@@ -851,6 +851,8 @@ export default function Shorts3Panel({
     setPanelOpen((v) => ({ ...v, [key]: !v[key] }));
   // 1~4단계(소스 준비) 아코디언을 오버레이 드로어로 분리 — 편집기 하단 공간 확보. 기본 닫힘.
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  // 편집 단축키 도움말 오버레이 (드로어와 동일 패턴). 기본 닫힘.
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   // 미리보기 영상 표시 영역(400px) 접기 — FHD 등 낮은 화면에서 편집기 세로 공간 확보. 기본 펼침.
   const [previewCollapsed, setPreviewCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return false;
@@ -2860,6 +2862,93 @@ export default function Shorts3Panel({
     );
   }, [selectedSegIndex]);
 
+  // 편집 단축키 — 새 로직 없이 기존 핸들러만 호출. 패널 언마운트 시 cleanup으로 리스너 제거.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      // 가드 2: 소스 준비 드로어 열림 → 무시
+      if (sourceDrawerOpen || shortcutsHelpOpen) return;
+      // 가드 1: 입력 요소 포커스 → 무시 (나레이션·자막 입력 보호)
+      const t = e.target;
+      const tag = t && t.tagName ? t.tagName.toUpperCase() : "";
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        (t && t.isContentEditable)
+      ) {
+        return;
+      }
+      // OS/브라우저 단축키(Ctrl/Meta/Alt)는 건드리지 않음 (Shift는 허용)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // 가드 5: 선택 구간이 없으면 아무 것도 하지 않음
+      const seg = segments[selectedSegIndex];
+      if (!seg) return;
+      const v = previewVideoRef.current;
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault(); // 가드 4: 처리한 경우만 기본 동작(스크롤) 차단
+          toggleSegmentPreviewPlayback(selectedSegIndex);
+          break;
+        case "ArrowUp":
+          if (selectedSegIndex > 0) {
+            e.preventDefault();
+            selectSegment(selectedSegIndex - 1);
+          }
+          break;
+        case "ArrowDown":
+          if (selectedSegIndex < segments.length - 1) {
+            e.preventDefault();
+            selectSegment(selectedSegIndex + 1);
+          }
+          break;
+        case "ArrowLeft":
+          if (v) {
+            e.preventDefault();
+            v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 1 : 1 / 30));
+          }
+          break;
+        case "ArrowRight":
+          if (v) {
+            e.preventDefault();
+            v.currentTime = v.currentTime + (e.shiftKey ? 1 : 1 / 30);
+          }
+          break;
+        case "KeyI":
+          e.preventDefault();
+          applyVideoTimeToSegment("start");
+          break;
+        case "KeyO":
+          e.preventDefault();
+          applyVideoTimeToSegment("end");
+          break;
+        case "Delete":
+          e.preventDefault();
+          if (
+            window.confirm(
+              `선택한 구간 #${selectedSegIndex + 1}을(를) 삭제할까요?`
+            )
+          ) {
+            deleteSelectedSegment();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    sourceDrawerOpen,
+    shortcutsHelpOpen,
+    segments,
+    selectedSegIndex,
+    toggleSegmentPreviewPlayback,
+    selectSegment,
+    applyVideoTimeToSegment,
+    deleteSelectedSegment,
+  ]);
+
   const adjustSegmentFieldTime = useCallback((segIndex, field, deltaSec) => {
     let seekSec = null;
     setSegments((prev) => {
@@ -3733,6 +3822,116 @@ export default function Shorts3Panel({
               {sourceDrawerOpen ? "▲" : "▼"}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setShortcutsHelpOpen((o) => !o)}
+            aria-expanded={shortcutsHelpOpen}
+            title="편집 단축키 보기"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "#374151",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            ⌨ 단축키
+          </button>
+        </div>
+        {/* 단축키 도움말 오버레이 (드로어와 동일 패턴, 목록만) */}
+        <div
+          onClick={() => setShortcutsHelpOpen(false)}
+          style={{
+            display: shortcutsHelpOpen ? "block" : "none",
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(420px, 92vw)",
+              background: "#1f2937",
+              color: "#e5e7eb",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.12)",
+              padding: 20,
+              boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 15 }}>⌨ 편집 단축키</div>
+              <button
+                type="button"
+                onClick={() => setShortcutsHelpOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#9ca3af",
+                  fontSize: 18,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.9 }}>
+              {[
+                ["Space", "선택 구간 재생 / 정지"],
+                ["↑ / ↓", "이전 / 다음 구간 선택"],
+                ["← / →", "재생위치 1프레임 이동 (±1/30초)"],
+                ["Shift + ← / →", "재생위치 1초 이동"],
+                ["I", "현재 위치를 구간 시작으로"],
+                ["O", "현재 위치를 구간 종료로"],
+                ["Delete", "선택 구간 삭제 (확인 후)"],
+              ].map(([k, desc]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      fontWeight: 700,
+                      color: "#93c5fd",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {k}
+                  </span>
+                  <span style={{ color: "#cbd5e1", textAlign: "right" }}>
+                    {desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 12, fontSize: 11, color: "#9ca3af" }}>
+              입력창에 포커스가 있거나 소스 준비 창이 열려 있으면 단축키는 동작하지 않습니다.
+            </div>
+          </div>
         </div>
         {/* 오버레이 드로어: 닫혀도 언마운트하지 않음(display:none) — VideoPrep/업로드 상태 보존 */}
         <div
