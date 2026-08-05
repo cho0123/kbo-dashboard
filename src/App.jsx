@@ -2787,7 +2787,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
             {data && (
               <div style={{ marginTop: 8 }}>
-                <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
+                <div style={{ marginTop: 12, borderTop: "1px solid var(--ve-border)", paddingTop: 12 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <button
                       type="button"
@@ -2841,7 +2841,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>가로</label>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>가로</label>
                             <input
                               type="range"
                               min="0"
@@ -2853,7 +2853,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>세로</label>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>세로</label>
                             <input
                               type="range"
                               min="0"
@@ -2865,7 +2865,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                               확대({cropScale.toFixed(1)}x)
                             </label>
                             <input
@@ -2880,12 +2880,12 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           </div>
                         </div>
 
-                        <div style={{ borderTop: "1px solid #333", paddingTop: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, color: "#aaa" }}>📝 텍스트 오버레이</span>
+                        <div style={{ borderTop: "1px solid var(--ve-border)", paddingTop: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>📝 텍스트 오버레이</span>
                         </div>
 
                         <div style={{ marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>상단 텍스트</label>
+                          <label style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>상단 텍스트</label>
                           <input
                             type="text"
                             value={overlayText3}
@@ -2894,8 +2894,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           />
                         </div>
 
-                        <div style={{ borderTop: "1px solid #444", paddingTop: 6, marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>AI 제목 (가운데)</label>
+                        <div style={{ borderTop: "1px solid var(--ve-border)", paddingTop: 6, marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>AI 제목 (가운데)</label>
                         </div>
 
                         {textLayers.map((layer, idx) => (
@@ -2908,7 +2908,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                               borderRadius: 6,
                             }}
                           >
-                            <div style={{ fontSize: 12, color: "#aaa", marginBottom: 4 }}>
+                            <div style={{ fontSize: 12, color: "var(--ve-text-sub)", marginBottom: 4 }}>
                               텍스트 {idx + 1}
                             </div>
 
@@ -2996,13 +2996,13 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                     border: "1px solid #666",
                                   }}
                                 />
-                                <span style={{ fontSize: 11, color: "#aaa" }}>{layer.color}</span>
+                                <span style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>{layer.color}</span>
                               </div>
                             </div>
 
                             <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                               <div style={{ flex: 1 }}>
-                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                                   크기({layer.size}px)
                                 </label>
                                 <input
@@ -3018,7 +3018,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                 />
                               </div>
                               <div style={{ flex: 1 }}>
-                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                                   위치({layer.posY}%)
                                 </label>
                                 <input
@@ -3091,7 +3091,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             </div>
             {aiAnalysis.length > 0 && (
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#aaa" }}>🤖 AI 경기 분석</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ve-text-sub)" }}>🤖 AI 경기 분석</div>
                 {aiAnalysis.map((a, idx) => {
                   const g = (data?.games || []).find((g) => g.game_id === a.game_id);
                   const label = g ? `${g.home_team} vs ${g.away_team}` : a.game_id;
@@ -3110,7 +3110,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       </div>
                       <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>태그:</span>
+                          <span style={{ fontSize: 11, color: "var(--ve-text-sub)", whiteSpace: "nowrap" }}>태그:</span>
                           <input
                             type="text"
                             value={a.tag ?? ""}

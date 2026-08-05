@@ -7,16 +7,17 @@
 }
 
 :root {
-  color-scheme: dark;
-  --bg: #0c0f14;
-  --panel: #131922;
-  --elevated: #1a2230;
-  --border: rgba(255, 255, 255, 0.08);
-  --muted: #8b93a7;
-  --text: #e9edf5;
-  --accent: #3ee0a9;
-  --accent-dim: rgba(62, 224, 169, 0.14);
-  --danger: #ff6b8a;
+  color-scheme: light;
+  /* 앱 전역 테마: 기존 변수를 무채색 팔레트(--ve-*)로 재정의 → var() 기반 규칙 일괄 적용 */
+  --bg: var(--ve-bg);
+  --panel: var(--ve-panel);
+  --elevated: var(--ve-card);
+  --border: var(--ve-border);
+  --muted: var(--ve-text-sub);
+  --text: var(--ve-text);
+  --accent: var(--ve-accent);
+  --accent-dim: rgba(84, 113, 141, 0.14);
+  --danger: var(--ve-danger);
   --radius: 14px;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   font-family: "Noto Sans KR", "IBM Plex Sans KR", system-ui, sans-serif;
@@ -46,17 +47,7 @@
 
 body {
   margin: 0;
-  background: radial-gradient(
-      1200px 600px at 80% -10%,
-      rgba(62, 224, 169, 0.07),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 500px at 10% 0%,
-      rgba(99, 149, 255, 0.06),
-      transparent 55%
-    ),
-    var(--bg);
+  background: var(--ve-bg);
   color: var(--text);
   min-height: 100vh;
   line-height: 1.55;
@@ -90,12 +81,12 @@ body {
 
 .topbar-k {
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .topbar-v {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .topbar-row + .topbar-row {
@@ -111,8 +102,8 @@ body {
 .sidebar {
   width: 320px;
   flex: 0 0 320px;
-  background: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ve-panel);
+  border: 1px solid var(--ve-border);
   border-radius: var(--radius);
   padding: 16px 14px;
   position: sticky;
@@ -126,15 +117,15 @@ body {
 }
 
 .side-brand {
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: -0.02em;
-  color: #eef2fb;
+  color: var(--ve-text);
   margin-bottom: 4px;
 }
 
 .side-sub {
   font-size: 0.82rem;
-  color: rgba(233, 237, 245, 0.72);
+  color: var(--ve-text-sub);
 }
 
 .side-tabs {
@@ -151,15 +142,15 @@ body {
 }
 
 .side-group {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ve-border);
   border-radius: 14px;
   padding: 12px 12px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ve-panel);
 }
 
 .side-group-title {
-  font-weight: 900;
-  color: rgba(233, 237, 245, 0.92);
+  font-weight: 500;
+  color: var(--ve-text);
   letter-spacing: -0.02em;
   margin-bottom: 10px;
 }
@@ -188,13 +179,14 @@ body {
   border-radius: 11px;
   border: none;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 500;
   font-family: inherit;
   font-size: inherit;
   line-height: 1.2;
   min-height: 2.75rem;
-  background: linear-gradient(135deg, #41f0bc, #2db897);
-  color: #081018;
+  background: var(--ve-panel);
+  border: 1px solid var(--ve-border);
+  color: var(--ve-text);
   text-decoration: none;
   box-sizing: border-box;
 }
@@ -237,21 +229,22 @@ button.primary.primary-fill {
 
 .side-tab {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(233, 237, 245, 0.82);
+  border: 1px solid var(--ve-border);
+  background: var(--ve-panel);
+  color: var(--ve-text-sub);
   padding: 10px 12px;
   border-radius: 12px;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 500;
   font-family: inherit;
   text-align: left;
 }
 
 .side-tab.active {
-  border-color: rgba(62, 224, 169, 0.55);
-  background: rgba(62, 224, 169, 0.12);
-  color: #eef2fb;
+  border-color: var(--ve-border);
+  border-left: 3px solid var(--ve-accent);
+  background: var(--ve-card);
+  color: var(--ve-text);
 }
 
 .results {
@@ -290,7 +283,7 @@ button.primary.primary-fill {
 }
 
 .results .card {
-  background: #f8f9fa;
+  background: var(--ve-card);
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: none;
 }
@@ -310,11 +303,11 @@ button.primary.primary-fill {
 
 .results :where(table) {
   color: #1a1a2e;
-  border-color: #ddd;
+  border-color: var(--ve-border);
 }
 
 .results :where(td, th) {
-  border-color: #ddd;
+  border-color: var(--ve-border);
 }
 
 /* 결과 패널 테이블: 폭/패딩/라인 최소화 (항목/기록 표용) */
@@ -411,7 +404,7 @@ button.primary.primary-fill {
 }
 
 .stat-card .stat-v {
-  font-weight: 1000;
+  font-weight: 500;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
   color: #1a1a2e;
@@ -420,17 +413,17 @@ button.primary.primary-fill {
 .stat-card .stat-k {
   margin-top: 2px;
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 500;
   color: rgba(26, 26, 46, 0.6);
 }
 
 .stat-card.highlight {
-  border-color: rgba(62, 224, 169, 0.45);
-  background: rgba(62, 224, 169, 0.12);
+  border-color: var(--ve-accent);
+  background: var(--ve-card);
 }
 
 .stat-card.highlight .stat-v {
-  color: #0c6b57;
+  color: var(--ve-success);
 }
 
 .results :where(th) {
@@ -452,7 +445,7 @@ button.primary.primary-fill {
 .results :where(td, th) {
   padding: 6px 12px;
   border: none;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--ve-border);
 }
 
 .results input,
@@ -503,7 +496,7 @@ button.primary.primary-fill {
 }
 
 .results .section.soft {
-  background: #f0f0f0;
+  background: var(--ve-panel);
   color: #1a1a2e;
 }
 
@@ -528,9 +521,9 @@ button.primary.primary-fill {
   padding: 34px 18px;
   border-radius: 16px;
   border: 1px dashed rgba(0, 0, 0, 0.18);
-  background: #f8f9fa;
+  background: var(--ve-card);
   color: rgba(26, 26, 46, 0.72);
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .muted {
@@ -545,7 +538,7 @@ button.primary.primary-fill {
 
 .result-hero-title {
   font-size: clamp(1.6rem, 3vw, 2.15rem);
-  font-weight: 1000;
+  font-weight: 500;
   letter-spacing: -0.03em;
 }
 
@@ -555,14 +548,14 @@ button.primary.primary-fill {
 }
 
 .section.soft {
-  background: #f0f0f0;
+  background: var(--ve-panel);
   padding: 16px 16px;
   overflow: visible;
 }
 
 .section-title {
   font-size: 0.85rem;
-  font-weight: 900;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: rgba(26, 26, 46, 0.7);
@@ -591,39 +584,39 @@ button.primary.primary-fill {
 }
 
 .metric {
-  background: #f0f0f0;
+  background: var(--ve-panel);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   padding: 12px 12px;
 }
 
 .metric.big {
-  background: rgba(0, 191, 165, 0.1);
-  border-color: rgba(0, 191, 165, 0.28);
+  background: transparent;
+  border-color: var(--ve-success);
 }
 
 .metric-k {
   font-size: 0.78rem;
   color: rgba(26, 26, 46, 0.65);
-  font-weight: 900;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .metric-v {
   font-size: 1.55rem;
-  font-weight: 1000;
+  font-weight: 500;
   letter-spacing: -0.03em;
   margin-top: 4px;
   color: #1a1a2e;
 }
 
 .metric-v.hot {
-  color: #f44336;
+  color: var(--ve-danger);
 }
 
 .metric-v.cold {
-  color: #1976d2;
+  color: var(--ve-accent);
 }
 
 .timeline {
@@ -642,7 +635,7 @@ button.primary.primary-fill {
 }
 
 .timeline-date {
-  font-weight: 1000;
+  font-weight: 500;
   color: #1a1a2e;
   font-size: 0.95rem;
 }
@@ -662,7 +655,7 @@ button.primary.primary-fill {
 
 .timeline-meta {
   color: rgba(26, 26, 46, 0.7);
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .timeline-gid {
@@ -675,10 +668,10 @@ button.primary.primary-fill {
   padding: 11px 12px;
   border-radius: 14px;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(0, 191, 165, 0.1);
+  background: transparent;
   color: #1a1a2e;
   cursor: pointer;
-  font-weight: 1000;
+  font-weight: 500;
   font-family: inherit;
 }
 
@@ -691,9 +684,9 @@ button.primary.primary-fill {
   margin: 0;
   padding: 12px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(244, 67, 54, 0.3);
-  background: rgba(244, 67, 54, 0.08);
-  color: #b71c1c;
+  border: 1px solid var(--ve-danger);
+  background: rgba(156, 74, 68, 0.1);
+  color: var(--ve-danger);
   white-space: pre-wrap;
 }
 
@@ -710,14 +703,14 @@ button.primary.primary-fill {
 }
 
 .best-card {
-  background: #f0f0f0;
+  background: var(--ve-panel);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   padding: 14px 14px;
 }
 
 .best-head {
-  font-weight: 1000;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: rgba(26, 26, 46, 0.85);
   margin-bottom: 10px;
@@ -725,20 +718,20 @@ button.primary.primary-fill {
 
 .best-name {
   font-size: 1.35rem;
-  font-weight: 1000;
+  font-weight: 500;
   letter-spacing: -0.03em;
 }
 
 .best-team {
   color: rgba(26, 26, 46, 0.65);
-  font-weight: 900;
+  font-weight: 500;
   font-size: 0.95rem;
 }
 
 .best-sub {
   margin-top: 8px;
   color: rgba(26, 26, 46, 0.82);
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .game-card-list {
@@ -763,12 +756,12 @@ button.primary.primary-fill {
 }
 
 .game-title {
-  font-weight: 1000;
+  font-weight: 500;
 }
 
 .game-score {
   color: rgba(26, 26, 46, 0.65);
-  font-weight: 900;
+  font-weight: 500;
   font-size: 0.9rem;
 }
 
@@ -786,7 +779,7 @@ button.primary.primary-fill {
 }
 
 .results .mvp-game-card {
-  background: #f8f9fa;
+  background: var(--ve-card);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 8px;
@@ -799,7 +792,7 @@ button.primary.primary-fill {
 }
 
 .results .mvp-game-title {
-  font-weight: 700;
+  font-weight: 500;
   margin-bottom: 6px;
   color: #1a1a2e;
   line-height: 1.35;
@@ -860,13 +853,13 @@ button.primary.primary-fill {
   padding: 10px 18px;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s;
 }
 
 .tab.active {
   background: var(--accent-dim);
-  border-color: rgba(62, 224, 169, 0.38);
+  border-color: var(--ve-accent);
   color: var(--text);
 }
 
@@ -884,7 +877,7 @@ button.primary.primary-fill {
 .card {
   background: linear-gradient(
       165deg,
-      rgba(255, 255, 255, 0.03),
+      var(--ve-panel),
       transparent 42%
     ),
     var(--panel);
@@ -909,7 +902,7 @@ button.primary.primary-fill {
 .card label {
   display: block;
   font-size: 0.76rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
   margin-bottom: 6px;
   letter-spacing: 0.03em;
@@ -938,7 +931,7 @@ select {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #0f141d;
+  background: var(--ve-text);
   color: var(--text);
   font-family: inherit;
   font-size: 0.92rem;
@@ -952,8 +945,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: rgba(62, 224, 169, 0.45);
-  box-shadow: 0 0 0 3px rgba(62, 224, 169, 0.12);
+  border-color: var(--ve-accent);
+  box-shadow: 0 0 0 3px var(--ve-card);
 }
 
 .actions {
@@ -966,12 +959,20 @@ button.primary {
   flex: 1;
   padding: 11px 14px;
   border-radius: 11px;
-  border: none;
+  border: 1px solid var(--ve-border);
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 500;
   font-family: inherit;
-  background: linear-gradient(135deg, #41f0bc, #2db897);
-  color: #081018;
+  background: var(--ve-panel);
+  color: var(--ve-text);
+}
+
+/* 주요 실행 버튼(fill 변형) = 액센트. 화면당 1개 용도 */
+button.primary.primary-fill,
+.side-video-settings-actions a.primary.primary-fill {
+  background: var(--ve-accent);
+  border-color: var(--ve-accent);
+  color: var(--ve-accent-on);
 }
 
 button.primary:disabled {
@@ -994,12 +995,12 @@ button.primary:disabled {
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ve-panel);
 }
 
 .pv-vs {
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .mini-tabs {
@@ -1018,7 +1019,7 @@ button.primary:disabled {
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 500;
   font-family: inherit;
   font-size: 0.84rem;
 }
@@ -1040,7 +1041,7 @@ button.primary:disabled {
 
 .pv-warn {
   color: var(--danger);
-  font-weight: 800;
+  font-weight: 500;
   font-size: 0.82rem;
 }
 
@@ -1065,14 +1066,14 @@ button.primary:disabled {
 
 .pv-table th {
   text-align: left;
-  background: rgba(255, 255, 255, 0.04);
-  color: #eef2fb;
-  font-weight: 800;
+  background: var(--ve-panel);
+  color: var(--ve-text);
+  font-weight: 500;
   width: 52%;
 }
 
 .pv-table tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ve-panel);
 }
 
 .pv-hint {
@@ -1085,16 +1086,16 @@ button.primary:disabled {
   padding: 9px 12px;
   border-radius: 11px;
   border: 1px dashed var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ve-panel);
   color: var(--text);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 500;
   font-family: inherit;
   font-size: 0.86rem;
 }
 
 .pv-toggle:hover {
-  border-color: rgba(62, 224, 169, 0.35);
+  border-color: var(--ve-accent);
 }
 
 .pv-detail {
@@ -1121,7 +1122,7 @@ button.primary:disabled {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ve-panel);
 }
 
 .pv-game-line1 {
@@ -1130,13 +1131,13 @@ button.primary:disabled {
   gap: 6px 10px;
   align-items: baseline;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 500;
   margin-bottom: 8px;
   line-height: 1.35;
 }
 
 .pv-game-date {
-  color: #eef2fb;
+  color: var(--ve-text);
 }
 
 .pv-game-gid {
@@ -1156,14 +1157,14 @@ button.primary:disabled {
 .pv-game-line3 {
   font-size: 0.8rem;
   line-height: 1.45;
-  color: #d8deea;
+  color: var(--ve-border);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .pv-game-role {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .pv-detail-empty {
@@ -1181,15 +1182,15 @@ button.primary:disabled {
   padding: 10px 12px;
   border-radius: 11px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ve-panel);
   color: var(--text);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 500;
   font-family: inherit;
 }
 
 .pv-ai-btn:hover {
-  border-color: rgba(62, 224, 169, 0.38);
+  border-color: var(--ve-accent);
 }
 
 .pv-ai-btn:disabled {
@@ -1222,7 +1223,7 @@ button.primary:disabled {
 
 .md {
   font-size: 0.92rem;
-  color: #d8deea;
+  color: var(--ve-border);
   padding-right: 6px;
 }
 
@@ -1251,7 +1252,7 @@ button.primary:disabled {
 }
 
 .md :where(strong) {
-  color: #f2f5fb;
+  color: var(--ve-panel);
 }
 
 .md :where(code) {
@@ -1260,7 +1261,7 @@ button.primary:disabled {
   padding: 0.15em 0.35em;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ve-panel);
 }
 
 .md pre {
@@ -1277,7 +1278,7 @@ button.primary:disabled {
 }
 
 .md blockquote {
-  border-left: 3px solid rgba(62, 224, 169, 0.45);
+  border-left: 3px solid var(--ve-accent);
   padding-left: 12px;
   margin-left: 0;
   color: var(--muted);
@@ -1306,13 +1307,13 @@ button.primary:disabled {
 }
 
 .md th {
-  background: rgba(255, 255, 255, 0.04);
-  color: #eef2fb;
-  font-weight: 700;
+  background: var(--ve-panel);
+  color: var(--ve-text);
+  font-weight: 500;
 }
 
 .md tr:nth-child(even) td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--ve-panel);
 }
 
 .md hr {
@@ -1326,7 +1327,7 @@ button.primary:disabled {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 0.82rem;
-  color: #d8deea;
+  color: var(--ve-border);
   margin: 0;
   padding-right: 6px;
 }
@@ -1354,12 +1355,12 @@ button.primary:disabled {
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: none;
 }
 
 .shorts-verify-link--naver {
-  background: #03c75a;
+  background: var(--ve-success);
   color: #ffffff;
 }
 
@@ -1368,7 +1369,7 @@ button.primary:disabled {
 }
 
 .shorts-verify-link--kbo {
-  background: #002d6a;
+  background: var(--ve-accent);
   color: #ffffff;
 }
 
@@ -1394,14 +1395,14 @@ button.primary:disabled {
   border: 1px solid var(--border);
   background: var(--elevated);
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .preset-tab.active {
   background: var(--accent-dim);
-  border-color: rgba(62, 224, 169, 0.45);
+  border-color: var(--ve-accent);
   color: var(--accent);
 }
 
@@ -1424,58 +1425,58 @@ button.primary:disabled {
 
 /* 타입별 구분: shorts1 파랑, shorts2 초록, shorts4 앰버 */
 .preset-card--shorts1 {
-  border-left: 4px solid #4f8cff;
+  border-left: 4px solid var(--ve-border);
   background: linear-gradient(
       145deg,
-      rgba(79, 140, 255, 0.14) 0%,
+      transparent 0%,
       var(--elevated) 48%
     ),
     var(--elevated);
 }
 
 .preset-card--shorts2 {
-  border-left: 4px solid #2bd4a3;
+  border-left: 4px solid var(--ve-border);
   background: linear-gradient(
       145deg,
-      rgba(43, 212, 163, 0.12) 0%,
+      transparent 0%,
       var(--elevated) 48%
     ),
     var(--elevated);
 }
 
 .preset-card--shorts4 {
-  border-left: 4px solid #e8b84a;
+  border-left: 4px solid var(--ve-border);
   background: linear-gradient(
       145deg,
-      rgba(232, 184, 74, 0.12) 0%,
+      transparent 0%,
       var(--elevated) 48%
     ),
     var(--elevated);
 }
 
 .preset-card:hover {
-  border-color: rgba(62, 224, 169, 0.35);
+  border-color: var(--ve-accent);
   transform: translateY(-1px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
 .preset-card--shorts1:hover {
-  border-color: rgba(79, 140, 255, 0.45);
+  border-color: var(--ve-accent);
 }
 
 .preset-card--shorts2:hover {
-  border-color: rgba(43, 212, 163, 0.45);
+  border-color: var(--ve-success);
 }
 
 .preset-card--shorts4:hover {
-  border-color: rgba(232, 184, 74, 0.45);
+  border-color: var(--ve-warning);
 }
 
 .preset-card-title {
-  font-weight: 800;
+  font-weight: 500;
   font-size: 1.02rem;
   margin-bottom: 6px;
-  color: #f4f8ff;
+  color: var(--ve-panel);
   letter-spacing: -0.02em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
@@ -1485,26 +1486,26 @@ button.primary:disabled {
   font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 999px;
-  font-weight: 700;
+  font-weight: 500;
   margin-bottom: 8px;
 }
 
 .preset-card--shorts1 .preset-card-badge {
-  background: rgba(79, 140, 255, 0.28);
-  color: #dce8ff;
-  border: 1px solid rgba(79, 140, 255, 0.35);
+  background: var(--ve-accent);
+  color: var(--ve-panel);
+  border: 1px solid var(--ve-accent);
 }
 
 .preset-card--shorts2 .preset-card-badge {
-  background: rgba(43, 212, 163, 0.22);
-  color: #d4fff2;
-  border: 1px solid rgba(43, 212, 163, 0.35);
+  background: rgba(74, 122, 92, 0.22);
+  color: var(--ve-card);
+  border: 1px solid var(--ve-success);
 }
 
 .preset-card--shorts4 .preset-card-badge {
-  background: rgba(232, 184, 74, 0.22);
-  color: #fff3d6;
-  border: 1px solid rgba(232, 184, 74, 0.35);
+  background: rgba(151, 116, 47, 0.22);
+  color: var(--ve-card);
+  border: 1px solid var(--ve-warning);
 }
 
 .preset-card-meta {
@@ -1548,7 +1549,7 @@ button.primary:disabled {
 
 .preset-field span {
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -1557,7 +1558,7 @@ button.primary:disabled {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #0f141c;
+  background: var(--ve-text);
   color: var(--text);
   font-family: inherit;
 }
@@ -1590,22 +1591,22 @@ button.ghost {
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 button.ghost:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--ve-border);
 }
 
 button.danger-outline {
   background: transparent;
-  border: 1px solid rgba(255, 107, 138, 0.55);
+  border: 1px solid var(--ve-danger);
   color: var(--danger);
   padding: 8px 14px;
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .video-export-overlay {
@@ -1623,13 +1624,13 @@ button.danger-outline {
 .video-export-progress-bar {
   height: 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ve-border);
   overflow: hidden;
 }
 
 .video-export-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), #6395ff);
+  background: linear-gradient(90deg, var(--accent), var(--ve-accent));
   transition: width 0.12s ease;
 }
 
@@ -1682,7 +1683,7 @@ button.danger-outline {
 }
 
 .memo-toolbar-btn:hover {
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: var(--ve-border);
 }
 
 .memo-modal-overlay {
@@ -1708,7 +1709,7 @@ button.danger-outline {
 .memo-modal-title {
   margin: 0;
   font-size: 1.12rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .memo-modal-close {
@@ -1730,7 +1731,7 @@ button.danger-outline {
 }
 
 .memo-modal-close:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--ve-border);
 }
 
 .memo-dual {
@@ -1750,7 +1751,7 @@ button.danger-outline {
 
 .memo-pane-title {
   font-size: 0.88rem;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -1763,7 +1764,7 @@ button.danger-outline {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #0f141c;
+  background: var(--ve-text);
   color: var(--text);
   font-family: inherit;
   font-size: 0.9rem;
@@ -1772,7 +1773,7 @@ button.danger-outline {
 
 .memo-textarea:focus {
   outline: none;
-  border-color: rgba(62, 224, 169, 0.45);
+  border-color: var(--ve-accent);
 }
 
 .memo-tabbed {
