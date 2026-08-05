@@ -851,6 +851,23 @@ export default function Shorts3Panel({
     setPanelOpen((v) => ({ ...v, [key]: !v[key] }));
   // 1~4단계(소스 준비) 아코디언을 오버레이 드로어로 분리 — 편집기 하단 공간 확보. 기본 닫힘.
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  // 미리보기 영상 표시 영역(400px) 접기 — FHD 등 낮은 화면에서 편집기 세로 공간 확보. 기본 펼침.
+  const [previewCollapsed, setPreviewCollapsed] = useState(() => {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      return localStorage.getItem("kbo_ui_preview_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem("kbo_ui_preview_collapsed", previewCollapsed ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [previewCollapsed]);
   const [whisperData, setWhisperData] = useState(null);
   const [selectedTimestamps, setSelectedTimestamps] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -4338,8 +4355,31 @@ export default function Shorts3Panel({
             marginTop: 16,
           }}
         >
-          <div className="muted" style={{ fontWeight: 700, marginBottom: 8 }}>
-            원본 미리보기
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div className="muted" style={{ fontWeight: 700 }}>
+              원본 미리보기
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewCollapsed((c) => !c)}
+              aria-expanded={!previewCollapsed}
+              title={previewCollapsed ? "미리보기 영상 영역 펼치기" : "미리보기 영상 영역 접기(편집기 공간 확보)"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                background: "#374151",
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              {previewCollapsed ? "🔼 미리보기 펼치기" : "🔽 미리보기 접기"}
+            </button>
           </div>
           <div style={{ marginBottom: 8 }}>
             <div
@@ -4465,6 +4505,8 @@ export default function Shorts3Panel({
             <div
               ref={previewVideoWrapRef}
                 style={{
+                  // 접기: display만 토글(언마운트 X) — video ref·canvas 컨텍스트 유지
+                  display: previewCollapsed ? "none" : "block",
                   position: "relative",
                   width: "100%",
                   borderRadius: 8,
