@@ -5933,7 +5933,10 @@ export default function Shorts3Panel({
                     selectedSegIndex === index
                       ? "2px solid var(--ve-accent)"
                       : "1px solid var(--ve-border)",
-                  background: "var(--ve-panel)",
+                  background:
+                    selectedSegIndex === index
+                      ? "var(--ve-card)"
+                      : "var(--ve-panel)",
                   cursor: "pointer",
                   overflow: "hidden",
                 }}
