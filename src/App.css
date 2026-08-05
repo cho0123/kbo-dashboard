@@ -20,6 +20,22 @@
   --radius: 14px;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   font-family: "Noto Sans KR", "IBM Plex Sans KR", system-ui, sans-serif;
+
+  /* 영상편집 화면(Video Editor) 팔레트 — 무채색 중심, 액센트 1색.
+     전역 정의: 추후 다른 화면도 동일 팔레트 사용 가능. */
+  --ve-bg: #c9c7c2;        /* 페이지 배경 */
+  --ve-panel: #d8d6d1;     /* 패널 */
+  --ve-card: #e4e2de;      /* 카드(선택 항목) */
+  --ve-border: #b2afa9;    /* 테두리 */
+  --ve-text: #333230;      /* 본문 */
+  --ve-text-sub: #5f5d58;  /* 보조 (panel 대비 4.5:1 확보) */
+  --ve-text-dim: #8b8983;  /* 비활성 (WCAG 예외) */
+  --ve-accent: #54718d;    /* 액센트(선택·포커스 전용) */
+  --ve-accent-on: #ffffff; /* 액센트 위 텍스트 */
+  --ve-matte: #808080;     /* 미리보기 둘레 매트 */
+  --ve-success: #4a7a5c;   /* 상태색 */
+  --ve-warning: #97742f;
+  --ve-danger: #9c4a44;
 }
 
 *,
@@ -255,6 +271,11 @@ button.primary.primary-fill {
   color: #1a1a2e !important;
   overflow: visible;
   max-height: none;
+}
+
+/* 영상편집 화면일 때만 페이지 배경을 팔레트(--ve-bg)로. 다른 화면은 기존 #ffffff 유지 */
+.results.ve-editor {
+  background: var(--ve-bg);
 }
 
 .results .result-page {
@@ -1778,4 +1799,10 @@ button.danger-outline {
     flex: 1;
     min-height: min(42vh, 360px);
   }
+}
+
+/* 영상편집: 시간 표시 입력(HH:MM:SS / .00)은 자릿수 폭 고정 */
+input[placeholder="00:00:00"],
+input[placeholder=".00"] {
+  font-variant-numeric: tabular-nums;
 }

@@ -5237,7 +5237,7 @@ export default function App() {
 
         </aside>
 
-        <main className="results">
+        <main className={`results${activeKey === "shorts3_highlight" ? " ve-editor" : ""}`}>
           <div className="results-inner">
             {/* results are rendered by activeKey; sidebar contains all controls */}
             {!activeKey ? (

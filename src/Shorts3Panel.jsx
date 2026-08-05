@@ -62,12 +62,12 @@ const TENTH_SEC = 0.1;
 
 /** 구간 시작/종료 미세조정 버튼 (-1f / ±0.1s / +1f) */
 const SEGMENT_NUDGE_BTN_STYLE = {
-  background: "#2a2a2a",
-  border: "1px solid #555",
-  color: "#fff",
+  background: "var(--ve-card)",
+  border: "1px solid var(--ve-border)",
+  color: "var(--ve-text)",
   padding: "2px 6px",
   borderRadius: 4,
-  fontSize: 10,
+  fontSize: 12,
   cursor: "pointer",
 };
 
@@ -80,23 +80,23 @@ const NARRATION_ROW_BTN_BASE = {
   fontSize: 12,
   fontFamily: "inherit",
   boxSizing: "border-box",
-  background: "#334155",
-  border: "1px solid #334155",
-  color: "#fff",
+  background: "var(--ve-card)",
+  border: "1px solid var(--ve-border)",
+  color: "var(--ve-text)",
   textAlign: "center",
   lineHeight: 1.25,
 };
 
 const NARRATION_ROW_BTN_TTS = {
-  background: "#1d4ed8",
-  border: "1px solid #1d4ed8",
-  color: "#fff",
+  background: "var(--ve-accent)",
+  border: "1px solid var(--ve-accent)",
+  color: "var(--ve-text)",
 };
 
 const NARRATION_ROW_BTN_SEGMENT_PLAY = {
-  background: "#065f46",
-  border: "1px solid #065f46",
-  color: "#fff",
+  background: "var(--ve-success)",
+  border: "1px solid var(--ve-border)",
+  color: "var(--ve-text)",
 };
 
 /** ElevenLabs TTS 음성 선택 */
@@ -121,8 +121,8 @@ const EDIT_STYLE_OPTIONS = [
   { id: LAYOUT_TYPES.TOPBOTTOM, label: "상하바" },
 ];
 
-const DEFAULT_TOP_BAR_COLOR = "#16213e";
-const DEFAULT_BOTTOM_BAR_COLOR = "#16213e";
+const DEFAULT_TOP_BAR_COLOR = "var(--ve-panel)";
+const DEFAULT_BOTTOM_BAR_COLOR = "var(--ve-panel)";
 
 const THUMBNAIL_TEXT_Y_DEFAULTS = {
   [LAYOUT_TYPES.KBO]: { textY1: 49, textY2: 57 },
@@ -266,7 +266,7 @@ function normalizeFontSelectValue(v) {
 }
 
 const TIMELINE_SEGMENT_COLORS = [
-  "#13c79a",
+  "var(--ve-success)",
   "#7EC8E3",
   "#FFB347",
   "#FFB3C6",
@@ -369,7 +369,7 @@ function TextColorPalette({ value, onChange, disabled }) {
           width: 36,
           height: 28,
           padding: 0,
-          border: "1px solid #555",
+          border: "1px solid var(--ve-border)",
           borderRadius: 6,
           background: "transparent",
           cursor: disabled ? "not-allowed" : "pointer",
@@ -389,12 +389,12 @@ function TextColorPalette({ value, onChange, disabled }) {
         style={{
           width: 76,
           padding: "4px 6px",
-          fontSize: 11,
+          fontSize: 12,
           fontFamily: "monospace",
           boxSizing: "border-box",
-          background: "#1e1e1e",
-          color: "#fff",
-          border: "1px solid #555",
+          background: "var(--ve-panel)",
+          color: "var(--ve-text)",
+          border: "1px solid var(--ve-border)",
           borderRadius: 6,
           opacity: disabled ? 0.55 : 1,
           flexShrink: 0,
@@ -804,10 +804,10 @@ const accordionHeaderStyle = {
   gap: 10,
   padding: "10px 12px",
   borderRadius: 8,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.05)",
+  border: "1px solid var(--ve-border)",
+  background: "var(--ve-panel)",
   cursor: "pointer",
-  fontWeight: 700,
+  fontWeight: 500,
   boxSizing: "border-box",
   fontFamily: "inherit",
   fontSize: 14,
@@ -851,6 +851,8 @@ export default function Shorts3Panel({
     setPanelOpen((v) => ({ ...v, [key]: !v[key] }));
   // 1~4단계(소스 준비) 아코디언을 오버레이 드로어로 분리 — 편집기 하단 공간 확보. 기본 닫힘.
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  // 편집 단축키 도움말 오버레이 (드로어와 동일 패턴). 기본 닫힘.
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   // 미리보기 영상 표시 영역(400px) 접기 — FHD 등 낮은 화면에서 편집기 세로 공간 확보. 기본 펼침.
   const [previewCollapsed, setPreviewCollapsed] = useState(() => {
     if (typeof localStorage === "undefined") return false;
@@ -1972,8 +1974,8 @@ export default function Shorts3Panel({
   }, [segments, thumbnailSegment]);
 
   const segmentTotalWarnStyle = useMemo(() => {
-    if (segmentTotalSec > 300) return { color: "#ff6b8a" };
-    if (segmentTotalSec > 60) return { color: "#ffb347" };
+    if (segmentTotalSec > 300) return { color: "var(--ve-danger)" };
+    if (segmentTotalSec > 60) return { color: "var(--ve-warning)" };
     return {};
   }, [segmentTotalSec]);
 
@@ -2860,6 +2862,93 @@ export default function Shorts3Panel({
     );
   }, [selectedSegIndex]);
 
+  // 편집 단축키 — 새 로직 없이 기존 핸들러만 호출. 패널 언마운트 시 cleanup으로 리스너 제거.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      // 가드 2: 소스 준비 드로어 열림 → 무시
+      if (sourceDrawerOpen || shortcutsHelpOpen) return;
+      // 가드 1: 입력 요소 포커스 → 무시 (나레이션·자막 입력 보호)
+      const t = e.target;
+      const tag = t && t.tagName ? t.tagName.toUpperCase() : "";
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        (t && t.isContentEditable)
+      ) {
+        return;
+      }
+      // OS/브라우저 단축키(Ctrl/Meta/Alt)는 건드리지 않음 (Shift는 허용)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // 가드 5: 선택 구간이 없으면 아무 것도 하지 않음
+      const seg = segments[selectedSegIndex];
+      if (!seg) return;
+      const v = previewVideoRef.current;
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault(); // 가드 4: 처리한 경우만 기본 동작(스크롤) 차단
+          toggleSegmentPreviewPlayback(selectedSegIndex);
+          break;
+        case "ArrowUp":
+          if (selectedSegIndex > 0) {
+            e.preventDefault();
+            selectSegment(selectedSegIndex - 1);
+          }
+          break;
+        case "ArrowDown":
+          if (selectedSegIndex < segments.length - 1) {
+            e.preventDefault();
+            selectSegment(selectedSegIndex + 1);
+          }
+          break;
+        case "ArrowLeft":
+          if (v) {
+            e.preventDefault();
+            v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 1 : 1 / 30));
+          }
+          break;
+        case "ArrowRight":
+          if (v) {
+            e.preventDefault();
+            v.currentTime = v.currentTime + (e.shiftKey ? 1 : 1 / 30);
+          }
+          break;
+        case "KeyI":
+          e.preventDefault();
+          applyVideoTimeToSegment("start");
+          break;
+        case "KeyO":
+          e.preventDefault();
+          applyVideoTimeToSegment("end");
+          break;
+        case "Delete":
+          e.preventDefault();
+          if (
+            window.confirm(
+              `선택한 구간 #${selectedSegIndex + 1}을(를) 삭제할까요?`
+            )
+          ) {
+            deleteSelectedSegment();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    sourceDrawerOpen,
+    shortcutsHelpOpen,
+    segments,
+    selectedSegIndex,
+    toggleSegmentPreviewPlayback,
+    selectSegment,
+    applyVideoTimeToSegment,
+    deleteSelectedSegment,
+  ]);
+
   const adjustSegmentFieldTime = useCallback((segIndex, field, deltaSec) => {
     let seekSec = null;
     setSegments((prev) => {
@@ -3634,7 +3723,7 @@ export default function Shorts3Panel({
               fontSize: segBottomPx,
               color: segColor,
               fontFamily: segFontFamily,
-              fontWeight: 700,
+              fontWeight: 500,
               lineHeight: 1.2,
               textShadow: bottomSeg?.textShadow ? shadow : "none",
               padding: "0 8px",
@@ -3657,7 +3746,7 @@ export default function Shorts3Panel({
               fontSize: segBottomPx2,
               color: segColor2,
               fontFamily: segFontFamily2,
-              fontWeight: 700,
+              fontWeight: 500,
               lineHeight: 1.2,
               textShadow: bottomSeg?.textShadow2 ? shadow : "none",
               padding: "0 8px",
@@ -3721,9 +3810,9 @@ export default function Shorts3Panel({
               padding: "6px 14px",
               borderRadius: 8,
               border: "1px solid rgba(0,0,0,0.15)",
-              background: "#374151",
-              color: "#ffffff",
-              fontWeight: 700,
+              background: "var(--ve-card)",
+              color: "var(--ve-text)",
+              fontWeight: 500,
               fontSize: 13,
               cursor: "pointer",
             }}
@@ -3733,6 +3822,116 @@ export default function Shorts3Panel({
               {sourceDrawerOpen ? "▲" : "▼"}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setShortcutsHelpOpen((o) => !o)}
+            aria-expanded={shortcutsHelpOpen}
+            title="편집 단축키 보기"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "var(--ve-card)",
+              color: "var(--ve-text)",
+              fontWeight: 500,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            ⌨ 단축키
+          </button>
+        </div>
+        {/* 단축키 도움말 오버레이 (드로어와 동일 패턴, 목록만) */}
+        <div
+          onClick={() => setShortcutsHelpOpen(false)}
+          style={{
+            display: shortcutsHelpOpen ? "block" : "none",
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(420px, 92vw)",
+              background: "var(--ve-card)",
+              color: "var(--ve-text)",
+              borderRadius: 12,
+              border: "1px solid var(--ve-border)",
+              padding: 20,
+              boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ fontWeight: 500, fontSize: 16 }}>⌨ 편집 단축키</div>
+              <button
+                type="button"
+                onClick={() => setShortcutsHelpOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--ve-text-sub)",
+                  fontSize: 16,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.9 }}>
+              {[
+                ["Space", "선택 구간 재생 / 정지"],
+                ["↑ / ↓", "이전 / 다음 구간 선택"],
+                ["← / →", "재생위치 1프레임 이동 (±1/30초)"],
+                ["Shift + ← / →", "재생위치 1초 이동"],
+                ["I", "현재 위치를 구간 시작으로"],
+                ["O", "현재 위치를 구간 종료로"],
+                ["Delete", "선택 구간 삭제 (확인 후)"],
+              ].map(([k, desc]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      fontWeight: 500,
+                      color: "var(--ve-accent)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {k}
+                  </span>
+                  <span style={{ color: "var(--ve-text-sub)", textAlign: "right" }}>
+                    {desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: "var(--ve-text-sub)" }}>
+              입력창에 포커스가 있거나 소스 준비 창이 열려 있으면 단축키는 동작하지 않습니다.
+            </div>
+          </div>
         </div>
         {/* 오버레이 드로어: 닫혀도 언마운트하지 않음(display:none) — VideoPrep/업로드 상태 보존 */}
         <div
@@ -3753,8 +3952,10 @@ export default function Shorts3Panel({
               left: 0,
               bottom: 0,
               width: "min(460px, 92vw)",
-              background: "#12121c",
-              borderRight: "1px solid rgba(255,255,255,0.1)",
+              // 본문은 원래 아코디언이 놓였던 .section soft 배경(#f0f0f0)과 동일하게 —
+              // color 미지정: 원래 상속색(#1a1a2e)이 그대로 나오도록.
+              background: "var(--ve-panel)",
+              borderRight: "1px solid rgba(0,0,0,0.12)",
               boxShadow: "2px 0 16px rgba(0,0,0,0.4)",
               overflowY: "auto",
               padding: "16px 18px 24px",
@@ -3766,10 +3967,13 @@ export default function Shorts3Panel({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 8,
+                marginBottom: 12,
+                background: "var(--ve-card)",
+                padding: "8px 12px",
+                borderRadius: 8,
               }}
             >
-              <span style={{ fontWeight: 800, fontSize: 15, color: "#f5efdc" }}>
+              <span style={{ fontWeight: 500, fontSize: 16, color: "var(--ve-text)" }}>
                 소스 준비
               </span>
               <button
@@ -3779,8 +3983,8 @@ export default function Shorts3Panel({
                 style={{
                   border: "none",
                   background: "transparent",
-                  color: "#f5efdc",
-                  fontSize: 18,
+                  color: "var(--ve-text)",
+                  fontSize: 16,
                   cursor: "pointer",
                   lineHeight: 1,
                 }}
@@ -3827,7 +4031,7 @@ export default function Shorts3Panel({
                   ) : (
                     <span>
                       🔴 연결 안 됨 —{" "}
-                      <strong style={{ color: "#ffb347" }}>
+                      <strong style={{ color: "var(--ve-warning)" }}>
                         서버시작.bat를 실행해주세요
                       </strong>
                     </span>
@@ -3844,9 +4048,9 @@ export default function Shorts3Panel({
                     minWidth: 120,
                     padding: "8px 10px",
                     borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "#0f141d",
-                    color: "var(--text, #e9edf5)",
+                    border: "1px solid var(--ve-border)",
+                    background: "var(--ve-panel)",
+                    color: "var(--ve-text)",
                     fontFamily: "inherit",
                     fontSize: 13,
                   }}
@@ -3974,7 +4178,7 @@ export default function Shorts3Panel({
                 <div style={{ marginTop: 12 }}>
                   <div
                     className="muted"
-                    style={{ fontWeight: 700, marginBottom: 6 }}
+                    style={{ fontWeight: 500, marginBottom: 6 }}
                   >
                     업로드 진행
                   </div>
@@ -4000,7 +4204,7 @@ export default function Shorts3Panel({
                     gap: 10,
                   }}
                 >
-                  <span className="muted" style={{ fontWeight: 700 }}>
+                  <span className="muted" style={{ fontWeight: 500 }}>
                     업로드 완료 (jobId 저장됨)
                   </span>
                   <button
@@ -4037,7 +4241,7 @@ export default function Shorts3Panel({
                   목록 불러오는 중…
                 </div>
               ) : savedFilesError ? (
-                <div className="muted" style={{ fontSize: 13, color: "#ffb347" }}>
+                <div className="muted" style={{ fontSize: 13, color: "var(--ve-warning)" }}>
                   {savedFilesError}
                 </div>
               ) : savedFiles.length === 0 ? (
@@ -4075,11 +4279,11 @@ export default function Shorts3Panel({
                           gap: 8,
                           padding: "10px 12px",
                           borderRadius: 8,
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          background: "rgba(255,255,255,0.03)",
+                          border: "1px solid var(--ve-border)",
+                          background: "var(--ve-panel)",
                         }}
                       >
-                        <span style={{ fontWeight: 700 }}>{shortName}</span>
+                        <span style={{ fontWeight: 500 }}>{shortName}</span>
                         <span className="muted" style={{ fontSize: 13 }}>
                           {when}
                         </span>
@@ -4115,8 +4319,8 @@ export default function Shorts3Panel({
                               border: "1px solid rgba(255, 107, 138, 0.55)",
                               background:
                                 "linear-gradient(135deg, rgba(180,40,70,0.55), rgba(120,24,48,0.75))",
-                              color: "#ffd0dc",
-                              fontWeight: 700,
+                              color: "var(--ve-danger)",
+                              fontWeight: 500,
                               fontFamily: "inherit",
                               cursor:
                                 busy || uploading ? "not-allowed" : "pointer",
@@ -4154,8 +4358,8 @@ export default function Shorts3Panel({
                 <button
                   type="button"
                   style={{
-                    background: "#2563eb",
-                    color: "#fff",
+                    background: "var(--ve-accent)",
+                    color: "var(--ve-text)",
                     border: "none",
                     padding: "6px 14px",
                     borderRadius: 6,
@@ -4220,7 +4424,7 @@ export default function Shorts3Panel({
                     marginTop: 8,
                     fontSize: 12,
                     whiteSpace: "pre-wrap",
-                    color: "#ef4444",
+                    color: "var(--ve-danger)",
                   }}
                 >
                   {whisperData.error}
@@ -4247,9 +4451,9 @@ export default function Shorts3Panel({
                         type="button"
                         style={{
                           marginBottom: 8,
-                          background: "#0f172a",
-                          color: "#fff",
-                          border: "1px solid rgba(255,255,255,0.15)",
+                          background: "var(--ve-card)",
+                          color: "var(--ve-text)",
+                          border: "1px solid var(--ve-border)",
                           padding: "6px 12px",
                           borderRadius: 6,
                           cursor: "pointer",
@@ -4271,7 +4475,7 @@ export default function Shorts3Panel({
                       maxHeight: 300,
                       overflowY: "auto",
                       marginTop: 8,
-                      background: "#111",
+                      background: "var(--ve-panel)",
                       padding: 8,
                       borderRadius: 6,
                     }}
@@ -4289,7 +4493,7 @@ export default function Shorts3Panel({
                               alignItems: "flex-start",
                               gap: 8,
                               padding: "6px 8px",
-                              background: "#1e1e1e",
+                              background: "var(--ve-panel)",
                               borderRadius: 4,
                               cursor: "pointer",
                               marginBottom: 4,
@@ -4318,7 +4522,7 @@ export default function Shorts3Panel({
                             />
                             <span
                               style={{
-                                color: "#e2e8f0",
+                                color: "var(--ve-text)",
                                 fontSize: 12,
                                 flex: 1,
                                 wordBreak: "break-word",
@@ -4348,7 +4552,7 @@ export default function Shorts3Panel({
             top: 0,
             zIndex: 10,
             width: "100%",
-            background: "#ffffff",
+            background: "var(--ve-card)",
             paddingTop: 4,
             paddingBottom: 14,
             boxSizing: "border-box",
@@ -4356,7 +4560,7 @@ export default function Shorts3Panel({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div className="muted" style={{ fontWeight: 700 }}>
+            <div className="muted" style={{ fontWeight: 500 }}>
               원본 미리보기
             </div>
             <button
@@ -4371,9 +4575,9 @@ export default function Shorts3Panel({
                 padding: "5px 12px",
                 borderRadius: 8,
                 border: "1px solid rgba(0,0,0,0.15)",
-                background: "#374151",
-                color: "#ffffff",
-                fontWeight: 700,
+                background: "var(--ve-card)",
+                color: "var(--ve-text)",
+                fontWeight: 500,
                 fontSize: 12,
                 cursor: "pointer",
               }}
@@ -4412,11 +4616,11 @@ export default function Shorts3Panel({
                     borderRadius: 6,
                     border:
                       layout === opt.id
-                        ? "2px solid #4ade80"
-                        : "2px solid #555",
-                    background: layout === opt.id ? "#1a2e1a" : "#1e1e1e",
-                    color: layout === opt.id ? "#4ade80" : "#ddd",
-                    fontWeight: "bold",
+                        ? "2px solid var(--ve-accent)"
+                        : "2px solid var(--ve-border)",
+                    background: layout === opt.id ? "var(--ve-success)" : "var(--ve-panel)",
+                    color: layout === opt.id ? "var(--ve-accent)" : "var(--ve-border)",
+                    fontWeight: 500,
                     fontSize: 12,
                     cursor: "pointer",
                   }}
@@ -4428,7 +4632,7 @@ export default function Shorts3Panel({
               {savedThumbStatus === "loading" ? (
                 <span
                   className="muted"
-                  style={{ fontSize: 11, minHeight: 80, lineHeight: "80px" }}
+                  style={{ fontSize: 12, minHeight: 80, lineHeight: "80px" }}
                 >
                   불러오는 중...
                 </span>
@@ -4441,7 +4645,7 @@ export default function Shorts3Panel({
                     height: 80,
                     width: "auto",
                     borderRadius: 6,
-                    border: "2px solid #555",
+                    border: "2px solid var(--ve-border)",
                     objectFit: "contain",
                     display: "block",
                     flexShrink: 0,
@@ -4511,7 +4715,9 @@ export default function Shorts3Panel({
                   width: "100%",
                   borderRadius: 8,
                   overflow: "hidden",
-                  background: "#000",
+                  // 미리보기 매트: 영상/캔버스와 UI 사이 완충대 (액센트·상태색 금지)
+                  background: "var(--ve-matte)",
+                  padding: 14,
                   boxSizing: "border-box",
                 }}
               >
@@ -4563,7 +4769,7 @@ export default function Shorts3Panel({
                           display: "block",
                           visibility: playAllActiveImageUrl ? "hidden" : "visible",
                           objectFit: "contain",
-                          background: "#000",
+                          background: "var(--ve-matte)",
                         }}
                       />
                       {playAllActiveImageUrl ? (
@@ -4581,7 +4787,7 @@ export default function Shorts3Panel({
                             maxWidth: "100%",
                             display: "block",
                             objectFit: "contain",
-                            background: "#000",
+                            background: "var(--ve-matte)",
                             pointerEvents: "none",
                           }}
                         />
@@ -4658,7 +4864,7 @@ export default function Shorts3Panel({
                           display: "block",
                           objectFit: "cover",
                           objectPosition: rightImagePreviewObjectPosition,
-                          background: "#000",
+                          background: "var(--ve-matte)",
                           pointerEvents: "none",
                         }}
                       />
@@ -4675,7 +4881,7 @@ export default function Shorts3Panel({
                           ? "transparent"
                           : thumbnailSelected
                             ? "transparent"
-                            : "#000",
+                            : "var(--ve-matte)",
                         display: "block",
                         position: "relative",
                         zIndex: showRightImageSegmentPreview ? 2 : 0,
@@ -4699,9 +4905,9 @@ export default function Shorts3Panel({
                     onClick={addSegment}
                     disabled={busy || uploading}
                     style={{
-                      background: "#4ade80",
-                      color: "#000",
-                      fontWeight: "bold",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-text)",
+                      fontWeight: 500,
                       padding: "3px 8px",
                       borderRadius: 6,
                       border: "none",
@@ -4728,9 +4934,9 @@ export default function Shorts3Panel({
                         : "이미지 컷 구간 추가"
                     }
                     style={{
-                      background: "#60a5fa",
-                      color: "#000",
-                      fontWeight: "bold",
+                      background: "var(--ve-accent)",
+                      color: "var(--ve-text)",
+                      fontWeight: 500,
                       padding: "3px 8px",
                       borderRadius: 6,
                       border: "none",
@@ -4776,8 +4982,8 @@ export default function Shorts3Panel({
                       isMonitoring
                     }
                     style={{
-                      background: isPlayingAll ? "#ef4444" : "#2563eb",
-                      color: "#fff",
+                      background: isPlayingAll ? "var(--ve-danger)" : "var(--ve-accent)",
+                      color: "var(--ve-text)",
                       border: "none",
                       padding: "3px 10px",
                       borderRadius: 6,
@@ -4810,8 +5016,8 @@ export default function Shorts3Panel({
                       isPlayingAll
                     }
                     style={{
-                      background: isMonitoring ? "#b45309" : "#0d9488",
-                      color: "#fff",
+                      background: isMonitoring ? "var(--ve-warning)" : "var(--ve-success)",
+                      color: "var(--ve-text)",
                       border: "none",
                       padding: "3px 10px",
                       borderRadius: 6,
@@ -4840,9 +5046,9 @@ export default function Shorts3Panel({
                     style={{
                       padding: "3px 8px",
                       borderRadius: 6,
-                      background: "#1e1e1e",
-                      color: "#fff",
-                      border: "1px solid #444",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-text)",
+                      border: "1px solid var(--ve-border)",
                       fontSize: 12,
                       width: 100,
                       ...(busy || uploading
@@ -4888,9 +5094,9 @@ export default function Shorts3Panel({
                       }
                     }}
                     style={{
-                      background: "#1a3a2a",
-                      color: "#4ade80",
-                      border: "1px solid #4ade80",
+                      background: "var(--ve-success)",
+                      color: "var(--ve-text)",
+                      border: "1px solid var(--ve-border)",
                       padding: "3px 8px",
                       borderRadius: 6,
                       cursor: "pointer",
@@ -4933,9 +5139,9 @@ export default function Shorts3Panel({
                       }
                     }}
                     style={{
-                      background: "#1a2a3a",
-                      color: "#60a5fa",
-                      border: "1px solid #60a5fa",
+                      background: "var(--ve-card)",
+                      color: "var(--ve-accent)",
+                      border: "1px solid var(--ve-accent)",
                       padding: "3px 8px",
                       borderRadius: 6,
                       cursor: "pointer",
@@ -4963,8 +5169,8 @@ export default function Shorts3Panel({
                         : "현재 선택 구간 삭제"
                     }
                     style={{
-                      background: "#3d1518",
-                      color: "#fecaca",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-danger)",
                       border: "1px solid rgba(248, 113, 113, 0.55)",
                       padding: "3px 8px",
                       borderRadius: 6,
@@ -4983,8 +5189,8 @@ export default function Shorts3Panel({
 
                   <span
                     style={{
-                      color: "#aaa",
-                      fontSize: 11,
+                      color: "var(--ve-text-sub)",
+                      fontSize: 12,
                       marginLeft: "auto",
                     }}
                   >
@@ -5058,8 +5264,8 @@ export default function Shorts3Panel({
                 borderRadius: 8,
                 border: thumbnailSelected
                   ? "2px solid rgba(96,165,250,1)"
-                  : "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.02)",
+                  : "1px solid var(--ve-border)",
+                background: "var(--ve-panel)",
                 cursor: "pointer",
                 overflow: "hidden",
               }}
@@ -5105,10 +5311,10 @@ export default function Shorts3Panel({
                     borderRadius: 4,
                     border: "none",
                     cursor: "pointer",
-                    background: thumbnailEnabled ? "#27ae60" : "#e74c3c",
-                    color: "#fff",
+                    background: thumbnailEnabled ? "var(--ve-success)" : "var(--ve-danger)",
+                    color: "var(--ve-text)",
                     fontSize: 13,
-                    fontWeight: "bold",
+                    fontWeight: 500,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -5128,12 +5334,12 @@ export default function Shorts3Panel({
                   style={{
                     gridColumn: 2,
                     gridRow: 1,
-                    background: "#1a3a2a",
-                    border: "1px solid #4ade80",
-                    color: "#4ade80",
+                    background: "var(--ve-success)",
+                    border: "1px solid var(--ve-border)",
+                    color: "var(--ve-text)",
                     padding: "2px 4px",
                     borderRadius: 4,
-                    fontSize: 10,
+                    fontSize: 12,
                     cursor: "pointer",
                     ...(busy || uploading
                       ? { opacity: 0.6, cursor: "not-allowed" }
@@ -5155,7 +5361,7 @@ export default function Shorts3Panel({
                     gridRow: 1,
                     padding: "4px 6px",
                     width: 58,
-                    fontSize: 11,
+                    fontSize: 12,
                     boxSizing: "border-box",
                   }}
                 />
@@ -5187,7 +5393,7 @@ export default function Shorts3Panel({
                     gridRow: 1,
                     padding: "4px 6px",
                     width: 30,
-                    fontSize: 11,
+                    fontSize: 12,
                     boxSizing: "border-box",
                   }}
                 />
@@ -5213,12 +5419,12 @@ export default function Shorts3Panel({
                   style={{
                     gridColumn: 7,
                     gridRow: 1,
-                    background: "#1a3a2a",
-                    border: "1px solid #4ade80",
-                    color: "#4ade80",
+                    background: "var(--ve-success)",
+                    border: "1px solid var(--ve-border)",
+                    color: "var(--ve-text)",
                     padding: "2px 4px",
                     borderRadius: 4,
-                    fontSize: 10,
+                    fontSize: 12,
                     cursor: "pointer",
                     ...(busy || uploading
                       ? { opacity: 0.6, cursor: "not-allowed" }
@@ -5240,7 +5446,7 @@ export default function Shorts3Panel({
                     gridRow: 1,
                     padding: "4px 6px",
                     width: 58,
-                    fontSize: 11,
+                    fontSize: 12,
                     boxSizing: "border-box",
                   }}
                 />
@@ -5272,7 +5478,7 @@ export default function Shorts3Panel({
                     gridRow: 1,
                     padding: "4px 6px",
                     width: 30,
-                    fontSize: 11,
+                    fontSize: 12,
                     boxSizing: "border-box",
                   }}
                 />
@@ -5282,11 +5488,11 @@ export default function Shorts3Panel({
                   style={{
                     gridColumn: 11,
                     gridRow: 1,
-                    fontSize: 10,
+                    fontSize: 12,
                     lineHeight: 1,
                     justifySelf: "end",
-                    color: "#93c5fd",
-                    fontWeight: 800,
+                    color: "var(--ve-accent)",
+                    fontWeight: 500,
                   }}
                   title="썸네일 배지"
                 >
@@ -5480,12 +5686,12 @@ export default function Shorts3Panel({
                     resize: "none",
                     boxSizing: "border-box",
                     fontFamily: "inherit",
-                    fontSize: 11,
+                    fontSize: 12,
                     padding: "4px 6px",
                     borderRadius: 4,
-                    border: "1px solid #444",
-                    background: "#1a1a1a",
-                    color: "#eee",
+                    border: "1px solid var(--ve-border)",
+                    background: "var(--ve-panel)",
+                    color: "var(--ve-border)",
                   }}
                 />
                 {(() => {
@@ -5497,13 +5703,13 @@ export default function Shorts3Panel({
                   return (
                     <div
                       style={{
-                        fontSize: 10,
+                        fontSize: 12,
                         lineHeight: 1.35,
                         userSelect: "none",
                       }}
                     >
                       <span
-                        style={{ color: m.warn ? "#ea580c" : "#94a3b8" }}
+                        style={{ color: m.warn ? "var(--ve-warning)" : "var(--ve-text-sub)" }}
                       >
                         {m.text}
                       </span>
@@ -5725,9 +5931,12 @@ export default function Shorts3Panel({
                   borderRadius: 8,
                   border:
                     selectedSegIndex === index
-                      ? "2px solid #4ade80"
-                      : "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.02)",
+                      ? "2px solid var(--ve-accent)"
+                      : "1px solid var(--ve-border)",
+                  background:
+                    selectedSegIndex === index
+                      ? "var(--ve-card)"
+                      : "var(--ve-panel)",
                   cursor: "pointer",
                   overflow: "hidden",
                 }}
@@ -5743,9 +5952,9 @@ export default function Shorts3Panel({
                 >
                   <span
                     style={{
-                      fontWeight: 700,
+                      fontWeight: 500,
                       fontSize: 12,
-                      color: selectedSegIndex === index ? "#4ade80" : "#cbd5e1",
+                      color: selectedSegIndex === index ? "var(--ve-accent)" : "var(--ve-text-sub)",
                     }}
                   >
                     #{index + 1}
@@ -5755,7 +5964,7 @@ export default function Shorts3Panel({
                   </span>
                   <span
                     className="muted"
-                    style={{ fontSize: 11, whiteSpace: "nowrap" }}
+                    style={{ fontSize: 12, whiteSpace: "nowrap" }}
                   >
                     {isImageSegment(seg)
                       ? "이미지"
@@ -5766,7 +5975,7 @@ export default function Shorts3Panel({
                     return dur != null ? (
                       <span
                         className="muted"
-                        style={{ fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 }}
+                        style={{ fontSize: 12, whiteSpace: "nowrap", opacity: 0.75 }}
                       >
                         {dur.toFixed(1)}초
                       </span>
@@ -5777,7 +5986,7 @@ export default function Shorts3Panel({
                       className="muted"
                       title={String(seg.text)}
                       style={{
-                        fontSize: 11,
+                        fontSize: 12,
                         opacity: 0.7,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -5811,9 +6020,9 @@ export default function Shorts3Panel({
                       flexShrink: 0,
                       padding: "3px 8px",
                       borderRadius: 6,
-                      border: "1px solid rgba(255,255,255,0.15)",
-                      background: "rgba(255,255,255,0.06)",
-                      color: "#e5e7eb",
+                      border: "1px solid var(--ve-border)",
+                      background: "var(--ve-card)",
+                      color: "var(--ve-text)",
                       fontSize: 12,
                       cursor: "pointer",
                     }}
@@ -5850,7 +6059,7 @@ export default function Shorts3Panel({
                       borderRadius: 6,
                       border: "1px solid rgba(248,113,113,0.4)",
                       background: "rgba(248,113,113,0.12)",
-                      color: "#fca5a5",
+                      color: "var(--ve-danger)",
                       fontSize: 12,
                       cursor: "pointer",
                     }}
@@ -5883,8 +6092,8 @@ export default function Shorts3Panel({
                       <span
                         className="muted"
                         style={{
-                          fontWeight: 700,
-                          fontSize: 11,
+                          fontWeight: 500,
+                          fontSize: 12,
                           userSelect: "none",
                         }}
                       >
@@ -5896,10 +6105,10 @@ export default function Shorts3Panel({
                           alignItems: "center",
                           padding: "4px 10px",
                           borderRadius: 6,
-                          background: "#1a3a5a",
-                          border: "1px solid #60a5fa",
-                          color: "#93c5fd",
-                          fontSize: 11,
+                          background: "var(--ve-card)",
+                          border: "1px solid var(--ve-accent)",
+                          color: "var(--ve-accent)",
+                          fontSize: 12,
                           cursor:
                             busy || uploading ? "not-allowed" : "pointer",
                           opacity: busy || uploading ? 0.55 : 1,
@@ -5943,7 +6152,7 @@ export default function Shorts3Panel({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4,
-                          fontSize: 11,
+                          fontSize: 12,
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -5972,7 +6181,7 @@ export default function Shorts3Panel({
                           style={{
                             width: 52,
                             padding: "4px 6px",
-                            fontSize: 11,
+                            fontSize: 12,
                             boxSizing: "border-box",
                           }}
                         />
@@ -5988,7 +6197,7 @@ export default function Shorts3Panel({
                           maxWidth: "100%",
                           objectFit: "contain",
                           borderRadius: 6,
-                          border: "1px solid rgba(255,255,255,0.15)",
+                          border: "1px solid var(--ve-border)",
                         }}
                       />
                     ) : null}
@@ -6012,8 +6221,8 @@ export default function Shorts3Panel({
                     style={{
                       gridColumn: 1,
                       gridRow: 1,
-                      fontWeight: 700,
-                      fontSize: 11,
+                      fontWeight: 500,
+                      fontSize: 12,
                       userSelect: "none",
                       justifySelf: "start",
                     }}
@@ -6030,12 +6239,12 @@ export default function Shorts3Panel({
                     style={{
                       gridColumn: 2,
                       gridRow: 1,
-                      background: "#1a3a2a",
-                      border: "1px solid #4ade80",
-                      color: "#4ade80",
+                      background: "var(--ve-success)",
+                      border: "1px solid var(--ve-border)",
+                      color: "var(--ve-text)",
                       padding: "2px 4px",
                       borderRadius: 4,
-                      fontSize: 10,
+                      fontSize: 12,
                       cursor: "pointer",
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
@@ -6058,7 +6267,7 @@ export default function Shorts3Panel({
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 58,
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -6092,7 +6301,7 @@ export default function Shorts3Panel({
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 30,
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -6117,12 +6326,12 @@ export default function Shorts3Panel({
                     style={{
                       gridColumn: 7,
                       gridRow: 1,
-                      background: "#1a3a2a",
-                      border: "1px solid #4ade80",
-                      color: "#4ade80",
+                      background: "var(--ve-success)",
+                      border: "1px solid var(--ve-border)",
+                      color: "var(--ve-text)",
                       padding: "2px 4px",
                       borderRadius: 4,
-                      fontSize: 10,
+                      fontSize: 12,
                       cursor: "pointer",
                       ...(busy || uploading
                         ? { opacity: 0.6, cursor: "not-allowed" }
@@ -6145,7 +6354,7 @@ export default function Shorts3Panel({
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 58,
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -6179,7 +6388,7 @@ export default function Shorts3Panel({
                       gridRow: 1,
                       padding: "4px 6px",
                       width: 30,
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
                     }}
                   />
@@ -6392,12 +6601,12 @@ export default function Shorts3Panel({
                       resize: "none",
                       boxSizing: "border-box",
                       fontFamily: "inherit",
-                      fontSize: 11,
+                      fontSize: 12,
                       padding: "4px 6px",
                       borderRadius: 4,
-                      border: "1px solid #444",
-                      background: "#1a1a1a",
-                      color: "#eee",
+                      border: "1px solid var(--ve-border)",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-border)",
                     }}
                   />
                   {(() => {
@@ -6409,13 +6618,13 @@ export default function Shorts3Panel({
                     return (
                       <div
                         style={{
-                          fontSize: 10,
+                          fontSize: 12,
                           lineHeight: 1.35,
                           userSelect: "none",
                         }}
                       >
                         <span
-                          style={{ color: m.warn ? "#ea580c" : "#94a3b8" }}
+                          style={{ color: m.warn ? "var(--ve-warning)" : "var(--ve-text-sub)" }}
                         >
                           {m.text}
                         </span>
@@ -6635,8 +6844,8 @@ export default function Shorts3Panel({
               style={{
                 alignSelf: "flex-start",
                 marginTop: 4,
-                background: "#2a1818",
-                color: "#fecaca",
+                background: "var(--ve-panel)",
+                color: "var(--ve-danger)",
                 border: "1px solid rgba(248, 113, 113, 0.45)",
                 padding: "6px 10px",
                 borderRadius: 6,
@@ -6665,7 +6874,7 @@ export default function Shorts3Panel({
               marginTop: 6,
             }}
           >
-            <span style={{ color: "#aaa", fontSize: 12, ...segmentTotalWarnStyle }}>
+            <span style={{ color: "var(--ve-text-sub)", fontSize: 12, ...segmentTotalWarnStyle }}>
               총 {secondsToHhMmSs(segmentTotalSec)} ({Math.floor(segmentTotalSec)}초)
             </span>
             <label
@@ -6674,7 +6883,7 @@ export default function Shorts3Panel({
                 alignItems: "center",
                 gap: 6,
                 fontSize: 12,
-                color: "#aaa",
+                color: "var(--ve-text-sub)",
                 whiteSpace: "nowrap",
                 cursor: busy || uploading ? "not-allowed" : "pointer",
                 opacity: busy || uploading ? 0.65 : 1,
@@ -6691,7 +6900,7 @@ export default function Shorts3Panel({
           </div>
 
           {/* 구분선 */}
-          <hr style={{ borderColor: "#333", margin: "8px 0" }} />
+          <hr style={{ borderColor: "var(--ve-card)", margin: "8px 0" }} />
 
           {/* 커버박스 (전체 공통) */}
           <div style={{ maxWidth: 480, marginBottom: 12 }}>
@@ -6707,7 +6916,7 @@ export default function Shorts3Panel({
             >
               <span
                 className="muted"
-                style={{ fontWeight: 700, whiteSpace: "nowrap" }}
+                style={{ fontWeight: 500, whiteSpace: "nowrap" }}
               >
                 커버박스
               </span>
@@ -6721,7 +6930,7 @@ export default function Shorts3Panel({
             </div>
             <p
               className="muted"
-              style={{ margin: "0 0 8px", fontSize: 11, lineHeight: 1.45 }}
+              style={{ margin: "0 0 8px", fontSize: 12, lineHeight: 1.45 }}
             >
               모든 구간에 동일하게 적용됩니다. 색상은 팀 컬러를 사용합니다. 위치·크기는
               중앙 영역(홀) 기준 %입니다.
@@ -6758,7 +6967,7 @@ export default function Shorts3Panel({
                     flexDirection: "column",
                     gap: 4,
                     fontSize: 12,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     minWidth: 0,
                   }}
                 >
@@ -6798,11 +7007,11 @@ export default function Shorts3Panel({
                       style={{
                         width: 52,
                         padding: "2px 4px",
-                        fontSize: 11,
+                        fontSize: 12,
                         boxSizing: "border-box",
-                        background: "#1e1e1e",
-                        color: "#fff",
-                        border: "1px solid #444",
+                        background: "var(--ve-panel)",
+                        color: "var(--ve-text)",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                       }}
                     />
@@ -6828,7 +7037,7 @@ export default function Shorts3Panel({
 
           {/* 나레이션 공통 (TTS) */}
           <div style={{ maxWidth: 480, marginBottom: 10 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+            <div className="muted" style={{ fontWeight: 500, marginBottom: 10 }}>
               나레이션 설정
             </div>
             <label className="preset-field">
@@ -6899,7 +7108,7 @@ export default function Shorts3Panel({
 
           {/* BGM 설정 */}
           <div style={{ maxWidth: 480 }}>
-            <div className="muted" style={{ fontWeight: 700, marginBottom: 10 }}>
+            <div className="muted" style={{ fontWeight: 500, marginBottom: 10 }}>
               배경 음원 (BGM)
             </div>
             <label className="preset-field">
@@ -6923,7 +7132,7 @@ export default function Shorts3Panel({
 
             {/* 시작 위치 + 볼륨 (한 줄) */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
-              <span style={{ color: "#aaa", fontSize: 11, whiteSpace: "nowrap" }}>
+              <span style={{ color: "var(--ve-text-sub)", fontSize: 12, whiteSpace: "nowrap" }}>
                 시작
               </span>
               <input
@@ -6939,18 +7148,18 @@ export default function Shorts3Panel({
                 style={{
                   width: 50,
                   padding: "2px 4px",
-                  fontSize: 11,
-                  background: "#1e1e1e",
-                  color: "#fff",
-                  border: "1px solid #444",
+                  fontSize: 12,
+                  background: "var(--ve-panel)",
+                  color: "var(--ve-text)",
+                  border: "1px solid var(--ve-border)",
                   borderRadius: 4,
                 }}
               />
-              <span style={{ color: "#aaa", fontSize: 11 }}>초</span>
+              <span style={{ color: "var(--ve-text-sub)", fontSize: 12 }}>초</span>
               <span
                 style={{
-                  color: "#aaa",
-                  fontSize: 11,
+                  color: "var(--ve-text-sub)",
+                  fontSize: 12,
                   marginLeft: 8,
                   whiteSpace: "nowrap",
                 }}
@@ -6967,7 +7176,7 @@ export default function Shorts3Panel({
                 onChange={(e) => setBgmVolume(Number(e.target.value))}
                 style={{ flex: 1 }}
               />
-              <span style={{ color: "#aaa", fontSize: 11, minWidth: 30 }}>
+              <span style={{ color: "var(--ve-text-sub)", fontSize: 12, minWidth: 30 }}>
                 {Number(bgmVolume).toFixed(2)}
               </span>
             </div>
@@ -7071,9 +7280,9 @@ export default function Shorts3Panel({
                   padding: "10px 16px",
                   borderRadius: 8,
                   textDecoration: "none",
-                  color: "#0b1a14",
-                  fontWeight: 800,
-                  background: "#0a8f6a",
+                  color: "var(--ve-success)",
+                  fontWeight: 500,
+                  background: "var(--ve-success)",
                   boxSizing: "border-box",
                 }}
               >
@@ -7093,8 +7302,8 @@ export default function Shorts3Panel({
                   borderRadius: 8,
                   border: "1px solid rgba(19,199,154,0.5)",
                   background: "rgba(19,199,154,0.4)",
-                  color: "#0b1a14",
-                  fontWeight: 800,
+                  color: "var(--ve-success)",
+                  fontWeight: 500,
                   fontFamily: "inherit",
                   cursor:
                     busy || uploading || uploadPhase !== "done" || !jobId
@@ -7156,7 +7365,7 @@ export default function Shorts3Panel({
               >
                 <span
                   className="muted"
-                  style={{ fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                  style={{ fontSize: 12, fontWeight: 500, flexShrink: 0 }}
                 >
                   크롭 오프셋
                 </span>
@@ -7204,7 +7413,7 @@ export default function Shorts3Panel({
                       alignItems: "center",
                       gap: 6,
                       fontSize: 12,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       cursor: busy || uploading ? "not-allowed" : "pointer",
                     }}
                   >
@@ -7255,7 +7464,7 @@ export default function Shorts3Panel({
                     <option value="GamjaFlower-Regular">감자꽃</option>
                   </select>
                 </label>
-                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
+                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 500 }}>
                   크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88)))}px)
                   <div
                     style={{
@@ -7296,11 +7505,11 @@ export default function Shorts3Panel({
                       style={{
                         width: 52,
                         padding: "2px 4px",
-                        fontSize: 11,
+                        fontSize: 12,
                         boxSizing: "border-box",
-                        background: "#1e1e1e",
-                        color: "#fff",
-                        border: "1px solid #444",
+                        background: "var(--ve-panel)",
+                        color: "var(--ve-text)",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                       }}
                     />
@@ -7313,7 +7522,7 @@ export default function Shorts3Panel({
                     flexDirection: "column",
                     gap: 6,
                     fontSize: 13,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     flex: "1 1 200px",
                     minWidth: 160,
                   }}
@@ -7337,7 +7546,7 @@ export default function Shorts3Panel({
                   flexDirection: "column",
                   gap: 4,
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   marginTop: 6,
                   marginBottom: 10,
                 }}
@@ -7375,18 +7584,18 @@ export default function Shorts3Panel({
                     style={{
                       width: 52,
                       padding: "2px 4px",
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
-                      background: "#1e1e1e",
-                      color: "#fff",
-                      border: "1px solid #444",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-text)",
+                      border: "1px solid var(--ve-border)",
                       borderRadius: 4,
                     }}
                   />
                 </div>
                 <span
                   className="muted"
-                  style={{ fontWeight: 400, fontSize: 11 }}
+                  style={{ fontWeight: 400, fontSize: 12 }}
                 >
                   0% = 최상단 · 100% = 최하단
                 </span>
@@ -7410,7 +7619,7 @@ export default function Shorts3Panel({
                       alignItems: "center",
                       gap: 6,
                       fontSize: 12,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       cursor: busy || uploading ? "not-allowed" : "pointer",
                     }}
                   >
@@ -7461,7 +7670,7 @@ export default function Shorts3Panel({
                     <option value="GamjaFlower-Regular">감자꽃</option>
                   </select>
                 </label>
-                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 700 }}>
+                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 500 }}>
                   크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52)))}px)
                   <div
                     style={{
@@ -7502,11 +7711,11 @@ export default function Shorts3Panel({
                       style={{
                         width: 52,
                         padding: "2px 4px",
-                        fontSize: 11,
+                        fontSize: 12,
                         boxSizing: "border-box",
-                        background: "#1e1e1e",
-                        color: "#fff",
-                        border: "1px solid #444",
+                        background: "var(--ve-panel)",
+                        color: "var(--ve-text)",
+                        border: "1px solid var(--ve-border)",
                         borderRadius: 4,
                       }}
                     />
@@ -7519,7 +7728,7 @@ export default function Shorts3Panel({
                     flexDirection: "column",
                     gap: 6,
                     fontSize: 13,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     flex: "1 1 200px",
                     minWidth: 160,
                   }}
@@ -7541,7 +7750,7 @@ export default function Shorts3Panel({
                   flexDirection: "column",
                   gap: 4,
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   marginTop: 6,
                   marginBottom: 10,
                 }}
@@ -7579,18 +7788,18 @@ export default function Shorts3Panel({
                     style={{
                       width: 52,
                       padding: "2px 4px",
-                      fontSize: 11,
+                      fontSize: 12,
                       boxSizing: "border-box",
-                      background: "#1e1e1e",
-                      color: "#fff",
-                      border: "1px solid #444",
+                      background: "var(--ve-panel)",
+                      color: "var(--ve-text)",
+                      border: "1px solid var(--ve-border)",
                       borderRadius: 4,
                     }}
                   />
                 </div>
                 <span
                   className="muted"
-                  style={{ fontWeight: 400, fontSize: 11 }}
+                  style={{ fontWeight: 400, fontSize: 12 }}
                 >
                   0% = 최상단 · 100% = 최하단
                 </span>
@@ -7622,8 +7831,8 @@ export default function Shorts3Panel({
                     gap: 10,
                     marginTop: 10,
                     borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid var(--ve-border)",
+                    background: "var(--ve-panel)",
                     padding: "12px 14px",
                   }}
                 >
@@ -7638,7 +7847,7 @@ export default function Shorts3Panel({
                   >
                     <span
                       className="muted"
-                      style={{ fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                      style={{ fontSize: 12, fontWeight: 500, flexShrink: 0 }}
                     >
                       크롭 오프셋
                     </span>
@@ -7724,7 +7933,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 4,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         minWidth: 140,
                       }}
                     >
@@ -7778,11 +7987,11 @@ export default function Shorts3Panel({
                           style={{
                             width: 52,
                             padding: "2px 4px",
-                            fontSize: 11,
+                            fontSize: 12,
                             boxSizing: "border-box",
-                            background: "#1e1e1e",
-                            color: "#fff",
-                            border: "1px solid #444",
+                            background: "var(--ve-panel)",
+                            color: "var(--ve-text)",
+                            border: "1px solid var(--ve-border)",
                             borderRadius: 4,
                           }}
                         />
@@ -7805,7 +8014,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 6,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         flex: "1 1 180px",
                         minWidth: 0,
                       }}
@@ -7818,7 +8027,7 @@ export default function Shorts3Panel({
                             alignItems: "center",
                             gap: 4,
                             fontSize: 12,
-                            color: "#aaa",
+                            color: "var(--ve-text-sub)",
                             cursor: "pointer",
                             marginLeft: 8,
                             whiteSpace: "nowrap",
@@ -7856,7 +8065,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 4,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         minWidth: 140,
                       }}
                     >
@@ -7910,11 +8119,11 @@ export default function Shorts3Panel({
                           style={{
                             width: 52,
                             padding: "2px 4px",
-                            fontSize: 11,
+                            fontSize: 12,
                             boxSizing: "border-box",
-                            background: "#1e1e1e",
-                            color: "#fff",
-                            border: "1px solid #444",
+                            background: "var(--ve-panel)",
+                            color: "var(--ve-text)",
+                            border: "1px solid var(--ve-border)",
                             borderRadius: 4,
                           }}
                         />
@@ -7928,7 +8137,7 @@ export default function Shorts3Panel({
                       flexDirection: "column",
                       gap: 4,
                       fontSize: 12,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       marginTop: 6,
                     }}
                   >
@@ -7972,18 +8181,18 @@ export default function Shorts3Panel({
                         style={{
                           width: 52,
                           padding: "2px 4px",
-                          fontSize: 11,
+                          fontSize: 12,
                           boxSizing: "border-box",
-                          background: "#1e1e1e",
-                          color: "#fff",
-                          border: "1px solid #444",
+                          background: "var(--ve-panel)",
+                          color: "var(--ve-text)",
+                          border: "1px solid var(--ve-border)",
                           borderRadius: 4,
                         }}
                       />
                     </div>
                     <span
                       className="muted"
-                      style={{ fontWeight: 400, fontSize: 11 }}
+                      style={{ fontWeight: 400, fontSize: 12 }}
                     >
                       0% = 최상단 · 100% = 최하단
                     </span>
@@ -8048,7 +8257,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 4,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         minWidth: 140,
                       }}
                     >
@@ -8105,11 +8314,11 @@ export default function Shorts3Panel({
                           style={{
                             width: 52,
                             padding: "2px 4px",
-                            fontSize: 11,
+                            fontSize: 12,
                             boxSizing: "border-box",
-                            background: "#1e1e1e",
-                            color: "#fff",
-                            border: "1px solid #444",
+                            background: "var(--ve-panel)",
+                            color: "var(--ve-text)",
+                            border: "1px solid var(--ve-border)",
                             borderRadius: 4,
                           }}
                         />
@@ -8132,7 +8341,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 6,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         flex: "1 1 180px",
                         minWidth: 0,
                       }}
@@ -8145,7 +8354,7 @@ export default function Shorts3Panel({
                             alignItems: "center",
                             gap: 4,
                             fontSize: 12,
-                            color: "#aaa",
+                            color: "var(--ve-text-sub)",
                             cursor: "pointer",
                             marginLeft: 8,
                             whiteSpace: "nowrap",
@@ -8183,7 +8392,7 @@ export default function Shorts3Panel({
                         flexDirection: "column",
                         gap: 4,
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         minWidth: 140,
                       }}
                     >
@@ -8239,11 +8448,11 @@ export default function Shorts3Panel({
                           style={{
                             width: 52,
                             padding: "2px 4px",
-                            fontSize: 11,
+                            fontSize: 12,
                             boxSizing: "border-box",
-                            background: "#1e1e1e",
-                            color: "#fff",
-                            border: "1px solid #444",
+                            background: "var(--ve-panel)",
+                            color: "var(--ve-text)",
+                            border: "1px solid var(--ve-border)",
                             borderRadius: 4,
                           }}
                         />
@@ -8257,7 +8466,7 @@ export default function Shorts3Panel({
                       flexDirection: "column",
                       gap: 4,
                       fontSize: 12,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       marginTop: 6,
                     }}
                   >
@@ -8301,18 +8510,18 @@ export default function Shorts3Panel({
                         style={{
                           width: 52,
                           padding: "2px 4px",
-                          fontSize: 11,
+                          fontSize: 12,
                           boxSizing: "border-box",
-                          background: "#1e1e1e",
-                          color: "#fff",
-                          border: "1px solid #444",
+                          background: "var(--ve-panel)",
+                          color: "var(--ve-text)",
+                          border: "1px solid var(--ve-border)",
                           borderRadius: 4,
                         }}
                       />
                     </div>
                     <span
                       className="muted"
-                      style={{ fontWeight: 400, fontSize: 11 }}
+                      style={{ fontWeight: 400, fontSize: 12 }}
                     >
                       0% = 최상단 · 100% = 최하단
                     </span>
