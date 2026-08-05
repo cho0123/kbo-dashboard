@@ -36,7 +36,7 @@
   --ve-matte: #808080;     /* 미리보기 둘레 매트 */
   --ve-success: #4a7a5c;   /* 상태색 */
   --ve-warning: #97742f;
-  --ve-danger: #9c4a44;
+  --ve-danger: #954238;
 }
 
 *,
@@ -1351,7 +1351,7 @@ button.primary:disabled {
   font-size: 13px;
   line-height: 1.35;
   text-align: left;
-  border: none;
+  border: 1px solid var(--ve-border);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -1359,22 +1359,16 @@ button.primary:disabled {
   box-shadow: none;
 }
 
-.shorts-verify-link--naver {
-  background: var(--ve-success);
-  color: #ffffff;
-}
-
-.shorts-verify-link--naver:hover {
-  filter: brightness(0.95);
-}
-
+/* 일반 동작 버튼: 무채색 (배경 --ve-panel + 테두리 + 본문색) */
+.shorts-verify-link--naver,
 .shorts-verify-link--kbo {
-  background: var(--ve-accent);
-  color: #ffffff;
+  background: var(--ve-panel);
+  color: var(--ve-text);
 }
 
+.shorts-verify-link--naver:hover,
 .shorts-verify-link--kbo:hover {
-  filter: brightness(1.08);
+  filter: brightness(0.97);
 }
 
 /* Video presets */

@@ -90,11 +90,11 @@ const NARRATION_ROW_BTN_BASE = {
 const NARRATION_ROW_BTN_TTS = {
   background: "var(--ve-accent)",
   border: "1px solid var(--ve-accent)",
-  color: "var(--ve-text)",
+  color: "var(--ve-accent-on)",
 };
 
 const NARRATION_ROW_BTN_SEGMENT_PLAY = {
-  background: "var(--ve-success)",
+  background: "var(--ve-panel)",
   border: "1px solid var(--ve-border)",
   color: "var(--ve-text)",
 };
@@ -4618,11 +4618,12 @@ export default function Shorts3Panel({
                       layout === opt.id
                         ? "2px solid var(--ve-accent)"
                         : "2px solid var(--ve-border)",
-                    background: layout === opt.id ? "var(--ve-success)" : "var(--ve-panel)",
-                    color: layout === opt.id ? "var(--ve-accent)" : "var(--ve-border)",
+                    background: layout === opt.id ? "var(--ve-accent)" : "var(--ve-panel)",
+                    color: layout === opt.id ? "var(--ve-accent-on)" : "var(--ve-text)",
                     fontWeight: 500,
                     fontSize: 12,
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {opt.label}
@@ -4982,13 +4983,14 @@ export default function Shorts3Panel({
                       isMonitoring
                     }
                     style={{
-                      background: isPlayingAll ? "var(--ve-danger)" : "var(--ve-accent)",
-                      color: "var(--ve-text)",
-                      border: "none",
+                      background: isPlayingAll ? "var(--ve-panel)" : "var(--ve-accent)",
+                      color: isPlayingAll ? "var(--ve-text)" : "var(--ve-accent-on)",
+                      border: "1px solid var(--ve-border)",
                       padding: "3px 10px",
                       borderRadius: 6,
                       fontSize: 12,
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
                       ...(busy || uploading || isMonitoring
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -5016,13 +5018,14 @@ export default function Shorts3Panel({
                       isPlayingAll
                     }
                     style={{
-                      background: isMonitoring ? "var(--ve-warning)" : "var(--ve-success)",
-                      color: "var(--ve-text)",
-                      border: "none",
+                      background: isMonitoring ? "var(--ve-accent)" : "var(--ve-panel)",
+                      color: isMonitoring ? "var(--ve-accent-on)" : "var(--ve-text)",
+                      border: "1px solid var(--ve-border)",
                       padding: "3px 10px",
                       borderRadius: 6,
                       fontSize: 12,
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
                       ...(busy || uploading || isPlayingAll
                         ? { opacity: 0.6, cursor: "not-allowed" }
                         : {}),
@@ -5094,7 +5097,7 @@ export default function Shorts3Panel({
                       }
                     }}
                     style={{
-                      background: "var(--ve-success)",
+                      background: "var(--ve-panel)",
                       color: "var(--ve-text)",
                       border: "1px solid var(--ve-border)",
                       padding: "3px 8px",
@@ -5309,10 +5312,10 @@ export default function Shorts3Panel({
                     width: 22,
                     height: 22,
                     borderRadius: 4,
-                    border: "none",
+                    border: "1px solid var(--ve-border)",
                     cursor: "pointer",
-                    background: thumbnailEnabled ? "var(--ve-success)" : "var(--ve-danger)",
-                    color: "var(--ve-text)",
+                    background: thumbnailEnabled ? "var(--ve-accent)" : "var(--ve-panel)",
+                    color: thumbnailEnabled ? "var(--ve-accent-on)" : "var(--ve-text)",
                     fontSize: 13,
                     fontWeight: 500,
                     display: "flex",
@@ -5334,10 +5337,11 @@ export default function Shorts3Panel({
                   style={{
                     gridColumn: 2,
                     gridRow: 1,
-                    background: "var(--ve-success)",
+                    background: "var(--ve-panel)",
                     border: "1px solid var(--ve-border)",
                     color: "var(--ve-text)",
                     padding: "2px 4px",
+                    whiteSpace: "nowrap",
                     borderRadius: 4,
                     fontSize: 12,
                     cursor: "pointer",
@@ -5419,10 +5423,11 @@ export default function Shorts3Panel({
                   style={{
                     gridColumn: 7,
                     gridRow: 1,
-                    background: "var(--ve-success)",
+                    background: "var(--ve-panel)",
                     border: "1px solid var(--ve-border)",
                     color: "var(--ve-text)",
                     padding: "2px 4px",
+                    whiteSpace: "nowrap",
                     borderRadius: 4,
                     fontSize: 12,
                     cursor: "pointer",
@@ -6239,10 +6244,11 @@ export default function Shorts3Panel({
                     style={{
                       gridColumn: 2,
                       gridRow: 1,
-                      background: "var(--ve-success)",
+                      background: "var(--ve-panel)",
                       border: "1px solid var(--ve-border)",
                       color: "var(--ve-text)",
                       padding: "2px 4px",
+                      whiteSpace: "nowrap",
                       borderRadius: 4,
                       fontSize: 12,
                       cursor: "pointer",
@@ -6326,10 +6332,11 @@ export default function Shorts3Panel({
                     style={{
                       gridColumn: 7,
                       gridRow: 1,
-                      background: "var(--ve-success)",
+                      background: "var(--ve-panel)",
                       border: "1px solid var(--ve-border)",
                       color: "var(--ve-text)",
                       padding: "2px 4px",
+                      whiteSpace: "nowrap",
                       borderRadius: 4,
                       fontSize: 12,
                       cursor: "pointer",
@@ -7282,7 +7289,7 @@ export default function Shorts3Panel({
                   textDecoration: "none",
                   color: "var(--ve-success)",
                   fontWeight: 500,
-                  background: "var(--ve-success)",
+                  background: "var(--ve-panel)",
                   boxSizing: "border-box",
                 }}
               >
