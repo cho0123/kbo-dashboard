@@ -269,6 +269,8 @@ button.primary.primary-fill {
 /* 영상편집 화면일 때만 페이지 배경을 팔레트(--ve-bg)로. 다른 화면은 기존 #ffffff 유지 */
 .results.ve-editor {
   background: var(--ve-bg);
+  /* 편집기 컨테이너가 뷰포트 높이를 채우므로, 100vh 강제 최소높이로 인한 하단 빈 영역 제거 */
+  min-height: auto;
 }
 
 .results .result-page {

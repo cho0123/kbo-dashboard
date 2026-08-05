@@ -870,6 +870,33 @@ export default function Shorts3Panel({
       // ignore
     }
   }, [previewCollapsed]);
+  // 편집기 컨테이너 높이: 매직넘버(calc(100vh-Npx)) 대신 실제 상단 위치를 측정해
+  // 뷰포트 하단까지 채운다. 크롬 높이가 달라져도 자동으로 맞고, 리사이즈에 따라온다.
+  const editorContainerRef = useRef(null);
+  const [editorContainerH, setEditorContainerH] = useState(null);
+  useLayoutEffect(() => {
+    const el = editorContainerRef.current;
+    if (!el || typeof window === "undefined") return;
+    const BOTTOM_GAP = 14; // 편집기 하단과 뷰포트 하단 사이 여백
+    const MIN_H = 320; // 너무 작아지지 않게 하한
+    const recalc = () => {
+      const top = el.getBoundingClientRect().top; // 뷰포트 기준 상단 위치
+      const h = Math.max(MIN_H, Math.round(window.innerHeight - top - BOTTOM_GAP));
+      setEditorContainerH((prev) => (prev === h ? prev : h));
+    };
+    recalc();
+    window.addEventListener("resize", recalc);
+    // 컨테이너 위쪽 크롬(타이틀·인트로 등)이 줄바꿈 등으로 높이가 바뀌면 top이 달라지므로 재측정
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(recalc);
+      ro.observe(document.documentElement);
+    }
+    return () => {
+      window.removeEventListener("resize", recalc);
+      if (ro) ro.disconnect();
+    };
+  }, []);
   const [whisperData, setWhisperData] = useState(null);
   const [selectedTimestamps, setSelectedTimestamps] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -3777,6 +3804,7 @@ export default function Shorts3Panel({
       </p>
 
       <div
+        ref={editorContainerRef}
         style={{
           marginTop: 16,
           display: "flex",
@@ -3785,8 +3813,8 @@ export default function Shorts3Panel({
           width: "100%",
           overflow: "visible",
           // 편집기를 뷰포트에 가두어 좌/우 컬럼의 내부 스크롤이 동작하게 함.
-          // offset은 컨테이너 위 고정 크롬(topbar·shell 패딩·타이틀·인트로) 근사치 — 편집기/드로어 내용과 무관.
-          height: "calc(100vh - 300px)",
+          // 높이 = 실제 상단 위치를 측정해 뷰포트 하단까지(여백 14px) 채움. 매직넘버 제거.
+          height: editorContainerH != null ? `${editorContainerH}px` : undefined,
         }}
       >
         {/* 소스 준비 툴바 — 1~4단계는 아래 오버레이 드로어로 이동 */}
