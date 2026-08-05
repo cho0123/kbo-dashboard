@@ -5732,6 +5732,138 @@ export default function Shorts3Panel({
                   overflow: "hidden",
                 }}
               >
+                {/* 요약 행 (항상 표시) — 클릭 시 selectSegment는 카드 outer onClick이 처리 */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minHeight: 40,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 12,
+                      color: selectedSegIndex === index ? "#4ade80" : "#cbd5e1",
+                    }}
+                  >
+                    #{index + 1}
+                  </span>
+                  <span style={{ fontSize: 12 }}>
+                    {isImageSegment(seg) ? "🖼️" : "🎬"}
+                  </span>
+                  <span
+                    className="muted"
+                    style={{ fontSize: 11, whiteSpace: "nowrap" }}
+                  >
+                    {isImageSegment(seg)
+                      ? "이미지"
+                      : `${String(seg.start || "—")}~${String(seg.end || "—")}`}
+                  </span>
+                  {(() => {
+                    const dur = playAllSegmentDurationSec(seg);
+                    return dur != null ? (
+                      <span
+                        className="muted"
+                        style={{ fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 }}
+                      >
+                        {dur.toFixed(1)}초
+                      </span>
+                    ) : null;
+                  })()}
+                  {String(seg.text || "").trim() ? (
+                    <span
+                      className="muted"
+                      title={String(seg.text)}
+                      style={{
+                        fontSize: 11,
+                        opacity: 0.7,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      {String(seg.text).split("\n")[0]}
+                    </span>
+                  ) : (
+                    <span style={{ flex: 1, minWidth: 0 }} />
+                  )}
+                  <button
+                    type="button"
+                    title="이 구간만 재생/일시정지"
+                    disabled={
+                      busy ||
+                      uploading ||
+                      !previewUrl ||
+                      uploadPhase !== "done" ||
+                      isPlayingAll ||
+                      isMonitoring ||
+                      !segmentPlaybackTimesValid(seg)
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSegmentPreviewPlayback(index);
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      background: "rgba(255,255,255,0.06)",
+                      color: "#e5e7eb",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {playingSegmentIndex === index && !previewPlaybackPaused
+                      ? "⏸"
+                      : "▶"}
+                  </button>
+                  <button
+                    type="button"
+                    title={
+                      selectedSegIndex === index
+                        ? "이 구간 삭제"
+                        : "먼저 선택 후 삭제"
+                    }
+                    disabled={
+                      busy ||
+                      uploading ||
+                      isPlayingAll ||
+                      isMonitoring ||
+                      segments.length <= 1
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (selectedSegIndex === index) {
+                        deleteSelectedSegment();
+                      } else {
+                        selectSegment(index);
+                      }
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      border: "1px solid rgba(248,113,113,0.4)",
+                      background: "rgba(248,113,113,0.12)",
+                      color: "#fca5a5",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    🗑
+                  </button>
+                </div>
+                {/* 본문 — 선택 구간만 펼침(display 토글만, 언마운트 X → 입력/포커스/스크롤 유지) */}
+                <div
+                  style={{
+                    display: selectedSegIndex === index ? "block" : "none",
+                  }}
+                >
                 {isImageSegment(seg) ? (
                   <div
                     style={{
@@ -6488,6 +6620,7 @@ export default function Shorts3Panel({
                     </button>
                   </div>
                 </div>
+                </div>{/* /본문 래퍼 */}
               </div>
             ))}
             <button
