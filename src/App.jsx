@@ -2787,7 +2787,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
 
             {data && (
               <div style={{ marginTop: 8 }}>
-                <div style={{ marginTop: 12, borderTop: "1px solid #333", paddingTop: 12 }}>
+                <div style={{ marginTop: 12, borderTop: "1px solid var(--ve-border)", paddingTop: 12 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <button
                       type="button"
@@ -2841,7 +2841,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>가로</label>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>가로</label>
                             <input
                               type="range"
                               min="0"
@@ -2853,7 +2853,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>세로</label>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>세로</label>
                             <input
                               type="range"
                               min="0"
@@ -2865,7 +2865,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                             />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <label style={{ fontSize: 11, color: "#aaa" }}>
+                            <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                               확대({cropScale.toFixed(1)}x)
                             </label>
                             <input
@@ -2880,12 +2880,12 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           </div>
                         </div>
 
-                        <div style={{ borderTop: "1px solid #333", paddingTop: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, color: "#aaa" }}>📝 텍스트 오버레이</span>
+                        <div style={{ borderTop: "1px solid var(--ve-border)", paddingTop: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>📝 텍스트 오버레이</span>
                         </div>
 
                         <div style={{ marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>상단 텍스트</label>
+                          <label style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>상단 텍스트</label>
                           <input
                             type="text"
                             value={overlayText3}
@@ -2894,8 +2894,8 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                           />
                         </div>
 
-                        <div style={{ borderTop: "1px solid #444", paddingTop: 6, marginBottom: 6 }}>
-                          <label style={{ fontSize: 12, color: "#aaa" }}>AI 제목 (가운데)</label>
+                        <div style={{ borderTop: "1px solid var(--ve-border)", paddingTop: 6, marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, color: "var(--ve-text-sub)" }}>AI 제목 (가운데)</label>
                         </div>
 
                         {textLayers.map((layer, idx) => (
@@ -2908,7 +2908,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                               borderRadius: 6,
                             }}
                           >
-                            <div style={{ fontSize: 12, color: "#aaa", marginBottom: 4 }}>
+                            <div style={{ fontSize: 12, color: "var(--ve-text-sub)", marginBottom: 4 }}>
                               텍스트 {idx + 1}
                             </div>
 
@@ -2996,13 +2996,13 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                     border: "1px solid #666",
                                   }}
                                 />
-                                <span style={{ fontSize: 11, color: "#aaa" }}>{layer.color}</span>
+                                <span style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>{layer.color}</span>
                               </div>
                             </div>
 
                             <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                               <div style={{ flex: 1 }}>
-                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                                   크기({layer.size}px)
                                 </label>
                                 <input
@@ -3018,7 +3018,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                                 />
                               </div>
                               <div style={{ flex: 1 }}>
-                                <label style={{ fontSize: 11, color: "#aaa" }}>
+                                <label style={{ fontSize: 11, color: "var(--ve-text-sub)" }}>
                                   위치({layer.posY}%)
                                 </label>
                                 <input
@@ -3091,7 +3091,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
             </div>
             {aiAnalysis.length > 0 && (
               <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#aaa" }}>🤖 AI 경기 분석</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ve-text-sub)" }}>🤖 AI 경기 분석</div>
                 {aiAnalysis.map((a, idx) => {
                   const g = (data?.games || []).find((g) => g.game_id === a.game_id);
                   const label = g ? `${g.home_team} vs ${g.away_team}` : a.game_id;
@@ -3110,7 +3110,7 @@ function Card8Shorts({ defaultDate, onShortsDateChange }) {
                       </div>
                       <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>태그:</span>
+                          <span style={{ fontSize: 11, color: "var(--ve-text-sub)", whiteSpace: "nowrap" }}>태그:</span>
                           <input
                             type="text"
                             value={a.tag ?? ""}
@@ -4278,6 +4278,35 @@ export default function App() {
   const [tab, setTab] = useState("shorts");
   const [memoOpen, setMemoOpen] = useState(false);
   const [activeKey, setActiveKey] = useState("shorts_slides");
+
+  // 사이드바 높이는 CSS(position:sticky; top:0; max-height:100vh; overflow-y:auto)로 처리한다.
+  // JS 실측을 제거 — 편집기가 페이지 스크롤로 늘어나므로 사이드바는 뷰포트에 붙어 따라오기만 하면 된다.
+
+  // 사이드바 접힘 상태 — localStorage 저장/복원(kbo_ui_sidebar_collapsed)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("kbo_ui_sidebar_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  // 사용자가 토글을 직접 누르면 그 선택을 우선(영상편집 진입 시 자동 접힘을 덮어쓰지 않음).
+  // localStorage에는 '수동 선택'만 저장한다 — 영상편집 자동 접힘까지 저장하면 쇼츠 탭도
+  // 접힌 채로 로드돼 입력 폼이 숨겨지는 나쁜 UX가 된다.
+  const sidebarManualRef = useRef(false);
+  const toggleSidebar = useCallback(() => {
+    sidebarManualRef.current = true;
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("kbo_ui_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+  // (영상편집 진입 시 자동 접힘 제거 — 펼친 상태 그대로 유지. 수동 토글·localStorage 복원만 남김)
   const [pendingSegments, setPendingSegments] = useState([]);
   const [shorts3JobId, setShorts3JobId] = useState("");
 
@@ -4634,7 +4663,11 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell shell-wide">
+    <div
+      className={`app-shell shell-wide${
+        activeKey === "shorts3_highlight" ? " ve-full" : ""
+      }`}
+    >
       <div className="topbar">
         <div className="topbar-row topbar-row-head">
           <div className="topbar-row-main">
@@ -4695,7 +4728,21 @@ export default function App() {
       </div>
       <MemoPadModal open={memoOpen} onClose={() => setMemoOpen(false)} />
       <div className="layout">
-        <aside className="sidebar">
+        <aside
+          className={`sidebar${sidebarCollapsed ? " collapsed" : ""}`}
+        >
+          <button
+            type="button"
+            className="sb-toggle"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            aria-expanded={!sidebarCollapsed}
+          >
+            <span className="sb-ic" aria-hidden="true">
+              {sidebarCollapsed ? "»" : "«"}
+            </span>
+          </button>
           <div className="side-head">
             <div className="side-brand">KBO Dashboard</div>
             <div className="side-sub">좌측에서 실행 → 우측에서 결과 확인</div>
@@ -4705,16 +4752,19 @@ export default function App() {
             <button
               type="button"
               className={`side-tab ${tab === "shorts" ? "active" : ""}`}
+              title="KBO-쇼츠"
               onClick={() => {
                 setTab("shorts");
                 setActiveKey("shorts_slides");
               }}
             >
+              <span className="sb-ic" aria-hidden="true">📊</span>
               KBO-쇼츠
             </button>
             <button
               type="button"
               className="shorts-verify-link shorts-verify-link--naver"
+              title="네이버 야구일정"
               style={{ marginTop: 4, width: "100%", boxSizing: "border-box" }}
               onClick={() => {
                 const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -4724,34 +4774,41 @@ export default function App() {
                 );
               }}
             >
+              <span className="sb-ic" aria-hidden="true">📅</span>
               📅 네이버 야구일정
             </button>
             <button
               type="button"
               className="shorts-verify-link shorts-verify-link--naver"
+              title="KBO 공홈"
               style={{ marginTop: 4, width: "100%", boxSizing: "border-box" }}
               onClick={() => window.open("https://www.koreabaseball.com/MediaNews/News/KboPhoto/List.aspx", "_blank")}
             >
+              <span className="sb-ic" aria-hidden="true">⚾</span>
               ⚾ KBO 공홈
             </button>
             <button
               type="button"
               className={`side-tab ${tab === "etc_shorts" ? "active" : ""}`}
+              title="제품리뷰-쇼츠"
               onClick={() => {
                 setTab("etc_shorts");
                 setActiveKey("shorts_product_review");
               }}
             >
+              <span className="sb-ic" aria-hidden="true">🛍️</span>
               제품리뷰-쇼츠
             </button>
             <button
               type="button"
               className={`side-tab ${tab === "shorts_edit" ? "active" : ""}`}
+              title="쇼츠-영상편집"
               onClick={() => {
                 setTab("shorts_edit");
                 setActiveKey("shorts3_highlight");
               }}
             >
+              <span className="sb-ic" aria-hidden="true">🎬</span>
               쇼츠-영상편집
             </button>
           </nav>
@@ -4763,9 +4820,11 @@ export default function App() {
                 <button
                   type="button"
                   className="primary primary-fill"
+                  title="제품리뷰 패널 열기"
                   style={{ marginTop: 10 }}
                   onClick={() => setActiveKey("shorts_product_review")}
                 >
+                  <span className="sb-ic" aria-hidden="true">🛍️</span>
                   패널 열기
                 </button>
               </div>
@@ -4780,22 +4839,28 @@ export default function App() {
                   <button
                     type="button"
                     className="primary"
+                    title="편집 패널 열기"
                     onClick={() => setActiveKey("shorts3_highlight")}
                   >
+                    <span className="sb-ic" aria-hidden="true">🎞️</span>
                     패널 열기
                   </button>
                   <button
                     type="button"
                     className="primary"
+                    title="썸네일"
                     onClick={() => setActiveKey("shorts3_thumbnail")}
                   >
+                    <span className="sb-ic" aria-hidden="true">🖼️</span>
                     썸네일
                   </button>
                   <button
                     type="button"
                     className="primary"
+                    title="AI 분석"
                     onClick={() => setActiveKey("shorts3_ai")}
                   >
+                    <span className="sb-ic" aria-hidden="true">🤖</span>
                     AI 분석
                   </button>
                 </div>
@@ -4807,37 +4872,45 @@ export default function App() {
                   <button
                     type="button"
                     className="primary primary-fill"
+                    title="프리셋 열기"
                     onClick={() => {
                       setActiveKey("video_presets");
                     }}
                   >
+                    <span className="sb-ic" aria-hidden="true">⚙️</span>
                     프리셋 열기
                   </button>
                   <button
                     type="button"
                     className="primary"
+                    title="음원 관리"
                     onClick={() => {
                       setActiveKey("music_library");
                     }}
                   >
+                    <span className="sb-ic" aria-hidden="true">🎵</span>
                     음원 관리
                   </button>
                   <a
                     className="primary primary-fill"
+                    title="yt-dlp 다운로드"
                     href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
                     download="yt-dlp.exe"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
+                    <span className="sb-ic" aria-hidden="true">⬇️</span>
                     ⬇ yt-dlp 다운로드
                   </a>
                   <a
                     className="primary"
+                    title="FFmpeg 다운로드"
                     href="https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
                     download="ffmpeg-release-essentials.zip"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
+                    <span className="sb-ic" aria-hidden="true">🎞️</span>
                     ⬇ FFmpeg 다운로드
                   </a>
                 </div>
@@ -4852,12 +4925,14 @@ export default function App() {
                 <button
                   type="button"
                   className="primary primary-fill"
+                  title="쇼츠-일간-경기결과 패널 열기"
                   style={{ marginTop: 10 }}
                   disabled={busy === "shorts_slides_open"}
                   onClick={() => {
                     setActiveKey("shorts_slides");
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">1️⃣</span>
                   패널 열기
                 </button>
               </div>
@@ -4867,11 +4942,13 @@ export default function App() {
                 <button
                   type="button"
                   className="primary primary-fill"
+                  title="쇼츠-내일경기-예고 패널 열기"
                   style={{ marginTop: 10 }}
                   onClick={() => {
                     setActiveKey("shorts_tomorrow_preview");
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">2️⃣</span>
                   패널 열기
                 </button>
               </div>
@@ -4881,11 +4958,13 @@ export default function App() {
                 <button
                   type="button"
                   className="primary primary-fill"
+                  title="쇼츠-경기별-전력비교 패널 열기"
                   style={{ marginTop: 10 }}
                   onClick={() => {
                     setActiveKey("shorts4_matchup");
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">4️⃣</span>
                   패널 열기
                 </button>
               </div>
@@ -4895,11 +4974,13 @@ export default function App() {
                 <button
                   type="button"
                   className="primary primary-fill"
+                  title="쇼츠-주간결산(월) 패널 열기"
                   style={{ marginTop: 10 }}
                   onClick={() => {
                     setActiveKey("shorts5_team_weekly");
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">5️⃣</span>
                   패널 열기
                 </button>
               </div>
@@ -4909,8 +4990,10 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="쇼츠-투수VS타자 패널 열기"
                   onClick={() => setActiveKey("pv")}
                 >
+                  <span className="sb-ic" aria-hidden="true">6️⃣</span>
                   패널 열기
                 </button>
               </div>
@@ -4937,6 +5020,7 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="팀별 주간 트렌드 분석 실행"
                   disabled={pending("team_week_2")}
                   onClick={() => {
                     setActiveKey("team_week");
@@ -4948,6 +5032,7 @@ export default function App() {
                     );
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">📈</span>
                   트렌드 분석 실행
                 </button>
               </div>
@@ -5004,6 +5089,7 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="기간별 선수 성적 분석 실행"
                   disabled={pending("player_range_4")}
                   onClick={() => {
                     setActiveKey("player_range");
@@ -5015,6 +5101,7 @@ export default function App() {
                     );
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">👤</span>
                   기간 분석 실행
                 </button>
               </div>
@@ -5084,6 +5171,7 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="선발 투수 비교 분석 실행"
                   disabled={pending("sp_compare_5")}
                   onClick={() => {
                     setActiveKey("sp_compare");
@@ -5095,6 +5183,7 @@ export default function App() {
                     );
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">⚾</span>
                   비교 분석 실행
                 </button>
               </div>
@@ -5154,6 +5243,7 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="선발 vs 상대 타선 매칭업 분석 실행"
                   disabled={pending("sp_matchup_6")}
                   onClick={() => {
                     setActiveKey("sp_matchup");
@@ -5165,6 +5255,7 @@ export default function App() {
                     );
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">🆚</span>
                   매칭업 분석 실행
                 </button>
               </div>
@@ -5217,6 +5308,7 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
+                  title="최근 5경기 폼 예측 실행"
                   disabled={pending("predict_form_7")}
                   onClick={() => {
                     setActiveKey("predict_form");
@@ -5228,6 +5320,7 @@ export default function App() {
                     );
                   }}
                 >
+                  <span className="sb-ic" aria-hidden="true">🔮</span>
                   예측 실행
                 </button>
               </div>
@@ -5237,7 +5330,7 @@ export default function App() {
 
         </aside>
 
-        <main className="results">
+        <main className={`results${activeKey === "shorts3_highlight" ? " ve-editor" : ""}`}>
           <div className="results-inner">
             {/* results are rendered by activeKey; sidebar contains all controls */}
             {!activeKey ? (

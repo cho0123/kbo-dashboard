@@ -40,6 +40,35 @@ function formatSecondsToTimeInput(sec) {
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+/** "SS" | "MM:SS" | "HH:MM:SS" → 초. 파싱 실패 시 NaN. (새로 재지 않고 이미 입력한 값을 초로) */
+function timeInputToSeconds(str) {
+  const s = String(str || "").trim();
+  if (!s) return NaN;
+  const parts = s.split(":").map((p) => parseInt(p, 10));
+  if (parts.some((n) => !Number.isFinite(n))) return NaN;
+  let sec = 0;
+  for (const p of parts) sec = sec * 60 + p;
+  return sec;
+}
+
+const round2 = (x) => Math.round(x * 100) / 100;
+
+/** 클립 길이(durationSec)를 누적해 경계 구간 [{start,end}] 생성.
+ *  하나라도 길이를 모르면 [] (자동 생성 불가 → 수동 입력). 누적은 raw로, 출력만 소수 2자리 반올림해 드리프트 방지. */
+function buildBoundarySegments(clips) {
+  const out = [];
+  let acc = 0;
+  for (const c of clips) {
+    const d = Number(c?.durationSec);
+    if (!Number.isFinite(d) || d <= 0) return [];
+    const start = round2(acc);
+    acc += d;
+    const end = round2(acc);
+    out.push({ start, end });
+  }
+  return out;
+}
+
 function resolvePreviewSrcForFile(file, streamPath) {
   const pathFromProp =
     typeof streamPath === "string" ? streamPath.trim() : "";
@@ -147,7 +176,7 @@ const fieldStyle = { width: "100%", boxSizing: "border-box", marginTop: 4 };
 const rowStyle = { display: "grid", gap: 10, marginTop: 10 };
 const labelStyle = { display: "block", fontWeight: 700, fontSize: 13 };
 
-export default function VideoPrep({ onJobReady, streamPath }) {
+export default function VideoPrep({ onJobReady, onAutoSegments, streamPath }) {
   const videoInputRef = useRef(null);
   const previewVideoRef = useRef(null);
   const previewBlobUrlRef = useRef(null);
@@ -234,6 +263,13 @@ export default function VideoPrep({ onJobReady, streamPath }) {
         outputName,
       });
       const label = outputName || basename(data.clipPath) || `clip_${clips.length + 1}`;
+      // 길이 = 사용자가 입력한 종료 − 시작 (이미 아는 값, 새로 재지 않음)
+      const sSec = timeInputToSeconds(start);
+      const eSec = timeInputToSeconds(end);
+      const durationSec =
+        Number.isFinite(sSec) && Number.isFinite(eSec) && eSec > sSec
+          ? round2(eSec - sSec)
+          : null;
       setClips((prev) => [
         ...prev,
         {
@@ -241,6 +277,7 @@ export default function VideoPrep({ onJobReady, streamPath }) {
           clipPath: data.clipPath,
           size: data.size,
           label,
+          durationSec,
         },
       ]);
       setVideoFile(null);
@@ -283,9 +320,14 @@ export default function VideoPrep({ onJobReady, streamPath }) {
         clips: clips.map((c) => c.clipPath),
       });
       const jobId = data.jobId;
+      // 병합 순서 = clips 순서. 각 클립 길이 누적으로 경계 구간 생성 (길이 모르면 빈 배열)
+      const segs = buildBoundarySegments(clips);
       window.alert(`업로드 완료! JobId: ${jobId}`);
       if (typeof onJobReady === "function") {
         onJobReady(jobId);
+      }
+      if (segs.length && typeof onAutoSegments === "function") {
+        onAutoSegments(segs);
       }
       setClips([]);
     } catch (e) {
@@ -293,9 +335,13 @@ export default function VideoPrep({ onJobReady, streamPath }) {
     } finally {
       setMergeBusy(false);
     }
-  }, [clips, onJobReady]);
+  }, [clips, onJobReady, onAutoSegments]);
 
   const rowBusy = clipBusy || mergeBusy;
+  const totalDurationSec = round2(
+    clips.reduce((a, c) => a + (Number(c.durationSec) || 0), 0)
+  );
+  const anyDurationKnown = clips.some((c) => Number(c.durationSec) > 0);
 
   return (
     <div className="section soft video-prep">
@@ -451,7 +497,8 @@ export default function VideoPrep({ onJobReady, streamPath }) {
 
       <div style={{ ...rowStyle, marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
         <div className="muted" style={labelStyle}>
-          2. 클립 목록 ({clips.length}개)
+          2. 클립 목록 ({clips.length}개
+          {anyDurationKnown ? ` · 총 ${totalDurationSec.toFixed(1)}s` : ""})
         </div>
 
         {clips.length === 0 ? (
@@ -479,6 +526,9 @@ export default function VideoPrep({ onJobReady, streamPath }) {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{c.label}</div>
                   <div className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>
                     {basename(c.clipPath)} · {formatSizeMb(c.size)}
+                    {Number(c.durationSec) > 0
+                      ? ` · ${Number(c.durationSec).toFixed(1)}s`
+                      : ""}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -515,6 +565,12 @@ export default function VideoPrep({ onJobReady, streamPath }) {
         >
           {mergeBusy ? "업로드 중..." : "합치기 + S3 업로드"}
         </button>
+        {clips.length >= 2 && anyDurationKnown ? (
+          <div className="muted" style={{ fontSize: 12 }}>
+            병합 총 길이 약 {totalDurationSec.toFixed(1)}s · 병합 후 클립 경계로
+            구간 {clips.length}개 자동 생성
+          </div>
+        ) : null}
         {clips.length < 2 ? (
           <div className="muted" style={{ fontSize: 12 }}>
             클립 2개 이상 필요합니다.
