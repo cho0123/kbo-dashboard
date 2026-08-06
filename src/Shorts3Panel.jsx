@@ -730,6 +730,43 @@ function clampSegmentFracMs(n) {
   return Math.min(99, Math.max(0, v));
 }
 
+/** {start,end}(초) 배열 → 내부 세그먼트 배열. pendingSegments 변환 로직 공용화
+ *  (pendingSegments useEffect와 병합 자동 생성이 같은 변환을 탄다 — 새 로직 없음) */
+function pendingSegsToInternal(list) {
+  return (Array.isArray(list) ? list : []).map((seg) => {
+    const st = Number(seg?.start ?? 0);
+    const en = Number(seg?.end ?? 0);
+    const startSec = Number.isFinite(st) ? Math.max(0, st) : 0;
+    const endSec = Number.isFinite(en) ? Math.max(0, en) : 0;
+    const startWhole = Math.floor(startSec + 1e-9);
+    const endWhole = Math.floor(endSec + 1e-9);
+    const startMs = clampSegmentFracMs(Math.round((startSec - startWhole) * 100));
+    const endMs = clampSegmentFracMs(Math.round((endSec - endWhole) * 100));
+    return {
+      ...emptySegment(),
+      start: secondsToHhMmSs(startWhole),
+      startMs,
+      end: secondsToHhMmSs(endWhole),
+      endMs,
+      text: String(seg?.text || "").slice(0, 20) || "",
+    };
+  });
+}
+
+/** 편집 중인 구간에 실제 내용이 있는가 (기본 빈 구간 1개면 false) */
+function segmentsHaveContent(list) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  if (list.length > 1) return true;
+  const s = list[0];
+  if (!s) return false;
+  return Boolean(
+    (s.start && String(s.start).trim()) ||
+      (s.end && String(s.end).trim()) ||
+      (s.narration && String(s.narration).trim()) ||
+      (s.text && String(s.text).trim())
+  );
+}
+
 /**
  * HH:MM:SS 또는 MM:SS 등 → 초; 불가 시 null.
  * 선택 fracMs: 0~99 (0.01초) 합산
@@ -924,26 +961,7 @@ export default function Shorts3Panel({
 
   useEffect(() => {
     if (!Array.isArray(pendingSegments) || pendingSegments.length < 1) return;
-    const newSegs = pendingSegments.map((seg) => {
-      const st = Number(seg?.start ?? 0);
-      const en = Number(seg?.end ?? 0);
-      const startSec = Number.isFinite(st) ? Math.max(0, st) : 0;
-      const endSec = Number.isFinite(en) ? Math.max(0, en) : 0;
-      const startWhole = Math.floor(startSec + 1e-9);
-      const endWhole = Math.floor(endSec + 1e-9);
-      const startMs = clampSegmentFracMs(
-        Math.round((startSec - startWhole) * 100)
-      );
-      const endMs = clampSegmentFracMs(Math.round((endSec - endWhole) * 100));
-      return {
-        ...emptySegment(),
-        start: secondsToHhMmSs(startWhole),
-        startMs,
-        end: secondsToHhMmSs(endWhole),
-        endMs,
-        text: String(seg?.text || "").slice(0, 20) || "",
-      };
-    });
+    const newSegs = pendingSegsToInternal(pendingSegments);
     setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
@@ -3073,6 +3091,27 @@ export default function Shorts3Panel({
     }
   };
 
+  // VideoPrep 병합 → 클립 경계로 구간 자동 생성. 기존 pendingSegments 변환을 그대로 재사용.
+  // 편집 중이던 구간이 있으면 확인 후 교체(취소 시 보존), 없으면 바로 생성.
+  const applyMergedSegments = useCallback((rawSegs) => {
+    const list = Array.isArray(rawSegs)
+      ? rawSegs.filter((s) => s && Number(s.end) > Number(s.start))
+      : [];
+    if (list.length < 1) return;
+    if (segmentsHaveContent(segmentsRef.current)) {
+      const ok = window.confirm(
+        `클립 경계로 구간 ${list.length}개를 자동 생성할까요?\n` +
+          `편집 중이던 구간 ${segmentsRef.current.length}개는 대체됩니다.`
+      );
+      if (!ok) return;
+    }
+    const internal = pendingSegsToInternal(list);
+    if (internal.length < 1) return;
+    setSegments(internal);
+    setThumbnailSelected(false);
+    setSelectedSegIndex(0);
+  }, []);
+
   const onLoadSavedJob = async (id) => {
     setError(null);
     restoringDraftRef.current = true;
@@ -4127,6 +4166,7 @@ export default function Shorts3Panel({
                   const id = String(readyJobId || "").trim();
                   if (id) void onLoadSavedJob(id);
                 }}
+                onAutoSegments={applyMergedSegments}
               />
             </div>
           ) : null}
