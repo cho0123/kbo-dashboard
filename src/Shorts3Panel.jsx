@@ -7346,6 +7346,7 @@ export default function Shorts3Panel({
 
         {/* 오른쪽 컬럼 */}
         <div
+          className="ve-settings-col"
           style={{
             flex: 1,
             height: "100%",

@@ -128,6 +128,13 @@ body {
   }
 }
 
+/* 우측 세부설정 컬럼: 넓은 화면에서 입력창이 과도하게 늘어나지 않게 제한 */
+.ve-settings-col input,
+.ve-settings-col textarea,
+.ve-settings-col select {
+  max-width: 640px;
+}
+
 .topbar {
   background: var(--panel);
   border: 1px solid var(--border);
