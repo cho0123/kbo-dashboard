@@ -110,6 +110,24 @@ const VOICE_OPTIONS = [
 
 const DEFAULT_NARRATION_VOICE_ID = VOICE_OPTIONS[0].id;
 
+// 나레이션 리드인(오디오 시작 지연). lambda 의 adelay 500ms 및 구간 프리뷰 setTimeout 과 반드시 일치.
+const NARRATION_LEAD_IN_MS = 500;
+const NARRATION_LEAD_IN_SEC = NARRATION_LEAD_IN_MS / 1000; // 0.5
+// 나레이션 종료 후 여운(테일).
+const NARRATION_TAIL_SEC = 0.4;
+
+/** 나레이션 길이에 맞춘 자동 홀드(초) = max(0, 리드인 + TTS + 테일 − 소스구간). 계산 불가 시 0. */
+function computeAutoHoldSec(narrationDurationSec, srcDurSec) {
+  const nd = Number(narrationDurationSec);
+  const sd = Number(srcDurSec);
+  if (!Number.isFinite(nd) || nd <= 0 || !Number.isFinite(sd) || sd <= 0) {
+    return 0;
+  }
+  const need = NARRATION_LEAD_IN_SEC + nd + NARRATION_TAIL_SEC;
+  const hold = need - sd;
+  return hold > 0 ? Math.round(hold * 100) / 100 : 0;
+}
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -511,6 +529,8 @@ function emptySegment() {
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
+    holdSec: 0,
+    autoHold: true,
   };
 }
 
@@ -635,6 +655,31 @@ function narrationLengthLineModel(narrationDurationSec, seg) {
       : `나레이션: ${narrStr}`;
   const warn = span != null && nd > span;
   return { text, warn };
+}
+
+/** 홀드 요약: "소스 5.0초 + 홀드 7.9초 = 12.9초 (TTS 12.0초)". 계산 불가 시 null.
+ *  holdWarn = 홀드가 소스 길이를 넘어 정지 화면이 길어지는 경우. */
+function holdSummaryModel(seg) {
+  const src = segmentDurationSpanSeconds(seg);
+  if (src == null) return null;
+  const hold = Math.max(0, Number(seg?.holdSec) || 0);
+  const total = src + hold;
+  const nd = Number(seg?.narrationDuration);
+  const ttsStr = Number.isFinite(nd) && nd > 0 ? ` (TTS ${nd.toFixed(1)}초)` : "";
+  const line = `소스 ${src.toFixed(1)}초 + 홀드 ${hold.toFixed(1)}초 = ${total.toFixed(1)}초${ttsStr}`;
+  return { line, holdWarn: hold > src, src, hold, total };
+}
+
+/** 전체 영상 예상 길이(초): 각 구간 소스+홀드 합계. */
+function totalTimelineWithHoldSeconds(segments) {
+  if (!Array.isArray(segments)) return 0;
+  let sum = 0;
+  for (const s of segments) {
+    const src = segmentDurationSpanSeconds(s);
+    if (src == null) continue;
+    sum += src + Math.max(0, Number(s?.holdSec) || 0);
+  }
+  return sum;
 }
 
 function formatCropOffsetLabel(offset) {
@@ -939,6 +984,9 @@ export default function Shorts3Panel({
   /** 구간 미리보기 재생 시 나레이션(미리듣기 저장 URL) */
   const segmentPreviewNarrationAudioRef = useRef(null);
   const segmentNarrationStartTimeoutRef = useRef(null);
+  /** 구간 미리보기: 마지막 프레임 홀드 중 여부 + 홀드 종료 타이머 */
+  const segmentHoldingRef = useRef(false);
+  const segmentHoldTimeoutRef = useRef(null);
   /** 구간 미리보기 전 `video.muted` (미저장 시 undefined) */
   const savedVideoMutedForSegmentPreviewRef = useRef(undefined);
   const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
@@ -1885,19 +1933,42 @@ export default function Shorts3Panel({
       const audio = new Audio(narrUrl);
       segmentPreviewNarrationAudioRef.current = audio;
       audio.play().catch(() => {});
-    }, 500);
+    }, NARRATION_LEAD_IN_MS);
+
+    const holdMs = Math.max(0, Number(seg.holdSec) || 0) * 1000;
+
+    const finishSegmentPreview = () => {
+      segmentHoldingRef.current = false;
+      if (segmentHoldTimeoutRef.current) {
+        clearTimeout(segmentHoldTimeoutRef.current);
+        segmentHoldTimeoutRef.current = null;
+      }
+      stopNarrationOnly();
+      restoreVideoMute();
+      setPlayingSegmentIndex(null);
+    };
 
     const onTimeUpdate = () => {
-      if (v.paused) return;
+      if (v.paused || segmentHoldingRef.current) return;
       if (v.currentTime >= endSec) {
+        // 마지막 프레임에서 정지(홀드). 나레이션은 계속 재생, holdSec 후 종료.
         v.pause();
-        stopNarrationOnly();
-        restoreVideoMute();
-        setPlayingSegmentIndex(null);
+        if (holdMs > 0) {
+          segmentHoldingRef.current = true;
+          segmentHoldTimeoutRef.current = setTimeout(() => {
+            segmentHoldTimeoutRef.current = null;
+            if (playingSegmentIndexRef.current !== idx) return;
+            finishSegmentPreview();
+          }, holdMs);
+        } else {
+          finishSegmentPreview();
+        }
       }
     };
 
     const onPause = () => {
+      // 홀드 중(의도적 정지)에는 나레이션을 계속 재생한다.
+      if (segmentHoldingRef.current) return;
       try {
         segmentPreviewNarrationAudioRef.current?.pause();
       } catch {
@@ -1910,6 +1981,11 @@ export default function Shorts3Panel({
     return () => {
       v.removeEventListener("timeupdate", onTimeUpdate);
       v.removeEventListener("pause", onPause);
+      segmentHoldingRef.current = false;
+      if (segmentHoldTimeoutRef.current) {
+        clearTimeout(segmentHoldTimeoutRef.current);
+        segmentHoldTimeoutRef.current = null;
+      }
       stopNarrationOnly();
     };
   }, [previewUrl, playingSegmentIndex]);
@@ -2017,6 +2093,16 @@ export default function Shorts3Panel({
     }
     return sum;
   }, [segments, thumbnailSegment]);
+
+  // 홀드 합계(비이미지 구간). 전체 영상 예상 길이 = segmentTotalSec + 이 값.
+  const segmentHoldTotalSec = useMemo(() => {
+    let h = 0;
+    for (const seg of segments) {
+      if (isImageSegment(seg)) continue;
+      h += Math.max(0, Number(seg?.holdSec) || 0);
+    }
+    return h;
+  }, [segments]);
 
   const segmentTotalWarnStyle = useMemo(() => {
     if (segmentTotalSec > 300) return { color: "var(--ve-danger)" };
@@ -2442,6 +2528,14 @@ export default function Shorts3Panel({
         await playRange(startSec, endSec, virtualCursor, onVirtualProgress);
         virtualCursor += endSec - startSec;
 
+        // 마지막 프레임 홀드: playRange 후 영상은 endSec 에 정지된 상태. holdSec 만큼 유지.
+        const holdSec = Math.max(0, Number(seg.holdSec) || 0);
+        if (holdSec > 0 && playAllRef.current) {
+          onVirtualProgress(virtualCursor);
+          await new Promise((res) => setTimeout(res, holdSec * 1000));
+          virtualCursor += holdSec;
+        }
+
         await new Promise((res) => setTimeout(res, 100));
       }
     } finally {
@@ -2522,7 +2616,7 @@ export default function Shorts3Panel({
           if (!u) return;
           narrAudio = new Audio(u);
           narrAudio.play().catch(() => {});
-        }, 500);
+        }, NARRATION_LEAD_IN_MS);
         video.muted = true;
         video.play().catch(() => {});
       });
@@ -2651,7 +2745,7 @@ export default function Shorts3Panel({
         if (done || !narrUrl) return;
         narrAudio = new Audio(narrUrl);
         narrAudio.play().catch(() => {});
-      }, 500);
+      }, NARRATION_LEAD_IN_MS);
       video.play().catch(() => {});
     });
   }, [
@@ -3549,6 +3643,7 @@ export default function Shorts3Panel({
               Math.max(20, Math.round(Number(s.textSize2)) || 48)
             ),
             narration: String(s.narration ?? "").trim(),
+            holdSec: Math.max(0, Number(s.holdSec) || 0),
           };
           if (isImageSegment(s)) {
             return {
@@ -5266,6 +5361,13 @@ export default function Shorts3Panel({
                   >
                     총 {secondsToHhMmSs(segmentTotalSec)} (
                     {Math.floor(segmentTotalSec)}초)
+                    {segmentHoldTotalSec > 0
+                      ? ` · 홀드 포함 ${secondsToHhMmSs(
+                          segmentTotalSec + segmentHoldTotalSec
+                        )} (${Math.round(
+                          (segmentTotalSec + segmentHoldTotalSec) * 10
+                        ) / 10}초)`
+                      : ""}
                   </span>
                 </div>
             </>
@@ -6824,6 +6926,107 @@ export default function Shorts3Panel({
                       </div>
                     );
                   })()}
+                  {(() => {
+                    const hm = holdSummaryModel(seg);
+                    if (!hm) return null;
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          userSelect: "none",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            fontSize: 12,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={seg.autoHold !== false}
+                            disabled={busy || uploading}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setSegments((prev) =>
+                                prev.map((s, i) => {
+                                  if (i !== index) return s;
+                                  const nextHold = on
+                                    ? computeAutoHoldSec(
+                                        s.narrationDuration,
+                                        segmentDurationSpanSeconds(s)
+                                      )
+                                    : s.holdSec;
+                                  return { ...s, autoHold: on, holdSec: nextHold };
+                                })
+                              );
+                            }}
+                          />
+                          나레이션 길이에 맞춰 자동 홀드
+                        </label>
+                        {seg.autoHold === false ? (
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                              fontSize: 12,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            홀드(초)
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.1}
+                              value={Number(seg.holdSec) || 0}
+                              disabled={busy || uploading}
+                              onChange={(e) => {
+                                const v = Math.max(0, Number(e.target.value) || 0);
+                                setSegments((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index
+                                      ? { ...s, holdSec: Math.round(v * 100) / 100 }
+                                      : s
+                                  )
+                                );
+                              }}
+                              style={{
+                                width: 80,
+                                fontSize: 12,
+                                padding: "2px 4px",
+                                borderRadius: 4,
+                                border: "1px solid var(--ve-border)",
+                                background: "var(--ve-panel)",
+                                color: "var(--ve-text)",
+                              }}
+                            />
+                          </label>
+                        ) : null}
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: hm.holdWarn
+                              ? "var(--ve-warning)"
+                              : "var(--ve-text-sub)",
+                          }}
+                        >
+                          {hm.line}
+                        </span>
+                        {hm.holdWarn ? (
+                          <span style={{ fontSize: 11, color: "var(--ve-warning)" }}>
+                            정지 화면이 길어집니다. 클립 추가나 문장 분할을
+                            검토하세요
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   <div
                     style={{
                       display: "flex",
@@ -6893,9 +7096,21 @@ export default function Shorts3Panel({
                             const d = audio.duration;
                             if (!Number.isFinite(d) || d < 0) return;
                             setSegments((prev) =>
-                              prev.map((s, i) =>
-                                i === index ? { ...s, narrationDuration: d } : s
-                              )
+                              prev.map((s, i) => {
+                                if (i !== index) return s;
+                                // 자동 홀드가 켜져 있으면 새 TTS 길이에 맞춰 holdSec 재계산.
+                                const nextHold = s.autoHold
+                                  ? computeAutoHoldSec(
+                                      d,
+                                      segmentDurationSpanSeconds(s)
+                                    )
+                                  : s.holdSec;
+                                return {
+                                  ...s,
+                                  narrationDuration: d,
+                                  holdSec: nextHold,
+                                };
+                              })
                             );
                           };
                           narrationAudioRef.current = audio;

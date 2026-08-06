@@ -288,6 +288,12 @@ function coerceSegmentFracMs(v) {
 
 const HIGHLIGHT_MIN_SEGMENT_DUR_SEC = 0.1;
 
+// 나레이션 리드인(오디오 시작 지연). 세그먼트 오디오 필터의 adelay 로 흩어져 있던 값을 한 곳으로.
+// 값(500ms)은 그대로 — 프론트 프리뷰 setTimeout·홀드 계산의 리드인과 반드시 일치해야 한다.
+const NARRATION_LEAD_IN_MS = 500;
+// 홀드 상한(폭주 방지). 나레이션이 아무리 길어도 정지 홀드는 이 이상 늘리지 않는다.
+const HIGHLIGHT_MAX_HOLD_SEC = 30;
+
 /** HH:MM:SS(+선택 startMs/endMs 0~99, 0.01초) 구간 경계 초 — NaN/음수는 0 */
 function segmentBoundarySeconds(seg, key) {
   const isStart = key === "start";
@@ -783,6 +789,18 @@ function finalizeHighlightVfBase(parts) {
   return /format=yuv420p/.test(chain) ? chain : `${chain},format=yuv420p`;
 }
 
+/**
+ * 마지막 프레임 홀드(tpad)를 crop→scale→format 직후(테두리·자막 앞)에 조건부 삽입.
+ * ⚠️ holdSec 이 0/없음이면 아무것도 push 하지 않는다 → 필터체인 문자열 완전 불변(회귀 안전).
+ * 홀드된(복제) 프레임에도 이후의 drawbox·drawtext 가 그대로 적용된다.
+ */
+function appendHoldTpad(parts, opts) {
+  const h = Number(opts?.holdSec);
+  if (Number.isFinite(h) && h > 0) {
+    parts.push(`tpad=stop_mode=clone:stop_duration=${h}`);
+  }
+}
+
 function appendHighlightKboDrawtext(parts, opts) {
   const {
     topTextFile,
@@ -894,6 +912,7 @@ function buildHighlightSegmentVfFullscreen(opts) {
       "format=yuv420p",
     ];
   }
+  appendHoldTpad(parts, opts);
   if (!withText) return finalizeHighlightVfBase(parts);
   appendHighlightDrawtextByLayout("fullscreen", parts, opts);
   return finalizeHighlightVfChain(parts);
@@ -929,6 +948,7 @@ function buildHighlightSegmentVfTopBottom(opts) {
       "format=yuv420p",
     ];
   }
+  appendHoldTpad(parts, opts);
   if (!withText) return finalizeHighlightVfBase(parts);
   appendHighlightDrawtextByLayout("topbottom", parts, opts);
   return finalizeHighlightVfChain(parts);
@@ -996,6 +1016,7 @@ function buildHighlightSegmentVf(opts) {
             "format=yuv420p",
           ];
         })();
+  appendHoldTpad(parts, opts);
   if (borderColorPrimary && !skipTeamBorderBoxes) {
     const c = `${borderColorPrimary}@1`;
     parts.push(
@@ -1202,7 +1223,7 @@ async function processHighlightImageSegment(ctx) {
       const fc = buildHighlightPngOverlayFilterComplex(
         vfNoText,
         drawtextOnly,
-        `[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
+        `[2:a]adelay=${NARRATION_LEAD_IN_MS}|${NARRATION_LEAD_IN_MS},atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
       );
       runFfmpeg(
         [
@@ -1324,7 +1345,7 @@ async function processHighlightImageSegment(ctx) {
       );
     }
   } else if (hasNarrAudio) {
-    const fc = `[0:v]${vfSeg}[v];[1:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+    const fc = `[0:v]${vfSeg}[v];[1:a]adelay=${NARRATION_LEAD_IN_MS}|${NARRATION_LEAD_IN_MS},atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
     runFfmpeg(
       [
         "-y",
@@ -1612,13 +1633,27 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           ? HIGHLIGHT_THUMBNAIL_DUR_SEC
           : HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
     }
+    // 마지막 프레임 홀드: 나레이션이 소스보다 길 때 tpad 로 뒤를 채운다.
+    // 나레이션 텍스트가 있을 때만 적용(auto-hold이 TTS 기반). 없으면 holdSec=0 → 기존과 완전 동일.
+    const segHasNarrationText =
+      seg.narration != null && String(seg.narration).trim() !== "";
+    const holdSecRaw = Number(seg.holdSec);
+    const holdSec =
+      segHasNarrationText && Number.isFinite(holdSecRaw) && holdSecRaw > 0
+        ? Math.min(HIGHLIGHT_MAX_HOLD_SEC, holdSecRaw)
+        : 0;
+    // 입력 컷(-t)은 소스 길이(duration) 유지, tpad 가 뒤에 holdSec 만큼 프레임을 붙인다.
+    // 출력/오디오 길이 = duration + holdSec.
+    const outDur = duration + holdSec;
     console.log(
       "[seg] start:",
       startSec,
       "end:",
       endSec,
       "duration:",
-      duration
+      duration,
+      "holdSec:",
+      holdSec
     );
     const cropRaw =
       seg[THUMB_SEG_FLAG] === true
@@ -1701,6 +1736,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       bottomBarColor: meta?.bottomBarColor,
       videoScaleY,
       videoOffsetY,
+      holdSec,
     };
     const vfSeg = buildHighlightSegmentVfByLayout(layout, vfSegOpts);
     const vfNoText = buildHighlightSegmentVfByLayout(layout, {
@@ -1731,17 +1767,18 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       hasOverlayPng,
       hasThumbnailPng
     );
-    const durStr = String(duration);
+    // atrim·apad·overlay-t 는 홀드 포함 출력 길이(outDur) 기준. holdSec=0 이면 outDur===duration → 기존과 동일.
+    const durStr = String(outDur);
     const narrApadSamples = Math.max(
       1,
-      Math.ceil((Number(duration) || 0) * 48000)
+      Math.ceil((Number(outDur) || 0) * 48000)
     );
     if (overlayPngFile) {
       if (hasNarrAudio) {
         const fc = buildHighlightPngOverlayFilterComplex(
           vfNoText,
           drawtextOnly,
-          `[2:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
+          `[2:a]adelay=${NARRATION_LEAD_IN_MS}|${NARRATION_LEAD_IN_MS},atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`
         );
         runFfmpeg(
           [
@@ -1755,7 +1792,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
             "-loop",
             "1",
             "-t",
-            String(duration),
+            durStr,
             "-i",
             overlayPngFile,
             "-i",
@@ -1807,7 +1844,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           "-loop",
           "1",
           "-t",
-          String(duration),
+          durStr,
           "-i",
           overlayPngFile,
           "-filter_complex",
@@ -1867,7 +1904,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
         );
       }
     } else if (hasNarrAudio) {
-      const fc = `[0:v]${vfSeg}[v];[1:a]adelay=500|500,atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
+      const fc = `[0:v]${vfSeg}[v];[1:a]adelay=${NARRATION_LEAD_IN_MS}|${NARRATION_LEAD_IN_MS},atrim=duration=${durStr},asetpts=PTS-STARTPTS,aresample=48000,apad=whole_len=${narrApadSamples}[aud]`;
       runFfmpeg(
         [
           "-y",
