@@ -68,6 +68,15 @@ body {
   max-width: none;
   padding-left: 12px;
   padding-right: 12px;
+  /* 편집기 컨테이너가 뷰포트를 채우므로 하단 패딩·개발용 footer를 없애 페이지 세로 스크롤 제거.
+     (편집 화면 한정. 다른 화면은 기존 padding-bottom:72px·footer 유지) */
+  padding-bottom: 0;
+}
+.app-shell.ve-full .footer-note {
+  display: none;
+}
+.results.ve-editor .results-inner {
+  padding-bottom: 0;
 }
 
 .topbar {
@@ -119,7 +128,8 @@ body {
      100vh는 실측 전 첫 페인트용 폴백. 실측값이 뷰포트를 넘지 않게 해 불필요한 페이지 스크롤 제거. */
   height: 100vh;
   overflow-y: auto;
-  transition: width 0.18s ease, flex-basis 0.18s ease, padding 0.18s ease;
+  /* width transition은 두지 않는다: documentElement를 관찰하는 ResizeObserver(높이 실측)와
+     맞물려 애니메이션이 끝나지 않는 피드백 루프가 생겨 폭이 320px에 고정된다. 즉시 전환한다. */
 }
 
 /* --- 사이드바 접기 --- */
