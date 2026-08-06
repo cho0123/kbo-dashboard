@@ -72,14 +72,19 @@ try {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stageFonts $_.Name) -Force
     }
 
-    Push-Location $StageRoot
-    try {
-        $toZip = @('index.mjs', 'package.json', 'bin', 'fonts')
-        Compress-Archive -Path $toZip -DestinationPath $zipPath -CompressionLevel Optimal -Force
-    }
-    finally {
-        Pop-Location
-    }
+    # 압축은 .NET ZipFile 로 직접 수행한다.
+    # (Compress-Archive 도 네이티브지만, .zip 연결앱 등 외부 프로그램 의존을 원천 차단하고
+    #  집/회사 PC 어디서나 동일하게 동작하도록 .NET API 를 명시적으로 사용.)
+    if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+    # PowerShell 5.1(Windows)에서는 어셈블리 로드가 필요하고, PowerShell 7+(.NET Core)에서는
+    # 이미 로드돼 있어 Add-Type 이 실패할 수 있다 → try/catch 로 감싸 양쪽 PC 모두 안전하게.
+    try { Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop } catch { }
+    # $StageRoot 내용(index.mjs, package.json, bin/, fonts/)을 zip 루트에 담는다(includeBaseDirectory=$false).
+    [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        $StageRoot,
+        $zipPath,
+        [System.IO.Compression.CompressionLevel]::Optimal,
+        $false)
 }
 finally {
     Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue
