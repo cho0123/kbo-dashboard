@@ -4315,18 +4315,21 @@ export default function App() {
       return false;
     }
   });
-  useEffect(() => {
-    try {
-      localStorage.setItem("kbo_ui_sidebar_collapsed", sidebarCollapsed ? "1" : "0");
-    } catch {
-      // ignore
-    }
-  }, [sidebarCollapsed]);
-  // 사용자가 토글을 직접 누르면 그 선택을 우선(영상편집 진입 시 자동 접힘을 덮어쓰지 않음)
+  // 사용자가 토글을 직접 누르면 그 선택을 우선(영상편집 진입 시 자동 접힘을 덮어쓰지 않음).
+  // localStorage에는 '수동 선택'만 저장한다 — 영상편집 자동 접힘까지 저장하면 쇼츠 탭도
+  // 접힌 채로 로드돼 입력 폼이 숨겨지는 나쁜 UX가 된다.
   const sidebarManualRef = useRef(false);
   const toggleSidebar = useCallback(() => {
     sidebarManualRef.current = true;
-    setSidebarCollapsed((v) => !v);
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("kbo_ui_sidebar_collapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   }, []);
   // 영상편집 화면에 처음 진입하면 기본 접힘(단, 사용자가 수동 토글했다면 존중)
   useEffect(() => {
