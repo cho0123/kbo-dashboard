@@ -583,6 +583,26 @@ const INITIAL_THUMBNAIL_SEGMENT = {
   narrationAudioUrl: null,
 };
 
+/**
+ * 전체 구간 공통 자막(전역 텍스트). 썸네일 카드의 keepText 승격 기능을 대체.
+ * 기존 썸네일 카드가 payload.globalText1*로 보내던 필드와 1:1 대응(폰트·색·크기·세로위치).
+ * 투명도·그림자는 globalText payload에 없어(Lambda 미지원) 제외.
+ */
+const INITIAL_GLOBAL_TEXT = {
+  use1: false,
+  text1: "",
+  font1: "NotoSansKR-Bold.ttf",
+  color1: "#FFFFFF",
+  size1: 88,
+  y1: 49,
+  use2: false,
+  text2: "",
+  font2: "NotoSansKR-Bold.ttf",
+  color2: "#FFFFFF",
+  size2: 52,
+  y2: 57,
+};
+
 /** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
 function segmentBoundaryToSeconds(hmsRaw, fracMs) {
   return parseHhMmSsToSeconds(hmsRaw, fracMs);
@@ -1005,6 +1025,9 @@ export default function Shorts3Panel({
   const [topTextOpacity, setTopTextOpacity] = useState(1);
   const [topTextFont, setTopTextFont] = useState(DEFAULT_TEXT_FONT);
   const [topTextShadow, setTopTextShadow] = useState(false);
+  // 전체 구간 공통 자막(전역 텍스트) — 썸네일 카드 keepText 승격 기능의 대체 입력
+  const [globalText, setGlobalText] = useState(() => ({ ...INITIAL_GLOBAL_TEXT }));
+  const [globalTextOpen, setGlobalTextOpen] = useState(false);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -1029,6 +1052,7 @@ export default function Shorts3Panel({
       const payload = {
         segments,
         thumbnailSegment,
+        globalText,
         topText,
         topTextColor,
         topTextSize,
@@ -1055,6 +1079,7 @@ export default function Shorts3Panel({
     jobId,
     segments,
     thumbnailSegment,
+    globalText,
     topText,
     topTextColor,
     topTextSize,
@@ -2908,6 +2933,7 @@ export default function Shorts3Panel({
     restoringDraftRef.current = true;
     setSegments(() => [emptySegment()]);
     setThumbnailSegment({ ...INITIAL_THUMBNAIL_SEGMENT });
+    setGlobalText({ ...INITIAL_GLOBAL_TEXT });
     setTopText("");
     setTopTextColor(TEXT_COLORS[0]);
     setTopTextSize(72);
@@ -2973,6 +2999,29 @@ export default function Shorts3Panel({
         }
         if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
           setThumbnailSegment((prev) => ({ ...prev, ...d.thumbnailSegment }));
+        }
+        // 전역 자막 복원. 신 형식(globalText) 우선, 없으면 옛 썸네일 keepText에서 이관.
+        if (d.globalText && typeof d.globalText === "object") {
+          setGlobalText((prev) => ({ ...prev, ...d.globalText }));
+        } else if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
+          const t = d.thumbnailSegment;
+          if (t.keepText1 || t.keepText2) {
+            setGlobalText((prev) => ({
+              ...prev,
+              use1: !!t.keepText1,
+              text1: t.keepText1 ? String(t.text1 ?? "") : prev.text1,
+              font1: t.font1 || prev.font1,
+              color1: t.textColor1 || prev.color1,
+              size1: Number.isFinite(Number(t.fontSize1)) ? Number(t.fontSize1) : prev.size1,
+              y1: Number.isFinite(Number(t.textY1)) ? Number(t.textY1) : prev.y1,
+              use2: !!t.keepText2,
+              text2: t.keepText2 ? String(t.text2 ?? "") : prev.text2,
+              font2: t.font2 || prev.font2,
+              color2: t.textColor2 || prev.color2,
+              size2: Number.isFinite(Number(t.fontSize2)) ? Number(t.fontSize2) : prev.size2,
+              y2: Number.isFinite(Number(t.textY2)) ? Number(t.textY2) : prev.y2,
+            }));
+          }
         }
         if (typeof d.topText === "string") setTopText(d.topText);
         if (typeof d.topTextColor === "string") setTopTextColor(d.topTextColor);
@@ -3443,40 +3492,33 @@ export default function Shorts3Panel({
         };
         payload.segments = [thumbSegPayload, ...payload.segments];
       }
-      if (thumbnailSegment.keepText1) {
-        const g1 = String(thumbnailSegment.text1 || "").trim();
+      // 전역 자막 → payload.globalText1*/globalText2* (형식은 기존과 완전 동일, Lambda 미변경)
+      if (globalText.use1) {
+        const g1 = String(globalText.text1 || "").trim();
         if (g1) {
           payload.globalText1 = g1;
-          payload.globalText1Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY1,
-            49
-          );
+          payload.globalText1Y = clampThumbnailTextYPercent(globalText.y1, 49);
           payload.globalText1Color =
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF";
+            String(globalText.color1 || "#FFFFFF").trim() || "#FFFFFF";
           payload.globalText1Size = Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+            Math.max(20, Math.round(Number(globalText.size1)) || 88)
           );
-          payload.globalText1Font = ensureTtf(thumbnailSegment.font1 || "");
+          payload.globalText1Font = ensureTtf(globalText.font1 || "");
         }
       }
-      if (thumbnailSegment.keepText2) {
-        const g2 = String(thumbnailSegment.text2 || "").trim();
+      if (globalText.use2) {
+        const g2 = String(globalText.text2 || "").trim();
         if (g2) {
           payload.globalText2 = g2;
-          payload.globalText2Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY2,
-            57
-          );
+          payload.globalText2Y = clampThumbnailTextYPercent(globalText.y2, 57);
           payload.globalText2Color =
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF";
+            String(globalText.color2 || "#FFFFFF").trim() || "#FFFFFF";
           payload.globalText2Size = Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+            Math.max(20, Math.round(Number(globalText.size2)) || 52)
           );
-          payload.globalText2Font = ensureTtf(thumbnailSegment.font2 || "");
+          payload.globalText2Font = ensureTtf(globalText.font2 || "");
         }
       }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
@@ -5001,6 +5043,127 @@ export default function Shorts3Panel({
           )}
         </div>
         
+
+      {/* 전체 구간 공통 자막(전역 텍스트) — full-width·구분 스타일. 구간별 자막과 별개 */}
+      <div
+        style={{
+          marginTop: 12,
+          border: "1px solid rgba(120,180,255,0.35)",
+          borderRadius: 10,
+          background: "rgba(80,130,220,0.10)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setGlobalTextOpen((o) => !o)}
+          aria-expanded={globalTextOpen}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            padding: "8px 12px",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "#dbe7ff",
+            fontWeight: 700,
+            fontSize: 13,
+          }}
+        >
+          <span>
+            🎬 전체 구간 공통 자막{" "}
+            <span style={{ opacity: 0.7, fontWeight: 400 }}>
+              · 모든 클립에 표시 (구간별 자막과 별개)
+            </span>
+            {(globalText.use1 || globalText.use2) ? (
+              <span style={{ marginLeft: 6, color: "#7fd67f" }}>● 사용중</span>
+            ) : null}
+          </span>
+          <span aria-hidden style={{ opacity: 0.7 }}>
+            {globalTextOpen ? "▲" : "▼"}
+          </span>
+        </button>
+        {globalTextOpen ? (
+          <div
+            style={{
+              padding: "4px 12px 12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {[
+              { useKey: "use1", textKey: "text1", fontKey: "font1", colorKey: "color1", sizeKey: "size1", yKey: "y1", label: "텍스트1" },
+              { useKey: "use2", textKey: "text2", fontKey: "font2", colorKey: "color2", sizeKey: "size2", yKey: "y2", label: "텍스트2" },
+            ].map((row) => (
+              <div
+                key={row.useKey}
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}
+              >
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#cfe0ff", whiteSpace: "nowrap" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!globalText[row.useKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.useKey]: e.target.checked }))}
+                  />
+                  {row.label}
+                </label>
+                <input
+                  type="text"
+                  value={globalText[row.textKey]}
+                  placeholder="공통 자막 문구"
+                  onChange={(e) => setGlobalText((p) => ({ ...p, [row.textKey]: e.target.value }))}
+                  style={{ flex: "1 1 180px", minWidth: 140, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13 }}
+                />
+                <select
+                  value={globalText[row.fontKey]}
+                  onChange={(e) => setGlobalText((p) => ({ ...p, [row.fontKey]: e.target.value }))}
+                  style={{ fontSize: 12, padding: "4px 6px", borderRadius: 6 }}
+                >
+                  {FONTS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 3 }}>
+                  크기
+                  <input
+                    type="number"
+                    min={20}
+                    max={200}
+                    value={globalText[row.sizeKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.sizeKey]: Number(e.target.value) }))}
+                    style={{ width: 56, padding: "3px 4px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 12 }}
+                  />
+                </label>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 3 }}>
+                  색
+                  <input
+                    type="color"
+                    value={globalText[row.colorKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.colorKey]: e.target.value }))}
+                    style={{ width: 32, height: 24, padding: 0, border: "none", background: "none" }}
+                  />
+                </label>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 4 }}>
+                  세로 {globalText[row.yKey]}%
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={globalText[row.yKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.yKey]: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+            ))}
+            <p style={{ fontSize: 11, color: "#8ea9c9", margin: 0 }}>
+              0% = 최상단 · 100% = 최하단. 체크된 텍스트만 렌더에 포함됩니다.
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       <div
         style={{
