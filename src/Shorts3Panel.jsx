@@ -4613,17 +4613,10 @@ export default function Shorts3Panel({
               {previewCollapsed ? "🔼 미리보기 펼치기" : "🔽 미리보기 접기"}
             </button>
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 12,
-                alignItems: "center",
-              }}
-            >
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div className="ve-preview-cq">
+            <div className="ve-preview-3col">
+            <div className="ve-preview-col1">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {EDIT_STYLE_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -4687,9 +4680,8 @@ export default function Shorts3Panel({
                   flexDirection: "column",
                   gap: 4,
                   fontSize: 12,
-                  minWidth: 140,
-                  flex: "1 1 140px",
-                  maxWidth: 200,
+                  width: "100%",
+                  flex: "0 0 auto",
                 }}
               >
                 <span className="muted">세로 크기: {videoScaleY}%</span>
@@ -4712,9 +4704,8 @@ export default function Shorts3Panel({
                   flexDirection: "column",
                   gap: 4,
                   fontSize: 12,
-                  minWidth: 140,
-                  flex: "1 1 140px",
-                  maxWidth: 200,
+                  width: "100%",
+                  flex: "0 0 auto",
                 }}
               >
                 <span className="muted">세로 위치: {videoOffsetY}%</span>
@@ -4732,22 +4723,17 @@ export default function Shorts3Panel({
                 />
               </label>
             </div>
-          </div>
+            <div className="ve-preview-main">
           {uploadPhase === "done" && previewUrl ? (
             <>
             <div
               ref={previewVideoWrapRef}
+              className="ve-preview-matte"
                 style={{
                   // 접기: display만 토글(언마운트 X) — video ref·canvas 컨텍스트 유지
-                  display: previewCollapsed ? "none" : "block",
+                  display: previewCollapsed ? "none" : undefined,
+                  // 매트는 영상+캔버스 주위로만(fit-content) — 컨테이너 전체를 덮지 않게 CSS에서 처리
                   position: "relative",
-                  width: "100%",
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  // 미리보기 매트: 영상/캔버스와 UI 사이 완충대 (액센트·상태색 금지)
-                  background: "var(--ve-matte)",
-                  padding: 14,
-                  boxSizing: "border-box",
                 }}
               >
                 <div
@@ -4755,16 +4741,15 @@ export default function Shorts3Panel({
                     display: "flex",
                     gap: 12,
                     alignItems: "stretch",
-                    width: "100%",
                     height: PREVIEW_ROW_HEIGHT_PX,
                     minHeight: PREVIEW_ROW_HEIGHT_PX,
                     boxSizing: "border-box",
                   }}
                 >
-                  {/* 원본 영상 — 같은 높이(400px), 나머지 너비 flex */}
+                  {/* 원본 영상 — 같은 높이(400px), 내용 폭(fit-content 매트 대응) */}
                   <div
                     style={{
-                      flex: 1,
+                      flex: "0 0 auto",
                       minWidth: 0,
                       height: PREVIEW_ROW_HEIGHT_PX,
                       display: "flex",
@@ -5236,8 +5221,11 @@ export default function Shorts3Panel({
               있습니다.
             </p>
           )}
+            </div>{/* /ve-preview-main */}
+            </div>{/* /ve-preview-3col */}
+          </div>{/* /ve-preview-cq */}
         </div>
-        
+
 
       <div
         style={{
