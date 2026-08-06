@@ -615,6 +615,21 @@ button.primary.primary-fill {
   border-color: rgba(0, 0, 0, 0.12);
 }
 
+/* 편집기(.results)의 흰 배경 select 는 option 도 흰 배경·짙은 글자로 명시
+   (펼친 드롭다운이 OS 다크모드에서도 흰 배경으로 읽히게). */
+.results select option,
+.results select optgroup,
+.results option {
+  background: #ffffff;
+  color: #1a1a2e;
+}
+
+.results input::placeholder,
+.results textarea::placeholder {
+  color: rgba(26, 26, 46, 0.55);
+  opacity: 1;
+}
+
 .results .md {
   color: #1a1a2e !important;
   overflow: visible;
@@ -1090,14 +1105,37 @@ select {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--ve-text);
-  color: var(--text);
+  /* 배경은 패널색(밝음). 과거 var(--ve-text)(=글자색, 어두움) 오타로 어두운 배경+어두운 글자가 됐었다. */
+  background: var(--ve-panel);
+  color: var(--ve-text);
   font-family: inherit;
   font-size: 0.92rem;
 }
 
 select {
   cursor: pointer;
+}
+
+/* 드롭다운 항목: 펼친 상태의 native <option> 팝업은 computed-style 스캔에서 누락됐고
+   색 미지정 시 OS 기본색(다크모드면 어두움)과 상속된 글자색이 충돌해 안 보였다.
+   배경·글자를 모두 명시(상속 의존 금지). */
+option,
+optgroup {
+  background: var(--ve-panel);
+  color: var(--ve-text);
+}
+/* placeholder: panel 대비 4.5:1 확보된 보조색으로 명시 */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ve-text-sub);
+  opacity: 1;
+}
+/* 비활성 요소: opacity로만 흐리게(글자색 유지) — 회색-회색 저대비 방지 */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  -webkit-text-fill-color: currentColor;
 }
 
 input:focus,
@@ -1711,8 +1749,8 @@ button.primary:disabled {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--ve-text);
-  color: var(--text);
+  background: var(--ve-panel);
+  color: var(--ve-text);
   font-family: inherit;
 }
 
