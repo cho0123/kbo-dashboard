@@ -1,4 +1,4 @@
-﻿import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { postKbo, seoulToday } from "./api.js";
@@ -4279,33 +4279,8 @@ export default function App() {
   const [memoOpen, setMemoOpen] = useState(false);
   const [activeKey, setActiveKey] = useState("shorts_slides");
 
-  // 사이드바 높이: 편집기 컨테이너와 동일하게 실제 상단 위치를 측정해 뷰포트 하단까지 채운다.
-  // 매직넘버(100vh) 대신 innerHeight - top - 14 로 계산 → 불필요한 페이지 세로 스크롤 제거.
-  const sidebarRef = useRef(null);
-  const [sidebarH, setSidebarH] = useState(null);
-  useLayoutEffect(() => {
-    const el = sidebarRef.current;
-    if (!el || typeof window === "undefined") return;
-    const BOTTOM_GAP = 14; // 사이드바 하단과 뷰포트 하단 사이 여백(편집기와 동일)
-    const MIN_H = 320; // 하한
-    const recalc = () => {
-      const top = el.getBoundingClientRect().top;
-      const h = Math.max(MIN_H, Math.round(window.innerHeight - top - BOTTOM_GAP));
-      setSidebarH((prev) => (prev === h ? prev : h));
-    };
-    recalc();
-    window.addEventListener("resize", recalc);
-    let ro = null;
-    if (typeof ResizeObserver !== "undefined") {
-      // 상단 topbar가 줄바꿈 등으로 높이가 바뀌면 사이드바 top이 달라지므로 재측정
-      ro = new ResizeObserver(recalc);
-      ro.observe(document.documentElement);
-    }
-    return () => {
-      window.removeEventListener("resize", recalc);
-      if (ro) ro.disconnect();
-    };
-  }, []);
+  // 사이드바 높이는 CSS(position:sticky; top:0; max-height:100vh; overflow-y:auto)로 처리한다.
+  // JS 실측을 제거 — 편집기가 페이지 스크롤로 늘어나므로 사이드바는 뷰포트에 붙어 따라오기만 하면 된다.
 
   // 사이드바 접힘 상태 — localStorage 저장/복원(kbo_ui_sidebar_collapsed)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -4331,12 +4306,7 @@ export default function App() {
       return next;
     });
   }, []);
-  // 영상편집 화면에 처음 진입하면 기본 접힘(단, 사용자가 수동 토글했다면 존중)
-  useEffect(() => {
-    if (activeKey === "shorts3_highlight" && !sidebarManualRef.current) {
-      setSidebarCollapsed(true);
-    }
-  }, [activeKey]);
+  // (영상편집 진입 시 자동 접힘 제거 — 펼친 상태 그대로 유지. 수동 토글·localStorage 복원만 남김)
   const [pendingSegments, setPendingSegments] = useState([]);
   const [shorts3JobId, setShorts3JobId] = useState("");
 
@@ -4759,9 +4729,7 @@ export default function App() {
       <MemoPadModal open={memoOpen} onClose={() => setMemoOpen(false)} />
       <div className="layout">
         <aside
-          ref={sidebarRef}
           className={`sidebar${sidebarCollapsed ? " collapsed" : ""}`}
-          style={sidebarH != null ? { height: `${sidebarH}px` } : undefined}
         >
           <button
             type="button"
