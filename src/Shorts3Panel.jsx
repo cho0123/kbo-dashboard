@@ -907,33 +907,8 @@ export default function Shorts3Panel({
       // ignore
     }
   }, [previewCollapsed]);
-  // 편집기 컨테이너 높이: 매직넘버(calc(100vh-Npx)) 대신 실제 상단 위치를 측정해
-  // 뷰포트 하단까지 채운다. 크롬 높이가 달라져도 자동으로 맞고, 리사이즈에 따라온다.
-  const editorContainerRef = useRef(null);
-  const [editorContainerH, setEditorContainerH] = useState(null);
-  useLayoutEffect(() => {
-    const el = editorContainerRef.current;
-    if (!el || typeof window === "undefined") return;
-    const BOTTOM_GAP = 14; // 편집기 하단과 뷰포트 하단 사이 여백
-    const MIN_H = 320; // 너무 작아지지 않게 하한
-    const recalc = () => {
-      const top = el.getBoundingClientRect().top; // 뷰포트 기준 상단 위치
-      const h = Math.max(MIN_H, Math.round(window.innerHeight - top - BOTTOM_GAP));
-      setEditorContainerH((prev) => (prev === h ? prev : h));
-    };
-    recalc();
-    window.addEventListener("resize", recalc);
-    // 컨테이너 위쪽 크롬(타이틀·인트로 등)이 줄바꿈 등으로 높이가 바뀌면 top이 달라지므로 재측정
-    let ro = null;
-    if (typeof ResizeObserver !== "undefined") {
-      ro = new ResizeObserver(recalc);
-      ro.observe(document.documentElement);
-    }
-    return () => {
-      window.removeEventListener("resize", recalc);
-      if (ro) ro.disconnect();
-    };
-  }, []);
+  // 편집기 높이는 auto — 내용만큼 자연스럽게 늘어나고 페이지 스크롤로 이동한다.
+  // (뷰포트에 욱여넣던 실측 로직 제거. 미리보기는 sticky로 상단 고정.)
   const [whisperData, setWhisperData] = useState(null);
   const [selectedTimestamps, setSelectedTimestamps] = useState({});
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -3843,7 +3818,6 @@ export default function Shorts3Panel({
       </p>
 
       <div
-        ref={editorContainerRef}
         style={{
           marginTop: 16,
           display: "flex",
@@ -3851,9 +3825,7 @@ export default function Shorts3Panel({
           gap: 0,
           width: "100%",
           overflow: "visible",
-          // 편집기를 뷰포트에 가두어 좌/우 컬럼의 내부 스크롤이 동작하게 함.
-          // 높이 = 실제 상단 위치를 측정해 뷰포트 하단까지(여백 14px) 채움. 매직넘버 제거.
-          height: editorContainerH != null ? `${editorContainerH}px` : undefined,
+          // 높이 auto — 내용만큼 늘어나고 페이지 스크롤로 이동. 미리보기는 sticky로 상단 고정.
         }}
       >
         {/* 소스 준비 툴바 — 1~4단계는 아래 오버레이 드로어로 이동 */}
@@ -5272,19 +5244,14 @@ export default function Shorts3Panel({
           marginTop: 12,
           display: "flex",
           gap: 16,
+          // 두 컬럼 높이가 서로 다르므로 상단 정렬. 내부 스크롤 없이 내용만큼 늘어나 페이지로 스크롤.
           alignItems: "flex-start",
-          // 매직넘버(calc(100vh-680px)) 제거 → 컨테이너의 남는 공간을 채우고,
-          // min-height:0으로 내용보다 작아질 수 있게 해 좌/우 컬럼의 overflowY 스크롤이 동작.
-          flex: "1 1 0",
-          minHeight: 0,
         }}
       >
         {/* 왼쪽 컬럼 */}
         <div
           style={{
             flex: "0 0 420px",
-            height: "100%",
-            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 8,
@@ -7389,11 +7356,10 @@ export default function Shorts3Panel({
           className="ve-settings-col"
           style={{
             flex: 1,
-            height: "100%",
             minWidth: 0,
             paddingLeft: 4,
             overflowX: "hidden",
-            overflowY: "auto",
+            // 내부 세로 스크롤 제거 — 내용만큼 늘어나 페이지로 스크롤.
           }}
         >
           <div className="label">

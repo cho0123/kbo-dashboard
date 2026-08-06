@@ -180,12 +180,11 @@ body {
   padding: 16px 14px;
   position: sticky;
   top: 0;
-  /* height는 JS 실측(innerHeight - top - 14)으로 인라인 지정 — 편집기 컨테이너와 동일 방식.
-     100vh는 실측 전 첫 페인트용 폴백. 실측값이 뷰포트를 넘지 않게 해 불필요한 페이지 스크롤 제거. */
-  height: 100vh;
+  /* 페이지 전체가 스크롤되는 구조. 사이드바는 뷰포트에 붙어 따라오되(sticky top:0),
+     높이가 뷰포트를 넘지 않게 max-height + 내부 스크롤. 페이지 높이를 강제로 늘리지 않는다. */
+  max-height: 100vh;
   overflow-y: auto;
-  /* width transition은 두지 않는다: documentElement를 관찰하는 ResizeObserver(높이 실측)와
-     맞물려 애니메이션이 끝나지 않는 피드백 루프가 생겨 폭이 320px에 고정된다. 즉시 전환한다. */
+  /* width transition은 두지 않는다(과거 ResizeObserver 실측과의 피드백 루프 방지). 즉시 전환. */
 }
 
 /* --- 사이드바 접기 --- */
@@ -428,8 +427,7 @@ button.primary.primary-fill {
 /* 영상편집 화면일 때만 페이지 배경을 팔레트(--ve-bg)로. 다른 화면은 기존 #ffffff 유지 */
 .results.ve-editor {
   background: var(--ve-bg);
-  /* 편집기 컨테이너가 뷰포트 높이를 채우므로, 100vh 강제 최소높이로 인한 하단 빈 영역 제거 */
-  min-height: auto;
+  /* 편집기가 내용만큼 늘어나 페이지로 스크롤되는 구조. min-height는 기본(.results 100vh) 상속 */
 }
 
 .results .result-page {
