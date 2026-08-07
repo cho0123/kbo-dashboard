@@ -578,29 +578,25 @@ function normalizeCoverBoxForPayload(raw) {
   };
 }
 
-/** 썸네일 구간 패널 초기값 (endMs 10 = 0.1초, Lambda 최소 구간) */
-const INITIAL_THUMBNAIL_SEGMENT = {
-  start: "00:00:00",
-  end: "00:00:00",
-  startMs: 0,
-  endMs: 10,
+
+/**
+ * 전체 구간 공통 자막(전역 텍스트). 썸네일 카드의 keepText 승격 기능을 대체.
+ * 기존 썸네일 카드가 payload.globalText1*로 보내던 필드와 1:1 대응(폰트·색·크기·세로위치).
+ * 투명도·그림자는 globalText payload에 없어(Lambda 미지원) 제외.
+ */
+const INITIAL_GLOBAL_TEXT = {
+  use1: false,
   text1: "",
+  font1: "NotoSansKR-Bold.ttf",
+  color1: "#FFFFFF",
+  size1: 88,
+  y1: 49,
+  use2: false,
   text2: "",
-  showLine: false,
-  cropOffset: 0,
-  font1: ensureTtf("NotoSansKR-Bold"),
-  font2: ensureTtf("NotoSansKR-Bold"),
-  textColor1: "#FFFFFF",
-  textColor2: "#FFFFFF",
-  fontSize1: 88,
-  fontSize2: 52,
-  textY1: 49,
-  textY2: 57,
-  keepText1: false,
-  keepText2: false,
-  narration: "",
-  narrationDuration: null,
-  narrationAudioUrl: null,
+  font2: "NotoSansKR-Bold.ttf",
+  color2: "#FFFFFF",
+  size2: 52,
+  y2: 57,
 };
 
 /** HH:MM:SS + startMs/endMs(0~99) → 초; 실패 시 null */
@@ -969,12 +965,6 @@ export default function Shorts3Panel({
   const segmentHoldTimeoutRef = useRef(null);
   /** 구간 미리보기 전 `video.muted` (미저장 시 undefined) */
   const savedVideoMutedForSegmentPreviewRef = useRef(undefined);
-  const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
-    ...INITIAL_THUMBNAIL_SEGMENT,
-  }));
-  const [thumbnailEnabled, setThumbnailEnabled] = useState(true);
-  const [thumbnailSelected, setThumbnailSelected] = useState(true);
-  const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -988,10 +978,6 @@ export default function Shorts3Panel({
     setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
-
-  useEffect(() => {
-    thumbnailSegmentRef.current = thumbnailSegment;
-  }, [thumbnailSegment]);
 
   useEffect(() => {
     segmentsRef.current = segments;
@@ -1075,6 +1061,9 @@ export default function Shorts3Panel({
   const [topTextOpacity, setTopTextOpacity] = useState(1);
   const [topTextFont, setTopTextFont] = useState(DEFAULT_TEXT_FONT);
   const [topTextShadow, setTopTextShadow] = useState(false);
+  // 전체 구간 공통 자막(전역 텍스트) — 썸네일 카드 keepText 승격 기능의 대체 입력
+  const [globalText, setGlobalText] = useState(() => ({ ...INITIAL_GLOBAL_TEXT }));
+  const [globalTextOpen, setGlobalTextOpen] = useState(false);
 
   const [savedFiles, setSavedFiles] = useState([]);
   const [savedFilesLoading, setSavedFilesLoading] = useState(false);
@@ -1098,7 +1087,7 @@ export default function Shorts3Panel({
     try {
       const payload = {
         segments,
-        thumbnailSegment,
+        globalText,
         topText,
         topTextColor,
         topTextSize,
@@ -1124,7 +1113,7 @@ export default function Shorts3Panel({
   }, [
     jobId,
     segments,
-    thumbnailSegment,
+    globalText,
     topText,
     topTextColor,
     topTextSize,
@@ -1161,14 +1150,11 @@ export default function Shorts3Panel({
   const [isMonitoring, setIsMonitoring] = useState(false);
   const monitorRef = useRef(false);
 
-  const thumbnailOverlayCanvasRef = useRef(null);
-
   const showRightImageSegmentPreview = useMemo(() => {
-    if (thumbnailSelected) return false;
     const seg = segments[selectedSegIndex];
     if (!seg || !isImageSegment(seg)) return false;
     return Boolean(String(seg.imagePreviewUrl || "").trim());
-  }, [segments, selectedSegIndex, thumbnailSelected]);
+  }, [segments, selectedSegIndex]);
 
   const rightImageSegmentPreviewUrl = useMemo(() => {
     if (!showRightImageSegmentPreview) return "";
@@ -1271,56 +1257,9 @@ export default function Shorts3Panel({
       }
     };
 
-    const drawThumbnailOverlayPreview = () => {
-      const overlayCanvas = thumbnailOverlayCanvasRef.current;
-      if (overlayCanvas) {
-        ctx.drawImage(overlayCanvas, 0, 0, W, H);
-      }
-    };
-
-    const drawPreviewThumbnailTexts = () => {
-      const thumb = thumbnailSegmentRef.current;
-      const yDef = thumbnailTextYDefaultsForLayout(layout);
-      const kboHole = layout === LAYOUT_TYPES.KBO;
-      drawPreviewBottomTexts(
-        {
-          text: thumb?.text1 ?? "",
-          text2: thumb?.text2 ?? "",
-          textColor: thumb?.textColor1,
-          textColor2: thumb?.textColor2,
-          textSize: thumb?.fontSize1,
-          textSize2: thumb?.fontSize2,
-          textY: clampThumbnailTextYPercent(thumb?.textY1, yDef.textY1),
-          textY2: clampThumbnailTextYPercent(thumb?.textY2, yDef.textY2),
-        },
-        { kboHole }
-      );
-    };
-
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
       let srcCropW = Math.round((srcCropH * 1080) / 1920);
       if (srcCropW > vw) srcCropW = vw;
-      if (thumbnailSelected) {
-        const clampedSrcCropX = previewSourceCropX(
-          vw,
-          srcCropW,
-          thumbnailSegmentRef.current?.cropOffset
-        );
-        ctx.clearRect(0, 0, W, H);
-        ctx.drawImage(
-          video,
-          clampedSrcCropX,
-          srcCropY,
-          srcCropW,
-          srcCropH,
-          0,
-          0,
-          W,
-          H
-        );
-        drawPreviewThumbnailTexts();
-        return;
-      }
       const selectedSeg = segments[selectedSegIndex];
       const clampedSrcCropX = previewSourceCropX(
         vw,
@@ -1354,31 +1293,6 @@ export default function Shorts3Panel({
       const midH = H - topBarH - botBarH;
       let cropW = Math.round((srcCropH * 1080) / 1120);
       if (cropW > vw) cropW = vw;
-      if (thumbnailSelected) {
-        const clampedCropX = previewSourceCropX(
-          vw,
-          cropW,
-          thumbnailSegmentRef.current?.cropOffset
-        );
-        ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = topBarColor;
-        ctx.fillRect(0, 0, W, topBarH);
-        ctx.fillStyle = bottomBarColor;
-        ctx.fillRect(0, H - botBarH, W, botBarH);
-        ctx.drawImage(
-          video,
-          clampedCropX,
-          srcCropY,
-          cropW,
-          srcCropH,
-          0,
-          topBarH,
-          W,
-          midH
-        );
-        drawPreviewThumbnailTexts();
-        return;
-      }
       const selectedSeg = segments[selectedSegIndex];
       const clampedCropX = previewSourceCropX(
         vw,
@@ -1420,49 +1334,6 @@ export default function Shorts3Panel({
 
     const srcCropW = Math.round((srcCropH * 1080) / 1640);
 
-    // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
-    if (thumbnailSelected) {
-      const clampedSrcCropX = previewSourceCropX(
-        vw,
-        srcCropW,
-        thumbnailSegmentRef.current?.cropOffset
-      );
-      ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(
-        video,
-        clampedSrcCropX,
-        srcCropY,
-        srcCropW,
-        srcCropH,
-        0,
-        TOP_BAR,
-        W,
-        H - TOP_BAR
-      );
-      drawThumbnailOverlayPreview();
-      // 3) 커버박스 (일반 구간 미리보기와 동일 hole 기준)
-      if (coverBox?.enabled) {
-        const holeX = SIDE_BAR;
-        const holeY = TOP_BAR;
-        const holeW = W - 2 * SIDE_BAR;
-        const holeH = H - TOP_BAR - BOT_BAR;
-        const xp = Math.min(100, Math.max(0, Number(coverBox.x) || 0)) / 100;
-        const yp = Math.min(100, Math.max(0, Number(coverBox.y) || 0)) / 100;
-        const wp = Math.min(100, Math.max(0, Number(coverBox.width) || 0)) / 100;
-        const hp = Math.min(100, Math.max(0, Number(coverBox.height) || 0)) / 100;
-        if (wp > 0 && hp > 0) {
-          ctx.fillStyle = bg;
-          ctx.fillRect(
-            holeX + xp * holeW,
-            holeY + yp * holeH,
-            wp * holeW,
-            hp * holeH
-          );
-        }
-      }
-      drawPreviewThumbnailTexts();
-      return;
-    }
 
     const selectedSeg = segments[selectedSegIndex];
     const clampedSrcCropX = previewSourceCropX(
@@ -1621,8 +1492,6 @@ export default function Shorts3Panel({
     selectedSegIndex,
     selectedTeam,
     teamColor,
-    thumbnailSelected,
-    thumbnailSegment,
     coverBox,
     layout,
     topBarColor,
@@ -1633,88 +1502,17 @@ export default function Shorts3Panel({
 
   useEffect(() => {
     renderPreviewFrame();
-  }, [selectedSegIndex, thumbnailSelected, renderPreviewFrame]);
+  }, [selectedSegIndex, renderPreviewFrame]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
     if (!video) return;
-    if (thumbnailSelected) {
-      const sec = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      if (Number.isFinite(sec)) video.currentTime = sec;
-    } else {
-      const seg = segments[selectedSegIndex];
-      if (!seg) return;
-      const sec = segmentBoundaryToSeconds(seg.start, seg.startMs);
-      if (Number.isFinite(sec)) video.currentTime = sec;
-    }
-  }, [selectedSegIndex, thumbnailSelected]);
+    const seg = segments[selectedSegIndex];
+    if (!seg) return;
+    const sec = segmentBoundaryToSeconds(seg.start, seg.startMs);
+    if (Number.isFinite(sec)) video.currentTime = sec;
+  }, [selectedSegIndex]);
 
-  useEffect(() => {
-    const thumbStart = segmentBoundaryToSeconds(
-      thumbnailSegment.start,
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      thumbnailSegment.end,
-      thumbnailSegment.endMs
-    );
-    const valid =
-      String(thumbnailSegment.end || "").trim() !== "" &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart;
-    if (!thumbnailSelected || !valid) {
-      thumbnailOverlayCanvasRef.current = null;
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const opts = {
-          team: selectedTeam,
-          text1: "",
-          text2: "",
-          font1: "NotoSansKR-Bold",
-          font2: "NotoSansKR-Bold",
-          textColor1: "#FFFFFF",
-          textColor2: "#FFFFFF",
-          fontSize1: 88,
-          fontSize2: 52,
-        };
-        if (layout === LAYOUT_TYPES.KBO) {
-          const t = TEAM_COLORS[selectedTeam];
-          if (!t) return;
-          opts.tc = { bg: t.bg, accent: t.accent };
-        }
-        if (layout === LAYOUT_TYPES.TOPBOTTOM) {
-          opts.topBarColor = topBarColor;
-          opts.bottomBarColor = bottomBarColor;
-        }
-        const overlayCanvas = await drawThumbnailByLayout(layout, opts);
-        if (cancelled) return;
-        thumbnailOverlayCanvasRef.current = overlayCanvas;
-        renderPreviewFrame();
-      } catch (e) {
-        console.warn("[thumbnail preview]", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    thumbnailSelected,
-    thumbnailSegment,
-    thumbnailSegment.textY1,
-    thumbnailSegment.textY2,
-    selectedTeam,
-    layout,
-    topBarColor,
-    bottomBarColor,
-    renderPreviewFrame,
-  ]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
@@ -2049,25 +1847,8 @@ export default function Shorts3Panel({
       if (b <= a) continue;
       sum += b - a;
     }
-    const thumbStart = segmentBoundaryToSeconds(
-      String(thumbnailSegment.start ?? "").trim(),
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      String(thumbnailSegment.end ?? "").trim(),
-      thumbnailSegment.endMs
-    );
-    if (
-      thumbStart != null &&
-      thumbEnd != null &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart
-    ) {
-      sum += thumbEnd - thumbStart;
-    }
     return sum;
-  }, [segments, thumbnailSegment]);
+  }, [segments]);
 
   // 홀드 합계(비이미지 구간). 전체 영상 예상 길이 = segmentTotalSec + 이 값.
   const segmentHoldTotalSec = useMemo(() => {
@@ -2085,25 +1866,6 @@ export default function Shorts3Panel({
     return {};
   }, [segmentTotalSec]);
 
-  const thumbnailTimingValid = useMemo(() => {
-    const thumbStart = segmentBoundaryToSeconds(
-      String(thumbnailSegment.start ?? "").trim(),
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      String(thumbnailSegment.end ?? "").trim(),
-      thumbnailSegment.endMs
-    );
-    return (
-      String(thumbnailSegment.end || "").trim() !== "" &&
-      thumbStart != null &&
-      thumbEnd != null &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart
-    );
-  }, [thumbnailSegment]);
-
   const addSegment = useCallback(() => {
     setSegments((s) => {
       if (s.length >= MAX_SEGMENTS) {
@@ -2111,7 +1873,6 @@ export default function Shorts3Panel({
       }
       const next = [...s, emptySegment()];
       const ni = next.length - 1;
-      setThumbnailSelected(false);
       setSelectedSegIndex(ni);
       return next;
     });
@@ -2132,7 +1893,6 @@ export default function Shorts3Panel({
         emptySegment(),
         ...s.slice(i + 1),
       ];
-      setThumbnailSelected(false);
       setSelectedSegIndex(i + 1);
       return next;
     });
@@ -2145,7 +1905,6 @@ export default function Shorts3Panel({
       }
       const next = [...s, emptyImageSegment()];
       const ni = next.length - 1;
-      setThumbnailSelected(false);
       setSelectedSegIndex(ni);
       return next;
     });
@@ -2166,23 +1925,7 @@ export default function Shorts3Panel({
         emptyImageSegment(),
         ...s.slice(i + 1),
       ];
-      setThumbnailSelected(false);
       setSelectedSegIndex(i + 1);
-      return next;
-    });
-  }, []);
-
-  /** 썸네일 카드: 첫 본편 구간(index 0) 앞에 빈 구간 삽입 후 선택 */
-  const insertSegmentBeforeFirst = useCallback(() => {
-    setPlayingSegmentIndex((cur) => {
-      if (cur == null) return cur;
-      return cur + 1;
-    });
-    setSegments((s) => {
-      if (s.length >= MAX_SEGMENTS) return s;
-      const next = [emptySegment(), ...s];
-      setThumbnailSelected(false);
-      setSelectedSegIndex(0);
       return next;
     });
   }, []);
@@ -2308,7 +2051,6 @@ export default function Shorts3Panel({
   }, [segments.length]);
 
   const selectSegment = useCallback((index) => {
-    setThumbnailSelected(false);
     setSelectedSegIndex(index);
   }, []);
 
@@ -2420,7 +2162,6 @@ export default function Shorts3Panel({
         } catch {
           /* ignore */
         }
-        setThumbnailSelected(false);
         setSelectedSegIndex(index);
         setPreviewCropOverlay(
           computePreviewCropOverlay(video, seg.cropOffset ?? 0)
@@ -2445,30 +2186,6 @@ export default function Shorts3Panel({
 
     try {
       let virtualCursor = 0;
-
-      const thumbStart = segmentBoundarySeconds(thumbnailSegment, "start");
-      if (thumbStart != null && Number.isFinite(thumbStart)) {
-        let thumbEnd = segmentBoundarySeconds(thumbnailSegment, "end");
-        if (
-          thumbEnd == null ||
-          !Number.isFinite(thumbEnd) ||
-          thumbEnd <= thumbStart
-        ) {
-          thumbEnd = thumbStart + 0.1;
-        }
-        const thumbDur = thumbEnd - thumbStart;
-        setThumbnailSelected(true);
-        setPreviewCropOverlay(
-          computePreviewCropOverlay(
-            video,
-            thumbnailSegment.cropOffset ?? 0
-          )
-        );
-        video.currentTime = thumbStart;
-        await playRange(thumbStart, thumbEnd, virtualCursor, onVirtualProgress);
-        virtualCursor += thumbDur;
-        await new Promise((res) => setTimeout(res, 100));
-      }
 
       for (let i = 0; i < segments.length; i++) {
         if (!playAllRef.current) break;
@@ -2495,7 +2212,6 @@ export default function Shorts3Panel({
           continue;
         }
 
-        setThumbnailSelected(false);
         setSelectedSegIndex(i);
         setPreviewCropOverlay(computePreviewCropOverlay(video, seg.cropOffset ?? 0));
         video.currentTime = startSec;
@@ -2524,7 +2240,7 @@ export default function Shorts3Panel({
       setIsPlayingAll(false);
       video.muted = savedMuteForPlayAll;
     }
-  }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds, thumbnailSegment]);
+  }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds]);
 
   const runFullMonitor = useCallback(async () => {
     const video = previewVideoRef.current;
@@ -2597,21 +2313,6 @@ export default function Shorts3Panel({
       });
 
     try {
-      const thumb = thumbnailSegmentRef.current;
-      const ts = segmentBoundarySeconds(thumb, "start");
-      let te = segmentBoundarySeconds(thumb, "end");
-      if (ts != null && Number.isFinite(ts)) {
-        if (te == null || !Number.isFinite(te) || te <= ts) {
-          te = ts + 0.1;
-        }
-        setThumbnailSelected(true);
-        setPlayingSegmentIndex(null);
-        setPreviewCropOverlay(
-          computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
-        );
-        video.currentTime = ts;
-        await playRangeMonitor(ts, te, thumb.narrationAudioUrl);
-      }
       await new Promise((r) => setTimeout(r, 80));
       if (!monitorRef.current) return;
 
@@ -2630,7 +2331,6 @@ export default function Shorts3Panel({
         ) {
           continue;
         }
-        setThumbnailSelected(false);
         setSelectedSegIndex(i);
         setPreviewCropOverlay(
           computePreviewCropOverlay(video, seg?.cropOffset ?? 0)
@@ -2653,84 +2353,6 @@ export default function Shorts3Panel({
     segmentBoundarySeconds,
   ]);
 
-  /** 썸네일 구간(thumbnailSegment.start ~ end)만 미리보기 재생 */
-  const playThumbnailSegmentPreview = useCallback(async () => {
-    const video = previewVideoRef.current;
-    if (!video || !previewUrl || busy || uploading || isPlayingAll || isMonitoring)
-      return;
-    const thumb = thumbnailSegmentRef.current;
-    const startSec = segmentBoundarySeconds(thumb, "start");
-    let endSec = segmentBoundarySeconds(thumb, "end");
-    if (startSec == null || !Number.isFinite(startSec)) return;
-    if (
-      endSec == null ||
-      !Number.isFinite(endSec) ||
-      endSec <= startSec
-    ) {
-      endSec = startSec + 0.1;
-    }
-    const narrUrl = String(thumb.narrationAudioUrl ?? "").trim();
-    const prevMuted = video.muted;
-    video.muted = true;
-    let narrTimeout = null;
-    let narrAudio = null;
-    setThumbnailSelected(true);
-    setPlayingSegmentIndex(null);
-    setPreviewCropOverlay(
-      computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
-    );
-    video.currentTime = startSec;
-    await new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        if (narrTimeout != null) {
-          clearTimeout(narrTimeout);
-          narrTimeout = null;
-        }
-        if (narrAudio) {
-          try {
-            narrAudio.pause();
-          } catch {
-            /* ignore */
-          }
-          try {
-            narrAudio.src = "";
-          } catch {
-            /* ignore */
-          }
-          narrAudio = null;
-        }
-        try {
-          video.pause();
-        } catch {
-          /* ignore */
-        }
-        video.removeEventListener("timeupdate", check);
-        video.muted = prevMuted;
-        resolve();
-      };
-      const check = () => {
-        if (video.currentTime >= endSec) finish();
-      };
-      video.addEventListener("timeupdate", check);
-      narrTimeout = setTimeout(() => {
-        narrTimeout = null;
-        if (done || !narrUrl) return;
-        narrAudio = new Audio(narrUrl);
-        narrAudio.play().catch(() => {});
-      }, NARRATION_LEAD_IN_MS);
-      video.play().catch(() => {});
-    });
-  }, [
-    previewUrl,
-    busy,
-    uploading,
-    isPlayingAll,
-    isMonitoring,
-    segmentBoundarySeconds,
-  ]);
 
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
@@ -2854,82 +2476,7 @@ export default function Shorts3Panel({
     );
   };
 
-  const handleThumbnailTimeChange = (field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "").slice(0, 9);
-    let formatted = digits;
-    const n = digits.length;
-    if (n <= 2) {
-      formatted = digits;
-    } else if (n <= 4) {
-      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
-    } else if (n === 5) {
-      formatted =
-        digits.slice(0, 1) + ":" + digits.slice(1, 3) + ":" + digits.slice(3, 5);
-    } else {
-      formatted =
-        digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
-    }
-    setThumbnailSegment((prev) => ({ ...prev, [field]: formatted }));
-  };
 
-  const handleThumbnailFracMsChange = (field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "");
-    let n = 0;
-    if (digits !== "") {
-      const use = digits.length > 2 ? digits.slice(-2) : digits;
-      const parsed = parseInt(use, 10);
-      n = Number.isFinite(parsed) ? parsed : 0;
-    }
-    n = clampSegmentFracMs(n);
-    setThumbnailSegment((prev) => ({ ...prev, [field]: n }));
-  };
-
-  const handleThumbnailTextYChange = (field, rawVal) => {
-    const n = Number(rawVal);
-    if (!Number.isFinite(n)) return;
-    const v = Math.min(100, Math.max(0, Math.round(n)));
-    setThumbnailSegment((prev) => ({ ...prev, [field]: v }));
-  };
-
-  const seekPreviewToThumbnailBoundary = useCallback(
-    (field) => {
-      const v = previewVideoRef.current;
-      if (!v || !previewUrl) return;
-      setThumbnailSelected(true);
-      const key = field === "start" ? "start" : "end";
-      const fracKey = field === "start" ? "startMs" : "endMs";
-      const t = segmentBoundaryToSeconds(
-        String(thumbnailSegmentRef.current?.[key] ?? "").trim(),
-        thumbnailSegmentRef.current?.[fracKey]
-      );
-      if (t == null || !Number.isFinite(t)) return;
-      v.currentTime = t;
-    },
-    [previewUrl]
-  );
-
-  const adjustThumbnailFieldTime = useCallback((field, deltaSec) => {
-    let seekSec = null;
-    setThumbnailSegment((prev) => {
-      const fracField = field === "start" ? "startMs" : "endMs";
-      const cur =
-        parseHhMmSsToSeconds(prev[field], prev[fracField]) ??
-        (String(prev[field] ?? "").trim() === "" ? 0 : null);
-      if (cur == null) return prev;
-      const next = Math.max(0, cur + deltaSec);
-      seekSec = next;
-      const whole = Math.floor(next + 1e-9);
-      const frac = clampSegmentFracMs(Math.round((next - whole) * 100));
-      const hms = secondsToHhMmSs(whole);
-      return { ...prev, [field]: hms, [fracField]: frac };
-    });
-    if (seekSec == null) return;
-    setThumbnailSelected(true);
-    queueMicrotask(() => {
-      const v = previewVideoRef.current;
-      if (v) v.currentTime = seekSec;
-    });
-  }, []);
 
   const onVideoFileChange = (e) => {
     const f = e.target.files?.[0] ?? null;
@@ -3110,7 +2657,7 @@ export default function Shorts3Panel({
     }
     restoringDraftRef.current = true;
     setSegments(() => [emptySegment()]);
-    setThumbnailSegment({ ...INITIAL_THUMBNAIL_SEGMENT });
+    setGlobalText({ ...INITIAL_GLOBAL_TEXT });
     setTopText("");
     setTopTextColor(TEXT_COLORS[0]);
     setTopTextSize(72);
@@ -3132,7 +2679,6 @@ export default function Shorts3Panel({
     setSelectedTeam("삼성");
     setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#0055A4");
     setSelectedSegIndex(0);
-    setThumbnailSelected(false);
     setMessage("임시저장을 초기화했습니다.");
     setTimeout(() => {
       restoringDraftRef.current = false;
@@ -3177,7 +2723,6 @@ export default function Shorts3Panel({
     const internal = pendingSegsToInternal(list);
     if (internal.length < 1) return;
     setSegments(internal);
-    setThumbnailSelected(false);
     setSelectedSegIndex(0);
   }, []);
 
@@ -3195,8 +2740,28 @@ export default function Shorts3Panel({
         if (Array.isArray(d.segments) && d.segments.length > 0) {
           setSegments(d.segments);
         }
-        if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
-          setThumbnailSegment((prev) => ({ ...prev, ...d.thumbnailSegment }));
+        // 전역 자막 복원. 신 형식(globalText) 우선, 없으면 옛 썸네일 keepText에서 이관.
+        if (d.globalText && typeof d.globalText === "object") {
+          setGlobalText((prev) => ({ ...prev, ...d.globalText }));
+        } else if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
+          const t = d.thumbnailSegment;
+          if (t.keepText1 || t.keepText2) {
+            setGlobalText((prev) => ({
+              ...prev,
+              use1: !!t.keepText1,
+              text1: t.keepText1 ? String(t.text1 ?? "") : prev.text1,
+              font1: t.font1 || prev.font1,
+              color1: t.textColor1 || prev.color1,
+              size1: Number.isFinite(Number(t.fontSize1)) ? Number(t.fontSize1) : prev.size1,
+              y1: Number.isFinite(Number(t.textY1)) ? Number(t.textY1) : prev.y1,
+              use2: !!t.keepText2,
+              text2: t.keepText2 ? String(t.text2 ?? "") : prev.text2,
+              font2: t.font2 || prev.font2,
+              color2: t.textColor2 || prev.color2,
+              size2: Number.isFinite(Number(t.fontSize2)) ? Number(t.fontSize2) : prev.size2,
+              y2: Number.isFinite(Number(t.textY2)) ? Number(t.textY2) : prev.y2,
+            }));
+          }
         }
         if (typeof d.topText === "string") setTopText(d.topText);
         if (typeof d.topTextColor === "string") setTopTextColor(d.topTextColor);
@@ -3426,93 +2991,6 @@ export default function Shorts3Panel({
         Math.max(20, Math.round(Number(topTextSize) || 72))
       );
 
-      const stripFontForOverlay = (f) =>
-        String(f || "")
-          .trim()
-          .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
-
-      let thumbStart = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      let thumbEnd = segmentBoundaryToSeconds(
-        thumbnailSegment.end,
-        thumbnailSegment.endMs
-      );
-      const thumbValid =
-        String(thumbnailSegment.end || "").trim() !== "" &&
-        Number.isFinite(thumbStart) &&
-        Number.isFinite(thumbEnd) &&
-        thumbEnd > thumbStart;
-
-      if (thumbValid && layout === LAYOUT_TYPES.KBO) {
-        const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-        const overlayCanvas = await drawThumbnail({
-          team: selectedTeam,
-          tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
-          text1: String(thumbnailSegment.text1 || "").trim(),
-          text2: String(thumbnailSegment.text2 || "").trim(),
-          font1: stripFontForOverlay(thumbnailSegment.font1),
-          font2: stripFontForOverlay(thumbnailSegment.font2),
-          textColor1:
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF",
-          textColor2:
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF",
-          fontSize1: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
-          ),
-          fontSize2: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
-          ),
-          textY1: clampThumbnailTextYPercent(thumbnailSegment.textY1, 49),
-          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 57),
-          showLine: Boolean(thumbnailSegment.showLine),
-        });
-
-        const overlayBlob = await new Promise((resolve, reject) => {
-          overlayCanvas.toBlob(
-            (b) =>
-              b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
-            "image/png"
-          );
-        });
-
-        const overlayUp = await postKbo({
-          action: "overlay_upload_url",
-          jobId,
-        });
-        if (!overlayUp?.putUrl) {
-          throw new Error("overlay_upload_url 응답 오류");
-        }
-        const overlayPut = await fetch(overlayUp.putUrl, {
-          method: "PUT",
-          body: overlayBlob,
-          headers: { "Content-Type": "image/png" },
-        });
-        if (!overlayPut.ok) {
-          throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
-        }
-      }
-
-      if (thumbValid) {
-        const thumbNarr = String(thumbnailSegment.narration ?? "").trim();
-        if (thumbNarr) {
-          await postKbo({
-            action: "elevenlabs_tts",
-            jobId,
-            segIndex: 0,
-            text: thumbNarr,
-            voiceId: narrationVoiceId,
-            speed: narrationSpeed,
-            stability: narrationStability,
-            style: narrationStyle,
-          });
-        }
-      }
       const resolvedSegments = [];
       for (const s of validSegments) {
         if (isImageSegment(s) && s.imageLocalFile) {
@@ -3530,7 +3008,7 @@ export default function Shorts3Panel({
       for (let vi = 0; vi < resolvedSegments.length; vi++) {
         const narrText = String(resolvedSegments[vi]?.narration ?? "").trim();
         if (!narrText) continue;
-        const segIndexForS3 = thumbValid ? vi + 1 : vi;
+        const segIndexForS3 = vi;
         await postKbo({
           action: "elevenlabs_tts",
           jobId,
@@ -3629,79 +3107,33 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
-      thumbStart = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      thumbEnd = segmentBoundaryToSeconds(
-        thumbnailSegment.end,
-        thumbnailSegment.endMs
-      );
-      if (
-        String(thumbnailSegment.end || "").trim() !== "" &&
-        Number.isFinite(thumbStart) &&
-        Number.isFinite(thumbEnd) &&
-        thumbEnd > thumbStart
-      ) {
-        const thumbSegPayload = {
-          _thumbnailClip: true,
-          start: thumbnailSegment.start,
-          startMs: thumbnailSegment.startMs,
-          end: thumbnailSegment.end,
-          endMs: thumbnailSegment.endMs,
-          cropOffset: thumbnailSegment.cropOffset ?? 0,
-          text: thumbnailSegment.text1 || "",
-          textFont: ensureTtf(thumbnailSegment.font1 || ""),
-          textColor: thumbnailSegment.textColor1 || "#ffffff",
-          textSize: thumbnailSegment.fontSize1 || 88,
-          textOpacity: 1,
-          textShadow: false,
-          textY: clampThumbnailTextYPercent(thumbnailSegment.textY1, 85),
-          text2: thumbnailSegment.text2 || "",
-          textFont2: ensureTtf(thumbnailSegment.font2 || ""),
-          textColor2: thumbnailSegment.textColor2 || "#ffffff",
-          textSize2: thumbnailSegment.fontSize2 || 52,
-          textOpacity2: 1,
-          textShadow2: false,
-          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 85),
-          narration: String(thumbnailSegment.narration ?? "").trim(),
-        };
-        payload.segments = [thumbSegPayload, ...payload.segments];
-      }
-      if (thumbnailSegment.keepText1) {
-        const g1 = String(thumbnailSegment.text1 || "").trim();
+      // 전역 자막 → payload.globalText1*/globalText2* (형식은 기존과 완전 동일, Lambda 미변경)
+      if (globalText.use1) {
+        const g1 = String(globalText.text1 || "").trim();
         if (g1) {
           payload.globalText1 = g1;
-          payload.globalText1Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY1,
-            49
-          );
+          payload.globalText1Y = clampThumbnailTextYPercent(globalText.y1, 49);
           payload.globalText1Color =
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF";
+            String(globalText.color1 || "#FFFFFF").trim() || "#FFFFFF";
           payload.globalText1Size = Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
+            Math.max(20, Math.round(Number(globalText.size1)) || 88)
           );
-          payload.globalText1Font = ensureTtf(thumbnailSegment.font1 || "");
+          payload.globalText1Font = ensureTtf(globalText.font1 || "");
         }
       }
-      if (thumbnailSegment.keepText2) {
-        const g2 = String(thumbnailSegment.text2 || "").trim();
+      if (globalText.use2) {
+        const g2 = String(globalText.text2 || "").trim();
         if (g2) {
           payload.globalText2 = g2;
-          payload.globalText2Y = clampThumbnailTextYPercent(
-            thumbnailSegment.textY2,
-            57
-          );
+          payload.globalText2Y = clampThumbnailTextYPercent(globalText.y2, 57);
           payload.globalText2Color =
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF";
+            String(globalText.color2 || "#FFFFFF").trim() || "#FFFFFF";
           payload.globalText2Size = Math.min(
             200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
+            Math.max(20, Math.round(Number(globalText.size2)) || 52)
           );
-          payload.globalText2Font = ensureTtf(thumbnailSegment.font2 || "");
+          payload.globalText2Font = ensureTtf(globalText.font2 || "");
         }
       }
       // Lambda 폴백: thumbnail.png 없을 때 source.mp4 기준 썸네일 구간(이 패널에서는 미설정)
@@ -4732,12 +4164,6 @@ export default function Shorts3Panel({
                     setLayout(opt.id);
                     setVideoScaleY(100);
                     setVideoOffsetY(50);
-                    const yDef = thumbnailTextYDefaultsForLayout(opt.id);
-                    setThumbnailSegment((prev) => ({
-                      ...prev,
-                      textY1: yDef.textY1,
-                      textY2: yDef.textY2,
-                    }));
                   }}
                   style={{
                     padding: "6px 12px",
@@ -5000,9 +4426,7 @@ export default function Shorts3Panel({
                         borderRadius: 6,
                         background: showRightImageSegmentPreview
                           ? "transparent"
-                          : thumbnailSelected
-                            ? "transparent"
-                            : "var(--ve-matte)",
+                          : "var(--ve-matte)",
                         display: "block",
                         position: "relative",
                         zIndex: showRightImageSegmentPreview ? 2 : 0,
@@ -5155,15 +4579,10 @@ export default function Shorts3Panel({
                   </button>
 
                   <select
-                    value={thumbnailSelected ? -1 : selectedSegIndex}
+                    value={selectedSegIndex}
                     onChange={(e) => {
                       const v = Number(e.target.value);
-                      if (v === -1) {
-                        setThumbnailSelected(true);
-                      } else {
-                        setThumbnailSelected(false);
-                        setSelectedSegIndex(Number.isFinite(v) ? v : 0);
-                      }
+                      setSelectedSegIndex(Number.isFinite(v) ? v : 0);
                     }}
                     disabled={busy || uploading}
                     style={{
@@ -5179,7 +4598,6 @@ export default function Shorts3Panel({
                         : {}),
                     }}
                   >
-                    <option value={-1}>썸네일</option>
                     {segments.map((_, i) => (
                       <option key={i} value={i}>
                         구간 #{i + 1}
@@ -5196,25 +4614,17 @@ export default function Shorts3Panel({
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      if (thumbnailSelected) {
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          start: secondsToHhMmSs(whole),
-                          startMs: frac,
-                        }));
-                      } else {
-                        setSegments((prev) =>
-                          prev.map((s, i) =>
-                            i === selectedSegIndex
-                              ? {
-                                  ...s,
-                                  start: secondsToHhMmSs(whole),
-                                  startMs: frac,
-                                }
-                              : s
-                          )
-                        );
-                      }
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? {
+                                ...s,
+                                start: secondsToHhMmSs(whole),
+                                startMs: frac,
+                              }
+                            : s
+                        )
+                      );
                     }}
                     style={{
                       background: "var(--ve-panel)",
@@ -5241,25 +4651,17 @@ export default function Shorts3Panel({
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      if (thumbnailSelected) {
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          end: secondsToHhMmSs(whole),
-                          endMs: frac,
-                        }));
-                      } else {
-                        setSegments((prev) =>
-                          prev.map((s, i) =>
-                            i === selectedSegIndex
-                              ? {
-                                  ...s,
-                                  end: secondsToHhMmSs(whole),
-                                  endMs: frac,
-                                }
-                              : s
-                          )
-                        );
-                      }
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? {
+                                ...s,
+                                end: secondsToHhMmSs(whole),
+                                endMs: frac,
+                              }
+                            : s
+                        )
+                      );
                     }}
                     style={{
                       background: "var(--ve-card)",
@@ -5279,12 +4681,7 @@ export default function Shorts3Panel({
 
                   <button
                     type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      segments.length <= 1 ||
-                      thumbnailSelected
-                    }
+                    disabled={busy || uploading || segments.length <= 1}
                     onClick={deleteSelectedSegment}
                     title={
                       segments.length <= 1
@@ -5341,6 +4738,127 @@ export default function Shorts3Panel({
         </div>
 
 
+      {/* 전체 구간 공통 자막(전역 텍스트) — full-width·구분 스타일. 구간별 자막과 별개 */}
+      <div
+        style={{
+          marginTop: 12,
+          border: "1px solid rgba(120,180,255,0.35)",
+          borderRadius: 10,
+          background: "rgba(80,130,220,0.10)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setGlobalTextOpen((o) => !o)}
+          aria-expanded={globalTextOpen}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            padding: "8px 12px",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "#dbe7ff",
+            fontWeight: 700,
+            fontSize: 13,
+          }}
+        >
+          <span>
+            🎬 전체 구간 공통 자막{" "}
+            <span style={{ opacity: 0.7, fontWeight: 400 }}>
+              · 모든 클립에 표시 (구간별 자막과 별개)
+            </span>
+            {(globalText.use1 || globalText.use2) ? (
+              <span style={{ marginLeft: 6, color: "#7fd67f" }}>● 사용중</span>
+            ) : null}
+          </span>
+          <span aria-hidden style={{ opacity: 0.7 }}>
+            {globalTextOpen ? "▲" : "▼"}
+          </span>
+        </button>
+        {globalTextOpen ? (
+          <div
+            style={{
+              padding: "4px 12px 12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {[
+              { useKey: "use1", textKey: "text1", fontKey: "font1", colorKey: "color1", sizeKey: "size1", yKey: "y1", label: "텍스트1" },
+              { useKey: "use2", textKey: "text2", fontKey: "font2", colorKey: "color2", sizeKey: "size2", yKey: "y2", label: "텍스트2" },
+            ].map((row) => (
+              <div
+                key={row.useKey}
+                style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}
+              >
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#cfe0ff", whiteSpace: "nowrap" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!globalText[row.useKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.useKey]: e.target.checked }))}
+                  />
+                  {row.label}
+                </label>
+                <input
+                  type="text"
+                  value={globalText[row.textKey]}
+                  placeholder="공통 자막 문구"
+                  onChange={(e) => setGlobalText((p) => ({ ...p, [row.textKey]: e.target.value }))}
+                  style={{ flex: "1 1 180px", minWidth: 140, padding: "4px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13 }}
+                />
+                <select
+                  value={globalText[row.fontKey]}
+                  onChange={(e) => setGlobalText((p) => ({ ...p, [row.fontKey]: e.target.value }))}
+                  style={{ fontSize: 12, padding: "4px 6px", borderRadius: 6 }}
+                >
+                  {FONTS.map((f) => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 3 }}>
+                  크기
+                  <input
+                    type="number"
+                    min={20}
+                    max={200}
+                    value={globalText[row.sizeKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.sizeKey]: Number(e.target.value) }))}
+                    style={{ width: 56, padding: "3px 4px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 12 }}
+                  />
+                </label>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 3 }}>
+                  색
+                  <input
+                    type="color"
+                    value={globalText[row.colorKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.colorKey]: e.target.value }))}
+                    style={{ width: 32, height: 24, padding: 0, border: "none", background: "none" }}
+                  />
+                </label>
+                <label style={{ fontSize: 11, color: "#aab8cc", display: "flex", alignItems: "center", gap: 4 }}>
+                  세로 {globalText[row.yKey]}%
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={globalText[row.yKey]}
+                    onChange={(e) => setGlobalText((p) => ({ ...p, [row.yKey]: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+            ))}
+            <p style={{ fontSize: 11, color: "#8ea9c9", margin: 0 }}>
+              0% = 최상단 · 100% = 최하단. 체크된 텍스트만 렌더에 포함됩니다.
+            </p>
+          </div>
+        ) : null}
+      </div>
+
       <div
         style={{
           marginTop: 12,
@@ -5370,673 +4888,6 @@ export default function Shorts3Panel({
               gap: 6,
             }}
           >
-            {/* 썸네일 특수 구간 */}
-            <div
-              role="presentation"
-              onClick={(e) => {
-                const t = e.target;
-                if (
-                  t &&
-                  typeof t.closest === "function" &&
-                  t.closest("button, input, select, textarea")
-                ) {
-                  return;
-                }
-                setThumbnailSelected(true);
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                padding: "8px",
-                borderRadius: 8,
-                border: thumbnailSelected
-                  ? "2px solid var(--ve-accent)"
-                  : "1px solid var(--ve-border)",
-                background: "var(--ve-panel)",
-                cursor: "pointer",
-                overflow: "hidden",
-              }}
-            >
-              {/* 1행: 시간 입력 / 2행: 미세조정 버튼 (일반 구간과 동일 구조) */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "16px 44px 58px 6px 30px 8px 44px 58px 6px 30px 18px",
-                  columnGap: 4,
-                  rowGap: 6,
-                  alignItems: "center",
-                  overflowX: "hidden",
-                }}
-              >
-                {/* 1행 */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (thumbnailEnabled) {
-                      setThumbnailSegment((prev) => ({
-                        ...prev,
-                        end: "",
-                        endMs: 0,
-                      }));
-                    } else {
-                      setThumbnailSegment((prev) => ({
-                        ...prev,
-                        end: "00:00:00",
-                        endMs: 10,
-                      }));
-                    }
-                    setThumbnailEnabled((prev) => !prev);
-                  }}
-                  style={{
-                    gridColumn: 1,
-                    gridRow: 1,
-                    justifySelf: "start",
-                    width: 22,
-                    height: 22,
-                    borderRadius: 4,
-                    border: "1px solid var(--ve-border)",
-                    cursor: "pointer",
-                    background: thumbnailEnabled ? "var(--ve-accent)" : "var(--ve-panel)",
-                    color: thumbnailEnabled ? "var(--ve-accent-on)" : "var(--ve-text)",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {thumbnailEnabled ? "O" : "X"}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    seekPreviewToThumbnailBoundary("start");
-                  }}
-                  style={{
-                    gridColumn: 2,
-                    gridRow: 1,
-                    background: "var(--ve-panel)",
-                    border: "1px solid var(--ve-border)",
-                    color: "var(--ve-text)",
-                    padding: "2px 4px",
-                    whiteSpace: "nowrap",
-                    borderRadius: 4,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    ...(busy || uploading
-                      ? { opacity: 0.6, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                >
-                  ▶시작
-                </button>
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00:00"
-                  value={thumbnailSegment.start}
-                  onChange={(e) => handleThumbnailTimeChange("start", e.target.value)}
-                  disabled={busy || uploading || !thumbnailEnabled}
-                  style={{
-                    gridColumn: 3,
-                    gridRow: 1,
-                    padding: "4px 6px",
-                    width: 58,
-                    fontSize: 12,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <span
-                  className="muted"
-                  style={{
-                    gridColumn: 4,
-                    gridRow: 1,
-                    userSelect: "none",
-                    margin: "0 2px",
-                    justifySelf: "center",
-                  }}
-                >
-                  .
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder=".00"
-                  value={String(clampSegmentFracMs(thumbnailSegment.startMs ?? 0)).padStart(
-                    2,
-                    "0"
-                  )}
-                  onChange={(e) => handleThumbnailFracMsChange("startMs", e.target.value)}
-                  disabled={busy || uploading || !thumbnailEnabled}
-                  title="시작 소수 초 (0.01초 단위, 00~99)"
-                  style={{
-                    gridColumn: 5,
-                    gridRow: 1,
-                    padding: "4px 6px",
-                    width: 30,
-                    fontSize: 12,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <span
-                  className="muted"
-                  style={{
-                    gridColumn: 6,
-                    gridRow: 1,
-                    justifySelf: "center",
-                    margin: "0 3px",
-                  }}
-                >
-                  ~
-                </span>
-
-                <button
-                  type="button"
-                  disabled={busy || uploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    seekPreviewToThumbnailBoundary("end");
-                  }}
-                  style={{
-                    gridColumn: 7,
-                    gridRow: 1,
-                    background: "var(--ve-panel)",
-                    border: "1px solid var(--ve-border)",
-                    color: "var(--ve-text)",
-                    padding: "2px 4px",
-                    whiteSpace: "nowrap",
-                    borderRadius: 4,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    ...(busy || uploading
-                      ? { opacity: 0.6, cursor: "not-allowed" }
-                      : {}),
-                  }}
-                >
-                  ▶종료
-                </button>
-
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="00:00:00"
-                  value={thumbnailSegment.end}
-                  onChange={(e) => handleThumbnailTimeChange("end", e.target.value)}
-                  disabled={busy || uploading || !thumbnailEnabled}
-                  style={{
-                    gridColumn: 8,
-                    gridRow: 1,
-                    padding: "4px 6px",
-                    width: 58,
-                    fontSize: 12,
-                    boxSizing: "border-box",
-                  }}
-                />
-                <span
-                  className="muted"
-                  style={{
-                    gridColumn: 9,
-                    gridRow: 1,
-                    userSelect: "none",
-                    margin: "0 2px",
-                    justifySelf: "center",
-                  }}
-                >
-                  .
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder=".00"
-                  value={String(clampSegmentFracMs(thumbnailSegment.endMs ?? 0)).padStart(
-                    2,
-                    "0"
-                  )}
-                  onChange={(e) => handleThumbnailFracMsChange("endMs", e.target.value)}
-                  disabled={busy || uploading || !thumbnailEnabled}
-                  title="종료 소수 초 (0.01초 단위, 00~99)"
-                  style={{
-                    gridColumn: 10,
-                    gridRow: 1,
-                    padding: "4px 6px",
-                    width: 30,
-                    fontSize: 12,
-                    boxSizing: "border-box",
-                  }}
-                />
-
-                <span
-                  className="muted"
-                  style={{
-                    gridColumn: 11,
-                    gridRow: 1,
-                    fontSize: 12,
-                    lineHeight: 1,
-                    justifySelf: "end",
-                    color: "var(--ve-accent)",
-                    fontWeight: 500,
-                  }}
-                  title="썸네일 배지"
-                >
-                  썸
-                </span>
-
-                {/* 2행: 시작/종료 미세조정 */}
-                <div
-                  style={{
-                    gridColumn: "2 / span 4",
-                    gridRow: 2,
-                    display: "flex",
-                    gap: 4,
-                    alignItems: "center",
-                    paddingLeft: 0,
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 -1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("start", -ONE_FRAME_30_FPS_SEC);
-                    }}
-                  >
-                    -1f
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 -0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("start", -TENTH_SEC);
-                    }}
-                  >
-                    -0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 +0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("start", TENTH_SEC);
-                    }}
-                  >
-                    +0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="시작 +1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("start", ONE_FRAME_30_FPS_SEC);
-                    }}
-                  >
-                    +1f
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    gridColumn: "7 / span 4",
-                    gridRow: 2,
-                    display: "flex",
-                    gap: 4,
-                    alignItems: "center",
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 -1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("end", -ONE_FRAME_30_FPS_SEC);
-                    }}
-                  >
-                    -1f
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 -0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("end", -TENTH_SEC);
-                    }}
-                  >
-                    -0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 +0.1초"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("end", TENTH_SEC);
-                    }}
-                  >
-                    +0.1s
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy || uploading}
-                    title="종료 +1프레임 (30fps)"
-                    style={{
-                      ...SEGMENT_NUDGE_BTN_STYLE,
-                      ...(busy || uploading
-                        ? { opacity: 0.45, cursor: "not-allowed" }
-                        : {}),
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      adjustThumbnailFieldTime("end", ONE_FRAME_30_FPS_SEC);
-                    }}
-                  >
-                    +1f
-                  </button>
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                  marginTop: 4,
-                }}
-              >
-                <textarea
-                  rows={1}
-                  placeholder="나레이션 텍스트"
-                  value={thumbnailSegment.narration ?? ""}
-                  disabled={busy || uploading || narrationBusy}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) =>
-                    setThumbnailSegment((v) => ({
-                      ...v,
-                      narration: e.target.value,
-                    }))
-                  }
-                  style={{
-                    width: "100%",
-                    minHeight: 28,
-                    maxHeight: 40,
-                    resize: "none",
-                    boxSizing: "border-box",
-                    fontFamily: "inherit",
-                    fontSize: 12,
-                    padding: "4px 6px",
-                    borderRadius: 4,
-                    border: "1px solid var(--ve-border)",
-                    background: "var(--ve-panel)",
-                    color: "var(--ve-border)",
-                  }}
-                />
-                {(() => {
-                  const m = narrationLengthLineModel(
-                    thumbnailSegment.narrationDuration,
-                    thumbnailSegment
-                  );
-                  if (!m) return null;
-                  return (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                        userSelect: "none",
-                      }}
-                    >
-                      <span
-                        style={{ color: m.warn ? "var(--ve-warning)" : "var(--ve-text-sub)" }}
-                      >
-                        {m.text}
-                      </span>
-                    </div>
-                  );
-                })()}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "stretch",
-                    gap: 6,
-                    flexWrap: "nowrap",
-                  }}
-                >
-                  <button
-                    type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      narrationBusy ||
-                      !jobId ||
-                      !String(thumbnailSegment.narration ?? "").trim()
-                    }
-                    title={
-                      !jobId
-                        ? "원본 업로드 완료 후 사용"
-                        : !String(thumbnailSegment.narration ?? "").trim()
-                          ? "나레이션을 입력하세요"
-                          : "ElevenLabs TTS 미리듣기 (썸네일 구간)"
-                    }
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const narrText = String(
-                        thumbnailSegment.narration ?? ""
-                      ).trim();
-                      if (!narrText || !jobId) return;
-                      const prevA = narrationAudioRef.current;
-                      if (prevA) {
-                        try {
-                          prevA.pause();
-                        } catch {
-                          /* ignore */
-                        }
-                        prevA.src = "";
-                        narrationAudioRef.current = null;
-                      }
-                      setNarrationBusy(true);
-                      setError(null);
-                      try {
-                        const json = await postKbo({
-                          action: "elevenlabs_tts",
-                          jobId,
-                          segIndex: 0,
-                          text: narrText,
-                          voiceId: narrationVoiceId,
-                          speed: narrationSpeed,
-                          stability: narrationStability,
-                          style: narrationStyle,
-                        });
-                        const url = json?.presignedUrl;
-                        if (!url || typeof url !== "string") {
-                          throw new Error("미리듣기 URL을 받지 못했습니다.");
-                        }
-                        setThumbnailSegment((prev) => ({
-                          ...prev,
-                          narrationAudioUrl: url,
-                        }));
-                        const audio = new Audio(url);
-                        audio.onloadedmetadata = () => {
-                          const d = audio.duration;
-                          if (!Number.isFinite(d) || d < 0) return;
-                          setThumbnailSegment((prev) => ({
-                            ...prev,
-                            narrationDuration: d,
-                          }));
-                        };
-                        narrationAudioRef.current = audio;
-                        await audio.play();
-                      } catch (err) {
-                        setError(
-                          err instanceof Error ? err.message : String(err)
-                        );
-                      } finally {
-                        setNarrationBusy(false);
-                      }
-                    }}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      ...NARRATION_ROW_BTN_TTS,
-                      cursor:
-                        busy ||
-                        uploading ||
-                        narrationBusy ||
-                        !jobId ||
-                        !String(thumbnailSegment.narration ?? "").trim()
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy ||
-                        uploading ||
-                        narrationBusy ||
-                        !jobId ||
-                        !String(thumbnailSegment.narration ?? "").trim()
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    ▶ 미리듣기
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      !previewUrl ||
-                      isPlayingAll ||
-                      isMonitoring ||
-                      String(thumbnailSegment.end || "").trim() === ""
-                    }
-                    title={
-                      String(thumbnailSegment.end || "").trim() === ""
-                        ? "종료 시각을 설정하세요"
-                        : "썸네일 시작~종료 구간만 재생"
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      playThumbnailSegmentPreview();
-                    }}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      ...NARRATION_ROW_BTN_SEGMENT_PLAY,
-                      cursor:
-                        busy ||
-                        uploading ||
-                        !previewUrl ||
-                        isPlayingAll ||
-                        isMonitoring ||
-                        String(thumbnailSegment.end || "").trim() === ""
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy ||
-                        uploading ||
-                        !previewUrl ||
-                        isPlayingAll ||
-                        isMonitoring ||
-                        String(thumbnailSegment.end || "").trim() === ""
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    ▶ 구간 재생
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      isMonitoring ||
-                      isPlayingAll ||
-                      segments.length >= MAX_SEGMENTS
-                    }
-                    title={
-                      segments.length >= MAX_SEGMENTS
-                        ? `구간은 최대 ${MAX_SEGMENTS}개까지`
-                        : "첫 본편 구간 앞에 빈 구간 삽입"
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      insertSegmentBeforeFirst();
-                    }}
-                    style={{
-                      ...NARRATION_ROW_BTN_BASE,
-                      cursor:
-                        busy ||
-                        uploading ||
-                        isMonitoring ||
-                        isPlayingAll ||
-                        segments.length >= MAX_SEGMENTS
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity:
-                        busy ||
-                        uploading ||
-                        isMonitoring ||
-                        isPlayingAll ||
-                        segments.length >= MAX_SEGMENTS
-                          ? 0.5
-                          : 1,
-                    }}
-                  >
-                    + 구간 삽입
-                  </button>
-                </div>
-              </div>
-            </div>
 
             {segments.map((seg, index) => (
               <div
@@ -6906,9 +5757,7 @@ export default function Shorts3Panel({
                         setNarrationBusy(true);
                         setError(null);
                         try {
-                          const segIdxTts = thumbnailTimingValid
-                            ? index + 1
-                            : index;
+                          const segIdxTts = index;
                           const json = await postKbo({
                             action: "elevenlabs_tts",
                             jobId,
@@ -7578,486 +6427,14 @@ export default function Shorts3Panel({
           }}
         >
           <div className="label">
-            {thumbnailSelected
-              ? "썸네일 · 세부 설정"
-              : `구간 #${selectedSegIndex + 1} · 세부 설정`}
+            {`구간 #${selectedSegIndex + 1} · 세부 설정`}
           </div>
-          {thumbnailSelected ? (
-            <p
-              className="muted"
-              style={{
-                fontSize: 12,
-                marginTop: 6,
-                marginBottom: 12,
-                lineHeight: 1.45,
-              }}
-            >
-              썸네일로 사용하려면 종료점을 시작점+최소 0.1초로 설정하세요
-            </p>
-          ) : null}
 
-          {thumbnailSelected ? (
-            <div style={{ marginBottom: 12 }}>
-              {/* 크롭 오프셋 (썸네일 전용) */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  flexWrap: "wrap",
-                  marginBottom: 12,
-                }}
-              >
-                <span
-                  className="muted"
-                  style={{ fontSize: 12, fontWeight: 500, flexShrink: 0 }}
-                >
-                  크롭 오프셋
-                </span>
-                <input
-                  type="range"
-                  min={-50}
-                  max={50}
-                  step={1}
-                  value={thumbnailSegment.cropOffset ?? 0}
-                  disabled={busy || uploading}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    const v = Number.isFinite(n)
-                      ? Math.min(50, Math.max(-50, Math.round(n)))
-                      : 0;
-                    setThumbnailSegment((cur) => ({ ...cur, cropOffset: v }));
-                    const vid = previewVideoRef.current;
-                    if (vid) setPreviewCropOverlay(computePreviewCropOverlay(vid, v));
-                  }}
-                  style={{ flex: 1, minWidth: 140 }}
-                />
-                <span
-                  className="muted"
-                  style={{ fontSize: 12, whiteSpace: "nowrap" }}
-                >
-                  {formatCropOffsetLabel(thumbnailSegment.cropOffset ?? 0)}
-                </span>
-              </div>
-
-              <div className="label">텍스트 1</div>
-              <label className="preset-field" style={{ marginBottom: 10 }}>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span>텍스트 1 (비우면 미표시)</span>
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: busy || uploading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(thumbnailSegment.keepText1)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          keepText1: e.target.checked,
-                        }))
-                      }
-                    />
-                    전체유지
-                  </label>
-                </span>
-                <input
-                  type="text"
-                  value={thumbnailSegment.text1}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    setThumbnailSegment((v) => ({ ...v, text1: e.target.value }))
-                  }
-                />
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
-                  <span>폰트</span>
-                  <select
-                    value={thumbnailSegment.font1}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, font1: e.target.value }))
-                    }
-                  >
-                    <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
-                    <option value="BlackHanSans-Regular">BlackHanSans</option>
-                    <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
-                    <option value="GamjaFlower-Regular">감자꽃</option>
-                  </select>
-                </label>
-                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 500 }}>
-                  크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88)))}px)
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          fontSize1: Number(e.target.value),
-                        }))
-                      }
-                      style={{ flex: 1, minWidth: 0 }}
-                    />
-                    <input
-                      type="number"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize1) || 88))}
-                      disabled={busy || uploading}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        if (!Number.isFinite(n)) return;
-                        const v = Math.min(200, Math.max(20, Math.round(n)));
-                        setThumbnailSegment((cur) => ({ ...cur, fontSize1: v }));
-                      }}
-                      style={{
-                        width: 52,
-                        padding: "2px 4px",
-                        fontSize: 12,
-                        boxSizing: "border-box",
-                        background: "var(--ve-panel)",
-                        color: "var(--ve-text)",
-                        border: "1px solid var(--ve-border)",
-                        borderRadius: 4,
-                      }}
-                    />
-                  </div>
-                </label>
-                <div
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    flex: "1 1 200px",
-                    minWidth: 160,
-                  }}
-                >
-                  폰트 색상
-                  <TextColorPalette
-                    value={thumbnailSegment.textColor1}
-                    disabled={busy || uploading}
-                    onChange={(c) =>
-                      setThumbnailSegment((v) => ({ ...v, textColor1: c }))
-                    }
-                  />
-                </div>
-              </div>
-
-
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  marginTop: 6,
-                  marginBottom: 10,
-                }}
-              >
-                세로 위치 (텍스트 1): {thumbnailSegment.textY1 ?? 49}%
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={thumbnailSegment.textY1 ?? 49}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      handleThumbnailTextYChange("textY1", e.target.value)
-                    }
-                    style={{ flex: 1, minWidth: 0 }}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={thumbnailSegment.textY1 ?? 49}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      handleThumbnailTextYChange("textY1", e.target.value)
-                    }
-                    style={{
-                      width: 52,
-                      padding: "2px 4px",
-                      fontSize: 12,
-                      boxSizing: "border-box",
-                      background: "var(--ve-panel)",
-                      color: "var(--ve-text)",
-                      border: "1px solid var(--ve-border)",
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <span
-                  className="muted"
-                  style={{ fontWeight: 400, fontSize: 12 }}
-                >
-                  0% = 최상단 · 100% = 최하단
-                </span>
-              </label>
-
-              <div className="label">텍스트 2</div>
-              <label className="preset-field" style={{ marginBottom: 10 }}>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span>텍스트 2 (비우면 미표시)</span>
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 12,
-                      fontWeight: 500,
-                      cursor: busy || uploading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(thumbnailSegment.keepText2)}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          keepText2: e.target.checked,
-                        }))
-                      }
-                    />
-                    전체유지
-                  </label>
-                </span>
-                <input
-                  type="text"
-                  value={thumbnailSegment.text2}
-                  disabled={busy || uploading}
-                  onChange={(e) =>
-                    setThumbnailSegment((v) => ({ ...v, text2: e.target.value }))
-                  }
-                />
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 12,
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <label className="preset-field" style={{ flex: "1 1 200px", minWidth: 160 }}>
-                  <span>폰트</span>
-                  <select
-                    value={thumbnailSegment.font2}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      setThumbnailSegment((v) => ({ ...v, font2: e.target.value }))
-                    }
-                  >
-                    <option value="NotoSansKR-Bold">NotoSansKR Bold</option>
-                    <option value="BlackHanSans-Regular">BlackHanSans</option>
-                    <option value="NotoSerifKR-Bold">NotoSerifKR Bold</option>
-                    <option value="GamjaFlower-Regular">감자꽃</option>
-                  </select>
-                </label>
-                <label className="muted" style={{ flex: "2 1 220px", minWidth: 160, fontSize: 13, fontWeight: 500 }}>
-                  크기 ({Math.round(Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52)))}px)
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 4,
-                    }}
-                  >
-                    <input
-                      type="range"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
-                      disabled={busy || uploading}
-                      onChange={(e) =>
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          fontSize2: Number(e.target.value),
-                        }))
-                      }
-                      style={{ flex: 1, minWidth: 0 }}
-                    />
-                    <input
-                      type="number"
-                      min={20}
-                      max={200}
-                      step={1}
-                      value={Math.min(200, Math.max(20, Number(thumbnailSegment.fontSize2) || 52))}
-                      disabled={busy || uploading}
-                      onChange={(e) => {
-                        const n = Number(e.target.value);
-                        if (!Number.isFinite(n)) return;
-                        const v = Math.min(200, Math.max(20, Math.round(n)));
-                        setThumbnailSegment((cur) => ({ ...cur, fontSize2: v }));
-                      }}
-                      style={{
-                        width: 52,
-                        padding: "2px 4px",
-                        fontSize: 12,
-                        boxSizing: "border-box",
-                        background: "var(--ve-panel)",
-                        color: "var(--ve-text)",
-                        border: "1px solid var(--ve-border)",
-                        borderRadius: 4,
-                      }}
-                    />
-                  </div>
-                </label>
-                <div
-                  className="muted"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 500,
-                    flex: "1 1 200px",
-                    minWidth: 160,
-                  }}
-                >
-                  폰트 색상
-                  <TextColorPalette
-                    value={thumbnailSegment.textColor2}
-                    disabled={busy || uploading}
-                    onChange={(c) =>
-                      setThumbnailSegment((v) => ({ ...v, textColor2: c }))
-                    }
-                  />
-                </div>
-              </div>
-              <label
-                className="muted"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  marginTop: 6,
-                  marginBottom: 10,
-                }}
-              >
-                세로 위치 (텍스트 2): {thumbnailSegment.textY2 ?? 57}%
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={thumbnailSegment.textY2 ?? 57}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      handleThumbnailTextYChange("textY2", e.target.value)
-                    }
-                    style={{ flex: 1, minWidth: 0 }}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={thumbnailSegment.textY2 ?? 57}
-                    disabled={busy || uploading}
-                    onChange={(e) =>
-                      handleThumbnailTextYChange("textY2", e.target.value)
-                    }
-                    style={{
-                      width: 52,
-                      padding: "2px 4px",
-                      fontSize: 12,
-                      boxSizing: "border-box",
-                      background: "var(--ve-panel)",
-                      color: "var(--ve-text)",
-                      border: "1px solid var(--ve-border)",
-                      borderRadius: 4,
-                    }}
-                  />
-                </div>
-                <span
-                  className="muted"
-                  style={{ fontWeight: 400, fontSize: 12 }}
-                >
-                  0% = 최상단 · 100% = 최하단
-                </span>
-              </label>
-
-            </div>
-          ) : null}
-
-          {!thumbnailSelected && segments.length === 0 ? (
+          {segments.length === 0 ? (
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>
               구간을 추가하면 여기에서 크롭·자막을 설정합니다.
             </p>
-          ) : !thumbnailSelected ? (
+          ) : (
             (() => {
               const seg = segments[selectedSegIndex];
               if (!seg) {
@@ -8774,7 +7151,7 @@ export default function Shorts3Panel({
                 </div>
               );
             })()
-          ) : null}
+          )}
         </div>
       </div>
       </div>
