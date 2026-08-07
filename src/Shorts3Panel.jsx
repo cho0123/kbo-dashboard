@@ -1121,7 +1121,6 @@ export default function Shorts3Panel({
     try {
       const payload = {
         segments,
-        thumbnailSegment,
         globalText,
         topText,
         topTextColor,
@@ -1148,7 +1147,6 @@ export default function Shorts3Panel({
   }, [
     jobId,
     segments,
-    thumbnailSegment,
     globalText,
     topText,
     topTextColor,
@@ -2693,7 +2691,6 @@ export default function Shorts3Panel({
     }
     restoringDraftRef.current = true;
     setSegments(() => [emptySegment()]);
-    setThumbnailSegment({ ...INITIAL_THUMBNAIL_SEGMENT });
     setGlobalText({ ...INITIAL_GLOBAL_TEXT });
     setTopText("");
     setTopTextColor(TEXT_COLORS[0]);
@@ -2776,9 +2773,6 @@ export default function Shorts3Panel({
         const d = JSON.parse(raw);
         if (Array.isArray(d.segments) && d.segments.length > 0) {
           setSegments(d.segments);
-        }
-        if (d.thumbnailSegment && typeof d.thumbnailSegment === "object") {
-          setThumbnailSegment((prev) => ({ ...prev, ...d.thumbnailSegment }));
         }
         // 전역 자막 복원. 신 형식(globalText) 우선, 없으면 옛 썸네일 keepText에서 이관.
         if (d.globalText && typeof d.globalText === "object") {
@@ -4204,12 +4198,6 @@ export default function Shorts3Panel({
                     setLayout(opt.id);
                     setVideoScaleY(100);
                     setVideoOffsetY(50);
-                    const yDef = thumbnailTextYDefaultsForLayout(opt.id);
-                    setThumbnailSegment((prev) => ({
-                      ...prev,
-                      textY1: yDef.textY1,
-                      textY2: yDef.textY2,
-                    }));
                   }}
                   style={{
                     padding: "6px 12px",
