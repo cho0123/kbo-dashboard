@@ -6663,6 +6663,179 @@ ${hasSpecial
           };
         }
       }
+      /**
+       * 나레이션 TTS 캐시 사이드카 기록: jobs/{jobId}/narration_{i}.json
+       * { cacheKey, durationSec, updatedAt }
+       *
+       * cacheKey 는 프론트가 텍스트+음성설정으로 만든 불투명 문자열이다. 여기선
+       * 해석하지 않고 그대로 보관만 한다(해시 구현이 두 곳으로 갈라지지 않게).
+       * durationSec 은 프론트가 실제 mp3 를 재서 넣는다 — 렌더 시 홀드 계산의 근거.
+       */
+      case "narration_cache_put": {
+        const jobId = String(payload.jobId || "").trim();
+        const segRaw = payload.segIndex;
+        const segIndex = typeof segRaw === "number" ? segRaw : Number(segRaw);
+        const cacheKey = String(payload.cacheKey || "").trim();
+        const durRaw = Number(payload.durationSec);
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
+          };
+        }
+        if (
+          !Number.isFinite(segIndex) ||
+          segIndex < 0 ||
+          segIndex > 99 ||
+          !Number.isInteger(segIndex)
+        ) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "유효한 segIndex(0~99 정수)가 필요합니다.",
+            }),
+          };
+        }
+        if (!cacheKey || cacheKey.length > 200) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "cacheKey는 1~200자 문자열이어야 합니다.",
+            }),
+          };
+        }
+        if (!Number.isFinite(durRaw) || durRaw <= 0 || durRaw > 600) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: "durationSec는 0 초과 600 이하의 숫자여야 합니다.",
+            }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: `jobs/${jobId}/narration_${segIndex}.json`,
+              Body: JSON.stringify({
+                cacheKey,
+                durationSec: durRaw,
+                updatedAt: new Date().toISOString(),
+              }),
+              ContentType: "application/json",
+            })
+          );
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, jobId, segIndex }),
+          };
+        } catch (e) {
+          console.error("[narration_cache_put] error:", e?.message || e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          };
+        }
+      }
+      /**
+       * 잡의 나레이션 캐시 전체 조회.
+       * entries: { "<segIndex>": { cacheKey, durationSec, hasMp3 } }
+       * hasMp3 는 narration_{i}.mp3 실재 여부 — 사이드카만 남고 mp3 가 지워진
+       * 경우를 캐시 히트로 오인하지 않기 위해 함께 본다.
+       */
+      case "narration_cache_list": {
+        const jobId = String(payload.jobId || "").trim();
+        if (!jobId || !UUID_V4_RE.test(jobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 jobId가 필요합니다." }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const prefix = `jobs/${jobId}/`;
+          const mp3Idx = new Set();
+          const jsonIdx = [];
+          let continuationToken = undefined;
+          do {
+            const out = await s3.send(
+              new ListObjectsV2Command({
+                Bucket: bucket,
+                Prefix: prefix,
+                ContinuationToken: continuationToken,
+              })
+            );
+            for (const obj of out.Contents || []) {
+              const name = String(obj.Key || "").slice(prefix.length);
+              const mMp3 = /^narration_(\d{1,2})\.mp3$/.exec(name);
+              if (mMp3) {
+                mp3Idx.add(mMp3[1]);
+                continue;
+              }
+              const mJson = /^narration_(\d{1,2})\.json$/.exec(name);
+              if (mJson) {
+                jsonIdx.push(mJson[1]);
+              }
+            }
+            continuationToken = out.IsTruncated
+              ? out.NextContinuationToken
+              : undefined;
+          } while (continuationToken);
+
+          const entries = {};
+          await Promise.all(
+            jsonIdx.map(async (idx) => {
+              try {
+                const getOut = await s3.send(
+                  new GetObjectCommand({
+                    Bucket: bucket,
+                    Key: `${prefix}narration_${idx}.json`,
+                  })
+                );
+                const parsed = JSON.parse(await getOut.Body.transformToString());
+                const d = Number(parsed?.durationSec);
+                entries[idx] = {
+                  cacheKey:
+                    typeof parsed?.cacheKey === "string" ? parsed.cacheKey : "",
+                  durationSec: Number.isFinite(d) && d > 0 ? d : null,
+                  hasMp3: mp3Idx.has(idx),
+                };
+              } catch {
+                /* 손상·삭제된 사이드카는 캐시 미스로 둔다(재생성하면 되므로) */
+              }
+            })
+          );
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, jobId, entries }),
+          };
+        } catch (e) {
+          console.error("[narration_cache_list] error:", e?.message || e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          };
+        }
+      }
       case "highlight_upload_url_from_url": {
         const sourceUrl = String(payload.sourceUrl || "").trim();
         if (!/^https?:\/\//i.test(sourceUrl)) {
