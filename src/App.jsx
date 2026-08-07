@@ -8,6 +8,7 @@ import ShortsPresetPicker from "./ShortsPresetPicker.jsx";
 import Shorts3Panel from "./Shorts3Panel.jsx";
 import Shorts3ThumbnailPanel from "./Shorts3ThumbnailPanel.jsx";
 import Shorts3AIPanel from "./Shorts3AIPanel.jsx";
+import ScriptLengthPanel from "./ScriptLengthPanel.jsx";
 import Shorts4Panel from "./Shorts4Panel.jsx";
 import ShortsPvPanel from "./ShortsPvPanel.jsx";
 import Shorts5Panel from "./Shorts5Panel.jsx";
@@ -4801,6 +4802,18 @@ export default function App() {
             </button>
             <button
               type="button"
+              className={`side-tab ${tab === "script_length" ? "active" : ""}`}
+              title="대본 길이 계산 (영상 편집 앞 단계)"
+              onClick={() => {
+                setTab("script_length");
+                setActiveKey("script_length");
+              }}
+            >
+              <span className="sb-ic" aria-hidden="true">📝</span>
+              대본 길이 계산
+            </button>
+            <button
+              type="button"
               className={`side-tab ${tab === "shorts_edit" ? "active" : ""}`}
               title="쇼츠-영상편집"
               onClick={() => {
@@ -5905,6 +5918,8 @@ export default function App() {
                     />
                   ) : activeKey === "shorts3_thumbnail" ? (
                     <Shorts3ThumbnailPanel jobId={shorts3JobId} />
+                  ) : activeKey === "script_length" ? (
+                    <ScriptLengthPanel />
                   ) : activeKey === "shorts3_ai" ? (
                     <Shorts3AIPanel
                       onAddSegments={(segs) => {
