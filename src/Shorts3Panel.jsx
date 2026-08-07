@@ -1189,11 +1189,10 @@ export default function Shorts3Panel({
   const thumbnailOverlayCanvasRef = useRef(null);
 
   const showRightImageSegmentPreview = useMemo(() => {
-    if (thumbnailSelected) return false;
     const seg = segments[selectedSegIndex];
     if (!seg || !isImageSegment(seg)) return false;
     return Boolean(String(seg.imagePreviewUrl || "").trim());
-  }, [segments, selectedSegIndex, thumbnailSelected]);
+  }, [segments, selectedSegIndex]);
 
   const rightImageSegmentPreviewUrl = useMemo(() => {
     if (!showRightImageSegmentPreview) return "";
@@ -1296,56 +1295,9 @@ export default function Shorts3Panel({
       }
     };
 
-    const drawThumbnailOverlayPreview = () => {
-      const overlayCanvas = thumbnailOverlayCanvasRef.current;
-      if (overlayCanvas) {
-        ctx.drawImage(overlayCanvas, 0, 0, W, H);
-      }
-    };
-
-    const drawPreviewThumbnailTexts = () => {
-      const thumb = thumbnailSegmentRef.current;
-      const yDef = thumbnailTextYDefaultsForLayout(layout);
-      const kboHole = layout === LAYOUT_TYPES.KBO;
-      drawPreviewBottomTexts(
-        {
-          text: thumb?.text1 ?? "",
-          text2: thumb?.text2 ?? "",
-          textColor: thumb?.textColor1,
-          textColor2: thumb?.textColor2,
-          textSize: thumb?.fontSize1,
-          textSize2: thumb?.fontSize2,
-          textY: clampThumbnailTextYPercent(thumb?.textY1, yDef.textY1),
-          textY2: clampThumbnailTextYPercent(thumb?.textY2, yDef.textY2),
-        },
-        { kboHole }
-      );
-    };
-
     if (layout === LAYOUT_TYPES.FULLSCREEN) {
       let srcCropW = Math.round((srcCropH * 1080) / 1920);
       if (srcCropW > vw) srcCropW = vw;
-      if (thumbnailSelected) {
-        const clampedSrcCropX = previewSourceCropX(
-          vw,
-          srcCropW,
-          thumbnailSegmentRef.current?.cropOffset
-        );
-        ctx.clearRect(0, 0, W, H);
-        ctx.drawImage(
-          video,
-          clampedSrcCropX,
-          srcCropY,
-          srcCropW,
-          srcCropH,
-          0,
-          0,
-          W,
-          H
-        );
-        drawPreviewThumbnailTexts();
-        return;
-      }
       const selectedSeg = segments[selectedSegIndex];
       const clampedSrcCropX = previewSourceCropX(
         vw,
@@ -1379,31 +1331,6 @@ export default function Shorts3Panel({
       const midH = H - topBarH - botBarH;
       let cropW = Math.round((srcCropH * 1080) / 1120);
       if (cropW > vw) cropW = vw;
-      if (thumbnailSelected) {
-        const clampedCropX = previewSourceCropX(
-          vw,
-          cropW,
-          thumbnailSegmentRef.current?.cropOffset
-        );
-        ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = topBarColor;
-        ctx.fillRect(0, 0, W, topBarH);
-        ctx.fillStyle = bottomBarColor;
-        ctx.fillRect(0, H - botBarH, W, botBarH);
-        ctx.drawImage(
-          video,
-          clampedCropX,
-          srcCropY,
-          cropW,
-          srcCropH,
-          0,
-          topBarH,
-          W,
-          midH
-        );
-        drawPreviewThumbnailTexts();
-        return;
-      }
       const selectedSeg = segments[selectedSegIndex];
       const clampedCropX = previewSourceCropX(
         vw,
@@ -1445,49 +1372,6 @@ export default function Shorts3Panel({
 
     const srcCropW = Math.round((srcCropH * 1080) / 1640);
 
-    // 썸네일 선택 시: 영상 프레임 먼저 그리고 썸네일 오버레이 덮기
-    if (thumbnailSelected) {
-      const clampedSrcCropX = previewSourceCropX(
-        vw,
-        srcCropW,
-        thumbnailSegmentRef.current?.cropOffset
-      );
-      ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(
-        video,
-        clampedSrcCropX,
-        srcCropY,
-        srcCropW,
-        srcCropH,
-        0,
-        TOP_BAR,
-        W,
-        H - TOP_BAR
-      );
-      drawThumbnailOverlayPreview();
-      // 3) 커버박스 (일반 구간 미리보기와 동일 hole 기준)
-      if (coverBox?.enabled) {
-        const holeX = SIDE_BAR;
-        const holeY = TOP_BAR;
-        const holeW = W - 2 * SIDE_BAR;
-        const holeH = H - TOP_BAR - BOT_BAR;
-        const xp = Math.min(100, Math.max(0, Number(coverBox.x) || 0)) / 100;
-        const yp = Math.min(100, Math.max(0, Number(coverBox.y) || 0)) / 100;
-        const wp = Math.min(100, Math.max(0, Number(coverBox.width) || 0)) / 100;
-        const hp = Math.min(100, Math.max(0, Number(coverBox.height) || 0)) / 100;
-        if (wp > 0 && hp > 0) {
-          ctx.fillStyle = bg;
-          ctx.fillRect(
-            holeX + xp * holeW,
-            holeY + yp * holeH,
-            wp * holeW,
-            hp * holeH
-          );
-        }
-      }
-      drawPreviewThumbnailTexts();
-      return;
-    }
 
     const selectedSeg = segments[selectedSegIndex];
     const clampedSrcCropX = previewSourceCropX(
@@ -4916,9 +4800,7 @@ export default function Shorts3Panel({
                         borderRadius: 6,
                         background: showRightImageSegmentPreview
                           ? "transparent"
-                          : thumbnailSelected
-                            ? "transparent"
-                            : "var(--ve-matte)",
+                          : "var(--ve-matte)",
                         display: "block",
                         position: "relative",
                         zIndex: showRightImageSegmentPreview ? 2 : 0,
@@ -5106,25 +4988,17 @@ export default function Shorts3Panel({
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      if (thumbnailSelected) {
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          start: secondsToHhMmSs(whole),
-                          startMs: frac,
-                        }));
-                      } else {
-                        setSegments((prev) =>
-                          prev.map((s, i) =>
-                            i === selectedSegIndex
-                              ? {
-                                  ...s,
-                                  start: secondsToHhMmSs(whole),
-                                  startMs: frac,
-                                }
-                              : s
-                          )
-                        );
-                      }
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? {
+                                ...s,
+                                start: secondsToHhMmSs(whole),
+                                startMs: frac,
+                              }
+                            : s
+                        )
+                      );
                     }}
                     style={{
                       background: "var(--ve-panel)",
@@ -5151,25 +5025,17 @@ export default function Shorts3Panel({
                       const frac = clampSegmentFracMs(
                         Math.round((t - whole) * 100)
                       );
-                      if (thumbnailSelected) {
-                        setThumbnailSegment((v) => ({
-                          ...v,
-                          end: secondsToHhMmSs(whole),
-                          endMs: frac,
-                        }));
-                      } else {
-                        setSegments((prev) =>
-                          prev.map((s, i) =>
-                            i === selectedSegIndex
-                              ? {
-                                  ...s,
-                                  end: secondsToHhMmSs(whole),
-                                  endMs: frac,
-                                }
-                              : s
-                          )
-                        );
-                      }
+                      setSegments((prev) =>
+                        prev.map((s, i) =>
+                          i === selectedSegIndex
+                            ? {
+                                ...s,
+                                end: secondsToHhMmSs(whole),
+                                endMs: frac,
+                              }
+                            : s
+                        )
+                      );
                     }}
                     style={{
                       background: "var(--ve-card)",
@@ -5189,12 +5055,7 @@ export default function Shorts3Panel({
 
                   <button
                     type="button"
-                    disabled={
-                      busy ||
-                      uploading ||
-                      segments.length <= 1 ||
-                      thumbnailSelected
-                    }
+                    disabled={busy || uploading || segments.length <= 1}
                     onClick={deleteSelectedSegment}
                     title={
                       segments.length <= 1
