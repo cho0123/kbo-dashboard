@@ -33,6 +33,11 @@ function loadOrCreateScriptJobId() {
   } catch {
     /* ignore */
   }
+  return newScriptJobId();
+}
+
+/** 새 작업공간 id — 만들면서 localStorage 에도 새겨 둔다(같은 PC 에서 이어지도록) */
+function newScriptJobId() {
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -102,6 +107,10 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
+  const [savedList, setSavedList] = useState([]);
+  const [listOpen, setListOpen] = useState(false);
+  const [listBusy, setListBusy] = useState(false);
   const jobIdRef = useRef(null);
   if (jobIdRef.current == null) jobIdRef.current = loadOrCreateScriptJobId();
 
@@ -173,6 +182,92 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
   const pendingCount = rows.filter((r) => !r.isMeasured).length;
   const allMeasured = rows.length > 0 && pendingCount === 0;
 
+  /** 전 문장이 실측됐을 때만 script.json 저장 (localStorage 는 그대로 두고 S3 를 추가) */
+  const saveScriptDoc = async (measuredMap) => {
+    const lineList = splitScriptLines(script);
+    if (lineList.length === 0) return;
+    const items = lineList.map((text) => ({
+      text,
+      durationSec: Number(
+        measuredMap[narrationCacheKey(text, voiceId, speed, stability, style)]
+      ),
+    }));
+    if (items.some((it) => !Number.isFinite(it.durationSec) || it.durationSec <= 0)) {
+      return; // 추정치가 섞여 있으면 저장하지 않는다
+    }
+    try {
+      await postKbo({
+        action: "script_save",
+        scriptJobId: jobIdRef.current,
+        script,
+        voiceId,
+        speed,
+        stability,
+        style,
+        items,
+      });
+      setSavedAt(new Date().toISOString());
+    } catch (e) {
+      console.warn("[script save]", e);
+    }
+  };
+
+  const refreshSavedList = async () => {
+    setListBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({ action: "script_list" });
+      setSavedList(Array.isArray(res?.items) ? res.items : []);
+      setListOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setListBusy(false);
+    }
+  };
+
+  /** 저장된 측정을 통째로 복원 — 대본·설정·측정표가 그대로 돌아온다 */
+  const loadSaved = async (scriptJobId) => {
+    setListBusy(true);
+    setError(null);
+    try {
+      const res = await postKbo({ action: "script_list", detail: scriptJobId });
+      const d = res?.doc;
+      if (!d || !Array.isArray(d.items)) throw new Error("저장된 내용을 읽지 못했습니다.");
+      const v = VOICE_OPTIONS.some((o) => o.id === d.voiceId) ? d.voiceId : voiceId;
+      const sp = Number.isFinite(Number(d.speed)) ? Number(d.speed) : 1;
+      const st = Number.isFinite(Number(d.stability)) ? Number(d.stability) : 0.5;
+      const sy = Number.isFinite(Number(d.style)) ? Number(d.style) : 0.3;
+      const map = {};
+      for (const it of d.items) {
+        const t = String(it?.text ?? "").trim();
+        const dur = Number(it?.durationSec);
+        if (!t || !Number.isFinite(dur) || dur <= 0) continue;
+        map[narrationCacheKey(t, v, sp, st, sy)] = dur;
+      }
+      // 이후 측정·편집기 전송이 이 잡의 mp3 를 쓰도록 작업공간을 옮긴다
+      jobIdRef.current = scriptJobId;
+      try {
+        localStorage.setItem(SCRIPT_JOB_STORAGE_KEY, scriptJobId);
+      } catch {
+        /* ignore */
+      }
+      setVoiceId(v);
+      setSpeed(sp);
+      setStability(st);
+      setStyle(sy);
+      setScript(typeof d.script === "string" ? d.script : "");
+      setMeasuredByKey(map);
+      setSavedAt(typeof d.savedAt === "string" ? d.savedAt : null);
+      setListOpen(false);
+      setProgress(`불러왔습니다 — ${d.sentenceCount || d.items.length}문장`);
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setListBusy(false);
+    }
+  };
+
   const onMeasure = async () => {
     if (busy || rows.length === 0) return;
     setBusy(true);
@@ -240,6 +335,9 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
         }
       }
       setProgress(`실제 측정 완료 (TTS ${todo.length}회 호출)`);
+      // 전 문장이 실측된 시점에만 S3 에 저장한다 — 그때가 데이터가 완결되는 순간이고,
+      // 다른 PC 에서 불러왔을 때 바로 편집기로 보낼 수 있는 상태이기 때문.
+      await saveScriptDoc(next);
     } catch (e) {
       setError(e instanceof Error ? e : new Error(String(e)));
       setProgress("");
@@ -448,9 +546,45 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
             🎬 편집기로 보내기
           </button>
         ) : null}
+        <button
+          type="button"
+          disabled={busy || listBusy}
+          title="다른 PC에서 저장한 측정도 불러올 수 있습니다"
+          onClick={() => (listOpen ? setListOpen(false) : refreshSavedList())}
+        >
+          {listBusy ? "불러오는 중…" : "📂 이전 측정 불러오기"}
+        </button>
+        <button
+          type="button"
+          disabled={busy || listBusy}
+          title="새 작업공간에서 시작합니다 — 지금 대본은 저장된 채로 남고 목록에 별도 항목으로 쌓입니다"
+          onClick={() => {
+            if (
+              rows.length > 0 &&
+              !window.confirm(
+                "새 대본으로 시작합니다.\n지금 화면의 대본은 지워지지만, 저장된 측정은 목록에 그대로 남습니다.\n\n계속할까요?"
+              )
+            ) {
+              return;
+            }
+            jobIdRef.current = newScriptJobId();
+            setScript("");
+            setMeasuredByKey({});
+            setSavedAt(null);
+            setListOpen(false);
+            setProgress("새 대본 — 작업공간을 새로 만들었습니다.");
+          }}
+        >
+          🆕 새 대본
+        </button>
         {progress ? (
           <span className="muted" style={{ fontSize: 12 }}>
             {progress}
+          </span>
+        ) : null}
+        {savedAt ? (
+          <span className="muted" style={{ fontSize: 12 }}>
+            저장됨 {new Date(savedAt).toLocaleString("ko-KR")}
           </span>
         ) : null}
         {error ? (
@@ -459,6 +593,74 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
           </span>
         ) : null}
       </div>
+
+      {listOpen ? (
+        <div
+          style={{
+            border: "1px solid var(--ve-border)",
+            borderRadius: 6,
+            padding: 10,
+            marginBottom: 12,
+            maxWidth: 900,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+            저장된 대본 측정 ({savedList.length}개)
+          </div>
+          {savedList.length === 0 ? (
+            <div className="muted" style={{ fontSize: 12 }}>
+              저장된 측정이 없습니다. 전 문장을 실제 측정하면 자동으로 저장됩니다.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {savedList.map((it) => {
+                const voice =
+                  VOICE_OPTIONS.find((v) => v.id === it.voiceId)?.label || "";
+                const when = it.savedAt
+                  ? new Date(it.savedAt).toLocaleString("ko-KR")
+                  : "";
+                return (
+                  <div
+                    key={it.scriptJobId}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: 13,
+                      borderBottom: "1px solid var(--ve-border)",
+                      paddingBottom: 6,
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {it.title || "(제목 없음)"}
+                      </div>
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {when} · {it.sentenceCount}문장 · TTS{" "}
+                        {fmt(it.totalTtsSec, 1)}초{voice ? ` · ${voice}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={listBusy}
+                      onClick={() => loadSaved(it.scriptJobId)}
+                    >
+                      불러오기
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {rows.length > 0 && !allMeasured ? (
         <div

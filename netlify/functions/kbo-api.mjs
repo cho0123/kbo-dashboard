@@ -6933,6 +6933,181 @@ ${hasSpecial
           };
         }
       }
+      /**
+       * 대본 측정 결과 저장: jobs/{scriptJobId}/script.json
+       * 대본 원문·음성설정·문장별 측정치를 함께 둔다. 나레이션 mp3 와 사이드카가
+       * 같은 잡 아래 있으므로, 다른 PC 에서 이걸 불러오면 표가 그대로 복원되고
+       * 이어서 편집기로 보내기까지 된다(mp3 를 다시 만들지 않는다).
+       */
+      case "script_save": {
+        const scriptJobId = String(payload.scriptJobId || "").trim();
+        if (!scriptJobId || !UUID_V4_RE.test(scriptJobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 scriptJobId가 필요합니다." }),
+          };
+        }
+        const scriptText = payload.script != null ? String(payload.script) : "";
+        if (scriptText.length > 20000) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "대본은 20000자 이하여야 합니다." }),
+          };
+        }
+        const itemsIn = Array.isArray(payload.items) ? payload.items : [];
+        if (itemsIn.length > 100) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "문장은 최대 100개입니다." }),
+          };
+        }
+        const num = (v, min, max, d) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d;
+        };
+        const items = itemsIn.map((it) => ({
+          text: it?.text != null ? String(it.text).slice(0, 2000) : "",
+          durationSec: num(it?.durationSec, 0, 600, 0),
+        }));
+        const totalTtsSec =
+          Math.round(items.reduce((a, it) => a + it.durationSec, 0) * 1000) / 1000;
+        const firstLine = items.find((it) => it.text.trim())?.text.trim() || "";
+        const doc = {
+          version: 1,
+          scriptJobId,
+          title: firstLine.slice(0, 60),
+          script: scriptText,
+          voiceId: payload.voiceId != null ? String(payload.voiceId).slice(0, 100) : "",
+          speed: num(payload.speed, 0.5, 2, 1),
+          stability: num(payload.stability, 0, 1, 0.5),
+          style: num(payload.style, 0, 1, 0.3),
+          items,
+          sentenceCount: items.length,
+          totalTtsSec,
+          savedAt: new Date().toISOString(),
+        };
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: `jobs/${scriptJobId}/script.json`,
+              Body: JSON.stringify(doc),
+              ContentType: "application/json",
+            })
+          );
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, scriptJobId, savedAt: doc.savedAt }),
+          };
+        } catch (e) {
+          console.error("[script_save] error:", e?.message || e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          };
+        }
+      }
+      /**
+       * 저장된 대본 측정 목록. detail=<scriptJobId> 면 그 하나를 통째로 돌려준다.
+       * script.json 이 없는 예전 잡은 애초에 목록에 들어오지 않고,
+       * 깨진 script.json 은 조용히 건너뛴다(목록 전체가 죽지 않도록).
+       */
+      case "script_list": {
+        const detail = String(payload.detail || "").trim();
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          if (detail) {
+            if (!UUID_V4_RE.test(detail)) {
+              return {
+                statusCode: 400,
+                headers: corsHeaders(),
+                body: JSON.stringify({ ok: false, error: "유효한 detail(scriptJobId)이 필요합니다." }),
+              };
+            }
+            const out = await s3.send(
+              new GetObjectCommand({ Bucket: bucket, Key: `jobs/${detail}/script.json` })
+            );
+            return {
+              statusCode: 200,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: true,
+                doc: JSON.parse(await out.Body.transformToString()),
+              }),
+            };
+          }
+          const found = [];
+          let continuationToken = undefined;
+          do {
+            const out = await s3.send(
+              new ListObjectsV2Command({
+                Bucket: bucket,
+                Prefix: "jobs/",
+                ContinuationToken: continuationToken,
+              })
+            );
+            for (const obj of out.Contents || []) {
+              const key = String(obj.Key || "");
+              if (!key.endsWith("/script.json")) continue;
+              const id = key.split("/")[1] || "";
+              if (!UUID_V4_RE.test(id)) continue;
+              found.push({ id, lastModified: obj.LastModified });
+            }
+            continuationToken = out.IsTruncated ? out.NextContinuationToken : undefined;
+          } while (continuationToken);
+
+          found.sort(
+            (a, b) => new Date(b.lastModified || 0) - new Date(a.lastModified || 0)
+          );
+          const top = found.slice(0, 30);
+          const items = [];
+          await Promise.all(
+            top.map(async (f) => {
+              try {
+                const out = await s3.send(
+                  new GetObjectCommand({ Bucket: bucket, Key: `jobs/${f.id}/script.json` })
+                );
+                const d = JSON.parse(await out.Body.transformToString());
+                items.push({
+                  scriptJobId: f.id,
+                  title: typeof d?.title === "string" ? d.title : "",
+                  savedAt: typeof d?.savedAt === "string" ? d.savedAt : f.lastModified,
+                  sentenceCount: Number(d?.sentenceCount) || 0,
+                  totalTtsSec: Number(d?.totalTtsSec) || 0,
+                  voiceId: typeof d?.voiceId === "string" ? d.voiceId : "",
+                });
+              } catch {
+                /* 깨진 script.json 은 목록에서 뺀다 */
+              }
+            })
+          );
+          items.sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0));
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, items }),
+          };
+        } catch (e) {
+          console.error("[script_list] error:", e?.message || e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          };
+        }
+      }
       case "highlight_upload_url_from_url": {
         const sourceUrl = String(payload.sourceUrl || "").trim();
         if (!/^https?:\/\//i.test(sourceUrl)) {
