@@ -128,6 +128,72 @@ function computeAutoHoldSec(narrationDurationSec, srcDurSec) {
   return hold > 0 ? Math.round(hold * 100) / 100 : 0;
 }
 
+/**
+ * 나레이션 TTS 캐시 키 — 텍스트와 음성 설정이 같으면 같은 문자열.
+ * 변경 감지 전용(비암호). 이 값이 S3 사이드카의 것과 같으면 재생성하지 않는다.
+ *
+ * ⚠ ElevenLabs 는 seed 가 없어 같은 입력이라도 매번 길이가 다르다. 재생성하면
+ * 홀드를 계산할 때 잰 파일과 실제 렌더에 쓰이는 파일이 어긋나 나레이션이 잘린다.
+ */
+function narrationCacheKey(text, voiceId, speed, stability, style) {
+  const num = (v, d) => {
+    const n = Number(v);
+    return (Number.isFinite(n) ? n : d).toFixed(3);
+  };
+  const canon = [
+    "v1",
+    String(voiceId ?? "").trim(),
+    num(speed, 1),
+    num(stability, 0.5),
+    num(style, 0.3),
+    String(text ?? "").trim(),
+  ].join("|");
+  // FNV-1a 를 서로 다른 상수로 두 벌 돌려 64비트 상당으로 만든다.
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < canon.length; i++) {
+    const c = canon.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 0x85ebca6b) >>> 0;
+  }
+  return `${h1.toString(16).padStart(8, "0")}${h2.toString(16).padStart(8, "0")}`;
+}
+
+/**
+ * 오디오 URL의 실제 길이(초). 실패·타임아웃이면 null.
+ * 미리듣기와 렌더가 같은 방법으로 재도록 여기 한 곳에 둔다.
+ */
+function measureAudioDurationSec(url, timeoutMs = 20000) {
+  return new Promise((resolve) => {
+    const src = String(url ?? "").trim();
+    if (!src || typeof Audio === "undefined") {
+      resolve(null);
+      return;
+    }
+    const audio = new Audio();
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        audio.src = "";
+      } catch {
+        /* ignore */
+      }
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      const d = Number(audio.duration);
+      finish(Number.isFinite(d) && d > 0 ? d : null);
+    };
+    audio.onerror = () => finish(null);
+    audio.src = src;
+  });
+}
+
 const LOCAL_DOWNLOAD_SERVER = "http://localhost:3838";
 
 const VIDEO_ACCEPT =
@@ -2992,7 +3058,11 @@ export default function Shorts3Panel({
       );
 
       const resolvedSegments = [];
+      // resolvedSegments[i] 에 대응하는 segments state 의 원본 객체(참조).
+      // 나레이션 실측 후 표시값을 state 로 되돌릴 때 인덱스 대신 이걸로 찾는다.
+      const resolvedOrigins = [];
       for (const s of validSegments) {
+        resolvedOrigins.push(s);
         if (isImageSegment(s) && s.imageLocalFile) {
           setMessage("이미지 업로드 중…");
           const up = await uploadHighlightImage(jobId, s.imageLocalFile);
@@ -3005,20 +3075,127 @@ export default function Shorts3Panel({
         }
       }
 
+      // ── 나레이션 TTS: 텍스트·음성설정이 그대로면 재생성하지 않는다 ──
+      // 재생성하면 ElevenLabs 가 매번 다른 길이를 주므로(seed 없음), 홀드를
+      // 계산할 때 잰 파일과 실제 렌더에 쓰이는 파일이 달라져 나레이션이 잘린다.
+      // 재생성한 구간은 새 mp3 를 직접 재서 holdSec 을 다시 계산한다.
+      const narrPlan = [];
       for (let vi = 0; vi < resolvedSegments.length; vi++) {
         const narrText = String(resolvedSegments[vi]?.narration ?? "").trim();
         if (!narrText) continue;
-        const segIndexForS3 = vi;
-        await postKbo({
-          action: "elevenlabs_tts",
-          jobId,
-          segIndex: segIndexForS3,
-          text: narrText,
-          voiceId: narrationVoiceId,
-          speed: narrationSpeed,
-          stability: narrationStability,
-          style: narrationStyle,
+        narrPlan.push({
+          vi,
+          narrText,
+          cacheKey: narrationCacheKey(
+            narrText,
+            narrationVoiceId,
+            narrationSpeed,
+            narrationStability,
+            narrationStyle
+          ),
         });
+      }
+
+      const narrDurationByVi = new Map();
+      if (narrPlan.length > 0) {
+        let cacheEntries = {};
+        try {
+          const cacheRes = await postKbo({
+            action: "narration_cache_list",
+            jobId,
+          });
+          if (cacheRes?.entries && typeof cacheRes.entries === "object") {
+            cacheEntries = cacheRes.entries;
+          }
+        } catch (e) {
+          // 캐시 조회 실패 → 전부 재생성(기존 동작). 길이는 재서 쓰므로 안전하다.
+          console.warn("[narration cache list]", e);
+        }
+
+        const toRegen = [];
+        for (const n of narrPlan) {
+          const hit = cacheEntries[String(n.vi)];
+          const cachedDur = Number(hit?.durationSec);
+          if (
+            hit &&
+            hit.cacheKey === n.cacheKey &&
+            hit.hasMp3 === true &&
+            Number.isFinite(cachedDur) &&
+            cachedDur > 0
+          ) {
+            narrDurationByVi.set(n.vi, cachedDur);
+          } else {
+            toRegen.push(n);
+          }
+        }
+
+        for (let k = 0; k < toRegen.length; k++) {
+          const n = toRegen[k];
+          setMessage(
+            `나레이션 생성 중… ${k + 1}/${toRegen.length} (${n.vi + 1}번 구간)`
+          );
+          const ttsRes = await postKbo({
+            action: "elevenlabs_tts",
+            jobId,
+            segIndex: n.vi,
+            text: n.narrText,
+            voiceId: narrationVoiceId,
+            speed: narrationSpeed,
+            stability: narrationStability,
+            style: narrationStyle,
+          });
+          const measured = await measureAudioDurationSec(ttsRes?.presignedUrl);
+          if (Number.isFinite(measured) && measured > 0) {
+            narrDurationByVi.set(n.vi, measured);
+            try {
+              await postKbo({
+                action: "narration_cache_put",
+                jobId,
+                segIndex: n.vi,
+                cacheKey: n.cacheKey,
+                durationSec: measured,
+              });
+            } catch (e) {
+              // 사이드카 기록 실패는 다음 렌더에서 재생성될 뿐, 이번 렌더는 정상이다.
+              console.warn("[narration cache put]", e);
+            }
+          }
+        }
+        if (toRegen.length > 0) {
+          setMessage("작업 요청 중…");
+        }
+      }
+
+      // 실측 길이로 payload 와 편집기 표시값을 맞춘다.
+      // holdSec 재계산은 자동 홀드가 켜진 구간만 — 수동 입력값은 건드리지 않는다.
+      const narrSyncByOrigin = new Map();
+      for (const [vi, measured] of narrDurationByVi) {
+        const seg = resolvedSegments[vi];
+        if (!seg) continue;
+        const prevDur = Number(seg.narrationDuration);
+        const prevHold = Math.max(0, Number(seg.holdSec) || 0);
+        const nextHold =
+          seg.autoHold !== false
+            ? computeAutoHoldSec(measured, segmentDurationSpanSeconds(seg))
+            : prevHold;
+        if (prevDur === measured && prevHold === nextHold) continue;
+        resolvedSegments[vi] = {
+          ...seg,
+          narrationDuration: measured,
+          holdSec: nextHold,
+        };
+        narrSyncByOrigin.set(resolvedOrigins[vi], {
+          narrationDuration: measured,
+          holdSec: nextHold,
+        });
+      }
+      if (narrSyncByOrigin.size > 0) {
+        setSegments((prev) =>
+          prev.map((s) => {
+            const up = narrSyncByOrigin.get(s);
+            return up ? { ...s, ...up } : s;
+          })
+        );
       }
 
       const payload = {
@@ -5798,6 +5975,25 @@ export default function Shorts3Panel({
                                 };
                               })
                             );
+                            // 방금 만든 mp3 의 해시·실측 길이를 S3 사이드카에 남긴다.
+                            // 렌더가 이걸 보고 같은 파일을 재생성 없이 그대로 쓴다.
+                            if (d > 0) {
+                              postKbo({
+                                action: "narration_cache_put",
+                                jobId,
+                                segIndex: segIdxTts,
+                                cacheKey: narrationCacheKey(
+                                  narrText,
+                                  narrationVoiceId,
+                                  narrationSpeed,
+                                  narrationStability,
+                                  narrationStyle
+                                ),
+                                durationSec: d,
+                              }).catch((err) =>
+                                console.warn("[narration cache put]", err)
+                              );
+                            }
                           };
                           narrationAudioRef.current = audio;
                           await audio.play();
