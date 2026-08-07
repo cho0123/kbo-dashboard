@@ -90,7 +90,7 @@ function suggestedClipSeconds(reqSec) {
 const fmt = (n, d = 2) =>
   Number.isFinite(Number(n)) ? Number(n).toFixed(d) : "-";
 
-export default function ScriptLengthPanel() {
+export default function ScriptLengthPanel({ onSendToEditor } = {}) {
   const [voiceId, setVoiceId] = useState(VOICE_OPTIONS[0].id);
   const [speed, setSpeed] = useState(1.0);
   const [stability, setStability] = useState(0.5);
@@ -419,6 +419,35 @@ export default function ScriptLengthPanel() {
         >
           {copied ? "✅ 복사됨" : "📋 결과 복사"}
         </button>
+        {onSendToEditor ? (
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || rows.length === 0 || !allMeasured}
+            title={
+              rows.length === 0
+                ? "대본을 입력하세요"
+                : !allMeasured
+                  ? "실제 측정을 먼저 하세요 — 추정치에는 오디오 파일이 없어 넘길 수 없습니다"
+                  : "문장별 나레이션과 길이를 영상 편집기 구간에 채웁니다"
+            }
+            onClick={() =>
+              onSendToEditor({
+                scriptJobId: jobIdRef.current,
+                voiceId,
+                speed,
+                stability,
+                style,
+                items: rows.map((r) => ({
+                  text: r.text,
+                  durationSec: r.tts,
+                })),
+              })
+            }
+          >
+            🎬 편집기로 보내기
+          </button>
+        ) : null}
         {progress ? (
           <span className="muted" style={{ fontSize: 12 }}>
             {progress}

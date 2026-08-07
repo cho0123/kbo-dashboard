@@ -3,6 +3,7 @@ import admin from "firebase-admin";
 import { randomUUID } from "crypto";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -6826,6 +6827,102 @@ ${hasSpecial
           };
         } catch (e) {
           console.error("[narration_cache_list] error:", e?.message || e);
+          return {
+            statusCode: 500,
+            headers: corsHeaders(),
+            body: JSON.stringify({
+              ok: false,
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          };
+        }
+      }
+      /**
+       * 나레이션 mp3 + 캐시 사이드카를 잡 사이로 복사.
+       * 대본 길이 계산 화면에서 잰 TTS 를 편집기가 그대로 물려받게 하려는 것 —
+       * 사이드카(cacheKey·durationSec)를 같이 복사해야 편집기 렌더가 캐시 히트로
+       * 인식해 TTS 를 다시 부르지 않는다. mp3 만 옮기면 의미가 없다.
+       *
+       * mp3 가 없는 인덱스는 건너뛰고 missing 으로 알린다(그 구간만 재생성되면 되므로).
+       */
+      case "narration_copy_job": {
+        const fromJobId = String(payload.fromJobId || "").trim();
+        const toJobId = String(payload.toJobId || "").trim();
+        const cntRaw = Number(payload.count);
+        if (!fromJobId || !UUID_V4_RE.test(fromJobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 fromJobId가 필요합니다." }),
+          };
+        }
+        if (!toJobId || !UUID_V4_RE.test(toJobId)) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "유효한 toJobId가 필요합니다." }),
+          };
+        }
+        if (fromJobId === toJobId) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "같은 잡으로는 복사할 수 없습니다." }),
+          };
+        }
+        if (!Number.isFinite(cntRaw) || !Number.isInteger(cntRaw) || cntRaw < 1 || cntRaw > 20) {
+          return {
+            statusCode: 400,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: false, error: "count는 1~20 정수여야 합니다." }),
+          };
+        }
+        try {
+          const { s3, bucket } = videoEncodeAwsClients();
+          const copied = [];
+          const missing = [];
+          for (let i = 0; i < cntRaw; i++) {
+            const mp3Src = `jobs/${fromJobId}/narration_${i}.mp3`;
+            try {
+              await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: mp3Src }));
+            } catch {
+              missing.push(i);
+              continue;
+            }
+            await s3.send(
+              new CopyObjectCommand({
+                Bucket: bucket,
+                Key: `jobs/${toJobId}/narration_${i}.mp3`,
+                CopySource: encodeURI(`${bucket}/${mp3Src}`),
+                ContentType: "audio/mpeg",
+                MetadataDirective: "REPLACE",
+              })
+            );
+            // 사이드카는 없을 수도 있다(측정 직후 기록 실패 등) — 없으면 그냥 넘어간다.
+            const jsonSrc = `jobs/${fromJobId}/narration_${i}.json`;
+            try {
+              await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: jsonSrc }));
+              await s3.send(
+                new CopyObjectCommand({
+                  Bucket: bucket,
+                  Key: `jobs/${toJobId}/narration_${i}.json`,
+                  CopySource: encodeURI(`${bucket}/${jsonSrc}`),
+                  ContentType: "application/json",
+                  MetadataDirective: "REPLACE",
+                })
+              );
+            } catch {
+              /* 사이드카 없음 → 편집기가 그 구간만 재생성한다 */
+            }
+            copied.push(i);
+          }
+          return {
+            statusCode: 200,
+            headers: corsHeaders(),
+            body: JSON.stringify({ ok: true, fromJobId, toJobId, copied, missing }),
+          };
+        } catch (e) {
+          console.error("[narration_copy_job] error:", e?.message || e);
           return {
             statusCode: 500,
             headers: corsHeaders(),
