@@ -7498,6 +7498,7 @@ ${hasSpecial
           topTextSize,
           topTextOpacity,
           topTextFont,
+          topTextShadow: Boolean(payload.topTextShadow),
           team,
           layout: payload.layout ?? "kbo",
           videoScaleY: payload.videoScaleY ?? 100,
