@@ -1909,7 +1909,6 @@ export default function Shorts3Panel({
       }
       const next = [...s, emptySegment()];
       const ni = next.length - 1;
-      setThumbnailSelected(false);
       setSelectedSegIndex(ni);
       return next;
     });
@@ -1930,7 +1929,6 @@ export default function Shorts3Panel({
         emptySegment(),
         ...s.slice(i + 1),
       ];
-      setThumbnailSelected(false);
       setSelectedSegIndex(i + 1);
       return next;
     });
@@ -1943,7 +1941,6 @@ export default function Shorts3Panel({
       }
       const next = [...s, emptyImageSegment()];
       const ni = next.length - 1;
-      setThumbnailSelected(false);
       setSelectedSegIndex(ni);
       return next;
     });
@@ -1964,7 +1961,6 @@ export default function Shorts3Panel({
         emptyImageSegment(),
         ...s.slice(i + 1),
       ];
-      setThumbnailSelected(false);
       setSelectedSegIndex(i + 1);
       return next;
     });
@@ -2091,7 +2087,6 @@ export default function Shorts3Panel({
   }, [segments.length]);
 
   const selectSegment = useCallback((index) => {
-    setThumbnailSelected(false);
     setSelectedSegIndex(index);
   }, []);
 
@@ -2203,7 +2198,6 @@ export default function Shorts3Panel({
         } catch {
           /* ignore */
         }
-        setThumbnailSelected(false);
         setSelectedSegIndex(index);
         setPreviewCropOverlay(
           computePreviewCropOverlay(video, seg.cropOffset ?? 0)
@@ -2228,30 +2222,6 @@ export default function Shorts3Panel({
 
     try {
       let virtualCursor = 0;
-
-      const thumbStart = segmentBoundarySeconds(thumbnailSegment, "start");
-      if (thumbStart != null && Number.isFinite(thumbStart)) {
-        let thumbEnd = segmentBoundarySeconds(thumbnailSegment, "end");
-        if (
-          thumbEnd == null ||
-          !Number.isFinite(thumbEnd) ||
-          thumbEnd <= thumbStart
-        ) {
-          thumbEnd = thumbStart + 0.1;
-        }
-        const thumbDur = thumbEnd - thumbStart;
-        setThumbnailSelected(true);
-        setPreviewCropOverlay(
-          computePreviewCropOverlay(
-            video,
-            thumbnailSegment.cropOffset ?? 0
-          )
-        );
-        video.currentTime = thumbStart;
-        await playRange(thumbStart, thumbEnd, virtualCursor, onVirtualProgress);
-        virtualCursor += thumbDur;
-        await new Promise((res) => setTimeout(res, 100));
-      }
 
       for (let i = 0; i < segments.length; i++) {
         if (!playAllRef.current) break;
@@ -2278,7 +2248,6 @@ export default function Shorts3Panel({
           continue;
         }
 
-        setThumbnailSelected(false);
         setSelectedSegIndex(i);
         setPreviewCropOverlay(computePreviewCropOverlay(video, seg.cropOffset ?? 0));
         video.currentTime = startSec;
@@ -2307,7 +2276,7 @@ export default function Shorts3Panel({
       setIsPlayingAll(false);
       video.muted = savedMuteForPlayAll;
     }
-  }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds, thumbnailSegment]);
+  }, [segments, isPlayingAll, isMonitoring, segmentBoundarySeconds]);
 
   const runFullMonitor = useCallback(async () => {
     const video = previewVideoRef.current;
@@ -2380,21 +2349,6 @@ export default function Shorts3Panel({
       });
 
     try {
-      const thumb = thumbnailSegmentRef.current;
-      const ts = segmentBoundarySeconds(thumb, "start");
-      let te = segmentBoundarySeconds(thumb, "end");
-      if (ts != null && Number.isFinite(ts)) {
-        if (te == null || !Number.isFinite(te) || te <= ts) {
-          te = ts + 0.1;
-        }
-        setThumbnailSelected(true);
-        setPlayingSegmentIndex(null);
-        setPreviewCropOverlay(
-          computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
-        );
-        video.currentTime = ts;
-        await playRangeMonitor(ts, te, thumb.narrationAudioUrl);
-      }
       await new Promise((r) => setTimeout(r, 80));
       if (!monitorRef.current) return;
 
@@ -2413,7 +2367,6 @@ export default function Shorts3Panel({
         ) {
           continue;
         }
-        setThumbnailSelected(false);
         setSelectedSegIndex(i);
         setPreviewCropOverlay(
           computePreviewCropOverlay(video, seg?.cropOffset ?? 0)
@@ -2763,7 +2716,6 @@ export default function Shorts3Panel({
     setSelectedTeam("삼성");
     setTeamColor(TEAM_CONFIGS["삼성"]?.bg || "#0055A4");
     setSelectedSegIndex(0);
-    setThumbnailSelected(false);
     setMessage("임시저장을 초기화했습니다.");
     setTimeout(() => {
       restoringDraftRef.current = false;
@@ -2808,7 +2760,6 @@ export default function Shorts3Panel({
     const internal = pendingSegsToInternal(list);
     if (internal.length < 1) return;
     setSegments(internal);
-    setThumbnailSelected(false);
     setSelectedSegIndex(0);
   }, []);
 
