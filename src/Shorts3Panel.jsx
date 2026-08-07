@@ -1291,12 +1291,11 @@ export default function Shorts3Panel({
    * ⚠ 이 훅은 jobId·segmentsRef·나레이션 설정 setter 를 모두 참조하므로 반드시
    *   그 선언들보다 아래에 있어야 한다(위에 두면 렌더 중 TDZ 로 죽는다).
    */
-  useEffect(() => {
+  const applyPendingNarrations = async () => {
     const payload = pendingNarrations;
     if (!payload || !Array.isArray(payload.items) || payload.items.length < 1) {
       return;
     }
-    onPendingNarrationsUsed?.();
 
     const items = payload.items;
     const curSegs = segmentsRef.current || [];
@@ -1341,7 +1340,8 @@ export default function Shorts3Panel({
     lines.push("", "계속할까요?");
     if (!window.confirm(lines.join("\n"))) return;
 
-    (async () => {
+    onPendingNarrationsUsed?.();
+    {
       try {
         setError(null);
         setMessage("나레이션 오디오를 옮기는 중…");
@@ -1403,8 +1403,8 @@ export default function Shorts3Panel({
         setError(e instanceof Error ? e : new Error(String(e)));
         setMessage("");
       }
-    })();
-  }, [pendingNarrations, onPendingNarrationsUsed, jobId]);
+    }
+  };
 
   const renderPreviewFrame = useCallback(() => {
     const video = previewVideoRef.current;
@@ -6707,6 +6707,47 @@ export default function Shorts3Panel({
           ) : message ? (
             <div className="muted" style={{ marginTop: 12 }}>
               {message}
+            </div>
+          ) : null}
+
+          {/* 대본 길이 계산에서 넘어온 나레이션 — 화면을 옮기면 편집기 상태가 초기화되므로
+              자동 적용하지 않고, 원본·구간을 준비한 뒤 사장님이 직접 누르게 한다. */}
+          {pendingNarrations &&
+          Array.isArray(pendingNarrations.items) &&
+          pendingNarrations.items.length > 0 ? (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 6,
+                border: "1px solid var(--ve-border)",
+                background: "var(--ve-panel)",
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                fontSize: 13,
+              }}
+            >
+              <span>
+                📝 대본 <b>{pendingNarrations.items.length}문장</b>이 대기 중입니다.
+                원본을 불러오고 구간을 만든 뒤 적용하세요.
+              </span>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={applyPendingNarrations}
+              >
+                구간에 적용
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPendingNarrationsUsed?.()}
+              >
+                취소
+              </button>
             </div>
           ) : null}
 
