@@ -1889,10 +1889,28 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
             "-r",
             "30",
             "-c:a",
-            "aac",
-            "-shortest",
-            `seg_${i}.mp4`
+            "aac"
           );
+          if (holdSec > 0) {
+            // -shortest 는 짧은 쪽(원본 오디오 = duration)에 맞춰 잘라서, tpad 로
+            // 붙인 홀드분을 도로 버린다. 홀드가 있을 때만 출력 길이를 outDur 로
+            // 명시하고 오디오도 apad 로 같은 길이까지 무음을 채운다.
+            // (concat 은 -c copy 라 구간별 A/V 길이가 어긋나면 그대로 누적된다.)
+            // -map 0:a? 의 ? 는 유지 → 오디오 트랙 없는 소스에서도 죽지 않는다.
+            overlayNoNarrArgs.push(
+              "-ar",
+              "48000",
+              "-ac",
+              "2",
+              "-af",
+              `aresample=48000,apad=whole_len=${narrApadSamples}`,
+              "-t",
+              durStr
+            );
+          } else {
+            overlayNoNarrArgs.push("-shortest");
+          }
+          overlayNoNarrArgs.push(`seg_${i}.mp4`);
         }
         runFfmpeg(
           overlayNoNarrArgs,
