@@ -1633,13 +1633,12 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           ? HIGHLIGHT_THUMBNAIL_DUR_SEC
           : HIGHLIGHT_MIN_SEGMENT_DUR_SEC;
     }
-    // 마지막 프레임 홀드: 나레이션이 소스보다 길 때 tpad 로 뒤를 채운다.
-    // 나레이션 텍스트가 있을 때만 적용(auto-hold이 TTS 기반). 없으면 holdSec=0 → 기존과 완전 동일.
-    const segHasNarrationText =
-      seg.narration != null && String(seg.narration).trim() !== "";
+    // 마지막 프레임 홀드: tpad 로 소스 뒤에 정지 프레임을 붙인다.
+    // 자동/수동 판단은 프론트(autoHold)가 끝내고 최종 holdSec 만 보내므로 여기선 그 값을 신뢰한다.
+    // holdSec 이 0/없음이면 tpad 미삽입 → 필터체인·출력 길이 모두 기존과 완전 동일.
     const holdSecRaw = Number(seg.holdSec);
     const holdSec =
-      segHasNarrationText && Number.isFinite(holdSecRaw) && holdSecRaw > 0
+      Number.isFinite(holdSecRaw) && holdSecRaw > 0
         ? Math.min(HIGHLIGHT_MAX_HOLD_SEC, holdSecRaw)
         : 0;
     // 입력 컷(-t)은 소스 길이(duration) 유지, tpad 가 뒤에 holdSec 만큼 프레임을 붙인다.
