@@ -33,6 +33,11 @@ function loadOrCreateScriptJobId() {
   } catch {
     /* ignore */
   }
+  return newScriptJobId();
+}
+
+/** 새 작업공간 id — 만들면서 localStorage 에도 새겨 둔다(같은 PC 에서 이어지도록) */
+function newScriptJobId() {
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -548,6 +553,29 @@ export default function ScriptLengthPanel({ onSendToEditor } = {}) {
           onClick={() => (listOpen ? setListOpen(false) : refreshSavedList())}
         >
           {listBusy ? "불러오는 중…" : "📂 이전 측정 불러오기"}
+        </button>
+        <button
+          type="button"
+          disabled={busy || listBusy}
+          title="새 작업공간에서 시작합니다 — 지금 대본은 저장된 채로 남고 목록에 별도 항목으로 쌓입니다"
+          onClick={() => {
+            if (
+              rows.length > 0 &&
+              !window.confirm(
+                "새 대본으로 시작합니다.\n지금 화면의 대본은 지워지지만, 저장된 측정은 목록에 그대로 남습니다.\n\n계속할까요?"
+              )
+            ) {
+              return;
+            }
+            jobIdRef.current = newScriptJobId();
+            setScript("");
+            setMeasuredByKey({});
+            setSavedAt(null);
+            setListOpen(false);
+            setProgress("새 대본 — 작업공간을 새로 만들었습니다.");
+          }}
+        >
+          🆕 새 대본
         </button>
         {progress ? (
           <span className="muted" style={{ fontSize: 12 }}>
