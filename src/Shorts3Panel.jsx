@@ -1186,8 +1186,6 @@ export default function Shorts3Panel({
   const [isMonitoring, setIsMonitoring] = useState(false);
   const monitorRef = useRef(false);
 
-  const thumbnailOverlayCanvasRef = useRef(null);
-
   const showRightImageSegmentPreview = useMemo(() => {
     const seg = segments[selectedSegIndex];
     if (!seg || !isImageSegment(seg)) return false;
@@ -1530,8 +1528,6 @@ export default function Shorts3Panel({
     selectedSegIndex,
     selectedTeam,
     teamColor,
-    thumbnailSelected,
-    thumbnailSegment,
     coverBox,
     layout,
     topBarColor,
@@ -1542,88 +1538,17 @@ export default function Shorts3Panel({
 
   useEffect(() => {
     renderPreviewFrame();
-  }, [selectedSegIndex, thumbnailSelected, renderPreviewFrame]);
+  }, [selectedSegIndex, renderPreviewFrame]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
     if (!video) return;
-    if (thumbnailSelected) {
-      const sec = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      if (Number.isFinite(sec)) video.currentTime = sec;
-    } else {
-      const seg = segments[selectedSegIndex];
-      if (!seg) return;
-      const sec = segmentBoundaryToSeconds(seg.start, seg.startMs);
-      if (Number.isFinite(sec)) video.currentTime = sec;
-    }
-  }, [selectedSegIndex, thumbnailSelected]);
+    const seg = segments[selectedSegIndex];
+    if (!seg) return;
+    const sec = segmentBoundaryToSeconds(seg.start, seg.startMs);
+    if (Number.isFinite(sec)) video.currentTime = sec;
+  }, [selectedSegIndex]);
 
-  useEffect(() => {
-    const thumbStart = segmentBoundaryToSeconds(
-      thumbnailSegment.start,
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      thumbnailSegment.end,
-      thumbnailSegment.endMs
-    );
-    const valid =
-      String(thumbnailSegment.end || "").trim() !== "" &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart;
-    if (!thumbnailSelected || !valid) {
-      thumbnailOverlayCanvasRef.current = null;
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const opts = {
-          team: selectedTeam,
-          text1: "",
-          text2: "",
-          font1: "NotoSansKR-Bold",
-          font2: "NotoSansKR-Bold",
-          textColor1: "#FFFFFF",
-          textColor2: "#FFFFFF",
-          fontSize1: 88,
-          fontSize2: 52,
-        };
-        if (layout === LAYOUT_TYPES.KBO) {
-          const t = TEAM_COLORS[selectedTeam];
-          if (!t) return;
-          opts.tc = { bg: t.bg, accent: t.accent };
-        }
-        if (layout === LAYOUT_TYPES.TOPBOTTOM) {
-          opts.topBarColor = topBarColor;
-          opts.bottomBarColor = bottomBarColor;
-        }
-        const overlayCanvas = await drawThumbnailByLayout(layout, opts);
-        if (cancelled) return;
-        thumbnailOverlayCanvasRef.current = overlayCanvas;
-        renderPreviewFrame();
-      } catch (e) {
-        console.warn("[thumbnail preview]", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    thumbnailSelected,
-    thumbnailSegment,
-    thumbnailSegment.textY1,
-    thumbnailSegment.textY2,
-    selectedTeam,
-    layout,
-    topBarColor,
-    bottomBarColor,
-    renderPreviewFrame,
-  ]);
 
   const stopPreviewLoop = useCallback(() => {
     if (previewRafIdRef.current) {
@@ -1958,25 +1883,8 @@ export default function Shorts3Panel({
       if (b <= a) continue;
       sum += b - a;
     }
-    const thumbStart = segmentBoundaryToSeconds(
-      String(thumbnailSegment.start ?? "").trim(),
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      String(thumbnailSegment.end ?? "").trim(),
-      thumbnailSegment.endMs
-    );
-    if (
-      thumbStart != null &&
-      thumbEnd != null &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart
-    ) {
-      sum += thumbEnd - thumbStart;
-    }
     return sum;
-  }, [segments, thumbnailSegment]);
+  }, [segments]);
 
   // 홀드 합계(비이미지 구간). 전체 영상 예상 길이 = segmentTotalSec + 이 값.
   const segmentHoldTotalSec = useMemo(() => {
@@ -1993,25 +1901,6 @@ export default function Shorts3Panel({
     if (segmentTotalSec > 60) return { color: "var(--ve-warning)" };
     return {};
   }, [segmentTotalSec]);
-
-  const thumbnailTimingValid = useMemo(() => {
-    const thumbStart = segmentBoundaryToSeconds(
-      String(thumbnailSegment.start ?? "").trim(),
-      thumbnailSegment.startMs
-    );
-    const thumbEnd = segmentBoundaryToSeconds(
-      String(thumbnailSegment.end ?? "").trim(),
-      thumbnailSegment.endMs
-    );
-    return (
-      String(thumbnailSegment.end || "").trim() !== "" &&
-      thumbStart != null &&
-      thumbEnd != null &&
-      Number.isFinite(thumbStart) &&
-      Number.isFinite(thumbEnd) &&
-      thumbEnd > thumbStart
-    );
-  }, [thumbnailSegment]);
 
   const addSegment = useCallback(() => {
     setSegments((s) => {
@@ -6131,9 +6020,7 @@ export default function Shorts3Panel({
                         setNarrationBusy(true);
                         setError(null);
                         try {
-                          const segIdxTts = thumbnailTimingValid
-                            ? index + 1
-                            : index;
+                          const segIdxTts = index;
                           const json = await postKbo({
                             action: "elevenlabs_tts",
                             jobId,
