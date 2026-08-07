@@ -4309,6 +4309,8 @@ export default function App() {
   }, []);
   // (영상편집 진입 시 자동 접힘 제거 — 펼친 상태 그대로 유지. 수동 토글·localStorage 복원만 남김)
   const [pendingSegments, setPendingSegments] = useState([]);
+  // 대본 길이 계산 화면 → 편집기로 넘기는 나레이션(문장·실측 길이·음성 설정)
+  const [pendingNarrations, setPendingNarrations] = useState(null);
   const [shorts3JobId, setShorts3JobId] = useState("");
 
   /* --- Analysis --- */
@@ -5915,11 +5917,18 @@ export default function App() {
                       pendingSegments={pendingSegments}
                       onPendingSegmentsUsed={() => setPendingSegments([])}
                       onJobIdChange={setShorts3JobId}
+                      pendingNarrations={pendingNarrations}
+                      onPendingNarrationsUsed={() => setPendingNarrations(null)}
                     />
                   ) : activeKey === "shorts3_thumbnail" ? (
                     <Shorts3ThumbnailPanel jobId={shorts3JobId} />
                   ) : activeKey === "script_length" ? (
-                    <ScriptLengthPanel />
+                    <ScriptLengthPanel
+                      onSendToEditor={(p) => {
+                        setPendingNarrations(p);
+                        setActiveKey("shorts3_highlight");
+                      }}
+                    />
                   ) : activeKey === "shorts3_ai" ? (
                     <Shorts3AIPanel
                       onAddSegments={(segs) => {

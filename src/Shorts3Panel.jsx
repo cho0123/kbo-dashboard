@@ -1003,6 +1003,8 @@ export default function Shorts3Panel({
   pendingSegments,
   onPendingSegmentsUsed,
   onJobIdChange,
+  pendingNarrations,
+  onPendingNarrationsUsed,
 }) {
   const [segments, setSegments] = useState([emptySegment()]);
   const segmentsRef = useRef(segments);
@@ -1276,6 +1278,133 @@ export default function Shorts3Panel({
 
   const busy = status === "encoding";
   const uploading = uploadPhase === "uploading";
+
+  /**
+   * 대본 길이 계산 화면에서 넘어온 나레이션을 구간에 채운다.
+   *
+   * 문장 i → **렌더 대상 구간들 중 i번째**. narration_{i}.mp3 슬롯이 그 기준이라
+   * 여기서 어긋나면 엉뚱한 구간에 다른 나레이션이 붙는다.
+   *
+   * 음성 설정도 함께 받아 적용한다 — 넘겨받은 오디오가 그 설정으로 만들어졌고,
+   * 설정이 다르면 렌더 때 cacheKey 가 어긋나 TTS 를 다시 부르게 된다.
+   *
+   * ⚠ 이 훅은 jobId·segmentsRef·나레이션 설정 setter 를 모두 참조하므로 반드시
+   *   그 선언들보다 아래에 있어야 한다(위에 두면 렌더 중 TDZ 로 죽는다).
+   */
+  const applyPendingNarrations = async () => {
+    const payload = pendingNarrations;
+    if (!payload || !Array.isArray(payload.items) || payload.items.length < 1) {
+      return;
+    }
+
+    const items = payload.items;
+    const curSegs = segmentsRef.current || [];
+    const slots = [];
+    curSegs.forEach((s, idx) => {
+      if (isRenderableSegment(s)) slots.push(idx);
+    });
+    if (!jobId) {
+      setError(
+        new Error(
+          "먼저 원본 영상을 업로드하세요. 나레이션을 붙일 작업(jobId)이 없습니다."
+        )
+      );
+      return;
+    }
+    if (slots.length < 1) {
+      setError(
+        new Error(
+          "시작·종료가 입력된 구간이 없습니다. 구간을 먼저 만든 뒤 다시 보내주세요."
+        )
+      );
+      return;
+    }
+
+    const n = Math.min(items.length, slots.length);
+    const overwrite = slots
+      .slice(0, n)
+      .filter((idx) => String(curSegs[idx]?.narration ?? "").trim()).length;
+    const lines = [
+      `대본 ${items.length}문장 → 구간 ${slots.length}개 중 앞에서부터 ${n}개에 채웁니다.`,
+    ];
+    if (items.length > slots.length) {
+      lines.push(`· 문장 ${items.length - slots.length}개는 구간이 없어 빠집니다.`);
+    }
+    if (slots.length > items.length) {
+      lines.push(`· 뒤쪽 구간 ${slots.length - items.length}개는 그대로 둡니다.`);
+    }
+    if (overwrite > 0) {
+      lines.push(`· 기존 나레이션 ${overwrite}개를 덮어씁니다.`);
+    }
+    lines.push("· 나레이션 음성 설정도 대본 화면 값으로 바뀝니다.");
+    lines.push("", "계속할까요?");
+    if (!window.confirm(lines.join("\n"))) return;
+
+    onPendingNarrationsUsed?.();
+    {
+      try {
+        setError(null);
+        setMessage("나레이션 오디오를 옮기는 중…");
+        const res = await postKbo({
+          action: "narration_copy_job",
+          fromJobId: payload.scriptJobId,
+          toJobId: jobId,
+          count: n,
+        });
+        const missing = Array.isArray(res?.missing) ? res.missing : [];
+
+        if (VOICE_OPTIONS.some((v) => v.id === payload.voiceId)) {
+          setNarrationVoiceId(payload.voiceId);
+        }
+        if (Number.isFinite(Number(payload.speed))) {
+          setNarrationSpeed(Number(payload.speed));
+        }
+        if (Number.isFinite(Number(payload.stability))) {
+          setNarrationStability(Number(payload.stability));
+        }
+        if (Number.isFinite(Number(payload.style))) {
+          setNarrationStyle(Number(payload.style));
+        }
+
+        setSegments((prev) => {
+          const cur = [];
+          prev.forEach((s, idx) => {
+            if (isRenderableSegment(s)) cur.push(idx);
+          });
+          const byIndex = new Map();
+          for (let k = 0; k < Math.min(items.length, cur.length); k++) {
+            byIndex.set(cur[k], items[k]);
+          }
+          return prev.map((s, idx) => {
+            const it = byIndex.get(idx);
+            if (!it) return s;
+            const d = Number(it.durationSec);
+            const dur = Number.isFinite(d) && d > 0 ? d : null;
+            const nextHold =
+              s.autoHold !== false
+                ? computeAutoHoldSec(dur, segmentDurationSpanSeconds(s))
+                : Math.max(0, Number(s.holdSec) || 0);
+            return {
+              ...s,
+              narration: String(it.text ?? "").trim(),
+              narrationDuration: dur,
+              holdSec: nextHold,
+            };
+          });
+        });
+
+        setMessage(
+          `대본 ${n}문장을 구간에 채웠습니다.` +
+            (missing.length > 0
+              ? ` (오디오가 없는 ${missing.length}개는 영상 생성 시 그 구간만 다시 만듭니다)`
+              : " 영상 생성 시 TTS를 다시 부르지 않습니다.")
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e : new Error(String(e)));
+        setMessage("");
+      }
+    }
+  };
 
   const renderPreviewFrame = useCallback(() => {
     const video = previewVideoRef.current;
@@ -6578,6 +6707,47 @@ export default function Shorts3Panel({
           ) : message ? (
             <div className="muted" style={{ marginTop: 12 }}>
               {message}
+            </div>
+          ) : null}
+
+          {/* 대본 길이 계산에서 넘어온 나레이션 — 화면을 옮기면 편집기 상태가 초기화되므로
+              자동 적용하지 않고, 원본·구간을 준비한 뒤 사장님이 직접 누르게 한다. */}
+          {pendingNarrations &&
+          Array.isArray(pendingNarrations.items) &&
+          pendingNarrations.items.length > 0 ? (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 6,
+                border: "1px solid var(--ve-border)",
+                background: "var(--ve-panel)",
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                fontSize: 13,
+              }}
+            >
+              <span>
+                📝 대본 <b>{pendingNarrations.items.length}문장</b>이 대기 중입니다.
+                원본을 불러오고 구간을 만든 뒤 적용하세요.
+              </span>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={applyPendingNarrations}
+              >
+                구간에 적용
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPendingNarrationsUsed?.()}
+              >
+                취소
+              </button>
             </div>
           ) : null}
 
