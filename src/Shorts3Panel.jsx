@@ -578,30 +578,6 @@ function normalizeCoverBoxForPayload(raw) {
   };
 }
 
-/** 썸네일 구간 패널 초기값 (endMs 10 = 0.1초, Lambda 최소 구간) */
-const INITIAL_THUMBNAIL_SEGMENT = {
-  start: "00:00:00",
-  end: "00:00:00",
-  startMs: 0,
-  endMs: 10,
-  text1: "",
-  text2: "",
-  showLine: false,
-  cropOffset: 0,
-  font1: ensureTtf("NotoSansKR-Bold"),
-  font2: ensureTtf("NotoSansKR-Bold"),
-  textColor1: "#FFFFFF",
-  textColor2: "#FFFFFF",
-  fontSize1: 88,
-  fontSize2: 52,
-  textY1: 49,
-  textY2: 57,
-  keepText1: false,
-  keepText2: false,
-  narration: "",
-  narrationDuration: null,
-  narrationAudioUrl: null,
-};
 
 /**
  * 전체 구간 공통 자막(전역 텍스트). 썸네일 카드의 keepText 승격 기능을 대체.
@@ -989,12 +965,6 @@ export default function Shorts3Panel({
   const segmentHoldTimeoutRef = useRef(null);
   /** 구간 미리보기 전 `video.muted` (미저장 시 undefined) */
   const savedVideoMutedForSegmentPreviewRef = useRef(undefined);
-  const [thumbnailSegment, setThumbnailSegment] = useState(() => ({
-    ...INITIAL_THUMBNAIL_SEGMENT,
-  }));
-  const [thumbnailEnabled, setThumbnailEnabled] = useState(true);
-  const [thumbnailSelected, setThumbnailSelected] = useState(true);
-  const thumbnailSegmentRef = useRef(thumbnailSegment);
   const previewVideoRef = useRef(null);
   const previewVideoWrapRef = useRef(null);
   const previewCanvasRef = useRef(null);
@@ -1008,10 +978,6 @@ export default function Shorts3Panel({
     setSegments((prev) => [...prev, ...newSegs]);
     onPendingSegmentsUsed?.();
   }, [pendingSegments, onPendingSegmentsUsed]);
-
-  useEffect(() => {
-    thumbnailSegmentRef.current = thumbnailSegment;
-  }, [thumbnailSegment]);
 
   useEffect(() => {
     segmentsRef.current = segments;
