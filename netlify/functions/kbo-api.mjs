@@ -7330,6 +7330,7 @@ ${hasSpecial
             textShadow2: Boolean(s.textShadow2),
             narration:
               s.narration != null ? String(s.narration).trim() : "",
+            holdSec: Math.max(0, Number(s.holdSec) || 0),
           };
           if (s._thumbnailClip === true) {
             segOut._thumbnailClip = true;
