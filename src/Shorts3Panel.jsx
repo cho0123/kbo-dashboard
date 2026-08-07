@@ -511,6 +511,41 @@ function imageSegmentIsValid(seg) {
   return Boolean(String(seg.imageS3Key || "").trim());
 }
 
+/**
+ * 렌더에 실제로 실려 나가는 구간인가. 렌더는 이 조건을 통과한 구간만 payload 에 담는다.
+ * 나레이션 mp3 인덱스의 기준이므로 렌더·미리듣기가 이 한 곳만 본다.
+ */
+function isRenderableSegment(seg) {
+  if (isImageSegment(seg)) return imageSegmentIsValid(seg);
+  const st = String(seg?.start ?? "").trim();
+  const en = String(seg?.end ?? "").trim();
+  if (!st || !en) return false;
+  const a = segmentBoundaryToSeconds(st, seg?.startMs);
+  const b = segmentBoundaryToSeconds(en, seg?.endMs);
+  return a != null && b != null && b > a;
+}
+
+/**
+ * narration_{i}.mp3 의 i — segments 전체 인덱스가 아니라 **렌더 대상 구간들 중 순번**.
+ *
+ * lambda 는 meta.segments 의 순번으로 mp3 를 찾고, meta.segments 는 렌더 가능한
+ * 구간만 추려 만들어진다. 미리듣기가 전체 배열 인덱스를 쓰면 앞쪽에 미완성 구간이
+ * 있을 때 두 값이 어긋나 캐시가 빗나가고(불필요한 재생성), 남의 슬롯에 mp3 를
+ * 써 넣을 수도 있다. 그래서 양쪽 모두 이 함수를 쓴다.
+ *
+ * 렌더 대상이 아닌 구간이면 null — 배정할 슬롯 자체가 없다는 뜻.
+ */
+function narrationS3Index(segments, targetIndex) {
+  if (!Array.isArray(segments)) return null;
+  let slot = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const renderable = isRenderableSegment(segments[i]);
+    if (i === targetIndex) return renderable ? slot : null;
+    if (renderable) slot += 1;
+  }
+  return null;
+}
+
 async function uploadHighlightImageViaKbo(jobId, file) {
   const id = String(jobId || "").trim();
   if (!id) throw new Error("jobId가 없습니다.");
@@ -3029,17 +3064,8 @@ export default function Shorts3Panel({
       return;
     }
 
-    const validSegments = segments.filter((sg) => {
-      if (isImageSegment(sg)) {
-        return imageSegmentIsValid(sg);
-      }
-      const st = String(sg.start ?? "").trim();
-      const en = String(sg.end ?? "").trim();
-      if (!st || !en) return false;
-      const a = segmentBoundaryToSeconds(st, sg.startMs);
-      const b = segmentBoundaryToSeconds(en, sg.endMs);
-      return a != null && b != null && b > a;
-    });
+    // 나레이션 mp3 인덱스가 미리듣기와 어긋나지 않도록 판정을 한 곳에서만 한다.
+    const validSegments = segments.filter(isRenderableSegment);
     if (validSegments.length < 1) {
       setError(
         new Error(
@@ -5908,14 +5934,17 @@ export default function Shorts3Panel({
                         uploading ||
                         narrationBusy ||
                         !jobId ||
-                        !String(seg.narration ?? "").trim()
+                        !String(seg.narration ?? "").trim() ||
+                        !isRenderableSegment(seg)
                       }
                       title={
                         !jobId
                           ? "원본 업로드 완료 후 사용"
                           : !String(seg.narration ?? "").trim()
                             ? "나레이션을 입력하세요"
-                            : "ElevenLabs TTS 미리듣기"
+                            : !isRenderableSegment(seg)
+                              ? "시작·종료를 먼저 입력하세요 (렌더 대상이 아닌 구간은 나레이션 슬롯이 없습니다)"
+                              : "ElevenLabs TTS 미리듣기"
                       }
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -5931,10 +5960,21 @@ export default function Shorts3Panel({
                           prevA.src = "";
                           narrationAudioRef.current = null;
                         }
+                        // 렌더가 쓰는 것과 같은 기준의 슬롯 번호.
+                        // 전체 배열 인덱스를 쓰면 앞쪽에 미완성 구간이 있을 때
+                        // 렌더와 어긋나 캐시가 빗나가고 남의 슬롯을 덮어쓴다.
+                        const segIdxTts = narrationS3Index(segments, index);
+                        if (segIdxTts == null) {
+                          setError(
+                            new Error(
+                              "시작·종료가 입력된 구간만 나레이션을 만들 수 있습니다."
+                            )
+                          );
+                          return;
+                        }
                         setNarrationBusy(true);
                         setError(null);
                         try {
-                          const segIdxTts = index;
                           const json = await postKbo({
                             action: "elevenlabs_tts",
                             jobId,
