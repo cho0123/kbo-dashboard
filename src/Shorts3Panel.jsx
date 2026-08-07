@@ -100,7 +100,7 @@ const NARRATION_ROW_BTN_SEGMENT_PLAY = {
 };
 
 /** ElevenLabs TTS 음성 선택 */
-const VOICE_OPTIONS = [
+export const VOICE_OPTIONS = [
   { id: "m3gJBS8OofDJfycyA2Ip", label: "남(기본)" },
   { id: "5n5gqmaQi9Ewevrz7bOS", label: "여(차분)" },
   { id: "QPFsEL6IBxlT15xfiD6C", label: "여(발랄)" },
@@ -111,10 +111,10 @@ const VOICE_OPTIONS = [
 const DEFAULT_NARRATION_VOICE_ID = VOICE_OPTIONS[0].id;
 
 // 나레이션 리드인(오디오 시작 지연). lambda 의 adelay 500ms 및 구간 프리뷰 setTimeout 과 반드시 일치.
-const NARRATION_LEAD_IN_MS = 500;
-const NARRATION_LEAD_IN_SEC = NARRATION_LEAD_IN_MS / 1000; // 0.5
+export const NARRATION_LEAD_IN_MS = 500;
+export const NARRATION_LEAD_IN_SEC = NARRATION_LEAD_IN_MS / 1000; // 0.5
 // 나레이션 종료 후 여운(테일).
-const NARRATION_TAIL_SEC = 0.4;
+export const NARRATION_TAIL_SEC = 0.4;
 
 /** 나레이션 길이에 맞춘 자동 홀드(초) = max(0, 리드인 + TTS + 테일 − 소스구간). 계산 불가 시 0. */
 function computeAutoHoldSec(narrationDurationSec, srcDurSec) {
@@ -135,7 +135,7 @@ function computeAutoHoldSec(narrationDurationSec, srcDurSec) {
  * ⚠ ElevenLabs 는 seed 가 없어 같은 입력이라도 매번 길이가 다르다. 재생성하면
  * 홀드를 계산할 때 잰 파일과 실제 렌더에 쓰이는 파일이 어긋나 나레이션이 잘린다.
  */
-function narrationCacheKey(text, voiceId, speed, stability, style) {
+export function narrationCacheKey(text, voiceId, speed, stability, style) {
   const num = (v, d) => {
     const n = Number(v);
     return (Number.isFinite(n) ? n : d).toFixed(3);
@@ -163,7 +163,7 @@ function narrationCacheKey(text, voiceId, speed, stability, style) {
  * 오디오 URL의 실제 길이(초). 실패·타임아웃이면 null.
  * 미리듣기와 렌더가 같은 방법으로 재도록 여기 한 곳에 둔다.
  */
-function measureAudioDurationSec(url, timeoutMs = 20000) {
+export function measureAudioDurationSec(url, timeoutMs = 20000) {
   return new Promise((resolve) => {
     const src = String(url ?? "").trim();
     if (!src || typeof Audio === "undefined") {
