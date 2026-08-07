@@ -1970,21 +1970,6 @@ export default function Shorts3Panel({
     });
   }, []);
 
-  /** 썸네일 카드: 첫 본편 구간(index 0) 앞에 빈 구간 삽입 후 선택 */
-  const insertSegmentBeforeFirst = useCallback(() => {
-    setPlayingSegmentIndex((cur) => {
-      if (cur == null) return cur;
-      return cur + 1;
-    });
-    setSegments((s) => {
-      if (s.length >= MAX_SEGMENTS) return s;
-      const next = [emptySegment(), ...s];
-      setThumbnailSelected(false);
-      setSelectedSegIndex(0);
-      return next;
-    });
-  }, []);
-
   const appendWhisperSegmentsToEditor = useCallback((apiSegs) => {
     const mapped = apiSegs.map((seg) => mapApiSegmentToPanelSegment(seg));
     setSegments((prev) => {
@@ -2451,84 +2436,6 @@ export default function Shorts3Panel({
     segmentBoundarySeconds,
   ]);
 
-  /** 썸네일 구간(thumbnailSegment.start ~ end)만 미리보기 재생 */
-  const playThumbnailSegmentPreview = useCallback(async () => {
-    const video = previewVideoRef.current;
-    if (!video || !previewUrl || busy || uploading || isPlayingAll || isMonitoring)
-      return;
-    const thumb = thumbnailSegmentRef.current;
-    const startSec = segmentBoundarySeconds(thumb, "start");
-    let endSec = segmentBoundarySeconds(thumb, "end");
-    if (startSec == null || !Number.isFinite(startSec)) return;
-    if (
-      endSec == null ||
-      !Number.isFinite(endSec) ||
-      endSec <= startSec
-    ) {
-      endSec = startSec + 0.1;
-    }
-    const narrUrl = String(thumb.narrationAudioUrl ?? "").trim();
-    const prevMuted = video.muted;
-    video.muted = true;
-    let narrTimeout = null;
-    let narrAudio = null;
-    setThumbnailSelected(true);
-    setPlayingSegmentIndex(null);
-    setPreviewCropOverlay(
-      computePreviewCropOverlay(video, thumb.cropOffset ?? 0)
-    );
-    video.currentTime = startSec;
-    await new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        if (narrTimeout != null) {
-          clearTimeout(narrTimeout);
-          narrTimeout = null;
-        }
-        if (narrAudio) {
-          try {
-            narrAudio.pause();
-          } catch {
-            /* ignore */
-          }
-          try {
-            narrAudio.src = "";
-          } catch {
-            /* ignore */
-          }
-          narrAudio = null;
-        }
-        try {
-          video.pause();
-        } catch {
-          /* ignore */
-        }
-        video.removeEventListener("timeupdate", check);
-        video.muted = prevMuted;
-        resolve();
-      };
-      const check = () => {
-        if (video.currentTime >= endSec) finish();
-      };
-      video.addEventListener("timeupdate", check);
-      narrTimeout = setTimeout(() => {
-        narrTimeout = null;
-        if (done || !narrUrl) return;
-        narrAudio = new Audio(narrUrl);
-        narrAudio.play().catch(() => {});
-      }, NARRATION_LEAD_IN_MS);
-      video.play().catch(() => {});
-    });
-  }, [
-    previewUrl,
-    busy,
-    uploading,
-    isPlayingAll,
-    isMonitoring,
-    segmentBoundarySeconds,
-  ]);
 
   const handleCropOffsetChange = (segIndex, rawVal) => {
     const n = Number(rawVal);
@@ -2652,82 +2559,7 @@ export default function Shorts3Panel({
     );
   };
 
-  const handleThumbnailTimeChange = (field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "").slice(0, 9);
-    let formatted = digits;
-    const n = digits.length;
-    if (n <= 2) {
-      formatted = digits;
-    } else if (n <= 4) {
-      formatted = digits.slice(0, 2) + ":" + digits.slice(2);
-    } else if (n === 5) {
-      formatted =
-        digits.slice(0, 1) + ":" + digits.slice(1, 3) + ":" + digits.slice(3, 5);
-    } else {
-      formatted =
-        digits.slice(0, 2) + ":" + digits.slice(2, 4) + ":" + digits.slice(4);
-    }
-    setThumbnailSegment((prev) => ({ ...prev, [field]: formatted }));
-  };
 
-  const handleThumbnailFracMsChange = (field, rawVal) => {
-    const digits = rawVal.replace(/\D/g, "");
-    let n = 0;
-    if (digits !== "") {
-      const use = digits.length > 2 ? digits.slice(-2) : digits;
-      const parsed = parseInt(use, 10);
-      n = Number.isFinite(parsed) ? parsed : 0;
-    }
-    n = clampSegmentFracMs(n);
-    setThumbnailSegment((prev) => ({ ...prev, [field]: n }));
-  };
-
-  const handleThumbnailTextYChange = (field, rawVal) => {
-    const n = Number(rawVal);
-    if (!Number.isFinite(n)) return;
-    const v = Math.min(100, Math.max(0, Math.round(n)));
-    setThumbnailSegment((prev) => ({ ...prev, [field]: v }));
-  };
-
-  const seekPreviewToThumbnailBoundary = useCallback(
-    (field) => {
-      const v = previewVideoRef.current;
-      if (!v || !previewUrl) return;
-      setThumbnailSelected(true);
-      const key = field === "start" ? "start" : "end";
-      const fracKey = field === "start" ? "startMs" : "endMs";
-      const t = segmentBoundaryToSeconds(
-        String(thumbnailSegmentRef.current?.[key] ?? "").trim(),
-        thumbnailSegmentRef.current?.[fracKey]
-      );
-      if (t == null || !Number.isFinite(t)) return;
-      v.currentTime = t;
-    },
-    [previewUrl]
-  );
-
-  const adjustThumbnailFieldTime = useCallback((field, deltaSec) => {
-    let seekSec = null;
-    setThumbnailSegment((prev) => {
-      const fracField = field === "start" ? "startMs" : "endMs";
-      const cur =
-        parseHhMmSsToSeconds(prev[field], prev[fracField]) ??
-        (String(prev[field] ?? "").trim() === "" ? 0 : null);
-      if (cur == null) return prev;
-      const next = Math.max(0, cur + deltaSec);
-      seekSec = next;
-      const whole = Math.floor(next + 1e-9);
-      const frac = clampSegmentFracMs(Math.round((next - whole) * 100));
-      const hms = secondsToHhMmSs(whole);
-      return { ...prev, [field]: hms, [fracField]: frac };
-    });
-    if (seekSec == null) return;
-    setThumbnailSelected(true);
-    queueMicrotask(() => {
-      const v = previewVideoRef.current;
-      if (v) v.currentTime = seekSec;
-    });
-  }, []);
 
   const onVideoFileChange = (e) => {
     const f = e.target.files?.[0] ?? null;
