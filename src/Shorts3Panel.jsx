@@ -3475,93 +3475,6 @@ export default function Shorts3Panel({
         Math.max(20, Math.round(Number(topTextSize) || 72))
       );
 
-      const stripFontForOverlay = (f) =>
-        String(f || "")
-          .trim()
-          .replace(/\.(ttf|otf)$/i, "") || "NotoSansKR-Bold";
-
-      let thumbStart = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      let thumbEnd = segmentBoundaryToSeconds(
-        thumbnailSegment.end,
-        thumbnailSegment.endMs
-      );
-      const thumbValid =
-        String(thumbnailSegment.end || "").trim() !== "" &&
-        Number.isFinite(thumbStart) &&
-        Number.isFinite(thumbEnd) &&
-        thumbEnd > thumbStart;
-
-      if (thumbValid && layout === LAYOUT_TYPES.KBO) {
-        const tcOverlay = TEAM_CONFIGS[selectedTeam] || TEAM_CONFIGS["삼성"];
-        const overlayCanvas = await drawThumbnail({
-          team: selectedTeam,
-          tc: { bg: tcOverlay.bg, accent: tcOverlay.accent },
-          text1: String(thumbnailSegment.text1 || "").trim(),
-          text2: String(thumbnailSegment.text2 || "").trim(),
-          font1: stripFontForOverlay(thumbnailSegment.font1),
-          font2: stripFontForOverlay(thumbnailSegment.font2),
-          textColor1:
-            String(thumbnailSegment.textColor1 || "#FFFFFF").trim() ||
-            "#FFFFFF",
-          textColor2:
-            String(thumbnailSegment.textColor2 || "#FFFFFF").trim() ||
-            "#FFFFFF",
-          fontSize1: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize1)) || 88)
-          ),
-          fontSize2: Math.min(
-            200,
-            Math.max(20, Math.round(Number(thumbnailSegment.fontSize2)) || 52)
-          ),
-          textY1: clampThumbnailTextYPercent(thumbnailSegment.textY1, 49),
-          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 57),
-          showLine: Boolean(thumbnailSegment.showLine),
-        });
-
-        const overlayBlob = await new Promise((resolve, reject) => {
-          overlayCanvas.toBlob(
-            (b) =>
-              b ? resolve(b) : reject(new Error("오버레이 PNG toBlob 실패")),
-            "image/png"
-          );
-        });
-
-        const overlayUp = await postKbo({
-          action: "overlay_upload_url",
-          jobId,
-        });
-        if (!overlayUp?.putUrl) {
-          throw new Error("overlay_upload_url 응답 오류");
-        }
-        const overlayPut = await fetch(overlayUp.putUrl, {
-          method: "PUT",
-          body: overlayBlob,
-          headers: { "Content-Type": "image/png" },
-        });
-        if (!overlayPut.ok) {
-          throw new Error(`오버레이 S3 업로드 실패 HTTP ${overlayPut.status}`);
-        }
-      }
-
-      if (thumbValid) {
-        const thumbNarr = String(thumbnailSegment.narration ?? "").trim();
-        if (thumbNarr) {
-          await postKbo({
-            action: "elevenlabs_tts",
-            jobId,
-            segIndex: 0,
-            text: thumbNarr,
-            voiceId: narrationVoiceId,
-            speed: narrationSpeed,
-            stability: narrationStability,
-            style: narrationStyle,
-          });
-        }
-      }
       const resolvedSegments = [];
       for (const s of validSegments) {
         if (isImageSegment(s) && s.imageLocalFile) {
@@ -3579,7 +3492,7 @@ export default function Shorts3Panel({
       for (let vi = 0; vi < resolvedSegments.length; vi++) {
         const narrText = String(resolvedSegments[vi]?.narration ?? "").trim();
         if (!narrText) continue;
-        const segIndexForS3 = thumbValid ? vi + 1 : vi;
+        const segIndexForS3 = vi;
         await postKbo({
           action: "elevenlabs_tts",
           jobId,
@@ -3678,45 +3591,6 @@ export default function Shorts3Panel({
           fadeOutDuration: bgmFadeOut,
         },
       };
-      thumbStart = segmentBoundaryToSeconds(
-        thumbnailSegment.start,
-        thumbnailSegment.startMs
-      );
-      thumbEnd = segmentBoundaryToSeconds(
-        thumbnailSegment.end,
-        thumbnailSegment.endMs
-      );
-      if (
-        String(thumbnailSegment.end || "").trim() !== "" &&
-        Number.isFinite(thumbStart) &&
-        Number.isFinite(thumbEnd) &&
-        thumbEnd > thumbStart
-      ) {
-        const thumbSegPayload = {
-          _thumbnailClip: true,
-          start: thumbnailSegment.start,
-          startMs: thumbnailSegment.startMs,
-          end: thumbnailSegment.end,
-          endMs: thumbnailSegment.endMs,
-          cropOffset: thumbnailSegment.cropOffset ?? 0,
-          text: thumbnailSegment.text1 || "",
-          textFont: ensureTtf(thumbnailSegment.font1 || ""),
-          textColor: thumbnailSegment.textColor1 || "#ffffff",
-          textSize: thumbnailSegment.fontSize1 || 88,
-          textOpacity: 1,
-          textShadow: false,
-          textY: clampThumbnailTextYPercent(thumbnailSegment.textY1, 85),
-          text2: thumbnailSegment.text2 || "",
-          textFont2: ensureTtf(thumbnailSegment.font2 || ""),
-          textColor2: thumbnailSegment.textColor2 || "#ffffff",
-          textSize2: thumbnailSegment.fontSize2 || 52,
-          textOpacity2: 1,
-          textShadow2: false,
-          textY2: clampThumbnailTextYPercent(thumbnailSegment.textY2, 85),
-          narration: String(thumbnailSegment.narration ?? "").trim(),
-        };
-        payload.segments = [thumbSegPayload, ...payload.segments];
-      }
       // 전역 자막 → payload.globalText1*/globalText2* (형식은 기존과 완전 동일, Lambda 미변경)
       if (globalText.use1) {
         const g1 = String(globalText.text1 || "").trim();
