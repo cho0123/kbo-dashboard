@@ -443,63 +443,135 @@ function normalizeHighlightTop(meta) {
   };
 }
 
-function normalizeSegmentTextOverlay(seg) {
-  const text = seg?.text != null ? String(seg.text).trim() : "";
-  const ty = Number(seg?.textY);
-  const textY = Number.isFinite(ty)
-    ? Math.min(100, Math.max(0, Math.round(ty)))
-    : 85;
-  const textColor = normalizeHexColor(seg?.textColor, "#ffffff");
-  const tsRaw = Number(seg?.textSize);
-  const textSize = Number.isFinite(tsRaw)
-    ? Math.min(200, Math.max(20, Math.round(tsRaw)))
-    : 48;
-  const opacityRaw = Number(seg?.textOpacity);
-  const textOpacity = Number.isFinite(opacityRaw)
-    ? Math.min(1, Math.max(0, opacityRaw))
-    : 1;
-  const textFont =
-    seg?.textFont != null && String(seg.textFont).trim()
-      ? String(seg.textFont).trim()
-      : DEFAULT_FONT_FILE;
-  const textShadow = Boolean(seg?.textShadow);
+/** 구간당 자막 항목 상한 (netlify 화이트리스트와 같은 값) */
+const MAX_CAPTIONS_PER_SEGMENT = 8;
+/** 개행이 있는 자막의 line_spacing = fontsize × 이 비율 (프론트 미리보기와 같은 기준) */
+const CAPTION_LINE_SPACING_RATIO = 0.25;
 
-  const text2 = seg?.text2 != null ? String(seg.text2).trim() : "";
-  const ty2 = Number(seg?.textY2);
-  const textY2 = Number.isFinite(ty2)
-    ? Math.min(100, Math.max(0, Math.round(ty2)))
-    : 85;
-  const textColor2 = normalizeHexColor(seg?.textColor2, "#ffffff");
-  const tsRaw2 = Number(seg?.textSize2);
-  const textSize2 = Number.isFinite(tsRaw2)
-    ? Math.min(200, Math.max(20, Math.round(tsRaw2)))
-    : 48;
-  const opacityRaw2 = Number(seg?.textOpacity2);
-  const textOpacity2 = Number.isFinite(opacityRaw2)
-    ? Math.min(1, Math.max(0, opacityRaw2))
-    : 1;
-  const textFont2 =
-    seg?.textFont2 != null && String(seg.textFont2).trim()
-      ? String(seg.textFont2).trim()
-      : DEFAULT_FONT_FILE;
-  const textShadow2 = Boolean(seg?.textShadow2);
-
-  return {
-    text,
-    textY,
-    textColor,
-    textSize,
-    textOpacity,
-    textFont,
-    textShadow,
-    text2,
-    textY2,
-    textColor2,
-    textSize2,
-    textOpacity2,
-    textFont2,
-    textShadow2,
+/**
+ * 구간의 자막 항목 배열 정규화.
+ * endSec = null 은 "구간 끝까지" — enable 을 붙이지 않거나 gte 로만 건다.
+ * 시간은 구간 내 상대 초. 각 구간이 개별 서브클립으로 렌더되고
+ * -ss 입력 컷 뒤 필터의 t 가 0 부터 시작하므로(실측 확인) 상대 시간이면 된다.
+ */
+export function normalizeSegmentCaptions(seg) {
+  const raw = Array.isArray(seg?.captions) ? seg.captions : [];
+  const clampPct = (v, d) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : d;
   };
+  const clampSec = (v, d) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return d;
+    return Math.round(n * 100) / 100;
+  };
+  const out = [];
+  for (const c of raw) {
+    if (!c || typeof c !== "object") continue;
+    const text = c.text != null ? String(c.text).trim() : "";
+    if (!text) continue;
+    const sizeRaw = Number(c.size);
+    const opacityRaw = Number(c.opacity);
+    out.push({
+      text,
+      startSec: clampSec(c.startSec, 0),
+      endSec:
+        c.endSec === null || c.endSec === undefined || c.endSec === ""
+          ? null
+          : clampSec(c.endSec, null),
+      x: clampPct(c.x, 50),
+      y: clampPct(c.y, 85),
+      font:
+        c.font != null && String(c.font).trim()
+          ? String(c.font).trim()
+          : DEFAULT_FONT_FILE,
+      size: Number.isFinite(sizeRaw)
+        ? Math.min(200, Math.max(20, Math.round(sizeRaw)))
+        : 48,
+      color: normalizeHexColor(c.color, "#ffffff"),
+      opacity: Number.isFinite(opacityRaw)
+        ? Math.min(1, Math.max(0, opacityRaw))
+        : 1,
+      shadow: Boolean(c.shadow),
+    });
+    if (out.length >= MAX_CAPTIONS_PER_SEGMENT) break;
+  }
+  return out;
+}
+
+/** 자막 텍스트를 파일로 떨구고 폰트 경로를 붙인다. 폰트를 못 찾으면 그 항목은 건너뛴다. */
+function prepareSegmentCaptionDraws(workDir, segIndex, captions) {
+  const out = [];
+  captions.forEach((c, ci) => {
+    const fontPath = resolveBundledFontPath(c.font);
+    if (!fontPath) return;
+    // 개행은 파일 안에 그대로 둔다. 필터 문자열에 안 들어가므로 이스케이프가 필요 없다.
+    const p = join(workDir, `hi_cap_${segIndex}_${ci}.txt`);
+    writeFileSync(p, c.text, "utf8");
+    out.push({ ...c, textFile: p, fontPath });
+  });
+  return out;
+}
+
+/**
+ * 가로 위치 비율 → x 식.
+ * (w-text_w)*p/100 이라 0=왼쪽 끝 · 100=오른쪽 끝이고 글자가 화면 밖으로 안 나간다.
+ * p=50 은 (w-text_w)/2 로 그대로 내보낸다 — 기존 필터체인과 문자열까지 같아야 하므로.
+ */
+export function captionXExpr(xPct) {
+  const n = Number(xPct);
+  const p = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 50;
+  if (p === 50) return "(w-text_w)/2";
+  return `(w-text_w)*${p}/100`;
+}
+
+/**
+ * 표시 시간 → enable 식. 전체 구간(0~끝)이면 빈 문자열 → enable 을 아예 안 붙인다(회귀 안전).
+ * 콤마가 필터 구분자라서 반드시 작은따옴표로 감싼다.
+ */
+export function captionEnableExpr(cap) {
+  const s = Number(cap?.startSec) || 0;
+  const e =
+    cap?.endSec === null || cap?.endSec === undefined
+      ? null
+      : Number(cap.endSec);
+  const hasEnd = e != null && Number.isFinite(e);
+  if (s <= 0 && !hasEnd) return "";
+  if (!hasEnd) return `'gte(t,${s})'`;
+  return `'between(t,${s},${e})'`;
+}
+
+/**
+ * 자막 항목 1개 → drawtext 필터 문자열.
+ * 구형식과 동등한 자막(전체 구간·가운데·개행 없음)이면 기존 문자열과 정확히 같다.
+ */
+export function captionDrawtextFilter(cap, yExpr) {
+  const parts = [
+    `drawtext=fontfile=${escapePathForDrawtextFilter(cap.fontPath)}`,
+    `textfile=${escapePathForDrawtextFilter(cap.textFile)}`,
+    `fontsize=${Math.round(cap.size)}`,
+    `fontcolor=${fontColorForFfmpegWithOpacity(cap.color, cap.opacity)}`,
+    `x=${captionXExpr(cap.x)}`,
+    `y=${yExpr}`,
+  ];
+  if (String(cap.text).includes("\n")) {
+    parts.push(
+      `line_spacing=${Math.round(cap.size * CAPTION_LINE_SPACING_RATIO)}`
+    );
+  }
+  if (cap.shadow) {
+    parts.push("shadowx=1", "shadowy=1", "shadowcolor=black@0.6");
+  }
+  const en = captionEnableExpr(cap);
+  if (en) parts.push(`enable=${en}`);
+  return parts.join(":");
+}
+
+/** 자막 목록 → drawtext 들. 배열 순서가 그리는 순서다. */
+function appendCaptionDrawtexts(parts, captionDraws, yExprFor) {
+  for (const cap of captionDraws || []) {
+    parts.push(captionDrawtextFilter(cap, yExprFor(cap)));
+  }
 }
 
 function normalizeThumbnailText(meta) {
@@ -684,49 +756,10 @@ function normalizeHighlightBarColor(raw, fallback) {
 }
 
 function appendHighlightBottomDrawtext(parts, opts) {
-  const {
-    bottomTextFile,
-    bottomTextFile2,
-    bottomFontSize,
-    bottomFontSize2,
-    bottomColor,
-    bottomColor2,
-    bottomOpacity,
-    bottomOpacity2,
-    bottomShadow,
-    bottomShadow2,
-    textY,
-    textY2,
-    bottomFontPath,
-    bottomFontPath2,
-  } = opts;
-  const fsBottom = Math.round(bottomFontSize);
-  if (bottomTextFile && bottomFontPath) {
-    const shadow = bottomShadow
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
-    );
-  }
-  const fsBottom2 = Math.round(
-    Number.isFinite(Number(bottomFontSize2))
-      ? Number(bottomFontSize2)
-      : fsBottom
-  );
-  if (bottomTextFile2 && bottomFontPath2) {
-    const shadow2 = bottomShadow2
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    const y2 =
-      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
-    );
-  }
+  appendCaptionDrawtexts(parts, opts.captionDraws, (cap) => `h*${cap.y}/100`);
 }
 
-/** 상하바 — 1920px 프레임 기준 절대 Y (segment textY/textY2 %, 기본 10/90) */
+/** 상하바 — 1920px 프레임 기준 절대 Y (자막 y %, 전역 자막은 기본 10/90) */
 function topbottomDrawtextYpx(percent, fallbackPercent) {
   const n = Number(percent);
   const pct = Number.isFinite(n)
@@ -735,47 +768,11 @@ function topbottomDrawtextYpx(percent, fallbackPercent) {
   return Math.round((1920 * pct) / 100);
 }
 
+/** 상하바는 1920px 프레임 기준 절대 Y 를 쓴다(기존과 동일). */
 function appendHighlightTopBottomDrawtext(parts, opts) {
-  const {
-    bottomTextFile,
-    bottomTextFile2,
-    bottomFontSize,
-    bottomFontSize2,
-    bottomColor,
-    bottomColor2,
-    bottomOpacity,
-    bottomOpacity2,
-    bottomShadow,
-    bottomShadow2,
-    textY,
-    textY2,
-    bottomFontPath,
-    bottomFontPath2,
-  } = opts;
-  const y1 = topbottomDrawtextYpx(textY, 10);
-  const y2 = topbottomDrawtextYpx(textY2, 90);
-  const fsBottom = Math.round(bottomFontSize);
-  if (bottomTextFile && bottomFontPath) {
-    const shadow = bottomShadow
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=${y1}${shadow}`
-    );
-  }
-  const fsBottom2 = Math.round(
-    Number.isFinite(Number(bottomFontSize2))
-      ? Number(bottomFontSize2)
-      : fsBottom
+  appendCaptionDrawtexts(parts, opts.captionDraws, (cap) =>
+    String(topbottomDrawtextYpx(cap.y, 85))
   );
-  if (bottomTextFile2 && bottomFontPath2) {
-    const shadow2 = bottomShadow2
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=${y2}${shadow2}`
-    );
-  }
 }
 
 function finalizeHighlightVfChain(parts) {
@@ -802,53 +799,10 @@ function appendHoldTpad(parts, opts) {
 }
 
 function appendHighlightKboDrawtext(parts, opts) {
-  const {
-    topTextFile,
-    bottomTextFile,
-    bottomTextFile2,
-    topFontSize,
-    bottomFontSize,
-    bottomFontSize2,
-    topColor,
-    topOpacity,
-    bottomColor,
-    bottomColor2,
-    bottomOpacity,
-    bottomOpacity2,
-    topShadow,
-    bottomShadow,
-    bottomShadow2,
-    textY,
-    textY2,
-    topFontPath,
-    bottomFontPath,
-    bottomFontPath2,
-  } = opts;
+  const { topTextFile, topFontSize, topColor, topOpacity, topShadow, topFontPath } =
+    opts;
+  appendCaptionDrawtexts(parts, opts.captionDraws, (cap) => `h*${cap.y}/100`);
   const fsTop = Math.round(topFontSize);
-  const fsBottom = Math.round(bottomFontSize);
-  if (bottomTextFile && bottomFontPath) {
-    const shadow = bottomShadow
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath)}:textfile=${escapePathForDrawtextFilter(bottomTextFile)}:fontsize=${fsBottom}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor, bottomOpacity)}:x=(w-text_w)/2:y=h*${textY}/100${shadow}`
-    );
-  }
-  const fsBottom2 = Math.round(
-    Number.isFinite(Number(bottomFontSize2))
-      ? Number(bottomFontSize2)
-      : fsBottom
-  );
-  if (bottomTextFile2 && bottomFontPath2) {
-    const shadow2 = bottomShadow2
-      ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
-      : "";
-    const y2 =
-      Number.isFinite(Number(textY2)) ? Number(textY2) : Number(textY) || 85;
-    parts.push(
-      `drawtext=fontfile=${escapePathForDrawtextFilter(bottomFontPath2)}:textfile=${escapePathForDrawtextFilter(bottomTextFile2)}:fontsize=${fsBottom2}:fontcolor=${fontColorForFfmpegWithOpacity(bottomColor2 ?? bottomColor, bottomOpacity2 ?? bottomOpacity)}:x=(w-text_w)/2:y=h*${y2}/100${shadow2}`
-    );
-  }
   if (topTextFile && topFontPath) {
     const shadow = topShadow
       ? ":shadowx=1:shadowy=1:shadowcolor=black@0.6"
@@ -872,7 +826,7 @@ function appendHighlightDrawtextByLayout(layout, parts, opts) {
   }
 }
 
-function buildHighlightDrawtextOnlyVfByLayout(layout, opts) {
+export function buildHighlightDrawtextOnlyVfByLayout(layout, opts) {
   const parts = [];
   appendHighlightDrawtextByLayout(layout, parts, opts);
   return parts.join(",");
@@ -954,7 +908,7 @@ function buildHighlightSegmentVfTopBottom(opts) {
   return finalizeHighlightVfChain(parts);
 }
 
-function buildHighlightSegmentVfByLayout(layout, opts) {
+export function buildHighlightSegmentVfByLayout(layout, opts) {
   const merged = { ...opts, layout };
   if (layout === "fullscreen") return buildHighlightSegmentVfFullscreen(merged);
   if (layout === "topbottom") return buildHighlightSegmentVfTopBottom(merged);
@@ -969,26 +923,6 @@ function buildHighlightSegmentVf(opts) {
     cx,
     borderColorPrimary,
     skipTeamBorderBoxes,
-    topTextFile,
-    bottomTextFile,
-    bottomTextFile2,
-    topFontSize,
-    bottomFontSize,
-    bottomFontSize2,
-    topColor,
-    topOpacity,
-    bottomColor,
-    bottomColor2,
-    bottomOpacity,
-    bottomOpacity2,
-    bottomShadow,
-    bottomShadow2,
-    topShadow,
-    textY,
-    textY2,
-    topFontPath,
-    bottomFontPath,
-    bottomFontPath2,
     coverBox,
     teamColorForCover,
     baseMode,
@@ -1105,35 +1039,11 @@ async function processHighlightImageSegment(ctx) {
     ? Math.min(10, Math.max(0.5, durRaw))
     : 3;
 
-  const bottomParsed = normalizeSegmentTextOverlay(seg);
-  const {
-    text: bottomTxt,
-    text2: bottomTxt2,
-    textY,
-    textY2,
-    textColor: bottomColor,
-    textColor2: bottomColor2,
-    textSize: bottomTextSize,
-    textSize2: bottomTextSize2,
-    textOpacity: bottomOpacity,
-    textOpacity2: bottomOpacity2,
-    textFont: bottomFontName,
-    textFont2: bottomFontName2,
-    textShadow: bottomShadow,
-    textShadow2: bottomShadow2,
-  } = bottomParsed;
-  const bottomFontPath = resolveBundledFontPath(bottomFontName);
-  let bottomPath = null;
-  if (bottomTxt && bottomFontPath) {
-    bottomPath = join(workDir, `hi_bottom_${i}.txt`);
-    writeFileSync(bottomPath, bottomTxt, "utf8");
-  }
-  const bottomFontPath2 = resolveBundledFontPath(bottomFontName2);
-  let bottomPath2 = null;
-  if (bottomTxt2 && bottomFontPath2) {
-    bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
-    writeFileSync(bottomPath2, bottomTxt2, "utf8");
-  }
+  const captionDraws = prepareSegmentCaptionDraws(
+    workDir,
+    i,
+    normalizeSegmentCaptions(seg)
+  );
 
   const { w: imgW, h: imgH } = probeVideoDimensions(workDir, imageFileName);
   let scaledW = Math.floor((imgW * 1920) / Math.max(1, imgH));
@@ -1152,26 +1062,13 @@ async function processHighlightImageSegment(ctx) {
     borderColorPrimary,
     skipTeamBorderBoxes: isKboLayout && (hasThumbnailPng || hasOverlayPng),
     topTextFile: isKboLayout ? topTextPath : null,
-    bottomTextFile: bottomPath,
-    bottomTextFile2: bottomPath2,
+    captionDraws,
     ...globalVfExtras,
     topFontSize: topTextSize,
-    bottomFontSize: bottomTextSize,
-    bottomFontSize2: bottomTextSize2,
     topColor: topTextColor,
     topOpacity: topTextOpacity,
-    bottomColor,
-    bottomColor2,
-    bottomOpacity,
-    bottomOpacity2,
     topShadow: Boolean(topTextShadow),
-    bottomShadow: Boolean(bottomShadow),
-    bottomShadow2: Boolean(bottomShadow2),
-    textY,
-    textY2,
     topFontPath,
-    bottomFontPath,
-    bottomFontPath2,
     coverBox: coverBoxGlobal,
     teamColorForCover: borderColorPrimary,
     topBarColor,
@@ -1561,11 +1458,7 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
   } = normalizeHighlightTop(meta);
   const metaWantsText =
     Boolean(topText) ||
-    segments.some((s) => {
-      const t1 = s?.text != null ? String(s.text).trim() : "";
-      const t2 = s?.text2 != null ? String(s.text2).trim() : "";
-      return t1 !== "" || t2 !== "";
-    }) ||
+    segments.some((s) => normalizeSegmentCaptions(s).length > 0) ||
     Boolean(String(meta.thumbnailText || "").trim()) ||
     Boolean(String(meta.globalText1 || "").trim()) ||
     Boolean(String(meta.globalText2 || "").trim());
@@ -1666,36 +1559,20 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
           })()
         : seg?.cropOffset;
     const cx = highlightCropXFromOffset(iw, cw, cropRaw);
-    let bottomParsed;
-    bottomParsed = normalizeSegmentTextOverlay(seg);
-    const {
-      text: bottomTxt,
-      text2: bottomTxt2,
-      textY,
-      textY2,
-      textColor: bottomColor,
-      textColor2: bottomColor2,
-      textSize: bottomTextSize,
-      textSize2: bottomTextSize2,
-      textOpacity: bottomOpacity,
-      textOpacity2: bottomOpacity2,
-      textFont: bottomFontName,
-      textFont2: bottomFontName2,
-      textShadow: bottomShadow,
-      textShadow2: bottomShadow2,
-    } = bottomParsed;
-    const bottomFontPath = resolveBundledFontPath(bottomFontName);
-    let bottomPath = null;
-    if (bottomTxt && bottomFontPath) {
-      bottomPath = join(workDir, `hi_bottom_${i}.txt`);
-      writeFileSync(bottomPath, bottomTxt, "utf8");
-    }
-    const bottomFontPath2 = resolveBundledFontPath(bottomFontName2);
-    let bottomPath2 = null;
-    if (bottomTxt2 && bottomFontPath2) {
-      bottomPath2 = join(workDir, `hi_bottom_${i}_2.txt`);
-      writeFileSync(bottomPath2, bottomTxt2, "utf8");
-    }
+    const segCaptions = normalizeSegmentCaptions(seg);
+    console.log(
+      `[captions] seg ${i}: ${segCaptions.length}개`,
+      JSON.stringify(
+        segCaptions.map((c) => ({
+          startSec: c.startSec,
+          endSec: c.endSec,
+          x: c.x,
+          y: c.y,
+          lines: String(c.text).split("\n").length,
+        }))
+      )
+    );
+    const captionDraws = prepareSegmentCaptionDraws(workDir, i, segCaptions);
     // 커버박스는 meta.coverBox → coverBoxGlobal 을 일반·썸네일 구간 동일 적용.
     const isThumbSeg = seg[THUMB_SEG_FLAG] === true;
     const globalVfExtras =
@@ -1709,26 +1586,13 @@ async function runHighlightPipeline(bucket, jobId, workDir, meta) {
       borderColorPrimary,
       skipTeamBorderBoxes: isKboLayout && (hasThumbnailPng || hasOverlayPng),
       topTextFile: isKboLayout ? topTextPath : null,
-      bottomTextFile: bottomPath,
-      bottomTextFile2: bottomPath2,
+      captionDraws,
       ...globalVfExtras,
       topFontSize: topTextSize,
-      bottomFontSize: bottomTextSize,
-      bottomFontSize2: bottomTextSize2,
       topColor: topTextColor,
       topOpacity: topTextOpacity,
-      bottomColor,
-      bottomColor2,
-      bottomOpacity,
-      bottomOpacity2,
       topShadow: Boolean(topTextShadow),
-      bottomShadow: Boolean(bottomShadow),
-      bottomShadow2: Boolean(bottomShadow2),
-      textY,
-      textY2,
       topFontPath,
-      bottomFontPath,
-      bottomFontPath2,
       coverBox: coverBoxGlobal,
       teamColorForCover: borderColorPrimary,
       topBarColor: meta?.topBarColor,
