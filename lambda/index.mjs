@@ -409,11 +409,23 @@ function fontColorForFfmpegWithOpacity(hex, opacityRaw) {
 }
 
 /** drawtext 필터 인자 앞뒤 경로 이스케이프 */
+/**
+ * drawtext 의 fontfile/textfile 에 넣을 경로 escape.
+ *
+ * Lambda 경로(/var/task, /tmp)에는 콜론이 없다 → 아무것도 바꾸지 않고 그대로 둔다.
+ * 기존 필터 문자열과 바이트 단위로 같아야 하므로 이 분기가 회귀 안전의 핵심이다.
+ *
+ * Windows 로컬 검증용 경로(C:/...)만 다르게 다룬다. 따옴표 없이 `C\:/...` 만
+ * 쓰면 이 ffmpeg 의 필터 파서가 못 먹는다 — drawtext 1개·enable 없이도 실패한다.
+ * 작은따옴표로 감싸고 콜론은 백슬래시 하나로 이스케이프해야 통과한다(실측:
+ * 따옴표+`\:` OK / 따옴표+`\\:` FAIL / 따옴표 없이 `\:` FAIL).
+ */
 function escapePathForDrawtextFilter(p) {
-  return String(p)
-    .replace(/\\/g, "/")
-    .replace(/:/g, "\\:")
-    .replace(/'/g, "\\'");
+  const s = String(p).replace(/\\/g, "/");
+  if (!s.includes(":")) {
+    return s.replace(/'/g, "\\'");
+  }
+  return `'${s.replace(/'/g, "\\'").replace(/:/g, "\\:")}'`;
 }
 
 function normalizeHighlightTop(meta) {
