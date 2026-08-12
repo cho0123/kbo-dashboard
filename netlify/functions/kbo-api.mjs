@@ -7516,64 +7516,6 @@ ${hasSpecial
           const n = Number(x);
           return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
         };
-        // ── 자막 항목 배열 ──
-        // 화이트리스트를 "항목 단위"로도 건다. 여기에 없는 필드는 Lambda 에 도달하지 않는다.
-        const MAX_CAPTIONS_PER_SEGMENT = 8;
-        const clampCapPct = (v, d) => {
-          const n = Number(v);
-          return Number.isFinite(n)
-            ? Math.min(100, Math.max(0, Math.round(n)))
-            : d;
-        };
-        const clampCapSec = (v, d) => {
-          const n = Number(v);
-          if (!Number.isFinite(n) || n < 0) return d;
-          return Math.round(n * 100) / 100;
-        };
-        /** @returns {{ok:true,captions:object[]}|{ok:false,error:string}} */
-        const sanitizeCaptions = (raw) => {
-          if (!Array.isArray(raw)) return { ok: true, captions: [] };
-          const out = [];
-          for (const c of raw) {
-            if (!c || typeof c !== "object") continue;
-            // .trim() 은 앞뒤 공백만 지운다 — 문자열 중간 개행은 그대로 살아간다.
-            const text = c.text != null ? String(c.text).trim() : "";
-            if (!text) continue;
-            if (text.length > 500) {
-              return {
-                ok: false,
-                error: "자막은 항목당 500자 이하로 입력하세요.",
-              };
-            }
-            const endRaw = c.endSec;
-            const endSec =
-              endRaw === null || endRaw === undefined || endRaw === ""
-                ? null
-                : clampCapSec(endRaw, null);
-            let color = "#ffffff";
-            if (c.color != null) {
-              const s = String(c.color).trim();
-              if (/^#[0-9A-Fa-f]{6}$/i.test(s)) color = s.toLowerCase();
-            }
-            const sizeRaw = Number(c.size);
-            out.push({
-              text,
-              startSec: clampCapSec(c.startSec, 0),
-              endSec,
-              x: clampCapPct(c.x, 50),
-              y: clampCapPct(c.y, 85),
-              font: sanitizeHighlightFont(c.font),
-              size: Number.isFinite(sizeRaw)
-                ? Math.min(200, Math.max(20, Math.round(sizeRaw)))
-                : 48,
-              color,
-              opacity: clamp01(c.opacity),
-              shadow: Boolean(c.shadow),
-            });
-            if (out.length >= MAX_CAPTIONS_PER_SEGMENT) break;
-          }
-          return { ok: true, captions: out };
-        };
         const jobId = String(payload.jobId || "").trim();
         const segmentsIn = payload.segments;
         if (!jobId || !UUID_V4_RE.test(jobId)) {
@@ -7634,7 +7576,7 @@ ${hasSpecial
               body: JSON.stringify({
                 ok: false,
                 error:
-                  "각 구간은 { start, end, startMs?, endMs?, cropOffset?, captions?: [{ text, startSec?, endSec?, x?, y?, font?, size?, color?, opacity?, shadow? }] } 형식이어야 합니다.",
+                  "각 구간은 { start, end, startMs?, endMs?, cropOffset?, text?, textY?, textColor?, textSize?, textOpacity?, textFont? } 형식이어야 합니다.",
               }),
             };
           }
@@ -7657,20 +7599,81 @@ ${hasSpecial
             const cropOffsetImg = Number.isFinite(offRawImg)
               ? Math.min(50, Math.max(-50, offRawImg))
               : 0;
-            const capImg = sanitizeCaptions(s.captions);
-            if (!capImg.ok) {
+            const textImg = s.text != null ? String(s.text).trim() : "";
+            if (textImg.length > 500) {
               return {
                 statusCode: 400,
                 headers: corsHeaders(),
-                body: JSON.stringify({ ok: false, error: capImg.error }),
+                body: JSON.stringify({
+                  ok: false,
+                  error: "하단 텍스트는 구간당 500자 이하로 입력하세요.",
+                }),
               };
             }
+            const text2Img = s.text2 != null ? String(s.text2).trim() : "";
+            if (text2Img.length > 500) {
+              return {
+                statusCode: 400,
+                headers: corsHeaders(),
+                body: JSON.stringify({
+                  ok: false,
+                  error: "하단 텍스트 2는 구간당 500자 이하로 입력하세요.",
+                }),
+              };
+            }
+            const tyImg = Number(s.textY);
+            const textYImg = Number.isFinite(tyImg)
+              ? Math.min(100, Math.max(0, Math.round(tyImg)))
+              : 85;
+            const ty2Img = Number(s.textY2);
+            const textY2Img = Number.isFinite(ty2Img)
+              ? Math.min(100, Math.max(0, Math.round(ty2Img)))
+              : 85;
+            let textColorImg = "#ffffff";
+            if (s.textColor != null) {
+              const c = String(s.textColor).trim();
+              if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+                textColorImg = c.toLowerCase();
+              }
+            }
+            let textColor2Img = "#ffffff";
+            if (s.textColor2 != null) {
+              const c2 = String(s.textColor2).trim();
+              if (/^#[0-9A-Fa-f]{6}$/i.test(c2)) {
+                textColor2Img = c2.toLowerCase();
+              }
+            }
+            const textSizeRawImg = Number(s.textSize);
+            const textSizeImg = Number.isFinite(textSizeRawImg)
+              ? Math.min(200, Math.max(20, Math.round(textSizeRawImg)))
+              : 48;
+            const textSize2RawImg = Number(s.textSize2);
+            const textSize2Img = Number.isFinite(textSize2RawImg)
+              ? Math.min(200, Math.max(20, Math.round(textSize2RawImg)))
+              : 48;
+            const textOpacityImg = clamp01(s.textOpacity);
+            const textOpacity2Img = clamp01(s.textOpacity2);
+            const textFontImg = sanitizeHighlightFont(s.textFont);
+            const textFont2Img = sanitizeHighlightFont(s.textFont2);
             segments.push({
               type: "image",
               imageS3Key,
               duration,
               cropOffset: cropOffsetImg,
-              captions: capImg.captions,
+              text: textImg,
+              textY: textYImg,
+              textColor: textColorImg,
+              textSize: textSizeImg,
+              textOpacity: textOpacityImg,
+              textFont: textFontImg,
+              textShadow: Boolean(s.textShadow),
+              text2: text2Img,
+              textY2: textY2Img,
+              textColor2: textColor2Img,
+              textSize2: textSize2Img,
+              textOpacity2: textOpacity2Img,
+              textFont2: textFont2Img,
+              textShadow2: Boolean(s.textShadow2),
               narration:
                 s.narration != null ? String(s.narration).trim() : "",
             });
@@ -7686,14 +7689,62 @@ ${hasSpecial
           const cropOffset = Number.isFinite(offRaw)
             ? Math.min(50, Math.max(-50, offRaw))
             : 0;
-          const capSeg = sanitizeCaptions(s.captions);
-          if (!capSeg.ok) {
+          const text = s.text != null ? String(s.text).trim() : "";
+          if (text.length > 500) {
             return {
               statusCode: 400,
               headers: corsHeaders(),
-              body: JSON.stringify({ ok: false, error: capSeg.error }),
+              body: JSON.stringify({
+                ok: false,
+                error: "하단 텍스트는 구간당 500자 이하로 입력하세요.",
+              }),
             };
           }
+          const text2 = s.text2 != null ? String(s.text2).trim() : "";
+          if (text2.length > 500) {
+            return {
+              statusCode: 400,
+              headers: corsHeaders(),
+              body: JSON.stringify({
+                ok: false,
+                error: "하단 텍스트 2는 구간당 500자 이하로 입력하세요.",
+              }),
+            };
+          }
+          const ty = Number(s.textY);
+          const textY = Number.isFinite(ty)
+            ? Math.min(100, Math.max(0, Math.round(ty)))
+            : 85;
+          const ty2 = Number(s.textY2);
+          const textY2 = Number.isFinite(ty2)
+            ? Math.min(100, Math.max(0, Math.round(ty2)))
+            : 85;
+          let textColor = "#ffffff";
+          if (s.textColor != null) {
+            const c = String(s.textColor).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c)) {
+              textColor = c.toLowerCase();
+            }
+          }
+          let textColor2 = "#ffffff";
+          if (s.textColor2 != null) {
+            const c2 = String(s.textColor2).trim();
+            if (/^#[0-9A-Fa-f]{6}$/i.test(c2)) {
+              textColor2 = c2.toLowerCase();
+            }
+          }
+          const textSizeRaw = Number(s.textSize);
+          const textSize = Number.isFinite(textSizeRaw)
+            ? Math.min(200, Math.max(20, Math.round(textSizeRaw)))
+            : 48;
+          const textSize2Raw = Number(s.textSize2);
+          const textSize2 = Number.isFinite(textSize2Raw)
+            ? Math.min(200, Math.max(20, Math.round(textSize2Raw)))
+            : 48;
+          const textOpacity = clamp01(s.textOpacity);
+          const textOpacity2 = clamp01(s.textOpacity2);
+          const textFont = sanitizeHighlightFont(s.textFont);
+          const textFont2 = sanitizeHighlightFont(s.textFont2);
           const startMsRaw = Number(s.startMs);
           const endMsRaw = Number(s.endMs);
           const startMs = Number.isFinite(startMsRaw)
@@ -7708,7 +7759,20 @@ ${hasSpecial
             startMs,
             endMs,
             cropOffset,
-            captions: capSeg.captions,
+            text,
+            textY,
+            textColor,
+            textSize,
+            textOpacity,
+            textFont,
+            textShadow: Boolean(s.textShadow),
+            text2,
+            textY2,
+            textColor2,
+            textSize2,
+            textOpacity2,
+            textFont2,
+            textShadow2: Boolean(s.textShadow2),
             narration:
               s.narration != null ? String(s.narration).trim() : "",
             holdSec: Math.max(0, Number(s.holdSec) || 0),
@@ -7965,14 +8029,6 @@ ${hasSpecial
           meta.globalText2Font = sanitizeHighlightFont(payload.globalText2Font);
         }
 
-        // 화이트리스트를 통과해 Lambda 로 넘어가는 자막을 그대로 찍는다.
-        // 새 필드를 segOut 에 넣는 걸 잊으면 여기서 빈 배열로 드러난다.
-        console.log(
-          "[captions]",
-          JSON.stringify(
-            segments.map((sg, i) => ({ i, captions: sg.captions ?? null }))
-          )
-        );
         await s3.send(
           new PutObjectCommand({
             Bucket: bucket,
