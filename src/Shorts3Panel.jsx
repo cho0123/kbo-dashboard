@@ -605,6 +605,140 @@ function resolveImageSegmentPreviewUrl(seg) {
   return { url: "", revoke: false };
 }
 
+/** 구간당 자막 항목 상한 (UI·payload·netlify 공통) */
+const MAX_CAPTIONS_PER_SEGMENT = 8;
+
+/**
+ * 자막 항목 기본 스타일. 새 항목을 추가할 때의 출발점이자,
+ * 구형식(text/text2) 마이그레이션에서 값이 없을 때 채우는 기본값.
+ */
+const DEFAULT_CAPTION_STYLE = {
+  x: 50,
+  y: 85,
+  font: DEFAULT_TEXT_FONT,
+  size: 48,
+  color: TEXT_COLORS[0],
+  opacity: 1,
+  shadow: false,
+};
+
+function newCaptionId() {
+  try {
+    return (
+      globalThis.crypto?.randomUUID?.() ||
+      `cap_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    );
+  } catch {
+    return `cap_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+}
+
+/** 팔레트 대소문자(#FFFFFF)를 보존하는 색 정규화 — 스와치 선택 표시가 어긋나지 않게. */
+function normalizeCaptionColor(raw, fallback) {
+  const s = String(raw ?? "").trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(s)) return s;
+  if (/^[0-9A-Fa-f]{6}$/.test(s)) return `#${s}`;
+  return fallback;
+}
+
+/** 0.01초 단위로 정리한 자막 시간(초). 음수·NaN 은 fallback. */
+function clampCaptionSec(raw, fallback) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * 자막 항목 1개 정규화.
+ * endSec 은 null 이 "구간 끝까지"를 뜻한다 — 구간 길이·홀드가 바뀌어도 따라간다.
+ * (숫자로 박아두면 나중에 구간을 늘렸을 때 자막이 중간에 끊긴다.)
+ */
+function normalizeCaption(raw, style) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const base = style && typeof style === "object" ? style : DEFAULT_CAPTION_STYLE;
+  const clampInt = (v, lo, hi, d) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : d;
+  };
+  const endRaw = src.endSec;
+  const endSec =
+    endRaw === null || endRaw === undefined || endRaw === ""
+      ? null
+      : clampCaptionSec(endRaw, null);
+  return {
+    id: typeof src.id === "string" && src.id ? src.id : newCaptionId(),
+    text: typeof src.text === "string" ? src.text : String(src.text ?? ""),
+    startSec: clampCaptionSec(src.startSec, 0),
+    endSec,
+    x: clampInt(src.x, 0, 100, base.x ?? DEFAULT_CAPTION_STYLE.x),
+    y: clampInt(src.y, 0, 100, base.y ?? DEFAULT_CAPTION_STYLE.y),
+    font: normalizeFontSelectValue(src.font ?? base.font ?? DEFAULT_TEXT_FONT),
+    size: clampInt(src.size, 20, 200, base.size ?? DEFAULT_CAPTION_STYLE.size),
+    color: normalizeCaptionColor(
+      src.color ?? base.color,
+      base.color ?? TEXT_COLORS[0]
+    ),
+    opacity: roundOpacity01(src.opacity ?? base.opacity ?? 1),
+    shadow: Boolean(src.shadow ?? base.shadow ?? false),
+  };
+}
+
+/**
+ * 구간을 captions 배열 형식으로 올린다.
+ * - captions 가 이미 배열이면 정규화만 한다 → 여러 번 돌려도 결과가 같다(멱등).
+ * - 없으면 구형식 text/text2 + 짝 스타일 필드를 항목으로 옮긴다.
+ * 옛 draft 를 열었을 때 자막이 사라지지 않게 하는 곳이 여기다.
+ */
+function migrateSegmentCaptions(seg) {
+  const src = seg && typeof seg === "object" ? seg : {};
+  if (Array.isArray(src.captions)) {
+    return {
+      ...src,
+      captions: src.captions
+        .slice(0, MAX_CAPTIONS_PER_SEGMENT)
+        .map((c) => normalizeCaption(c)),
+    };
+  }
+  const captions = [];
+  const t1 = typeof src.text === "string" ? src.text : "";
+  const t2 = typeof src.text2 === "string" ? src.text2 : "";
+  if (t1.trim()) {
+    captions.push(
+      normalizeCaption({
+        text: t1,
+        y: src.textY,
+        color: src.textColor,
+        size: src.textSize,
+        opacity: src.textOpacity,
+        font: src.textFont,
+        shadow: src.textShadow,
+      })
+    );
+  }
+  if (t2.trim()) {
+    captions.push(
+      normalizeCaption({
+        text: t2,
+        y: src.textY2,
+        color: src.textColor2,
+        size: src.textSize2,
+        opacity: src.textOpacity2,
+        font: src.textFont2,
+        shadow: src.textShadow2,
+      })
+    );
+  }
+  return { ...src, captions };
+}
+
+/** 구간 하나의 자막 표시 가능 길이(초) = 소스 구간 + 홀드. 알 수 없으면 null. */
+function captionTimelineSpanSec(seg) {
+  if (isImageSegment(seg)) return clampImageDurationSec(seg?.duration);
+  const src = segmentDurationSpanSeconds(seg);
+  if (src == null) return null;
+  return src + Math.max(0, Number(seg?.holdSec) || 0);
+}
+
 function emptySegment() {
   return {
     id: newSegmentId(),
@@ -627,6 +761,7 @@ function emptySegment() {
     textOpacity2: 1,
     textSize2: 48,
     textFont2: DEFAULT_TEXT_FONT,
+    captions: [],
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
@@ -658,6 +793,7 @@ function emptyImageSegment() {
     textShadow2: true,
     textOpacity: 1,
     textOpacity2: 1,
+    captions: [],
     narration: "",
     narrationDuration: null,
     narrationAudioUrl: null,
@@ -2968,7 +3104,16 @@ export default function Shorts3Panel({
       if (raw) {
         const d = JSON.parse(raw);
         if (Array.isArray(d.segments) && d.segments.length > 0) {
-          setSegments(d.segments);
+          // 옛 draft 는 새 필드가 없다 → 기본 구간으로 뼈대를 채운 뒤 captions 로 올린다.
+          // migrateSegmentCaptions 는 멱등이라 이미 변환된 draft 를 다시 열어도 결과가 같다.
+          setSegments(
+            d.segments.map((s) =>
+              migrateSegmentCaptions({
+                ...(s?.type === "image" ? emptyImageSegment() : emptySegment()),
+                ...(s && typeof s === "object" ? s : {}),
+              })
+            )
+          );
         }
         // 전역 자막 복원. 신 형식(globalText) 우선, 없으면 옛 썸네일 keepText에서 이관.
         if (d.globalText && typeof d.globalText === "object") {
