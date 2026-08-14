@@ -240,74 +240,10 @@ test("endSec 은 null(끝까지)과 숫자를 구분한다", () => {
   );
 });
 
-test("자막이 하나도 없으면 빈 배열", () => {
+test("captions 가 없으면 빈 배열 (옛 형식이 와도 터지지 않는다)", () => {
   assert.deepEqual(normalizeSegmentCaptions({}), []);
   assert.deepEqual(normalizeSegmentCaptions(null), []);
-  assert.deepEqual(normalizeSegmentCaptions({ text: "", text2: "   " }), []);
-});
-
-test("옛 형식이 오면 text/text2 를 자막 2개로 변환한다", () => {
-  const got = normalizeSegmentCaptions({
-    text: "구간 자막 1",
-    textY: 85,
-    textColor: "#ffffff",
-    textSize: 48,
-    textOpacity: 1,
-    textFont: "NotoSansKR-Bold.ttf",
-    textShadow: true,
-    text2: "구간 자막 2",
-    textY2: 78,
-    textColor2: "#ffd400",
-    textSize2: 40,
-    textOpacity2: 0.8,
-    textFont2: "BlackHanSans-Regular.ttf",
-    textShadow2: false,
-  });
-  assert.equal(got.length, 2);
-  // 전체 구간 표시 · 가운데 정렬이어야 기존 렌더와 같아진다
-  assert.deepEqual(
-    got.map((c) => [c.startSec, c.endSec, c.x]),
-    [
-      [0, null, 50],
-      [0, null, 50],
-    ]
-  );
-  assert.deepEqual(got[0], {
-    text: "구간 자막 1", startSec: 0, endSec: null, x: 50, y: 85,
-    font: "NotoSansKR-Bold.ttf", size: 48, color: "#ffffff", opacity: 1, shadow: true,
-  });
-  assert.deepEqual(got[1], {
-    text: "구간 자막 2", startSec: 0, endSec: null, x: 50, y: 78,
-    font: "BlackHanSans-Regular.ttf", size: 40, color: "#ffd400", opacity: 0.8, shadow: false,
-  });
-});
-
-test("옛 형식 — 빈 텍스트는 항목을 만들지 않는다", () => {
-  assert.deepEqual(
-    normalizeSegmentCaptions({ text: "", text2: "둘만 있음" }).map((c) => c.text),
-    ["둘만 있음"]
-  );
-  assert.deepEqual(
-    normalizeSegmentCaptions({ text: "하나만 있음", text2: "" }).map((c) => c.text),
-    ["하나만 있음"]
-  );
-});
-
-test("옛 형식 — 스타일 필드가 없으면 기존과 같은 기본값", () => {
-  const [c] = normalizeSegmentCaptions({ text: "가" });
-  assert.deepEqual(c, {
-    text: "가", startSec: 0, endSec: null, x: 50, y: 85,
-    font: "NotoSansKR-Bold.ttf", size: 48, color: "#ffffff", opacity: 1, shadow: false,
-  });
-});
-
-test("captions 가 있으면 옛 필드는 무시한다 (새 형식이 우선)", () => {
-  const got = normalizeSegmentCaptions({
-    captions: [{ text: "새 자막" }],
-    text: "옛 자막",
-    text2: "옛 자막 2",
-  });
-  assert.deepEqual(got.map((c) => c.text), ["새 자막"]);
+  assert.deepEqual(normalizeSegmentCaptions({ text: "옛형식" }), []);
 });
 
 test("기본값 — x=50 · y=85 · size=48 · 흰색 · 불투명 · 그림자 없음", () => {

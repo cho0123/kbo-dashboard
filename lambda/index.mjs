@@ -466,42 +466,8 @@ const CAPTION_LINE_SPACING_RATIO = 0.25;
  * 시간은 구간 내 상대 초. 각 구간이 개별 서브클립으로 렌더되고
  * -ss 입력 컷 뒤 필터의 t 가 0 부터 시작하므로(실측 확인) 상대 시간이면 된다.
  */
-/**
- * 옛 형식(text/text2 + 스타일 필드) → captions 항목 배열.
- *
- * captions 가 없는 meta.json 은 예전에 만든 잡이다. 이걸 빈 배열로 두면 구간
- * 자막이 조용히 사라진다(실제로 배포 후 회귀로 드러났다). 전체 구간 표시
- * (start=0, end=null) · 가운데(x=50)로 변환해야 기존 렌더와 완전히 같아진다.
- * 빈 텍스트는 항목을 만들지 않는다 — 예전에도 그리지 않았다.
- */
-function legacyCaptionsFromSegment(seg) {
-  const out = [];
-  const pick = (textKey, suffix) => {
-    const text = seg?.[textKey] != null ? String(seg[textKey]).trim() : "";
-    if (!text) return;
-    out.push({
-      text,
-      startSec: 0,
-      endSec: null,
-      x: 50,
-      y: seg?.[`textY${suffix}`],
-      font: seg?.[`textFont${suffix}`],
-      size: seg?.[`textSize${suffix}`],
-      color: seg?.[`textColor${suffix}`],
-      opacity: seg?.[`textOpacity${suffix}`],
-      shadow: seg?.[`textShadow${suffix}`],
-    });
-  };
-  pick("text", "");
-  pick("text2", "2");
-  return out;
-}
-
 export function normalizeSegmentCaptions(seg) {
-  const fromNew = Array.isArray(seg?.captions) ? seg.captions : [];
-  // captions 가 아예 없거나 비어 있을 때만 옛 필드를 본다.
-  // 새 형식이 하나라도 있으면 그쪽이 정답이다(옛 필드가 남아 있어도 무시).
-  const raw = fromNew.length > 0 ? fromNew : legacyCaptionsFromSegment(seg);
+  const raw = Array.isArray(seg?.captions) ? seg.captions : [];
   const clampPct = (v, d) => {
     const n = Number(v);
     return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : d;
