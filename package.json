@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "local-server": "node local-server.js"
+    "local-server": "node local-server.js",
+    "test:captions": "node scripts/test-captions.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
