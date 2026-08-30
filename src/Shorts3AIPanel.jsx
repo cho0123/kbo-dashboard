@@ -129,6 +129,8 @@ export default function Shorts3AIPanel({ onAddSegments }) {
   const [cards, setCards] = useState([]);
   const [cardUrl, setCardUrl] = useState({});
   const [cardDownloading, setCardDownloading] = useState({});
+  /** 카드별 다운로드 결과 { ok, text } — 성공/실패가 화면에서 구분되도록 */
+  const [cardDownloadResult, setCardDownloadResult] = useState({});
   const [cardUploading, setCardUploading] = useState({});
   const [cardJobId, setCardJobId] = useState({});
   /** 카드 인덱스 → Whisper 결과·로딩 */
@@ -700,14 +702,45 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                         const url = cardUrl[idx];
                         if (!url?.trim()) return;
                         setCardDownloading((prev) => ({ ...prev, [idx]: true }));
+                        setCardDownloadResult((prev) => ({
+                          ...prev,
+                          [idx]: null,
+                        }));
                         try {
-                          await fetch("http://localhost:3838/download", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url: url.trim() }),
-                          });
-                        } catch {}
-                        finally {
+                          const r = await fetch(
+                            "http://localhost:3838/download",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ url: url.trim() }),
+                            }
+                          );
+                          const j = await r.json().catch(() => ({}));
+                          if (!r.ok) {
+                            throw new Error(
+                              typeof j.error === "string"
+                                ? j.error
+                                : `HTTP ${r.status}`
+                            );
+                          }
+                          setCardDownloadResult((prev) => ({
+                            ...prev,
+                            [idx]: {
+                              ok: true,
+                              text: j.fileName
+                                ? `저장 완료 — ${j.fileName}`
+                                : "저장 완료",
+                            },
+                          }));
+                        } catch (e) {
+                          // 예전에는 catch {} 로 삼켜서 실패해도 성공처럼 보였다.
+                          const msg =
+                            e instanceof Error ? e.message : String(e);
+                          setCardDownloadResult((prev) => ({
+                            ...prev,
+                            [idx]: { ok: false, text: msg },
+                          }));
+                        } finally {
                           setCardDownloading((prev) => ({ ...prev, [idx]: false }));
                         }
                       }}
@@ -787,6 +820,40 @@ export default function Shorts3AIPanel({ onAddSegments }) {
                       다운로드된 파일을 선택해서 S3에 업로드
                     </span>
                   </div>
+
+                  {cardDownloadResult[idx] ? (
+                    <div
+                      role={cardDownloadResult[idx].ok ? "status" : "alert"}
+                      style={{
+                        marginTop: 8,
+                        padding: "6px 8px",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        maxHeight: 180,
+                        overflowY: "auto",
+                        border: `1px solid ${
+                          cardDownloadResult[idx].ok
+                            ? "var(--ve-success, #16a34a)"
+                            : "var(--ve-danger, #dc2626)"
+                        }`,
+                        background: cardDownloadResult[idx].ok
+                          ? "rgba(22,163,74,0.12)"
+                          : "rgba(220,38,38,0.12)",
+                        color: "var(--ve-text)",
+                      }}
+                    >
+                      <strong>
+                        {cardDownloadResult[idx].ok
+                          ? "✅ 다운로드 완료"
+                          : "❌ 다운로드 실패"}
+                      </strong>
+                      {"\n"}
+                      {cardDownloadResult[idx].text}
+                    </div>
+                  ) : null}
 
                   {String(cardJobId[idx] || "").trim() ? (
                     <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>

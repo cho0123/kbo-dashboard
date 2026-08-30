@@ -32,6 +32,24 @@ const FFMPEG_ENCODE_OUT_ARGS = [
   "fast",
 ];
 
+/**
+ * yt-dlp 재시도·타임아웃.
+ * retries / fragment-retries 는 yt-dlp 기본값과 같은 10 을 명시해 둔 것이고,
+ * 실질적인 변화는 socket-timeout 이다 — 기본값이 없어서 응답이 끊기면
+ * 소켓이 무한정 대기한다(요청도 같이 매달린다). 30초면 느린 청크는 견디고
+ * 죽은 연결은 끊어서 재시도로 넘어간다.
+ */
+const YTDLP_RETRY_ARGS = [
+  "--retries", "10",
+  "--fragment-retries", "10",
+  "--socket-timeout", "30",
+];
+
+/** yt-dlp 버전이 이만큼 지나면 콘솔에 경고 (유튜브 변경으로 403 이 나기 시작하는 구간) */
+const YTDLP_STALE_WARN_DAYS = 60;
+/** 서버 시작 시 이보다 오래된 .part 는 실패 잔해로 보고 지운다 */
+const ORPHAN_PART_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -339,8 +357,11 @@ app.post("/download", (req, res) => {
     "-o", isTiktok ? outFilePath : join(targetDir, "%(title).20s_%(upload_date)s.%(ext)s"),
     "--no-playlist",
     "--newline",
+    // 끊긴 연결·일시적 403 을 스스로 다시 시도하게 한다. 포맷 선택·병합·저장 규칙은 그대로.
+    ...YTDLP_RETRY_ARGS,
     url,
   ];
+  console.log(`[download] 시작: ${url} → ${safeSub}`);
 
   const proc = spawn(ytDlp, args, {
     cwd: __dirname,
@@ -362,7 +383,10 @@ app.post("/download", (req, res) => {
     fn();
   };
 
+  const spawnedAtMs = Date.now();
+
   proc.on("error", (err) => {
+    console.error("[download] yt-dlp 실행 실패:", err.message || err);
     sendOnce(() =>
       res.status(500).json({
         ok: false,
@@ -374,6 +398,15 @@ app.post("/download", (req, res) => {
   proc.on("close", (code) => {
     if (responded) return;
     if (code !== 0) {
+      // 예전에는 실패해도 콘솔에 아무것도 안 남아서 원인을 찾을 수 없었다.
+      console.error(
+        `[download] 실패 (종료 코드 ${code}) — ${url}\n` +
+          `--- yt-dlp 출력 ---\n${combined.trim()}\n-------------------`
+      );
+      const removed = cleanupPartFiles(targetDir, spawnedAtMs);
+      if (removed.length > 0) {
+        console.error(`[download] 남은 .part 정리: ${removed.join(", ")}`);
+      }
       const tail = combined.trim().slice(-1200);
       return sendOnce(() =>
         res.status(500).json({
@@ -405,6 +438,10 @@ app.post("/download", (req, res) => {
       }
     }
     if (!filePath || !existsSync(filePath)) {
+      console.error(
+        `[download] 종료 코드 0 인데 결과 파일을 못 찾음 — ${url}\n` +
+          `--- yt-dlp 출력 ---\n${combined.trim()}\n-------------------`
+      );
       return sendOnce(() =>
         res.status(500).json({
           ok: false,
@@ -459,6 +496,7 @@ app.post("/download", (req, res) => {
         sendOnce(() => res.json(result));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        console.error("[download] ffmpeg H.264 변환 실패:", msg);
         sendOnce(() =>
           res.status(500).json({
             ok: false,
@@ -751,6 +789,107 @@ app.post("/merge-upload", async (req, res) => {
   }
 });
 
+/**
+ * 다운로드가 실패하면 .part 조각이 남는다. 이번 실행이 만든 것만 골라 지운다
+ * (mtime 이 프로세스 시작 이후). 무관한 파일이나 다른 다운로드는 건드리지 않는다.
+ * 이어받기(resume)는 포기하는 셈이지만, 여기서 나는 실패는 대부분 403 이라
+ * 이어받아도 어차피 안 되고, 남은 조각이 다음 실행에 섞이는 쪽이 더 위험하다.
+ */
+function cleanupPartFiles(dir, sinceMs) {
+  const removed = [];
+  try {
+    if (!existsSync(dir)) return removed;
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".part")) continue;
+      const p = join(dir, name);
+      try {
+        if (statSync(p).mtimeMs < sinceMs) continue;
+        unlinkSync(p);
+        removed.push(name);
+      } catch {
+        // 사용 중이거나 이미 사라졌으면 넘어간다
+      }
+    }
+  } catch {
+    // 디렉터리를 못 읽으면 정리를 건너뛴다
+  }
+  return removed;
+}
+
+/** 서버 시작 시 오래 남은 .part 청소 (이전 실행들이 흘린 것) */
+function sweepOrphanPartFiles() {
+  const cutoff = Date.now() - ORPHAN_PART_MAX_AGE_MS;
+  const dirs = [join(__dirname, "downloads"), CLIPS_DIR];
+  const removed = [];
+  for (const dir of dirs) {
+    try {
+      if (!existsSync(dir)) continue;
+      for (const name of readdirSync(dir)) {
+        if (!name.endsWith(".part")) continue;
+        const p = join(dir, name);
+        try {
+          if (statSync(p).mtimeMs > cutoff) continue;
+          unlinkSync(p);
+          removed.push(name);
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (removed.length > 0) {
+    console.log(
+      `[local-server] 24시간 이상 된 .part ${removed.length}개 정리: ${removed.join(", ")}`
+    );
+  }
+}
+
+/**
+ * yt-dlp 버전 경과일 확인. 몇 달 지나면 유튜브 변경으로 다운로드가
+ * "몇 MB 받다가 HTTP 403" 으로 죽기 시작한다 — 그때 원인을 찾느라 헤매지 않도록 미리 알린다.
+ */
+function warnIfYtDlpStale() {
+  const ytDlp = join(__dirname, "yt-dlp.exe");
+  if (!existsSync(ytDlp)) {
+    console.warn("[local-server] ⚠ yt-dlp.exe 가 없습니다 — 다운로드 기능을 쓸 수 없습니다.");
+    return;
+  }
+  const proc = spawn(ytDlp, ["--version", "--no-update"], {
+    cwd: __dirname,
+    windowsHide: true,
+    shell: false,
+  });
+  let out = "";
+  proc.stdout?.on("data", (b) => {
+    out += b.toString();
+  });
+  proc.on("error", () => {
+    console.warn("[local-server] ⚠ yt-dlp 버전을 확인하지 못했습니다.");
+  });
+  proc.on("close", () => {
+    const m = out.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+    if (!m) {
+      console.warn(`[local-server] ⚠ yt-dlp 버전 형식을 알 수 없습니다: ${out.trim()}`);
+      return;
+    }
+    const released = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const days = Math.floor((Date.now() - released) / (24 * 60 * 60 * 1000));
+    if (days >= YTDLP_STALE_WARN_DAYS) {
+      console.warn(
+        `[local-server] ⚠ yt-dlp ${m[0]} — ${days}일 지났습니다.\n` +
+          `             유튜브 변경으로 다운로드가 도중에 HTTP 403 으로 끊길 수 있습니다.\n` +
+          `             프로젝트 폴더에서 "yt-dlp.exe -U" 로 업데이트하세요.`
+      );
+    } else {
+      console.log(`[local-server] yt-dlp ${m[0]} (${days}일 전)`);
+    }
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`[local-server] http://localhost:${PORT} (다운로드 → downloads/)`);
+  sweepOrphanPartFiles();
+  warnIfYtDlpStale();
 });
