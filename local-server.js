@@ -45,6 +45,18 @@ const YTDLP_RETRY_ARGS = [
   "--socket-timeout", "30",
 ];
 
+/**
+ * 최종 파일 경로를 yt-dlp 가 직접 알려주게 한다.
+ * after_move 는 병합·재인코딩·이동이 전부 끝난 뒤라 이 값이 곧 최종 파일이다.
+ * --print 는 --quiet 를 함의하므로 --no-quiet 로 되돌린다(진행 로그를 남겨야 진단이 된다).
+ * after_move 는 늦은 단계라 --simulate 는 함의되지 않는다 — 실제로 다운로드된다.
+ */
+const YTDLP_FINAL_PATH_MARK = "KBO_FINAL_PATH=";
+const YTDLP_PRINT_ARGS = [
+  "--print", `after_move:${YTDLP_FINAL_PATH_MARK}%(filepath)s`,
+  "--no-quiet",
+];
+
 /** yt-dlp 버전이 이만큼 지나면 콘솔에 경고 (유튜브 변경으로 403 이 나기 시작하는 구간) */
 const YTDLP_STALE_WARN_DAYS = 60;
 /** 서버 시작 시 이보다 오래된 .part 는 실패 잔해로 보고 지운다 */
@@ -359,6 +371,7 @@ app.post("/download", (req, res) => {
     "--newline",
     // 끊긴 연결·일시적 403 을 스스로 다시 시도하게 한다. 포맷 선택·병합·저장 규칙은 그대로.
     ...YTDLP_RETRY_ARGS,
+    ...YTDLP_PRINT_ARGS,
     url,
   ];
   console.log(`[download] 시작: ${url} → ${safeSub}`);
@@ -419,22 +432,18 @@ app.post("/download", (req, res) => {
     let fileName = outFileName;
     let filePath = outFilePath;
     if (!isTiktok) {
-      const dest =
-        combined.match(/\[download\]\s+Destination:\s*(.+)/i) ||
-        combined.match(/\[download\]\s+(.+\.(?:mp4|mkv|webm|m4a|opus))/i) ||
-        combined.match(/\[Merger\]\s+Merging formats into\s+"(.+)"/i);
-      if (dest) {
-        fileName = basename(dest[1].trim());
-        filePath = join(targetDir, fileName);
-      }
-      if (!fileName && existsSync(targetDir)) {
-        const entries = readdirSync(targetDir).map((name) => ({
-          name,
-          t: statSync(join(targetDir, name)).mtimeMs,
-        }));
-        entries.sort((a, b) => b.t - a.t);
-        fileName = entries[0]?.name ?? null;
-        filePath = fileName ? join(targetDir, fileName) : null;
+      fileName = resolveDownloadedFileName(combined) || null;
+      filePath = fileName ? join(targetDir, fileName) : null;
+      // 마지막 안전망: 출력에서 못 찾았거나 그 파일이 없으면 이번 실행이 만든 최신 파일
+      if (!filePath || !existsSync(filePath)) {
+        const newest = newestFileSince(targetDir, spawnedAtMs);
+        if (newest) {
+          console.warn(
+            `[download] yt-dlp 출력에서 최종 파일을 못 찾아 최신 파일로 대체: ${newest}`
+          );
+          fileName = newest;
+          filePath = join(targetDir, newest);
+        }
       }
     }
     if (!filePath || !existsSync(filePath)) {
@@ -788,6 +797,54 @@ app.post("/merge-upload", async (req, res) => {
     return res.status(500).json({ ok: false, error: msg });
   }
 });
+
+/**
+ * yt-dlp 출력에서 최종 파일명을 찾는다. 순서가 중요하다.
+ *
+ * 1) --print after_move — 병합·재인코딩·이동이 모두 끝난 최종 경로.
+ *    확장자가 바뀌는 경우(webm 단일 포맷 → --recode-video mp4)까지 유일하게 맞는 값이다.
+ * 2) [Merger] Merging formats into "..." — 병합 결과
+ * 3) 마지막 [download] Destination: — 첫 번째가 아니라 마지막.
+ *    병합이 있으면 첫 Destination 은 영상 트랙(.fNNN)이고 병합 후 삭제되므로,
+ *    첫 번째를 쓰면 파일이 정상 생성됐는데도 "찾지 못했습니다" 가 된다.
+ */
+function resolveDownloadedFileName(out) {
+  const text = String(out || "");
+  const lastCapture = (re) => {
+    const all = [...text.matchAll(re)];
+    return all.length > 0 ? String(all[all.length - 1][1]).trim() : "";
+  };
+  const printed = lastCapture(
+    new RegExp(`^${YTDLP_FINAL_PATH_MARK}(.+)$`, "gim")
+  );
+  if (printed) return basename(printed);
+  const merged = lastCapture(/\[Merger\]\s+Merging formats into\s+"(.+)"/gi);
+  if (merged) return basename(merged);
+  const dest = lastCapture(/\[download\]\s+Destination:\s*(.+)/gi);
+  if (dest) return basename(dest);
+  return "";
+}
+
+/** 이번 실행이 만든 파일 중 가장 최근 것 (.part 제외). 없으면 null */
+function newestFileSince(dir, sinceMs) {
+  try {
+    if (!existsSync(dir)) return null;
+    const entries = [];
+    for (const name of readdirSync(dir)) {
+      if (name.endsWith(".part")) continue;
+      try {
+        const t = statSync(join(dir, name)).mtimeMs;
+        if (t >= sinceMs) entries.push({ name, t });
+      } catch {
+        // ignore
+      }
+    }
+    entries.sort((a, b) => b.t - a.t);
+    return entries[0]?.name ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 다운로드가 실패하면 .part 조각이 남는다. 이번 실행이 만든 것만 골라 지운다
