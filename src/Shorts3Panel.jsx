@@ -1605,6 +1605,12 @@ export default function Shorts3Panel({
   const [localServerOk, setLocalServerOk] = useState(null);
   const [localYtdlpUrl, setLocalYtdlpUrl] = useState("");
   const [localDownloadBusy, setLocalDownloadBusy] = useState(false);
+  /**
+   * 로컬 다운로드 결과를 버튼 바로 아래에 남긴다.
+   * 전역 error 는 패널 본문(맨 아래)에 그려지는데, 이 버튼은 fixed·zIndex 1000 짜리
+   * 소스 준비 드로어 안에 있다 → 드로어가 본문을 덮어 에러가 보이지 않았다.
+   */
+  const [localDownloadResult, setLocalDownloadResult] = useState(null);
 
   useEffect(() => {
     onJobIdChange?.(jobId || "");
@@ -3638,6 +3644,7 @@ export default function Shorts3Panel({
     }
     setLocalDownloadBusy(true);
     setError(null);
+    setLocalDownloadResult(null);
     try {
       const r = await fetch(`${LOCAL_DOWNLOAD_SERVER}/download`, {
         method: "POST",
@@ -3651,9 +3658,18 @@ export default function Shorts3Panel({
         );
       }
       setMessage("✅ 다운로드 완료! 파일을 업로드해주세요");
+      setLocalDownloadResult({
+        ok: true,
+        text: j.fileName
+          ? `저장 완료 — ${j.fileName}`
+          : "저장 완료. 아래에서 파일을 선택해 업로드하세요.",
+      });
     } catch (e) {
-      setError(e instanceof Error ? e : new Error(String(e)));
+      const err = e instanceof Error ? e : new Error(String(e));
+      setError(err);
       setMessage("");
+      // 드로어가 본문을 덮으므로 전역 error 만으로는 안 보인다. 버튼 옆에도 남긴다.
+      setLocalDownloadResult({ ok: false, text: err.message });
     } finally {
       setLocalDownloadBusy(false);
     }
@@ -4339,7 +4355,10 @@ export default function Shorts3Panel({
                   type="url"
                   placeholder="https://..."
                   value={localYtdlpUrl}
-                  onChange={(e) => setLocalYtdlpUrl(e.target.value)}
+                  onChange={(e) => {
+                    setLocalYtdlpUrl(e.target.value);
+                    setLocalDownloadResult(null);
+                  }}
                   disabled={busy || uploading || localDownloadBusy}
                   style={{
                     flex: "1 1 160px",
@@ -4371,6 +4390,39 @@ export default function Shorts3Panel({
               {localDownloadBusy ? (
                 <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
                   yt-dlp로 저장 중… (완료될 때까지 기다려 주세요)
+                </div>
+              ) : null}
+              {!localDownloadBusy && localDownloadResult ? (
+                <div
+                  role={localDownloadResult.ok ? "status" : "alert"}
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    maxHeight: 220,
+                    overflowY: "auto",
+                    border: `1px solid ${
+                      localDownloadResult.ok
+                        ? "var(--ve-success, #16a34a)"
+                        : "var(--ve-danger, #dc2626)"
+                    }`,
+                    background: localDownloadResult.ok
+                      ? "rgba(22,163,74,0.12)"
+                      : "rgba(220,38,38,0.12)",
+                    color: "var(--ve-text)",
+                  }}
+                >
+                  <strong>
+                    {localDownloadResult.ok
+                      ? "✅ 다운로드 완료"
+                      : "❌ 다운로드 실패"}
+                  </strong>
+                  {"\n"}
+                  {localDownloadResult.text}
                 </div>
               ) : null}
             </div>
